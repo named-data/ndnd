@@ -74,7 +74,7 @@ func (m *TlvModel) GenInitEncoder(buf *bytes.Buffer) error {
 			encoder.length = l
 
 			{{if .NoCopy}}
-				wirePlan := make([]uint, 0)
+				wirePlan := make([]uint, 0, 16)
 				l = uint(0)
 				{{- range $f := .Fields}}
 					{{$f.GenEncodingWirePlan}}
@@ -106,11 +106,15 @@ func (m *TlvModel) GenEncodeInto(buf *bytes.Buffer) error {
 
 		func (encoder *{{.Name}}Encoder) Encode(value *{{.Name}}) enc.Wire {
 			{{if .NoCopy}}
+				total := uint(0)
+				for _, l := range encoder.wirePlan {
+					total += l
+				}
+				inner := make([]byte, total)
 				wire := make(enc.Wire, len(encoder.wirePlan))
 				for i, l := range encoder.wirePlan {
-					if l > 0 {
-						wire[i] = make([]byte, l)
-					}
+					wire[i] = inner[:l]
+					inner = inner[l:]
 				}
 				encoder.EncodeInto(value, wire)
 			{{else}}

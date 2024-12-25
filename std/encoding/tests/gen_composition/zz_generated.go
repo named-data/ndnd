@@ -1094,7 +1094,7 @@ func (encoder *InnerWire1Encoder) Init(value *InnerWire1) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Wire1 != nil {
 		l += 1
@@ -1209,11 +1209,15 @@ func (encoder *InnerWire1Encoder) EncodeInto(value *InnerWire1, wire enc.Wire) {
 
 func (encoder *InnerWire1Encoder) Encode(value *InnerWire1) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -1350,7 +1354,7 @@ func (encoder *InnerWire2Encoder) Init(value *InnerWire2) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Wire2 != nil {
 		l += 1
@@ -1430,11 +1434,15 @@ func (encoder *InnerWire2Encoder) EncodeInto(value *InnerWire2, wire enc.Wire) {
 
 func (encoder *InnerWire2Encoder) Encode(value *InnerWire2) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -1575,7 +1583,7 @@ func (encoder *NestedWireEncoder) Init(value *NestedWire) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.W1 != nil {
 		l += 1
@@ -1781,11 +1789,15 @@ func (encoder *NestedWireEncoder) EncodeInto(value *NestedWire, wire enc.Wire) {
 
 func (encoder *NestedWireEncoder) Encode(value *NestedWire) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 

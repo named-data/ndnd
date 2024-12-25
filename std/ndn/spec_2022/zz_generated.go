@@ -2450,7 +2450,7 @@ func (encoder *LpPacketEncoder) Init(value *LpPacket) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Sequence != nil {
 		l += 1
@@ -2933,11 +2933,15 @@ func (encoder *LpPacketEncoder) EncodeInto(value *LpPacket, wire enc.Wire) {
 
 func (encoder *LpPacketEncoder) Encode(value *LpPacket) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -3467,7 +3471,7 @@ func (encoder *InterestEncoder) Init(value *Interest) {
 	encoder.digestCoverEnd = int(l)
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 
 	if value.NameV != nil {
@@ -3835,11 +3839,15 @@ func (encoder *InterestEncoder) EncodeInto(value *Interest, wire enc.Wire) {
 
 func (encoder *InterestEncoder) Encode(value *Interest) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -4275,7 +4283,7 @@ func (encoder *DataEncoder) Init(value *Data) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 
 	if value.NameV != nil {
@@ -4544,11 +4552,15 @@ func (encoder *DataEncoder) EncodeInto(value *Data, wire enc.Wire) {
 
 func (encoder *DataEncoder) Encode(value *Data) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -4792,7 +4804,7 @@ func (encoder *PacketEncoder) Init(value *Packet) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Interest != nil {
 		l += 1
@@ -5042,11 +5054,15 @@ func (encoder *PacketEncoder) EncodeInto(value *Packet, wire enc.Wire) {
 
 func (encoder *PacketEncoder) Encode(value *Packet) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
