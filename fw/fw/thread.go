@@ -188,7 +188,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	// Log PIT token (if any)
-	core.LogTrace(t, "OnIncomingInterest: ", packet.Name, ", FaceID=", incomingFace.FaceID(), ", PitTokenL=", len(packet.PitToken))
+	if core.HasTraceLogs() {
+		core.LogTrace(t, "OnIncomingInterest: ", packet.Name, ", FaceID=", incomingFace.FaceID(), ", PitTokenL=", len(packet.PitToken))
+	}
 
 	// Check if violates /localhost
 	if incomingFace.Scope() == defn.NonLocal &&
@@ -223,13 +225,17 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 
 	// Drop packet if no nonce is found
 	if interest.Nonce() == nil {
-		core.LogDebug(t, "Interest ", packet.Name, " is missing Nonce - DROP")
+		if core.HasDebugLogs() {
+			core.LogDebug(t, "Interest ", packet.Name, " is missing Nonce - DROP")
+		}
 		return
 	}
 
 	// Check if packet is in dead nonce list
 	if exists := t.deadNonceList.Find(interest.Name(), *interest.Nonce()); exists {
-		core.LogDebug(t, "Interest ", packet.Name, " is dropped by DeadNonce: ", *interest.Nonce())
+		if core.HasDebugLogs() {
+			core.LogDebug(t, "Interest ", packet.Name, " is dropped by DeadNonce: ", *interest.Nonce())
+		}
 		return
 	}
 
@@ -238,7 +244,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	pitEntry, isDuplicate := t.pitCS.InsertInterest(interest, fhName, incomingFace.FaceID())
 	if isDuplicate {
 		// Interest loop - since we don't use Nacks, just drop
-		core.LogDebug(t, "Interest ", packet.Name, " is looping - DROP")
+		if core.HasDebugLogs() {
+			core.LogDebug(t, "Interest ", packet.Name, " is looping - DROP")
+		}
 		return
 	}
 
@@ -278,7 +286,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			}
 		}
 	} else {
-		core.LogTrace(t, "Interest ", packet.Name, " is already pending")
+		if core.HasTraceLogs() {
+			core.LogTrace(t, "Interest ", packet.Name, " is already pending")
+		}
 
 		// Add the previous nonce to the dead nonce list to prevent further looping
 		// TODO: review this design, not specified in NFD dev guide
@@ -291,7 +301,10 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	// If NextHopFaceId set, forward to that face (if it exists) or drop
 	if packet.NextHopFaceID != nil {
 		if dispatch.GetFace(*packet.NextHopFaceID) != nil {
-			core.LogTrace(t, "NextHopFaceId is set for Interest ", packet.Name, " - dispatching directly to face")
+			if core.HasTraceLogs() {
+				core.LogTrace(t, "NextHopFaceId is set for Interest ", packet.Name, " - dispatching directly to face")
+			}
+
 			dispatch.GetFace(*packet.NextHopFaceID).SendPacket(dispatch.OutPkt{
 				Pkt:      packet,
 				PitToken: packet.PitToken, // TODO: ??
@@ -314,16 +327,20 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 
 	// Exclude faces that have an in-record for this interest
 	// TODO: unclear where NFD dev guide specifies such behavior (if any)
-	allowedNexthops := make([]*table.FibNextHopEntry, 0, len(nexthops))
+	allowedNexthops := [MaxNextHops]*table.FibNextHopEntry{}
+	allowedNexthopsCount := 0
 	for _, nexthop := range nexthops {
 		record := pitEntry.InRecords()[nexthop.Nexthop]
 		if record == nil || nexthop.Nexthop == incomingFace.FaceID() {
-			allowedNexthops = append(allowedNexthops, nexthop)
+			allowedNexthops[allowedNexthopsCount] = nexthop
+			allowedNexthopsCount++
 		}
 	}
 
 	// Pass to strategy AfterReceiveInterest pipeline
-	strategy.AfterReceiveInterest(packet, pitEntry, incomingFace.FaceID(), allowedNexthops)
+	strategy.AfterReceiveInterest(
+		packet, pitEntry, incomingFace.FaceID(),
+		allowedNexthops, allowedNexthopsCount)
 }
 
 func (t *Thread) processOutgoingInterest(

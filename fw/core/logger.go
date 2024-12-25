@@ -137,3 +137,11 @@ func LogTrace(module interface{}, components ...interface{}) {
 		log.Debug(generateLogMessage(module, components...))
 	}
 }
+
+func HasTraceLogs() bool {
+	return shouldPrintTraceLogs
+}
+
+func HasDebugLogs() bool {
+	return logLevel <= log.DebugLevel
+}

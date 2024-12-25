@@ -18,6 +18,9 @@ import (
 // StrategyPrefix is the prefix of all strategy names for YaNFD
 const StrategyPrefix = "/localhost/nfd/strategy"
 
+// Maximum number of possible next hops (i.e. router links) for optimization
+const MaxNextHops = 64
+
 // Strategy represents a forwarding strategy.
 type Strategy interface {
 	Instantiate(fwThread *Thread)
@@ -36,7 +39,9 @@ type Strategy interface {
 		packet *defn.Pkt,
 		pitEntry table.PitEntry,
 		inFace uint64,
-		nexthops []*table.FibNextHopEntry)
+		nexthops [MaxNextHops]*table.FibNextHopEntry,
+		nexthopsCount int,
+	)
 	BeforeSatisfyInterest(
 		pitEntry table.PitEntry,
 		inFace uint64)

@@ -61,10 +61,13 @@ func (s *Multicast) AfterReceiveInterest(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
 	inFace uint64,
-	nexthops []*table.FibNextHopEntry,
+	nexthops [MaxNextHops]*table.FibNextHopEntry,
+	nexthopsCount int,
 ) {
-	if len(nexthops) == 0 {
-		core.LogDebug(s, "AfterReceiveInterest: No nexthop for Interest=", packet.Name, " - DROP")
+	if nexthopsCount == 0 {
+		if core.HasDebugLogs() {
+			core.LogDebug(s, "AfterReceiveInterest: No nexthop for Interest=", packet.Name, " - DROP")
+		}
 		return
 	}
 
@@ -73,14 +76,22 @@ func (s *Multicast) AfterReceiveInterest(
 	for _, outRecord := range pitEntry.OutRecords() {
 		if outRecord.LatestNonce != *packet.L3.Interest.Nonce() &&
 			outRecord.LatestTimestamp.Add(MulticastSuppressionTime).After(time.Now()) {
-			core.LogDebug(s, "AfterReceiveInterest: Suppressed Interest=", packet.Name, " - DROP")
+			if core.HasDebugLogs() {
+				core.LogDebug(s, "AfterReceiveInterest: Suppressed Interest=", packet.Name, " - DROP")
+			}
 			return
 		}
 	}
 
 	// Send interest to all nexthops
-	for _, nexthop := range nexthops {
-		core.LogTrace(s, "AfterReceiveInterest: Forwarding Interest=", packet.Name, " to FaceID=", nexthop.Nexthop)
+	for i := 0; i < nexthopsCount; i++ {
+		nexthop := nexthops[i]
+		if nexthop == nil {
+			continue
+		}
+		if core.HasTraceLogs() {
+			core.LogTrace(s, "AfterReceiveInterest: Forwarding Interest=", packet.Name, " to FaceID=", nexthop.Nexthop)
+		}
 		s.SendInterest(packet, pitEntry, nexthop.Nexthop, inFace)
 	}
 }

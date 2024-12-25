@@ -8,7 +8,6 @@
 package fw
 
 import (
-	"sort"
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
@@ -63,10 +62,13 @@ func (s *BestRoute) AfterReceiveInterest(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
 	inFace uint64,
-	nexthops []*table.FibNextHopEntry,
+	nexthops [MaxNextHops]*table.FibNextHopEntry,
+	nexthopsCount int,
 ) {
-	if len(nexthops) == 0 {
-		core.LogDebug(s, "AfterReceiveInterest: No nexthop for Interest=", packet.Name, " - DROP")
+	if nexthopsCount == 0 {
+		if core.HasDebugLogs() {
+			core.LogDebug(s, "AfterReceiveInterest: No nexthop for Interest=", packet.Name, " - DROP")
+		}
 		return
 	}
 
@@ -75,21 +77,48 @@ func (s *BestRoute) AfterReceiveInterest(
 	for _, outRecord := range pitEntry.OutRecords() {
 		if outRecord.LatestNonce != *packet.L3.Interest.Nonce() &&
 			outRecord.LatestTimestamp.Add(BestRouteSuppressionTime).After(time.Now()) {
-			core.LogDebug(s, "AfterReceiveInterest: Suppressed Interest=", packet.Name, " - DROP")
+			if core.HasDebugLogs() {
+				core.LogDebug(s, "AfterReceiveInterest: Suppressed Interest=", packet.Name, " - DROP")
+			}
 			return
 		}
 	}
 
 	// Sort nexthops by cost and send to best-possible nexthop
-	sort.Slice(nexthops, func(i, j int) bool { return nexthops[i].Cost < nexthops[j].Cost })
-	for _, nh := range nexthops {
-		core.LogTrace(s, "AfterReceiveInterest: Forwarding Interest=", packet.Name, " to FaceID=", nh.Nexthop)
+	lowesthops := nexthops
+	getLowest := func() *table.FibNextHopEntry {
+		cost := uint64(1 << 63)
+		index := -1
+		for i := 0; i < nexthopsCount; i++ {
+			nh := nexthops[i]
+			if nh == nil {
+				continue
+			}
+			if nh.Cost < cost {
+				cost = nh.Cost
+				index = i
+			}
+		}
+		if index == -1 {
+			return nil
+		}
+		hop := nexthops[index]
+		lowesthops[index] = nil
+		return hop
+	}
+
+	for nh := getLowest(); nh != nil; nh = getLowest() {
+		if core.HasTraceLogs() {
+			core.LogTrace(s, "AfterReceiveInterest: Forwarding Interest=", packet.Name, " to FaceID=", nh.Nexthop)
+		}
 		if sent := s.SendInterest(packet, pitEntry, nh.Nexthop, inFace); sent {
 			return
 		}
 	}
 
-	core.LogDebug(s, "AfterReceiveInterest: No usable nexthop for Interest=", packet.Name, " - DROP")
+	if core.HasDebugLogs() {
+		core.LogDebug(s, "AfterReceiveInterest: No usable nexthop for Interest=", packet.Name, " - DROP")
+	}
 }
 
 func (s *BestRoute) BeforeSatisfyInterest(pitEntry table.PitEntry, inFace uint64) {
