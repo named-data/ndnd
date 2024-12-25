@@ -316,7 +316,8 @@ func At(n enc.Name, index int) enc.Component {
 
 func (p *pitCsTreeNode) findExactMatchEntryEnc(name enc.Name) *pitCsTreeNode {
 	if len(name) > p.depth {
-		if child, ok := p.children[At(name, p.depth).Hash()]; ok {
+		comp := At(name, p.depth)
+		if child, ok := p.children[comp.Hash()]; ok {
 			return child.findExactMatchEntryEnc(name)
 		}
 	} else if len(name) == p.depth {
@@ -327,7 +328,8 @@ func (p *pitCsTreeNode) findExactMatchEntryEnc(name enc.Name) *pitCsTreeNode {
 
 func (p *pitCsTreeNode) findLongestPrefixEntryEnc(name enc.Name) *pitCsTreeNode {
 	if len(name) > p.depth {
-		if child, ok := p.children[At(name, p.depth).Hash()]; ok {
+		comp := At(name, p.depth)
+		if child, ok := p.children[comp.Hash()]; ok {
 			return child.findLongestPrefixEntryEnc(name)
 		}
 	}
