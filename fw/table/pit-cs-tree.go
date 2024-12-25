@@ -2,6 +2,7 @@ package table
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
@@ -13,6 +14,24 @@ import (
 const expiredPitTickerInterval = 100 * time.Millisecond
 
 type OnPitExpiration func(PitEntry)
+
+var nameTreePitEntryPool = sync.Pool{
+	New: func() interface{} {
+		entry := new(nameTreePitEntry)
+		entry.inRecords = make(map[uint64]*PitInRecord)
+		entry.outRecords = make(map[uint64]*PitOutRecord)
+		return entry
+	},
+}
+
+var pitCsTreeNodePool = sync.Pool{
+	New: func() interface{} {
+		node := new(pitCsTreeNode)
+		node.children = make(map[uint64]*pitCsTreeNode)
+		node.pitEntries = make([]*nameTreePitEntry, 0, 1)
+		return node
+	},
+}
 
 // PitCsTree represents a PIT-CS implementation that uses a name tree
 type PitCsTree struct {
@@ -147,19 +166,19 @@ func (p *PitCsTree) InsertInterest(interest ndn.Interest, hint enc.Name, inFace 
 
 	if entry == nil {
 		p.nPitEntries++
-		entry = new(nameTreePitEntry)
+		entry = nameTreePitEntryPool.Get().(*nameTreePitEntry)
 		entry.node = node
 		entry.pitCsTable = p
 		entry.encname = name
 		entry.canBePrefix = interest.CanBePrefix()
 		entry.mustBeFresh = interest.MustBeFresh()
 		entry.forwardingHintNew = hint
-		entry.inRecords = make(map[uint64]*PitInRecord)
-		entry.outRecords = make(map[uint64]*PitOutRecord)
+		clear(entry.inRecords)
+		clear(entry.outRecords)
 		entry.satisfied = false
-		node.pitEntries = append(node.pitEntries, entry)
 		entry.token = p.generateNewPitToken()
 		entry.pqItem = nil
+		node.pitEntries = append(node.pitEntries, entry)
 		p.pitTokenMap[entry.token] = entry
 	}
 
@@ -192,6 +211,7 @@ func (p *PitCsTree) RemoveInterest(pitEntry PitEntry) bool {
 			}
 			p.nPitEntries--
 			delete(p.pitTokenMap, e.token)
+			nameTreePitEntryPool.Put(e)
 			return true
 		}
 	}
@@ -337,14 +357,15 @@ func (p *pitCsTreeNode) findLongestPrefixEntryEnc(name enc.Name) *pitCsTreeNode 
 func (p *pitCsTreeNode) fillTreeToPrefixEnc(name enc.Name) *pitCsTreeNode {
 	curNode := p.findLongestPrefixEntryEnc(name)
 	for depth := curNode.depth + 1; depth <= len(name); depth++ {
-		newNode := new(pitCsTreeNode)
-		var temp = At(name, depth-1)
-		newNode.component = &temp
+		comp := At(name, depth-1)
+
+		newNode := pitCsTreeNodePool.Get().(*pitCsTreeNode)
+		newNode.component = &comp
 		newNode.depth = depth
 		newNode.parent = curNode
-		newNode.children = make(map[uint64]*pitCsTreeNode)
-
-		curNode.children[newNode.component.Hash()] = newNode
+		clear(newNode.children)
+		clear(newNode.pitEntries)
+		curNode.children[comp.Hash()] = newNode
 		curNode = newNode
 	}
 	return curNode
@@ -358,6 +379,7 @@ func (p *pitCsTreeNode) pruneIfEmpty() {
 	for curNode := p; curNode.parent != nil && curNode.getChildrenCount() == 0 &&
 		len(curNode.pitEntries) == 0 && curNode.csEntry == nil; curNode = curNode.parent {
 		delete(curNode.parent.children, curNode.component.Hash())
+		pitCsTreeNodePool.Put(curNode)
 	}
 }
 
