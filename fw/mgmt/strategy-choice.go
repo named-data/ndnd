@@ -12,8 +12,8 @@ import (
 	"github.com/named-data/ndnd/fw/fw"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
-	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 // StrategyChoiceModule is the module that handles Strategy Choice Management.
@@ -41,15 +41,15 @@ func (s *StrategyChoiceModule) getManager() *Thread {
 	return s.manager
 }
 
-func (s *StrategyChoiceModule) handleIncomingInterest(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (s *StrategyChoiceModule) handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	// Only allow from /localhost
-	if !s.manager.localPrefix.IsPrefix(interest.NameV) {
+	if !s.manager.localPrefix.IsPrefix(interest.Name()) {
 		core.LogWarn(s, "Received strategy management Interest from non-local source - DROP")
 		return
 	}
 
 	// Dispatch by verb
-	verb := interest.NameV[s.manager.prefixLength()+1].String()
+	verb := interest.Name()[s.manager.prefixLength()+1].String()
 	switch verb {
 	case "set":
 		s.set(interest, pitToken, inFace)
@@ -65,10 +65,10 @@ func (s *StrategyChoiceModule) handleIncomingInterest(interest *spec.Interest, p
 	}
 }
 
-func (s *StrategyChoiceModule) set(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (s *StrategyChoiceModule) set(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < s.manager.prefixLength()+3 {
+	if len(interest.Name()) < s.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(s, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -164,10 +164,10 @@ func (s *StrategyChoiceModule) set(interest *spec.Interest, pitToken []byte, inF
 	s.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (s *StrategyChoiceModule) unset(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (s *StrategyChoiceModule) unset(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < s.manager.prefixLength()+3 {
+	if len(interest.Name()) < s.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(s, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -204,8 +204,8 @@ func (s *StrategyChoiceModule) unset(interest *spec.Interest, pitToken []byte, i
 	s.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (s *StrategyChoiceModule) list(interest *spec.Interest, pitToken []byte, _ uint64) {
-	if len(interest.NameV) > s.manager.prefixLength()+2 {
+func (s *StrategyChoiceModule) list(interest ndn.Interest, pitToken []byte, _ uint64) {
+	if len(interest.Name()) > s.manager.prefixLength()+2 {
 		// Ignore because contains version and/or segment components
 		return
 	}

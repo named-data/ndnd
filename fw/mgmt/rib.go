@@ -15,6 +15,7 @@ import (
 	"github.com/named-data/ndnd/fw/face"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/utils"
@@ -38,9 +39,9 @@ func (r *RIBModule) getManager() *Thread {
 	return r.manager
 }
 
-func (r *RIBModule) handleIncomingInterest(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (r *RIBModule) handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	// Dispatch by verb
-	verb := interest.NameV[r.manager.prefixLength()+1].String()
+	verb := interest.Name()[r.manager.prefixLength()+1].String()
 	switch verb {
 	case "register":
 		r.register(interest, pitToken, inFace)
@@ -58,10 +59,10 @@ func (r *RIBModule) handleIncomingInterest(interest *spec.Interest, pitToken []b
 	}
 }
 
-func (r *RIBModule) register(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (r *RIBModule) register(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < r.manager.prefixLength()+3 {
+	if len(interest.Name()) < r.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(r, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -142,10 +143,10 @@ func (r *RIBModule) register(interest *spec.Interest, pitToken []byte, inFace ui
 	r.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (r *RIBModule) unregister(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (r *RIBModule) unregister(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < r.manager.prefixLength()+3 {
+	if len(interest.Name()) < r.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(r, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -188,10 +189,10 @@ func (r *RIBModule) unregister(interest *spec.Interest, pitToken []byte, inFace 
 	r.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (r *RIBModule) announce(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (r *RIBModule) announce(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
-	if len(interest.NameV) != r.manager.prefixLength()+3 ||
-		interest.NameV[r.manager.prefixLength()+2].Typ != enc.TypeParametersSha256DigestComponent {
+	if len(interest.Name()) != r.manager.prefixLength()+3 ||
+		interest.Name()[r.manager.prefixLength()+2].Typ != enc.TypeParametersSha256DigestComponent {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(r, "Name of Interest=", interest.Name(),
 			" is either too short or incorrectly formatted to be rib/announce")
@@ -224,8 +225,8 @@ func (r *RIBModule) announce(interest *spec.Interest, pitToken []byte, inFace ui
 	r.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (r *RIBModule) list(interest *spec.Interest, pitToken []byte, _ uint64) {
-	if len(interest.NameV) > r.manager.prefixLength()+2 {
+func (r *RIBModule) list(interest ndn.Interest, pitToken []byte, _ uint64) {
+	if len(interest.Name()) > r.manager.prefixLength()+2 {
 		// Ignore because contains version and/or segment components
 		return
 	}
@@ -252,7 +253,7 @@ func (r *RIBModule) list(interest *spec.Interest, pitToken []byte, _ uint64) {
 		dataset.Entries = append(dataset.Entries, ribEntry)
 	}
 
-	name, _ := enc.NameFromStr(interest.NameV[:r.manager.prefixLength()].String() + "/rib/list")
+	name, _ := enc.NameFromStr(interest.Name()[:r.manager.prefixLength()].String() + "/rib/list")
 	segments := makeStatusDataset(name, r.nextRIBDatasetVersion, dataset.Encode())
 	r.manager.transport.Send(segments, pitToken, nil)
 	core.LogTrace(r, "Published RIB dataset version=", r.nextRIBDatasetVersion,

@@ -17,8 +17,8 @@ import (
 	"github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/face"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
-	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/utils"
 )
 
@@ -40,15 +40,15 @@ func (f *FaceModule) getManager() *Thread {
 	return f.manager
 }
 
-func (f *FaceModule) handleIncomingInterest(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *FaceModule) handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	// Only allow from /localhost
-	if !f.manager.localPrefix.IsPrefix(interest.NameV) {
+	if !f.manager.localPrefix.IsPrefix(interest.Name()) {
 		core.LogWarn(f, "Received face management Interest from non-local source - DROP")
 		return
 	}
 
 	// Dispatch by verb
-	verb := interest.NameV[f.manager.prefixLength()+1].String()
+	verb := interest.Name()[f.manager.prefixLength()+1].String()
 	switch verb {
 	case "create":
 		f.create(interest, pitToken, inFace)
@@ -68,10 +68,10 @@ func (f *FaceModule) handleIncomingInterest(interest *spec.Interest, pitToken []
 	}
 }
 
-func (f *FaceModule) create(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *FaceModule) create(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < f.manager.prefixLength()+3 {
+	if len(interest.Name()) < f.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(f, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -326,10 +326,10 @@ func (f *FaceModule) create(interest *spec.Interest, pitToken []byte, inFace uin
 	f.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (f *FaceModule) update(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *FaceModule) update(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < f.manager.prefixLength()+3 {
+	if len(interest.Name()) < f.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(f, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -478,10 +478,10 @@ func (f *FaceModule) update(interest *spec.Interest, pitToken []byte, inFace uin
 	f.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (f *FaceModule) destroy(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *FaceModule) destroy(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < f.manager.prefixLength()+3 {
+	if len(interest.Name()) < f.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(f, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -514,8 +514,8 @@ func (f *FaceModule) destroy(interest *spec.Interest, pitToken []byte, inFace ui
 	f.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (f *FaceModule) list(interest *spec.Interest, pitToken []byte, _ uint64) {
-	if len(interest.NameV) > f.manager.prefixLength()+2 {
+func (f *FaceModule) list(interest ndn.Interest, pitToken []byte, _ uint64) {
+	if len(interest.Name()) > f.manager.prefixLength()+2 {
 		// Ignore because contains version and/or segment components
 		return
 	}
@@ -543,13 +543,13 @@ func (f *FaceModule) list(interest *spec.Interest, pitToken []byte, _ uint64) {
 	f.nextFaceDatasetVersion++
 }
 
-func (f *FaceModule) query(interest *spec.Interest, pitToken []byte, _ uint64) {
-	if len(interest.NameV) < f.manager.prefixLength()+3 {
+func (f *FaceModule) query(interest ndn.Interest, pitToken []byte, _ uint64) {
+	if len(interest.Name()) < f.manager.prefixLength()+3 {
 		// Name not long enough to contain FaceQueryFilter
 		core.LogWarn(f, "Missing FaceQueryFilter in ", interest.Name())
 		return
 	}
-	filterV, err := mgmt.ParseFaceQueryFilter(enc.NewBufferReader(interest.NameV[f.manager.prefixLength()+2].Val), true)
+	filterV, err := mgmt.ParseFaceQueryFilter(enc.NewBufferReader(interest.Name()[f.manager.prefixLength()+2].Val), true)
 	if err != nil {
 		return
 	}

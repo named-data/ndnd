@@ -12,8 +12,8 @@ import (
 	"github.com/named-data/ndnd/fw/face"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
-	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 // FIBModule is the module that handles FIB Management.
@@ -34,7 +34,7 @@ func (f *FIBModule) getManager() *Thread {
 	return f.manager
 }
 
-func (f *FIBModule) handleIncomingInterest(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *FIBModule) handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	// Only allow from /localhost
 	if !f.manager.localPrefix.IsPrefix(interest.Name()) {
 		core.LogWarn(f, "Received FIB management Interest from non-local source - DROP")
@@ -42,7 +42,7 @@ func (f *FIBModule) handleIncomingInterest(interest *spec.Interest, pitToken []b
 	}
 
 	// Dispatch by verb
-	verb := interest.NameV[f.manager.prefixLength()+1].String()
+	verb := interest.Name()[f.manager.prefixLength()+1].String()
 	switch verb {
 	case "add-nexthop":
 		f.add(interest, pitToken, inFace)
@@ -58,10 +58,10 @@ func (f *FIBModule) handleIncomingInterest(interest *spec.Interest, pitToken []b
 	}
 }
 
-func (f *FIBModule) add(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *FIBModule) add(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < f.manager.prefixLength()+3 {
+	if len(interest.Name()) < f.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(f, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -109,10 +109,10 @@ func (f *FIBModule) add(interest *spec.Interest, pitToken []byte, inFace uint64)
 	f.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (f *FIBModule) remove(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *FIBModule) remove(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < f.manager.prefixLength()+3 {
+	if len(interest.Name()) < f.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(f, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -149,8 +149,8 @@ func (f *FIBModule) remove(interest *spec.Interest, pitToken []byte, inFace uint
 	f.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (f *FIBModule) list(interest *spec.Interest, pitToken []byte, _ uint64) {
-	if len(interest.NameV) > f.manager.prefixLength()+2 {
+func (f *FIBModule) list(interest ndn.Interest, pitToken []byte, _ uint64) {
+	if len(interest.Name()) > f.manager.prefixLength()+2 {
 		// Ignore because contains version and/or segment components
 		return
 	}

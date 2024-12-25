@@ -15,8 +15,8 @@ import (
 	"github.com/named-data/ndnd/fw/fw"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
-	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 // ForwarderStatusModule is the module that provide forwarder status information.
@@ -37,15 +37,15 @@ func (f *ForwarderStatusModule) getManager() *Thread {
 	return f.manager
 }
 
-func (f *ForwarderStatusModule) handleIncomingInterest(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (f *ForwarderStatusModule) handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	// Only allow from /localhost
-	if !f.manager.localPrefix.IsPrefix(interest.NameV) {
+	if !f.manager.localPrefix.IsPrefix(interest.Name()) {
 		core.LogWarn(f, "Received forwarder status management Interest from non-local source - DROP")
 		return
 	}
 
 	// Dispatch by verb
-	verb := interest.NameV[f.manager.prefixLength()+1].String()
+	verb := interest.Name()[f.manager.prefixLength()+1].String()
 	switch verb {
 	case "general":
 		f.general(interest, pitToken, inFace)
@@ -57,8 +57,8 @@ func (f *ForwarderStatusModule) handleIncomingInterest(interest *spec.Interest, 
 	}
 }
 
-func (f *ForwarderStatusModule) general(interest *spec.Interest, pitToken []byte, _ uint64) {
-	if len(interest.NameV) > f.manager.prefixLength()+2 {
+func (f *ForwarderStatusModule) general(interest ndn.Interest, pitToken []byte, _ uint64) {
+	if len(interest.Name()) > f.manager.prefixLength()+2 {
 		// Ignore because contains version and/or segment components
 		return
 	}
