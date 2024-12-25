@@ -327,7 +327,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 
 	// Exclude faces that have an in-record for this interest
 	// TODO: unclear where NFD dev guide specifies such behavior (if any)
-	allowedNexthops := [MaxNextHops]*table.FibNextHopEntry{}
+	allowedNexthops := [defn.MaxNextHops]*table.FibNextHopEntry{}
 	allowedNexthopsCount := 0
 	for _, nexthop := range nexthops {
 		record := pitEntry.InRecords()[nexthop.Nexthop]
@@ -335,7 +335,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			allowedNexthops[allowedNexthopsCount] = nexthop
 			allowedNexthopsCount++
 		}
-		if allowedNexthopsCount >= MaxNextHops {
+		if allowedNexthopsCount >= defn.MaxNextHops {
 			break // limit reached
 		}
 	}

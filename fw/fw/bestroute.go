@@ -62,7 +62,7 @@ func (s *BestRoute) AfterReceiveInterest(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
 	inFace uint64,
-	nexthops [MaxNextHops]*table.FibNextHopEntry,
+	nexthops [defn.MaxNextHops]*table.FibNextHopEntry,
 	nexthopsCount int,
 ) {
 	if nexthopsCount == 0 {
