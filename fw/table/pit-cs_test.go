@@ -115,7 +115,7 @@ func TestInsertInRecord(t *testing.T) {
 	*interest.NonceV = 2 // get a "new" interest by resetting its nonce
 	inRecord, alreadyExists, prevNonce := bpe.InsertInRecord(interest, faceID, pitToken)
 	assert.True(t, alreadyExists)
-	assert.Equal(t, prevNonce, uint32(1))
+	assert.Equal(t, prevNonce, uint64(1))
 	assert.Equal(t, inRecord.Face, faceID)
 	assert.Equal(t, inRecord.LatestNonce == *interest.Nonce(), true)
 	assert.Equal(t, inRecord.LatestInterest, interest.Name())
