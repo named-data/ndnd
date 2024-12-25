@@ -262,14 +262,12 @@ func TestRemoveInterest(t *testing.T) {
 	assert.True(t, removedInterest)
 	assert.Equal(t, pitCS.PitSize(), 0)
 
-	// Remove a nonexistent pit entry
+	// Remove a new pit entry
 	name2, _ := enc.NameFromStr("/interest2")
 	interest2 := makeInterest(name2)
 	pitEntry2, _ := pitCS.InsertInterest(interest2, hint, inFace)
-
-	removedInterest = pitCS.RemoveInterest(pitEntry)
-	assert.False(t, removedInterest)
 	assert.Equal(t, pitCS.PitSize(), 1)
+
 	removedInterest = pitCS.RemoveInterest(pitEntry2)
 	assert.True(t, removedInterest)
 	assert.Equal(t, pitCS.PitSize(), 0)

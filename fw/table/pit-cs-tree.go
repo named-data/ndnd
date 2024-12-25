@@ -198,6 +198,7 @@ func (p *PitCsTree) InsertInterest(interest ndn.Interest, hint enc.Name, inFace 
 
 // RemoveInterest removes the specified PIT entry, returning true if the entry
 // was removed and false if was not (because it does not exist).
+// The pitEntry should NEVER be used again after this call.
 func (p *PitCsTree) RemoveInterest(pitEntry PitEntry) bool {
 	e := pitEntry.(*nameTreePitEntry) // No error check needed because PitCsTree always uses nameTreePitEntry
 	for i, entry := range e.node.pitEntries {
