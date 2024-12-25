@@ -73,7 +73,7 @@ func (s *BestRoute) AfterReceiveInterest(
 	// If there is an out record less than suppression interval ago, drop the
 	// retransmission to suppress it (only if the nonce is different)
 	for _, outRecord := range pitEntry.OutRecords() {
-		if outRecord.LatestNonce != *packet.L3.Interest.NonceV &&
+		if outRecord.LatestNonce != *packet.L3.Interest.Nonce() &&
 			outRecord.LatestTimestamp.Add(BestRouteSuppressionTime).After(time.Now()) {
 			core.LogDebug(s, "AfterReceiveInterest: Suppressed Interest=", packet.Name, " - DROP")
 			return

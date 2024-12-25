@@ -10,7 +10,7 @@ package table
 import (
 	"container/list"
 
-	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	"github.com/named-data/ndnd/std/ndn"
 )
 
 // CsLRU is a least recently used (LRU) replacement policy for the Content Store.
@@ -30,12 +30,12 @@ func NewCsLRU(cs PitCsTable) *CsLRU {
 }
 
 // AfterInsert is called after a new entry is inserted into the Content Store.
-func (l *CsLRU) AfterInsert(index uint64, wire []byte, data *spec.Data) {
+func (l *CsLRU) AfterInsert(index uint64, wire []byte, data ndn.Data) {
 	l.locations[index] = l.queue.PushBack(index)
 }
 
 // AfterRefresh is called after a new data packet refreshes an existing entry in the Content Store.
-func (l *CsLRU) AfterRefresh(index uint64, wire []byte, data *spec.Data) {
+func (l *CsLRU) AfterRefresh(index uint64, wire []byte, data ndn.Data) {
 	if location, ok := l.locations[index]; ok {
 		l.queue.Remove(location)
 	}

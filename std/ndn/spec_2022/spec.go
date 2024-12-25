@@ -217,12 +217,8 @@ func (t *Interest) Lifetime() *time.Duration {
 	return t.InterestLifetimeV
 }
 
-func (t *Interest) HopLimit() *uint {
-	if t.HopLimitV == nil {
-		return nil
-	} else {
-		return utils.IdPtr(uint(*t.HopLimitV))
-	}
+func (t *Interest) HopLimit() *byte {
+	return t.HopLimitV
 }
 
 func (t *Interest) AppParam() enc.Wire {

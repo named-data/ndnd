@@ -444,8 +444,21 @@ func (op *NDNLPLinkServiceOptions) Flags() (ret uint64) {
 }
 
 // Reads a packet without validating the internal fields
-func ReadPacketUnverified(reader enc.ParseReader) (*spec.Packet, error) {
+func ReadPacketUnverified(reader enc.ParseReader) (ret defn.PacketIntf, err error) {
 	context := spec.PacketParsingContext{}
 	context.Init()
-	return context.Parse(reader, false)
+	packet, err := context.Parse(reader, false)
+	if err != nil {
+		return
+	}
+
+	if packet.LpPacket != nil {
+		ret.LpPacket = packet.LpPacket
+	} else if packet.Interest != nil {
+		ret.Interest = packet.Interest
+	} else if packet.Data != nil {
+		ret.Data = packet.Data
+	}
+
+	return ret, nil
 }

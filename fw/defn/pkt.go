@@ -9,6 +9,7 @@ package defn
 
 import (
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
@@ -16,7 +17,7 @@ import (
 // received on the link, plus any associated metadata.
 type Pkt struct {
 	Name enc.Name
-	L3   *spec.Packet
+	L3   PacketIntf
 	Raw  []byte
 
 	PitToken       []byte
@@ -24,4 +25,10 @@ type Pkt struct {
 	IncomingFaceID *uint64
 	NextHopFaceID  *uint64
 	CachePolicy    *uint64
+}
+
+type PacketIntf struct {
+	LpPacket *spec.LpPacket
+	Interest ndn.Interest
+	Data     ndn.Data
 }
