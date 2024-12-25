@@ -29,7 +29,7 @@ type T1ParsingContext struct {
 	sigCovered enc.Wire
 }
 
-func (encoder *T1Encoder) Init(value *T1) {
+func (encoder *T1Encoder) Init(value *T1) []uint {
 
 	if value.C != nil {
 		encoder.C_length = 0
@@ -165,6 +165,7 @@ func (encoder *T1Encoder) Init(value *T1) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *T1ParsingContext) Init() {
@@ -523,7 +524,7 @@ type T2ParsingContext struct {
 	sigCovered     enc.Wire
 }
 
-func (encoder *T2Encoder) Init(value *T2) {
+func (encoder *T2Encoder) Init(value *T2) []uint {
 	encoder.Name_wireIdx = -1
 	encoder.Name_length = 0
 	if value.Name != nil {
@@ -657,6 +658,7 @@ func (encoder *T2Encoder) Init(value *T2) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *T2ParsingContext) Init() {

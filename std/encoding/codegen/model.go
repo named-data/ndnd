@@ -62,7 +62,9 @@ func (m *TlvModel) GenEncoderStruct(buf *bytes.Buffer) error {
 
 func (m *TlvModel) GenInitEncoder(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelInitEncoderStruct").Parse(`
-		func (encoder *{{.Name}}Encoder) Init(value *{{.Name}}) {
+		func (encoder *{{.Name}}Encoder) Init(value *{{.Name}})
+			{{- if .NoCopy -}} ([]uint) {{- end -}}
+		{
 			{{- range $f := .Fields}}
 				{{$f.GenInitEncoder}}
 			{{- end}}
@@ -83,6 +85,7 @@ func (m *TlvModel) GenInitEncoder(buf *bytes.Buffer) error {
 					wirePlan = append(wirePlan, l)
 				}
 				encoder.wirePlan = wirePlan
+				return wirePlan
 			{{- end}}
 		}
 	`)).Execute(buf, m)

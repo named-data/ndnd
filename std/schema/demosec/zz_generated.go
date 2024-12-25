@@ -19,7 +19,7 @@ type EncryptedContentEncoder struct {
 type EncryptedContentParsingContext struct {
 }
 
-func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) {
+func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) []uint {
 
 	if value.CipherText != nil {
 		encoder.CipherText_length = 0
@@ -148,6 +148,7 @@ func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *EncryptedContentParsingContext) Init() {

@@ -2273,7 +2273,7 @@ type LpPacketParsingContext struct {
 	CachePolicy_context CachePolicyParsingContext
 }
 
-func (encoder *LpPacketEncoder) Init(value *LpPacket) {
+func (encoder *LpPacketEncoder) Init(value *LpPacket) []uint {
 
 	if value.Nack != nil {
 		encoder.Nack_encoder.Init(value.Nack)
@@ -2617,6 +2617,7 @@ func (encoder *LpPacketEncoder) Init(value *LpPacket) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *LpPacketParsingContext) Init() {
@@ -3331,7 +3332,7 @@ type InterestParsingContext struct {
 	digestCoverEnd int
 }
 
-func (encoder *InterestEncoder) Init(value *Interest) {
+func (encoder *InterestEncoder) Init(value *Interest) []uint {
 
 	encoder.NameV_wireIdx = -1
 	encoder.NameV_length = 0
@@ -3588,6 +3589,7 @@ func (encoder *InterestEncoder) Init(value *Interest) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *InterestParsingContext) Init() {
@@ -4186,7 +4188,7 @@ type DataParsingContext struct {
 	SignatureInfo_context SignatureInfoParsingContext
 }
 
-func (encoder *DataEncoder) Init(value *Data) {
+func (encoder *DataEncoder) Init(value *Data) []uint {
 
 	if value.NameV != nil {
 		encoder.NameV_length = 0
@@ -4369,6 +4371,7 @@ func (encoder *DataEncoder) Init(value *Data) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *DataParsingContext) Init() {
@@ -4748,7 +4751,7 @@ type PacketParsingContext struct {
 	LpPacket_context LpPacketParsingContext
 }
 
-func (encoder *PacketEncoder) Init(value *Packet) {
+func (encoder *PacketEncoder) Init(value *Packet) []uint {
 	if value.Interest != nil {
 		encoder.Interest_encoder.Init(value.Interest)
 	}
@@ -4885,6 +4888,7 @@ func (encoder *PacketEncoder) Init(value *Packet) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *PacketParsingContext) Init() {

@@ -1097,7 +1097,7 @@ type NoCopyStructEncoder struct {
 type NoCopyStructParsingContext struct {
 }
 
-func (encoder *NoCopyStructEncoder) Init(value *NoCopyStruct) {
+func (encoder *NoCopyStructEncoder) Init(value *NoCopyStruct) []uint {
 	if value.Wire1 != nil {
 		encoder.Wire1_length = 0
 		for _, c := range value.Wire1 {
@@ -1209,6 +1209,7 @@ func (encoder *NoCopyStructEncoder) Init(value *NoCopyStruct) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *NoCopyStructParsingContext) Init() {

@@ -1056,7 +1056,7 @@ type InnerWire1Encoder struct {
 type InnerWire1ParsingContext struct {
 }
 
-func (encoder *InnerWire1Encoder) Init(value *InnerWire1) {
+func (encoder *InnerWire1Encoder) Init(value *InnerWire1) []uint {
 	if value.Wire1 != nil {
 		encoder.Wire1_length = 0
 		for _, c := range value.Wire1 {
@@ -1132,6 +1132,7 @@ func (encoder *InnerWire1Encoder) Init(value *InnerWire1) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *InnerWire1ParsingContext) Init() {
@@ -1329,7 +1330,7 @@ type InnerWire2Encoder struct {
 type InnerWire2ParsingContext struct {
 }
 
-func (encoder *InnerWire2Encoder) Init(value *InnerWire2) {
+func (encoder *InnerWire2Encoder) Init(value *InnerWire2) []uint {
 	if value.Wire2 != nil {
 		encoder.Wire2_length = 0
 		for _, c := range value.Wire2 {
@@ -1379,6 +1380,7 @@ func (encoder *InnerWire2Encoder) Init(value *InnerWire2) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *InnerWire2ParsingContext) Init() {
@@ -1532,7 +1534,7 @@ type NestedWireParsingContext struct {
 	W2_context InnerWire2ParsingContext
 }
 
-func (encoder *NestedWireEncoder) Init(value *NestedWire) {
+func (encoder *NestedWireEncoder) Init(value *NestedWire) []uint {
 	if value.W1 != nil {
 		encoder.W1_encoder.Init(value.W1)
 	}
@@ -1650,6 +1652,7 @@ func (encoder *NestedWireEncoder) Init(value *NestedWire) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *NestedWireParsingContext) Init() {

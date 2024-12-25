@@ -73,6 +73,7 @@ type NDNLPLinkService struct {
 	BufferReader             enc.BufferReader
 	congestionCheck          uint64
 	outFrame                 []byte
+	outWire                  enc.Wire
 }
 
 // MakeNDNLPLinkService creates a new NDNLPv2 link service
@@ -88,7 +89,8 @@ func MakeNDNLPLinkService(transport transport, options NDNLPLinkServiceOptions) 
 	l.nextSequence = 0
 	l.nextTxSequence = 0
 	l.congestionCheck = 0
-	l.outFrame = make([]byte, defn.MaxNDNPacketSize)
+	l.outFrame = make([]byte, defn.MaxNDNPacketSize*2)
+	l.outWire = make(enc.Wire, defn.MaxNDNPacketSize)
 	return l
 }
 
@@ -266,23 +268,26 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 			fragment.CongestionMark = congestionMark
 		}
 
-		pkt := &spec.Packet{
-			LpPacket: fragment,
-		}
-		encoder := spec.PacketEncoder{}
-		encoder.Init(pkt)
-		frameWire := encoder.Encode(pkt)
-		if frameWire == nil {
-			core.LogError(l, "Unable to encode fragment - DROP")
-			break
-		}
+		pkt := spec.Packet{LpPacket: fragment}
 
-		// Use preallocated buffer for outgoing frame
-		l.outFrame = l.outFrame[:0]
-		for _, b := range frameWire {
-			l.outFrame = append(l.outFrame, b...)
+		// Use preallocated buffers for outgoing frame
+		encoder := spec.PacketEncoder{}
+		wirePlan := encoder.Init(&pkt)
+		outFrame := l.outFrame
+		outWire := l.outWire[:len(wirePlan)]
+
+		for i, l := range wirePlan {
+			outWire[i] = outFrame[:l]
+			outFrame = outFrame[l:]
 		}
-		l.transport.sendFrame(l.outFrame)
+		encoder.EncodeInto(&pkt, outWire)
+
+		// Consolidate fragments. Since we only overwrite behind, there is no conflict.
+		nbytes := 0
+		for _, b := range outWire {
+			nbytes += copy(l.outFrame[nbytes:], b)
+		}
+		l.transport.sendFrame(l.outFrame[:nbytes])
 	}
 }
 
