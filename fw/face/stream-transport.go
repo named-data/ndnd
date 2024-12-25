@@ -33,20 +33,19 @@ func readTlvStream(
 		// Determine whether valid packet received
 		for {
 			rdr := enc.NewBufferReader(recvBuf[tlvOff:recvOff])
-
 			typ, err := enc.ReadTLNum(rdr)
 			if err != nil {
 				// Probably incomplete packet
 				break
 			}
-
-			len, err := enc.ReadTLNum(rdr)
+			length, err := enc.ReadTLNum(rdr)
 			if err != nil {
 				// Probably incomplete packet
 				break
 			}
+			rdr.Free()
 
-			tlvSize := typ.EncodingLength() + len.EncodingLength() + int(len)
+			tlvSize := typ.EncodingLength() + length.EncodingLength() + int(length)
 
 			if recvOff-tlvOff >= tlvSize {
 				// Packet was successfully received, send up to link service

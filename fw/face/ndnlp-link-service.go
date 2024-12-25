@@ -217,6 +217,7 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 			}
 			fragments[i] = &spec.LpPacket{Fragment: frag}
 		}
+		reader.Free()
 	} else {
 		fragments = []*spec.LpPacket{{Fragment: enc.Wire{wire}}}
 	}
@@ -296,7 +297,9 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 		IncomingFaceID: utils.IdPtr(l.faceID),
 	}
 
-	L2, err := ReadPacketUnverified(enc.NewBufferReader(wire))
+	L2r := enc.NewBufferReader(wire)
+	L2, err := ReadPacketUnverified(L2r)
+	L2r.Free()
 	if err != nil {
 		core.LogError(l, err)
 		return
@@ -370,7 +373,9 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 		}
 
 		// Parse inner packet in place
-		L3, err := ReadPacketUnverified(enc.NewBufferReader(wire))
+		L3r := enc.NewBufferReader(wire)
+		L3, err := ReadPacketUnverified(L3r)
+		L3r.Free()
 		if err != nil {
 			return
 		}

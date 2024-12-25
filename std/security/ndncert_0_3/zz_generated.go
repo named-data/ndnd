@@ -1154,7 +1154,9 @@ func (context *ProbeResContentParsingContext) Parse(reader enc.ParseReader, igno
 						}{}
 						{
 							value := &pseudoValue
-							value.Vals, err = context.Vals_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Vals, err = context.Vals_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Vals = append(value.Vals, pseudoValue.Vals)

@@ -698,7 +698,9 @@ func (context *IntStructMapParsingContext) Parse(reader enc.ParseReader, ignoreC
 							if typ != 135 {
 								return nil, enc.ErrFailToParse{TypeNum: 133, Err: enc.ErrUnrecognizedField{TypeNum: typ}}
 							}
-							value.Params_v, err = context.Params_v_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Params_v, err = context.Params_v_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Params[pseudoValue.Params_k] = pseudoValue.Params_v

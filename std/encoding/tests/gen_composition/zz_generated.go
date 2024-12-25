@@ -764,7 +764,9 @@ func (context *NestedParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 				if true {
 					handled = true
 					handled_Val = true
-					value.Val, err = context.Val_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Val, err = context.Val_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -989,7 +991,9 @@ func (context *NestedSeqParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 						}{}
 						{
 							value := &pseudoValue
-							value.Vals, err = context.Vals_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Vals, err = context.Vals_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Vals = append(value.Vals, pseudoValue.Vals)
@@ -1826,7 +1830,9 @@ func (context *NestedWireParsingContext) Parse(reader enc.ParseReader, ignoreCri
 				if true {
 					handled = true
 					handled_W1 = true
-					value.W1, err = context.W1_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.W1, err = context.W1_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 5:
 				if true {
@@ -1851,7 +1857,9 @@ func (context *NestedWireParsingContext) Parse(reader enc.ParseReader, ignoreCri
 				if true {
 					handled = true
 					handled_W2 = true
-					value.W2, err = context.W2_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.W2, err = context.W2_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {

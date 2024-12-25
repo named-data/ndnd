@@ -3,7 +3,12 @@ package encoding
 import (
 	"errors"
 	"io"
+	"sync"
 )
+
+var bufferReaderPool = sync.Pool{
+	New: func() any { return &BufferReader{} },
+}
 
 type BufferReader struct {
 	buf Buffer
@@ -115,11 +120,16 @@ func (r *BufferReader) Delegate(l int) ParseReader {
 	return NewBufferReader(subBuf)
 }
 
+func (r *BufferReader) Free() {
+	r.buf = nil // gc
+	bufferReaderPool.Put(r)
+}
+
 func NewBufferReader(buf Buffer) *BufferReader {
-	return &BufferReader{
-		buf: buf,
-		pos: 0,
-	}
+	r := bufferReaderPool.Get().(*BufferReader)
+	r.buf = buf
+	r.pos = 0
+	return r
 }
 
 // WireReader is used for reading from a Wire.
@@ -310,6 +320,10 @@ func (r *WireReader) Delegate(l int) ParseReader {
 		newWire[len(newWire)-1] = newWire[len(newWire)-1][:r.pos]
 		return NewWireReader(newWire)
 	}
+}
+
+func (r *WireReader) Free() {
+	// no pool needed
 }
 
 func NewWireReader(w Wire) *WireReader {

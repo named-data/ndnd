@@ -396,7 +396,9 @@ func (context *ManifestDataParsingContext) Parse(reader enc.ParseReader, ignoreC
 						}{}
 						{
 							value := &pseudoValue
-							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Entries, err = context.Entries_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Entries = append(value.Entries, pseudoValue.Entries)

@@ -1363,7 +1363,9 @@ func (context *CertAdditionalDescriptionParsingContext) Parse(reader enc.ParseRe
 						}{}
 						{
 							value := &pseudoValue
-							value.DescriptionEntries, err = context.DescriptionEntries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.DescriptionEntries, err = context.DescriptionEntries_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.DescriptionEntries = append(value.DescriptionEntries, pseudoValue.DescriptionEntries)
@@ -1791,7 +1793,9 @@ func (context *SignatureInfoParsingContext) Parse(reader enc.ParseReader, ignore
 				if true {
 					handled = true
 					handled_KeyLocator = true
-					value.KeyLocator, err = context.KeyLocator_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.KeyLocator, err = context.KeyLocator_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 38:
 				if true {
@@ -1851,13 +1855,17 @@ func (context *SignatureInfoParsingContext) Parse(reader enc.ParseReader, ignore
 				if true {
 					handled = true
 					handled_ValidityPeriod = true
-					value.ValidityPeriod, err = context.ValidityPeriod_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.ValidityPeriod, err = context.ValidityPeriod_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 258:
 				if true {
 					handled = true
 					handled_AdditionalDescription = true
-					value.AdditionalDescription, err = context.AdditionalDescription_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.AdditionalDescription, err = context.AdditionalDescription_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -3061,7 +3069,9 @@ func (context *LpPacketParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if true {
 					handled = true
 					handled_Nack = true
-					value.Nack, err = context.Nack_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Nack, err = context.Nack_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 812:
 				if true {
@@ -3113,7 +3123,9 @@ func (context *LpPacketParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if true {
 					handled = true
 					handled_CachePolicy = true
-					value.CachePolicy, err = context.CachePolicy_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.CachePolicy, err = context.CachePolicy_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 832:
 				if true {
@@ -3933,7 +3945,9 @@ func (context *InterestParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if progress+1 == 5 {
 					handled = true
 					handled_ForwardingHintV = true
-					value.ForwardingHintV, err = context.ForwardingHintV_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.ForwardingHintV, err = context.ForwardingHintV_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 10:
 				if progress+1 == 6 {
@@ -4004,7 +4018,9 @@ func (context *InterestParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if progress+1 == 12 {
 					handled = true
 					handled_SignatureInfo = true
-					value.SignatureInfo, err = context.SignatureInfo_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.SignatureInfo, err = context.SignatureInfo_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 46:
 				if progress+1 == 13 {
@@ -4606,7 +4622,9 @@ func (context *DataParsingContext) Parse(reader enc.ParseReader, ignoreCritical 
 				if progress+1 == 3 {
 					handled = true
 					handled_MetaInfo = true
-					value.MetaInfo, err = context.MetaInfo_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.MetaInfo, err = context.MetaInfo_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 21:
 				if progress+1 == 4 {
@@ -4618,7 +4636,9 @@ func (context *DataParsingContext) Parse(reader enc.ParseReader, ignoreCritical 
 				if progress+1 == 5 {
 					handled = true
 					handled_SignatureInfo = true
-					value.SignatureInfo, err = context.SignatureInfo_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.SignatureInfo, err = context.SignatureInfo_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 23:
 				if progress+1 == 6 {
@@ -5071,19 +5091,25 @@ func (context *PacketParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 				if true {
 					handled = true
 					handled_Interest = true
-					value.Interest, err = context.Interest_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Interest, err = context.Interest_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 6:
 				if true {
 					handled = true
 					handled_Data = true
-					value.Data, err = context.Data_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Data, err = context.Data_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 100:
 				if true {
 					handled = true
 					handled_LpPacket = true
-					value.LpPacket, err = context.LpPacket_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.LpPacket, err = context.LpPacket_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {

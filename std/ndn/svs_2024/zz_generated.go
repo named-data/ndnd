@@ -123,7 +123,9 @@ func (context *StateVectorAppParamParsingContext) Parse(reader enc.ParseReader, 
 				if true {
 					handled = true
 					handled_StateVector = true
-					value.StateVector, err = context.StateVector_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.StateVector, err = context.StateVector_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -348,7 +350,9 @@ func (context *StateVectorParsingContext) Parse(reader enc.ParseReader, ignoreCr
 						}{}
 						{
 							value := &pseudoValue
-							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Entries, err = context.Entries_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Entries = append(value.Entries, pseudoValue.Entries)

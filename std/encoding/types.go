@@ -87,6 +87,10 @@ type ParseReader interface {
 	//   r.Skip(l)
 	//   return r.Range(start, r.Pos())
 	Delegate(l int) ParseReader
+
+	// Free resources for this reader.
+	// Applications are NOT required to call this method, except for performance optimization.
+	Free()
 }
 
 type ErrUnrecognizedField struct {
