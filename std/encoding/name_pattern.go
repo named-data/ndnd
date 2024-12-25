@@ -67,8 +67,8 @@ func (n Name) EncodingLength() int {
 // Clone returns a deep copy of a Name
 func (n Name) Clone() Name {
 	ret := make(Name, len(n))
-	for i, c := range n {
-		ret[i] = c.Clone()
+	for i := range n {
+		ret[i] = n[i].Clone()
 	}
 	return ret
 }

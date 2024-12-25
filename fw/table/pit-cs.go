@@ -90,7 +90,6 @@ type basePitEntry struct {
 type PitInRecord struct {
 	Face            uint64
 	LatestTimestamp time.Time
-	LatestInterest  enc.Name
 	LatestNonce     uint64
 	ExpirationTime  time.Time
 	PitToken        []byte
@@ -100,7 +99,6 @@ type PitInRecord struct {
 type PitOutRecord struct {
 	Face            uint64
 	LatestTimestamp time.Time
-	LatestInterest  enc.Name
 	LatestNonce     uint64
 	ExpirationTime  time.Time
 }
@@ -138,7 +136,6 @@ func (bpe *basePitEntry) InsertInRecord(
 		record.Face = face
 		record.LatestNonce = *interest.Nonce()
 		record.LatestTimestamp = time.Now()
-		record.LatestInterest = interest.Name().Clone()
 		record.ExpirationTime = time.Now().Add(lifetime)
 		record.PitToken = append([]byte{}, incomingPitToken...)
 		bpe.inRecords[face] = record
@@ -149,7 +146,6 @@ func (bpe *basePitEntry) InsertInRecord(
 	previousNonce := record.LatestNonce
 	record.LatestNonce = *interest.Nonce()
 	record.LatestTimestamp = time.Now()
-	record.LatestInterest = interest.Name().Clone()
 	record.ExpirationTime = time.Now().Add(lifetime)
 	return record, true, previousNonce
 }

@@ -103,7 +103,6 @@ func TestInsertInRecord(t *testing.T) {
 	assert.False(t, alreadyExists)
 	assert.Equal(t, inRecord.Face, faceID)
 	assert.Equal(t, inRecord.LatestNonce == *interest.Nonce(), true)
-	assert.Equal(t, inRecord.LatestInterest, interest.Name())
 	assert.Equal(t, bytes.Compare(inRecord.PitToken, pitToken), 0)
 	assert.Equal(t, len(bpe.InRecords()), 1)
 
@@ -118,7 +117,6 @@ func TestInsertInRecord(t *testing.T) {
 	assert.Equal(t, prevNonce, uint64(1))
 	assert.Equal(t, inRecord.Face, faceID)
 	assert.Equal(t, inRecord.LatestNonce == *interest.Nonce(), true)
-	assert.Equal(t, inRecord.LatestInterest, interest.Name())
 	assert.Equal(t, bytes.Compare(inRecord.PitToken, pitToken), 0)
 	assert.Equal(t, len(bpe.InRecords()), 1) // should update the original record in place
 	record, ok = bpe.InRecords()[faceID]
@@ -139,7 +137,6 @@ func TestInsertInRecord(t *testing.T) {
 	assert.False(t, alreadyExists)
 	assert.Equal(t, inRecord.Face, faceID2)
 	assert.Equal(t, inRecord.LatestNonce == *interest2.Nonce(), true)
-	assert.Equal(t, inRecord.LatestInterest, interest2.Name())
 	assert.Equal(t, bytes.Compare(inRecord.PitToken, pitToken2), 0)
 	assert.Equal(t, len(bpe.InRecords()), 2) // should be a new inRecord
 	record, ok = bpe.InRecords()[faceID2]

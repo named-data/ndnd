@@ -385,7 +385,7 @@ func (t *Thread) processOutgoingInterest(
 func (t *Thread) finalizeInterest(pitEntry table.PitEntry) {
 	// Check for nonces to insert into dead nonce list
 	for _, outRecord := range pitEntry.OutRecords() {
-		t.deadNonceList.Insert(outRecord.LatestInterest, outRecord.LatestNonce)
+		t.deadNonceList.Insert(pitEntry.EncName(), outRecord.LatestNonce)
 	}
 
 	// Counters
