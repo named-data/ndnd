@@ -543,7 +543,7 @@ func (c Component) NumberVal() uint64 {
 }
 
 // Hash returns the hash of the component
-func (c *Component) Hash() uint64 {
+func (c Component) Hash() uint64 {
 	h := hashPool.Get().(hash.Hash64)
 	defer hashPool.Put(h)
 	h.Reset()
@@ -552,8 +552,11 @@ func (c *Component) Hash() uint64 {
 }
 
 // HashInto hashes the current component into the hasher
-func (c *Component) HashInto(h hash.Hash) {
-	tbuf := unsafe.Slice((*byte)(unsafe.Pointer(&c.Typ)), 8)
+func (c Component) HashInto(h hash.Hash) {
+	// the double cast here prevents the tbuf slice from escaping to heap.
+	ptr := uintptr(unsafe.Pointer(&c.Typ))
+	tbuf := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), 8)
+
 	h.Write(tbuf)
 	h.Write(c.Val)
 }

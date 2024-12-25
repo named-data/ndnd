@@ -100,12 +100,12 @@ func (n Name) Bytes() []byte {
 }
 
 // Hash returns the hash of the name
-func (n *Name) Hash() uint64 {
+func (n Name) Hash() uint64 {
 	h := hashPool.Get().(hash.Hash64)
 	defer hashPool.Put(h)
 	h.Reset()
-	for i := range *n {
-		(*n)[i].HashInto(h)
+	for i := range n {
+		n[i].HashInto(h)
 	}
 	return h.Sum64()
 }
