@@ -335,6 +335,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			allowedNexthops[allowedNexthopsCount] = nexthop
 			allowedNexthopsCount++
 		}
+		if allowedNexthopsCount >= MaxNextHops {
+			break // limit reached
+		}
 	}
 
 	// Pass to strategy AfterReceiveInterest pipeline

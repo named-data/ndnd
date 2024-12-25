@@ -19,7 +19,7 @@ import (
 const StrategyPrefix = "/localhost/nfd/strategy"
 
 // Maximum number of possible next hops (i.e. router links) for optimization
-const MaxNextHops = 64
+const MaxNextHops = 32
 
 // Strategy represents a forwarding strategy.
 type Strategy interface {
