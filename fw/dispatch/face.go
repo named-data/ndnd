@@ -33,7 +33,7 @@ type Face interface {
 type OutPkt struct {
 	Pkt      *defn.Pkt
 	PitToken []byte
-	InFace   *uint64
+	InFace   uint64
 }
 
 // FaceDispatch is used to allow forwarding to interact with faces without a circular dependency issue.

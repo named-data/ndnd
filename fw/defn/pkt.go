@@ -22,7 +22,7 @@ type Pkt struct {
 
 	PitToken       []byte
 	CongestionMark *uint64
-	IncomingFaceID *uint64
+	IncomingFaceID uint64
 	NextHopFaceID  *uint64
 	CachePolicy    *uint64
 }

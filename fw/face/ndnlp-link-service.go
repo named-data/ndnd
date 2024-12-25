@@ -259,8 +259,8 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 		}
 
 		// Incoming face indication
-		if l.options.IsIncomingFaceIndicationEnabled && out.InFace != nil {
-			fragment.IncomingFaceId = out.InFace
+		if l.options.IsIncomingFaceIndicationEnabled {
+			fragment.IncomingFaceId = utils.IdPtr(out.InFace)
 		}
 
 		// Congestion marking
@@ -299,7 +299,7 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 	// All incoming frames come through a link service
 	// Attempt to decode buffer into LpPacket
 	pkt := &defn.Pkt{
-		IncomingFaceID: utils.IdPtr(l.faceID),
+		IncomingFaceID: l.faceID,
 	}
 
 	L2r := enc.NewBufferReader(wire)
