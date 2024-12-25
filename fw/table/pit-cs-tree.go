@@ -365,7 +365,7 @@ func (p *pitCsTreeNode) fillTreeToPrefixEnc(name enc.Name) *pitCsTreeNode {
 		newNode.depth = depth
 		newNode.parent = curNode
 		clear(newNode.children)
-		clear(newNode.pitEntries)
+		newNode.pitEntries = newNode.pitEntries[:0]
 		curNode.children[comp.Hash()] = newNode
 		curNode = newNode
 	}
