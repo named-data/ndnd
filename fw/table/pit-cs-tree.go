@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
+	"github.com/named-data/ndnd/fw/defn"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	pq "github.com/named-data/ndnd/std/utils/priority_queue"
@@ -15,22 +16,34 @@ const expiredPitTickerInterval = 100 * time.Millisecond
 
 type OnPitExpiration func(PitEntry)
 
-var nameTreePitEntryPool = sync.Pool{
-	New: func() interface{} {
-		entry := new(nameTreePitEntry)
-		entry.inRecords = make(map[uint64]*PitInRecord)
-		entry.outRecords = make(map[uint64]*PitOutRecord)
-		return entry
-	},
+var nameTreePitEntryPool = sync.Pool{New: newNameTreePitEntry}
+
+func newNameTreePitEntry() interface{} {
+	entry := new(nameTreePitEntry)
+	entry.inRecords = make(map[uint64]*PitInRecord)
+	entry.outRecords = make(map[uint64]*PitOutRecord)
+	return entry
 }
 
-var pitCsTreeNodePool = sync.Pool{
-	New: func() interface{} {
-		node := new(pitCsTreeNode)
-		node.children = make(map[uint64]*pitCsTreeNode)
-		node.pitEntries = make([]*nameTreePitEntry, 0, 1)
-		return node
-	},
+var pitCsTreeNodePool = sync.Pool{New: newPitCsTreeNode}
+
+func newPitCsTreeNode() interface{} {
+	node := new(pitCsTreeNode)
+	node.children = make(map[uint64]*pitCsTreeNode)
+	node.pitEntries = make([]*nameTreePitEntry, 0, 1)
+	return node
+}
+
+var nameTreeCsEntryPool = sync.Pool{New: newNameTreeCsEntry}
+
+func newNameTreeCsEntry() interface{} {
+	return &nameTreeCsEntry{
+		baseCsEntry: baseCsEntry{
+			index:     0,
+			wire:      make([]byte, defn.MaxNDNPacketSize),
+			staleTime: time.Now(),
+		},
+	}
 }
 
 // PitCsTree represents a PIT-CS implementation that uses a name tree
@@ -423,12 +436,9 @@ func (p *PitCsTree) InsertData(data ndn.Data, wire []byte) {
 		staleTime = staleTime.Add(*data.Freshness())
 	}
 
-	store := make([]byte, len(wire))
-	copy(store, wire)
-
 	if entry, ok := p.csMap[index]; ok {
 		// Replace existing entry
-		entry.wire = store
+		entry.wire = append(entry.wire[:0], wire...)
 		entry.staleTime = staleTime
 
 		p.csReplacement.AfterRefresh(index, wire, data)
@@ -436,14 +446,12 @@ func (p *PitCsTree) InsertData(data ndn.Data, wire []byte) {
 		// New entry
 		p.nCsEntries++
 		node := p.root.fillTreeToPrefixEnc(data.Name())
-		node.csEntry = &nameTreeCsEntry{
-			node: node,
-			baseCsEntry: baseCsEntry{
-				index:     index,
-				wire:      store,
-				staleTime: staleTime,
-			},
-		}
+
+		node.csEntry = nameTreeCsEntryPool.Get().(*nameTreeCsEntry)
+		node.csEntry.node = node
+		node.csEntry.wire = append(node.csEntry.wire[:0], wire...)
+		node.csEntry.index = index
+		node.csEntry.staleTime = staleTime
 
 		p.csMap[index] = node.csEntry
 		p.csReplacement.AfterInsert(index, wire, data)
@@ -460,6 +468,8 @@ func (p *PitCsTree) eraseCsDataFromReplacementStrategy(index uint64) {
 		entry.node.csEntry = nil
 		delete(p.csMap, index)
 		p.nCsEntries--
+		entry.node = nil
+		nameTreeCsEntryPool.Put(entry)
 	}
 }
 
