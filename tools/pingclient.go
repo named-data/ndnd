@@ -89,6 +89,10 @@ func (pc *PingClient) send(seq uint64) {
 				pc.prefix, seq,
 				float64(t2.Sub(t1).Microseconds())/1000.0)
 
+			if pc.nRecv == 0 { // lateinit
+				pc.rttMin = time.Duration(1<<63 - 1)
+			}
+
 			pc.nRecv++
 			pc.totalTime += t2.Sub(t1)
 			pc.rttMin = min(pc.rttMin, t2.Sub(t1))
