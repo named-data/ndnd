@@ -2,6 +2,7 @@ package security_test
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"testing"
 	"time"
 
@@ -33,7 +34,7 @@ func TestEddsaSignerBasic(t *testing.T) {
 	sigValue := utils.WithoutErr(signer.ComputeSigValue(dataVal))
 
 	// For basic test, we use ed25519.Verify to verify the signature.
-	require.True(t, ed25519.Verify(ed25519.PublicKey(edkeybits[ed25519.PublicKeySize:]), dataVal.Join(), sigValue))
+	require.True(t, ed25519.Verify(security.Ed25519DerivePubKey(edkeybits), dataVal.Join(), sigValue))
 }
 
 func TestEddsaSignerCertificate(t *testing.T) {
@@ -47,7 +48,8 @@ func TestEddsaSignerCertificate(t *testing.T) {
 	signer := security.NewEdSigner(
 		false, false, 3600*time.Second, edkeybits, keyLocatorName,
 	)
-	pubKeyBits := []byte(edkeybits[ed25519.PublicKeySize:])
+	pubKey := security.Ed25519DerivePubKey(edkeybits)
+	pubKeyBits := security.Ed25519PubKeyToDER(pubKey)
 
 	cert := utils.WithoutErr(spec.MakeData(certName, &ndn.DataConfig{
 		ContentType: utils.IdPtr(ndn.ContentTypeKey),
@@ -57,5 +59,29 @@ func TestEddsaSignerCertificate(t *testing.T) {
 	data, covered, err := spec.ReadData(enc.NewWireReader(cert.Wire))
 	require.NoError(t, err)
 
-	require.True(t, security.EddsaValidate(covered, data.Signature(), pubKeyBits))
+	pubKeyParsedBits := data.Content().Join()
+	pubKeyParsed := utils.WithoutErr(security.Ed25519PubKeyFromDER(pubKeyParsedBits))
+
+	require.True(t, security.EddsaValidate(covered, data.Signature(), pubKeyParsed))
+}
+
+// TestEddsaSignerCertificate2 tests the validator using a given certificate for interoperability.
+func TestEddsaSignerCertificate2(t *testing.T) {
+	utils.SetTestingT(t)
+
+	const TestCert = `
+Bv0BCgc1CAxFZDI1NTE5LWRlbW8IA0tFWQgQNWE2MTVkYjdjZjA2MDNiNQgEc2Vs
+ZjYIAAABgQD8AY0UCRgBAhkEADbugBUsMCowBQYDK2VwAyEAQxUZBL+3I3D4oDIJ
+tJvuCTguHM7AUbhlhA/wu8ZhrkwWVhsBBRwnByUIDEVkMjU1MTktZGVtbwgDS0VZ
+CBA1YTYxNWRiN2NmMDYwM2I1/QD9Jv0A/g8xOTcwMDEwMVQwMDAwMDD9AP8PMjAy
+MjA1MjZUMTUyODQ0F0DAAWCZzxQSCAV0tluFDry5aT1b+EgoYgT1JKxbKVb/tINx
+M43PFy/2hDe8j61PuYD9tCah0TWapPwfXWi3fygA`
+	spec := spec_2022.Spec{}
+
+	certWire := utils.WithoutErr(base64.RawStdEncoding.DecodeString(TestCert))
+	certData, covered, err := spec.ReadData(enc.NewBufferReader(certWire))
+	require.NoError(t, err)
+
+	pubKeyBits := utils.WithoutErr(security.Ed25519PubKeyFromDER(certData.Content().Join()))
+	require.True(t, security.EddsaValidate(covered, certData.Signature(), pubKeyBits))
 }
