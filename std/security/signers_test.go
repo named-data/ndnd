@@ -2,6 +2,7 @@ package security_test
 
 import (
 	"crypto/ed25519"
+	"crypto/x509"
 	"encoding/base64"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func TestEddsaSignerCertificate(t *testing.T) {
 		false, false, 3600*time.Second, edkeybits, keyLocatorName,
 	)
 	pubKey := security.Ed25519DerivePubKey(edkeybits)
-	pubKeyBits := security.Ed25519PubKeyToDER(pubKey)
+	pubKeyBits := utils.WithoutErr(x509.MarshalPKIXPublicKey(pubKey))
 
 	cert := utils.WithoutErr(spec.MakeData(certName, &ndn.DataConfig{
 		ContentType: utils.IdPtr(ndn.ContentTypeKey),
@@ -60,9 +61,12 @@ func TestEddsaSignerCertificate(t *testing.T) {
 	require.NoError(t, err)
 
 	pubKeyParsedBits := data.Content().Join()
-	pubKeyParsed := utils.WithoutErr(security.Ed25519PubKeyFromDER(pubKeyParsedBits))
-
-	require.True(t, security.EddsaValidate(covered, data.Signature(), pubKeyParsed))
+	pubKeyParsedUntyped := utils.WithoutErr(x509.ParsePKIXPublicKey(pubKeyParsedBits))
+	if pubKeyParsed := pubKeyParsedUntyped.(ed25519.PublicKey); pubKeyParsed != nil {
+		require.True(t, security.EddsaValidate(covered, data.Signature(), pubKeyParsed))
+	} else {
+		require.Fail(t, "unexpected public key type")
+	}
 }
 
 // TestEddsaSignerCertificate2 tests the validator using a given certificate for interoperability.
@@ -82,6 +86,10 @@ M43PFy/2hDe8j61PuYD9tCah0TWapPwfXWi3fygA`
 	certData, covered, err := spec.ReadData(enc.NewBufferReader(certWire))
 	require.NoError(t, err)
 
-	pubKeyBits := utils.WithoutErr(security.Ed25519PubKeyFromDER(certData.Content().Join()))
-	require.True(t, security.EddsaValidate(covered, certData.Signature(), pubKeyBits))
+	pubKeyBits := utils.WithoutErr(x509.ParsePKIXPublicKey(certData.Content().Join()))
+	pubKey := pubKeyBits.(ed25519.PublicKey)
+	if pubKey == nil {
+		require.Fail(t, "unexpected public key type")
+	}
+	require.True(t, security.EddsaValidate(covered, certData.Signature(), pubKey))
 }
