@@ -19,7 +19,7 @@ type EncryptedContentEncoder struct {
 type EncryptedContentParsingContext struct {
 }
 
-func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) {
+func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) []uint {
 
 	if value.CipherText != nil {
 		encoder.CipherText_length = 0
@@ -84,7 +84,7 @@ func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.KeyId != nil {
 		l += 1
@@ -148,6 +148,7 @@ func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *EncryptedContentParsingContext) Init() {
@@ -269,11 +270,15 @@ func (encoder *EncryptedContentEncoder) EncodeInto(value *EncryptedContent, wire
 
 func (encoder *EncryptedContentEncoder) Encode(value *EncryptedContent) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 

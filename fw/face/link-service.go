@@ -226,7 +226,7 @@ func (l *linkServiceBase) dispatchInterest(pkt *defn.Pkt) {
 	}
 
 	// Store name for easy access
-	pkt.Name = pkt.L3.Interest.NameV
+	pkt.Name = pkt.L3.Interest.Name()
 
 	// Hash name to thread
 	thread := fw.HashNameToFwThread(pkt.Name)
@@ -240,7 +240,7 @@ func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 	}
 
 	// Store name for easy access
-	pkt.Name = pkt.L3.Data.NameV
+	pkt.Name = pkt.L3.Data.Name()
 
 	// Decode PitToken. If it's for us, it's a uint16 + uint32.
 	if len(pkt.PitToken) == 6 {

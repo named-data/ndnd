@@ -2,7 +2,6 @@ package encoding
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"hash"
 	"io"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unsafe"
 
 	"github.com/cespare/xxhash"
 )
@@ -553,8 +553,10 @@ func (c Component) Hash() uint64 {
 
 // HashInto hashes the current component into the hasher
 func (c Component) HashInto(h hash.Hash) {
-	tbuf := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-	binary.BigEndian.PutUint64(tbuf, uint64(c.Typ))
+	// the double cast here prevents the tbuf slice from escaping to heap.
+	ptr := uintptr(unsafe.Pointer(&c.Typ))
+	tbuf := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), 8)
+
 	h.Write(tbuf)
 	h.Write(c.Val)
 }

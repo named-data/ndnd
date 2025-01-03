@@ -13,8 +13,8 @@ import (
 	"github.com/named-data/ndnd/fw/fw"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
-	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 // ContentStoreModule is the module that handles Content Store Management.
@@ -35,15 +35,15 @@ func (c *ContentStoreModule) getManager() *Thread {
 	return c.manager
 }
 
-func (c *ContentStoreModule) handleIncomingInterest(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (c *ContentStoreModule) handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	// Only allow from /localhost
-	if !c.manager.localPrefix.IsPrefix(interest.NameV) {
+	if !c.manager.localPrefix.IsPrefix(interest.Name()) {
 		core.LogWarn(c, "Received CS management Interest from non-local source - DROP")
 		return
 	}
 
 	// Dispatch by verb
-	verb := interest.NameV[c.manager.prefixLength()+1].String()
+	verb := interest.Name()[c.manager.prefixLength()+1].String()
 	switch verb {
 	case "config":
 		c.config(interest, pitToken, inFace)
@@ -63,10 +63,10 @@ func (c *ContentStoreModule) handleIncomingInterest(interest *spec.Interest, pit
 	}
 }
 
-func (c *ContentStoreModule) config(interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (c *ContentStoreModule) config(interest ndn.Interest, pitToken []byte, inFace uint64) {
 	var response *mgmt.ControlResponse
 
-	if len(interest.NameV) < c.manager.prefixLength()+3 {
+	if len(interest.Name()) < c.manager.prefixLength()+3 {
 		// Name not long enough to contain ControlParameters
 		core.LogWarn(c, "Missing ControlParameters in ", interest.Name())
 		response = makeControlResponse(400, "ControlParameters is incorrect", nil)
@@ -115,8 +115,8 @@ func (c *ContentStoreModule) config(interest *spec.Interest, pitToken []byte, in
 	c.manager.sendResponse(response, interest, pitToken, inFace)
 }
 
-func (c *ContentStoreModule) info(interest *spec.Interest, pitToken []byte, _ uint64) {
-	if len(interest.NameV) > c.manager.prefixLength()+2 {
+func (c *ContentStoreModule) info(interest ndn.Interest, pitToken []byte, _ uint64) {
+	if len(interest.Name()) > c.manager.prefixLength()+2 {
 		// Ignore because contains version and/or segment components
 		return
 	}

@@ -170,13 +170,17 @@ func (context *PacketParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 				if true {
 					handled = true
 					handled_Advertisement = true
-					value.Advertisement, err = context.Advertisement_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Advertisement, err = context.Advertisement_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 301:
 				if true {
 					handled = true
 					handled_PrefixOpList = true
-					value.PrefixOpList, err = context.PrefixOpList_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.PrefixOpList, err = context.PrefixOpList_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -404,7 +408,9 @@ func (context *AdvertisementParsingContext) Parse(reader enc.ParseReader, ignore
 						}{}
 						{
 							value := &pseudoValue
-							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Entries, err = context.Entries_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Entries = append(value.Entries, pseudoValue.Entries)
@@ -682,13 +688,17 @@ func (context *AdvEntryParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if true {
 					handled = true
 					handled_Destination = true
-					value.Destination, err = context.Destination_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Destination, err = context.Destination_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 206:
 				if true {
 					handled = true
 					handled_NextHop = true
-					value.NextHop, err = context.NextHop_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.NextHop, err = context.NextHop_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 208:
 				if true {
@@ -1297,7 +1307,9 @@ func (context *PrefixOpListParsingContext) Parse(reader enc.ParseReader, ignoreC
 				if true {
 					handled = true
 					handled_ExitRouter = true
-					value.ExitRouter, err = context.ExitRouter_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.ExitRouter, err = context.ExitRouter_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 302:
 				if true {
@@ -1318,7 +1330,9 @@ func (context *PrefixOpListParsingContext) Parse(reader enc.ParseReader, ignoreC
 						}{}
 						{
 							value := &pseudoValue
-							value.PrefixOpAdds, err = context.PrefixOpAdds_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.PrefixOpAdds, err = context.PrefixOpAdds_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.PrefixOpAdds = append(value.PrefixOpAdds, pseudoValue.PrefixOpAdds)
@@ -1338,7 +1352,9 @@ func (context *PrefixOpListParsingContext) Parse(reader enc.ParseReader, ignoreC
 						}{}
 						{
 							value := &pseudoValue
-							value.PrefixOpRemoves, err = context.PrefixOpRemoves_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.PrefixOpRemoves, err = context.PrefixOpRemoves_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.PrefixOpRemoves = append(value.PrefixOpRemoves, pseudoValue.PrefixOpRemoves)

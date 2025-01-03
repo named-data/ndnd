@@ -764,7 +764,9 @@ func (context *NestedParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 				if true {
 					handled = true
 					handled_Val = true
-					value.Val, err = context.Val_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Val, err = context.Val_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -989,7 +991,9 @@ func (context *NestedSeqParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 						}{}
 						{
 							value := &pseudoValue
-							value.Vals, err = context.Vals_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Vals, err = context.Vals_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Vals = append(value.Vals, pseudoValue.Vals)
@@ -1052,7 +1056,7 @@ type InnerWire1Encoder struct {
 type InnerWire1ParsingContext struct {
 }
 
-func (encoder *InnerWire1Encoder) Init(value *InnerWire1) {
+func (encoder *InnerWire1Encoder) Init(value *InnerWire1) []uint {
 	if value.Wire1 != nil {
 		encoder.Wire1_length = 0
 		for _, c := range value.Wire1 {
@@ -1090,7 +1094,7 @@ func (encoder *InnerWire1Encoder) Init(value *InnerWire1) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Wire1 != nil {
 		l += 1
@@ -1128,6 +1132,7 @@ func (encoder *InnerWire1Encoder) Init(value *InnerWire1) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *InnerWire1ParsingContext) Init() {
@@ -1205,11 +1210,15 @@ func (encoder *InnerWire1Encoder) EncodeInto(value *InnerWire1, wire enc.Wire) {
 
 func (encoder *InnerWire1Encoder) Encode(value *InnerWire1) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -1321,7 +1330,7 @@ type InnerWire2Encoder struct {
 type InnerWire2ParsingContext struct {
 }
 
-func (encoder *InnerWire2Encoder) Init(value *InnerWire2) {
+func (encoder *InnerWire2Encoder) Init(value *InnerWire2) []uint {
 	if value.Wire2 != nil {
 		encoder.Wire2_length = 0
 		for _, c := range value.Wire2 {
@@ -1346,7 +1355,7 @@ func (encoder *InnerWire2Encoder) Init(value *InnerWire2) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Wire2 != nil {
 		l += 1
@@ -1371,6 +1380,7 @@ func (encoder *InnerWire2Encoder) Init(value *InnerWire2) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *InnerWire2ParsingContext) Init() {
@@ -1426,11 +1436,15 @@ func (encoder *InnerWire2Encoder) EncodeInto(value *InnerWire2, wire enc.Wire) {
 
 func (encoder *InnerWire2Encoder) Encode(value *InnerWire2) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -1520,7 +1534,7 @@ type NestedWireParsingContext struct {
 	W2_context InnerWire2ParsingContext
 }
 
-func (encoder *NestedWireEncoder) Init(value *NestedWire) {
+func (encoder *NestedWireEncoder) Init(value *NestedWire) []uint {
 	if value.W1 != nil {
 		encoder.W1_encoder.Init(value.W1)
 	}
@@ -1571,7 +1585,7 @@ func (encoder *NestedWireEncoder) Init(value *NestedWire) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.W1 != nil {
 		l += 1
@@ -1638,6 +1652,7 @@ func (encoder *NestedWireEncoder) Init(value *NestedWire) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *NestedWireParsingContext) Init() {
@@ -1777,11 +1792,15 @@ func (encoder *NestedWireEncoder) EncodeInto(value *NestedWire, wire enc.Wire) {
 
 func (encoder *NestedWireEncoder) Encode(value *NestedWire) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -1826,7 +1845,9 @@ func (context *NestedWireParsingContext) Parse(reader enc.ParseReader, ignoreCri
 				if true {
 					handled = true
 					handled_W1 = true
-					value.W1, err = context.W1_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.W1, err = context.W1_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 5:
 				if true {
@@ -1851,7 +1872,9 @@ func (context *NestedWireParsingContext) Parse(reader enc.ParseReader, ignoreCri
 				if true {
 					handled = true
 					handled_W2 = true
-					value.W2, err = context.W2_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.W2, err = context.W2_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {

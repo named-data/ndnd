@@ -36,7 +36,9 @@ type Strategy interface {
 		packet *defn.Pkt,
 		pitEntry table.PitEntry,
 		inFace uint64,
-		nexthops []*table.FibNextHopEntry)
+		nexthops [defn.MaxNextHops]*table.FibNextHopEntry,
+		nexthopsCount int,
+	)
 	BeforeSatisfyInterest(
 		pitEntry table.PitEntry,
 		inFace uint64)

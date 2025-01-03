@@ -94,9 +94,9 @@ func (m *Thread) sendInterest(name enc.Name, params enc.Wire) {
 	core.LogTrace(m, "Sent management Interest for ", interest.FinalName)
 }
 
-func (m *Thread) sendResponse(response *mgmt.ControlResponse, interest *spec.Interest, pitToken []byte, inFace uint64) {
+func (m *Thread) sendResponse(response *mgmt.ControlResponse, interest ndn.Interest, pitToken []byte, inFace uint64) {
 	encodedResponse := response.Encode()
-	data, err := spec.Spec{}.MakeData(interest.NameV,
+	data, err := spec.Spec{}.MakeData(interest.Name(),
 		&ndn.DataConfig{
 			ContentType: utils.IdPtr(ndn.ContentTypeBlob),
 			Freshness:   utils.IdPtr(time.Second),

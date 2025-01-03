@@ -170,35 +170,32 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		panic("processIncomingInterest called with non-Interest packet")
 	}
 
-	// Ensure incoming face is indicated
-	if packet.IncomingFaceID == nil {
-		core.LogError(t, "Interest missing IncomingFaceId - DROP")
-		return
-	}
 	// Already asserted that this is an Interest in link service
 	// Get incoming face
-	incomingFace := dispatch.GetFace(*packet.IncomingFaceID)
+	incomingFace := dispatch.GetFace(packet.IncomingFaceID)
 	if incomingFace == nil {
-		core.LogError(t, "Non-existent incoming FaceID=", *packet.IncomingFaceID,
+		core.LogError(t, "Non-existent incoming FaceID=", packet.IncomingFaceID,
 			" for Interest=", packet.Name, " - DROP")
 		return
 	}
 
-	if interest.HopLimitV != nil {
-		core.LogTrace(t, "Interest ", packet.Name, " has HopLimit=", *interest.HopLimitV)
-		if *interest.HopLimitV == 0 {
+	if interest.HopLimit() != nil {
+		core.LogTrace(t, "Interest ", packet.Name, " has HopLimit=", *interest.HopLimit())
+		if *interest.HopLimit() == 0 {
 			return
 		}
-		*interest.HopLimitV -= 1
+		*interest.HopLimit() -= 1
 	}
 
 	// Log PIT token (if any)
-	core.LogTrace(t, "OnIncomingInterest: ", packet.Name, ", FaceID=", incomingFace.FaceID(), ", PitTokenL=", len(packet.PitToken))
+	if core.HasTraceLogs() {
+		core.LogTrace(t, "OnIncomingInterest: ", packet.Name, ", FaceID=", incomingFace.FaceID(), ", PitTokenL=", len(packet.PitToken))
+	}
 
 	// Check if violates /localhost
 	if incomingFace.Scope() == defn.NonLocal &&
-		len(interest.NameV) > 0 &&
-		bytes.Equal(interest.NameV[0].Val, LOCALHOST) {
+		len(interest.Name()) > 0 &&
+		bytes.Equal(interest.Name()[0].Val, LOCALHOST) {
 		core.LogWarn(t, "Interest ", packet.Name, " from non-local face=", incomingFace.FaceID(), " violates /localhost scope - DROP")
 		return
 	}
@@ -208,10 +205,10 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	// Check for forwarding hint and, if present, determine if reaching producer region (and then strip forwarding hint)
 	isReachingProducerRegion := true
 	var fhName enc.Name = nil
-	hint := interest.ForwardingHintV
-	if hint != nil && len(hint.Names) > 0 {
+	hint := interest.ForwardingHint()
+	if hint != nil && len(hint) > 0 {
 		isReachingProducerRegion = false
-		for _, fh := range hint.Names {
+		for _, fh := range hint {
 			if table.NetworkRegion.IsProducer(fh) {
 				isReachingProducerRegion = true
 				break
@@ -227,14 +224,18 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	// Drop packet if no nonce is found
-	if interest.NonceV == nil {
-		core.LogDebug(t, "Interest ", packet.Name, " is missing Nonce - DROP")
+	if interest.Nonce() == nil {
+		if core.HasDebugLogs() {
+			core.LogDebug(t, "Interest ", packet.Name, " is missing Nonce - DROP")
+		}
 		return
 	}
 
 	// Check if packet is in dead nonce list
-	if exists := t.deadNonceList.Find(interest.NameV, *interest.NonceV); exists {
-		core.LogDebug(t, "Interest ", packet.Name, " is dropped by DeadNonce: ", *interest.NonceV)
+	if exists := t.deadNonceList.Find(interest.Name(), *interest.Nonce()); exists {
+		if core.HasDebugLogs() {
+			core.LogDebug(t, "Interest ", packet.Name, " is dropped by DeadNonce: ", *interest.Nonce())
+		}
 		return
 	}
 
@@ -243,12 +244,14 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	pitEntry, isDuplicate := t.pitCS.InsertInterest(interest, fhName, incomingFace.FaceID())
 	if isDuplicate {
 		// Interest loop - since we don't use Nacks, just drop
-		core.LogDebug(t, "Interest ", packet.Name, " is looping - DROP")
+		if core.HasDebugLogs() {
+			core.LogDebug(t, "Interest ", packet.Name, " is looping - DROP")
+		}
 		return
 	}
 
 	// Get strategy for name
-	strategyName := table.FibStrategyTable.FindStrategyEnc(interest.NameV)
+	strategyName := table.FibStrategyTable.FindStrategyEnc(interest.Name())
 	strategy := t.strategies[strategyName.Hash()]
 
 	// Add in-record and determine if already pending
@@ -271,7 +274,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 					packet.L3.Data = csData
 					packet.L3.Interest = nil
 					packet.Raw = csWire
-					packet.Name = csData.NameV
+					packet.Name = csData.Name()
 					strategy.AfterContentStoreHit(packet, pitEntry, incomingFace.FaceID())
 					return
 				} else if err != nil {
@@ -283,11 +286,13 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			}
 		}
 	} else {
-		core.LogTrace(t, "Interest ", packet.Name, " is already pending")
+		if core.HasTraceLogs() {
+			core.LogTrace(t, "Interest ", packet.Name, " is already pending")
+		}
 
 		// Add the previous nonce to the dead nonce list to prevent further looping
 		// TODO: review this design, not specified in NFD dev guide
-		t.deadNonceList.Insert(interest.NameV, prevNonce)
+		t.deadNonceList.Insert(interest.Name(), prevNonce)
 	}
 
 	// Update PIT entry expiration timer
@@ -296,7 +301,10 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	// If NextHopFaceId set, forward to that face (if it exists) or drop
 	if packet.NextHopFaceID != nil {
 		if dispatch.GetFace(*packet.NextHopFaceID) != nil {
-			core.LogTrace(t, "NextHopFaceId is set for Interest ", packet.Name, " - dispatching directly to face")
+			if core.HasTraceLogs() {
+				core.LogTrace(t, "NextHopFaceId is set for Interest ", packet.Name, " - dispatching directly to face")
+			}
+
 			dispatch.GetFace(*packet.NextHopFaceID).SendPacket(dispatch.OutPkt{
 				Pkt:      packet,
 				PitToken: packet.PitToken, // TODO: ??
@@ -309,7 +317,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	// Use forwarding hint if present
-	lookupName := interest.NameV
+	lookupName := interest.Name()
 	if fhName != nil {
 		lookupName = fhName
 	}
@@ -319,16 +327,23 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 
 	// Exclude faces that have an in-record for this interest
 	// TODO: unclear where NFD dev guide specifies such behavior (if any)
-	allowedNexthops := make([]*table.FibNextHopEntry, 0, len(nexthops))
+	allowedNexthops := [defn.MaxNextHops]*table.FibNextHopEntry{}
+	allowedNexthopsCount := 0
 	for _, nexthop := range nexthops {
 		record := pitEntry.InRecords()[nexthop.Nexthop]
 		if record == nil || nexthop.Nexthop == incomingFace.FaceID() {
-			allowedNexthops = append(allowedNexthops, nexthop)
+			allowedNexthops[allowedNexthopsCount] = nexthop
+			allowedNexthopsCount++
+		}
+		if allowedNexthopsCount >= defn.MaxNextHops {
+			break // limit reached
 		}
 	}
 
 	// Pass to strategy AfterReceiveInterest pipeline
-	strategy.AfterReceiveInterest(packet, pitEntry, incomingFace.FaceID(), allowedNexthops)
+	strategy.AfterReceiveInterest(
+		packet, pitEntry, incomingFace.FaceID(),
+		allowedNexthops, allowedNexthopsCount)
 }
 
 func (t *Thread) processOutgoingInterest(
@@ -356,7 +371,7 @@ func (t *Thread) processOutgoingInterest(
 	}
 
 	// Drop if HopLimit (if present) on Interest going to non-local face is 0. If so, drop
-	if interest.HopLimitV != nil && int(*interest.HopLimitV) == 0 &&
+	if interest.HopLimit() != nil && int(*interest.HopLimit()) == 0 &&
 		outgoingFace.Scope() == defn.NonLocal {
 		core.LogDebug(t, "Attempting to send Interest=", packet.Name, " with HopLimit=0 to non-local face - DROP")
 		return false
@@ -376,7 +391,7 @@ func (t *Thread) processOutgoingInterest(
 	outgoingFace.SendPacket(dispatch.OutPkt{
 		Pkt:      packet,
 		PitToken: pitToken,
-		InFace:   utils.IdPtr(inFace),
+		InFace:   inFace,
 	})
 
 	return true
@@ -385,7 +400,7 @@ func (t *Thread) processOutgoingInterest(
 func (t *Thread) finalizeInterest(pitEntry table.PitEntry) {
 	// Check for nonces to insert into dead nonce list
 	for _, outRecord := range pitEntry.OutRecords() {
-		t.deadNonceList.Insert(outRecord.LatestInterest, outRecord.LatestNonce)
+		t.deadNonceList.Insert(pitEntry.EncName(), outRecord.LatestNonce)
 	}
 
 	// Counters
@@ -400,12 +415,6 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 		panic("processIncomingData called with non-Data packet")
 	}
 
-	// Ensure incoming face is indicated
-	if packet.IncomingFaceID == nil {
-		core.LogError(t, "Data missing IncomingFaceId - DROP")
-		return
-	}
-
 	// Get PIT if present
 	var pitToken *uint32
 	//lint:ignore S1009 removing the nil check causes a segfault ¯\_(ツ)_/¯
@@ -414,9 +423,9 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 	}
 
 	// Get incoming face
-	incomingFace := dispatch.GetFace(*packet.IncomingFaceID)
+	incomingFace := dispatch.GetFace(packet.IncomingFaceID)
 	if incomingFace == nil {
-		core.LogError(t, "Non-existent nexthop FaceID=", *packet.IncomingFaceID, " for Data=", packet.Name, " DROP")
+		core.LogError(t, "Non-existent nexthop FaceID=", packet.IncomingFaceID, " for Data=", packet.Name, " DROP")
 		return
 	}
 
@@ -424,8 +433,8 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 
 	// Check if violates /localhost
 	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 &&
-		bytes.Equal(data.NameV[0].Val, LOCALHOST) {
-		core.LogWarn(t, "Data ", packet.Name, " from non-local FaceID=", *packet.IncomingFaceID, " violates /localhost scope - DROP")
+		bytes.Equal(data.Name()[0].Val, LOCALHOST) {
+		core.LogWarn(t, "Data ", packet.Name, " from non-local FaceID=", packet.IncomingFaceID, " violates /localhost scope - DROP")
 		return
 	}
 
@@ -438,12 +447,12 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 	pitEntries := t.pitCS.FindInterestPrefixMatchByDataEnc(data, pitToken)
 	if len(pitEntries) == 0 {
 		// Unsolicited Data - nothing more to do
-		core.LogDebug(t, "Unsolicited data ", packet.Name, " FaceID=", *packet.IncomingFaceID, " - DROP")
+		core.LogDebug(t, "Unsolicited data ", packet.Name, " FaceID=", packet.IncomingFaceID, " - DROP")
 		return
 	}
 
 	// Get strategy for name
-	strategyName := table.FibStrategyTable.FindStrategyEnc(data.NameV)
+	strategyName := table.FibStrategyTable.FindStrategyEnc(data.Name())
 	strategy := t.strategies[strategyName.Hash()]
 
 	if len(pitEntries) == 1 {
@@ -456,14 +465,14 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 
 		// Invoke strategy's AfterReceiveData
 		core.LogTrace(t, "Sending Data=", packet.Name, " to strategy=", strategyName)
-		strategy.AfterReceiveData(packet, pitEntry, *packet.IncomingFaceID)
+		strategy.AfterReceiveData(packet, pitEntry, packet.IncomingFaceID)
 
 		// Mark PIT entry as satisfied
 		pitEntry.SetSatisfied(true)
 
 		// Insert into dead nonce list
 		for _, outRecord := range pitEntry.OutRecords() {
-			t.deadNonceList.Insert(data.NameV, outRecord.LatestNonce)
+			t.deadNonceList.Insert(data.Name(), outRecord.LatestNonce)
 		}
 
 		// Clear out records from PIT entry
@@ -478,7 +487,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 			// Store all pending downstreams (except face Data packet arrived on) and PIT tokens
 			downstreams := make(map[uint64][]byte)
 			for face, record := range pitEntry.InRecords() {
-				if face != *packet.IncomingFaceID {
+				if face != packet.IncomingFaceID {
 					// TODO: Ad-hoc faces
 					downstreams[face] = make([]byte, len(record.PitToken))
 					copy(downstreams[face], record.PitToken)
@@ -489,14 +498,14 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 			table.SetExpirationTimerToNow(pitEntry)
 
 			// Invoke strategy's BeforeSatisfyInterest
-			strategy.BeforeSatisfyInterest(pitEntry, *packet.IncomingFaceID)
+			strategy.BeforeSatisfyInterest(pitEntry, packet.IncomingFaceID)
 
 			// Mark PIT entry as satisfied
 			pitEntry.SetSatisfied(true)
 
 			// Insert into dead nonce list
 			for _, outRecord := range pitEntries[0].GetOutRecords() {
-				t.deadNonceList.Insert(data.NameV, outRecord.LatestNonce)
+				t.deadNonceList.Insert(data.Name(), outRecord.LatestNonce)
 			}
 
 			// Clear PIT entry's in- and out-records
@@ -506,7 +515,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 			// Call outgoing Data pipeline for each pending downstream
 			for face, token := range downstreams {
 				core.LogTrace(t, "Multiple PIT entries Data=", packet.Name)
-				t.processOutgoingData(packet, face, token, *packet.IncomingFaceID)
+				t.processOutgoingData(packet, face, token, packet.IncomingFaceID)
 			}
 		}
 	}
@@ -533,7 +542,7 @@ func (t *Thread) processOutgoingData(
 	}
 
 	// Check if violates /localhost
-	if outgoingFace.Scope() == defn.NonLocal && len(data.NameV) > 0 && bytes.Equal(data.NameV[0].Val, LOCALHOST) {
+	if outgoingFace.Scope() == defn.NonLocal && len(data.Name()) > 0 && bytes.Equal(data.Name()[0].Val, LOCALHOST) {
 		core.LogWarn(t, "Data ", packet.Name, " cannot be sent to non-local FaceID=", nexthop, " since violates /localhost scope - DROP")
 		return
 	}
@@ -545,6 +554,6 @@ func (t *Thread) processOutgoingData(
 	outgoingFace.SendPacket(dispatch.OutPkt{
 		Pkt:      packet,
 		PitToken: pitToken,
-		InFace:   utils.IdPtr(inFace),
+		InFace:   inFace,
 	})
 }

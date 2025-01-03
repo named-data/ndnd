@@ -73,6 +73,7 @@ type NDNLPLinkService struct {
 	BufferReader             enc.BufferReader
 	congestionCheck          uint64
 	outFrame                 []byte
+	outWire                  enc.Wire
 }
 
 // MakeNDNLPLinkService creates a new NDNLPv2 link service
@@ -88,7 +89,8 @@ func MakeNDNLPLinkService(transport transport, options NDNLPLinkServiceOptions) 
 	l.nextSequence = 0
 	l.nextTxSequence = 0
 	l.congestionCheck = 0
-	l.outFrame = make([]byte, defn.MaxNDNPacketSize)
+	l.outFrame = make([]byte, defn.MaxNDNPacketSize*2)
+	l.outWire = make(enc.Wire, defn.MaxNDNPacketSize)
 	return l
 }
 
@@ -217,6 +219,7 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 			}
 			fragments[i] = &spec.LpPacket{Fragment: frag}
 		}
+		reader.Free()
 	} else {
 		fragments = []*spec.LpPacket{{Fragment: enc.Wire{wire}}}
 	}
@@ -256,8 +259,8 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 		}
 
 		// Incoming face indication
-		if l.options.IsIncomingFaceIndicationEnabled && out.InFace != nil {
-			fragment.IncomingFaceId = out.InFace
+		if l.options.IsIncomingFaceIndicationEnabled {
+			fragment.IncomingFaceId = utils.IdPtr(out.InFace)
 		}
 
 		// Congestion marking
@@ -265,23 +268,26 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 			fragment.CongestionMark = congestionMark
 		}
 
-		pkt := &spec.Packet{
-			LpPacket: fragment,
-		}
-		encoder := spec.PacketEncoder{}
-		encoder.Init(pkt)
-		frameWire := encoder.Encode(pkt)
-		if frameWire == nil {
-			core.LogError(l, "Unable to encode fragment - DROP")
-			break
-		}
+		pkt := spec.Packet{LpPacket: fragment}
 
-		// Use preallocated buffer for outgoing frame
-		l.outFrame = l.outFrame[:0]
-		for _, b := range frameWire {
-			l.outFrame = append(l.outFrame, b...)
+		// Use preallocated buffers for outgoing frame
+		encoder := spec.PacketEncoder{}
+		wirePlan := encoder.Init(&pkt)
+		outFrame := l.outFrame
+		outWire := l.outWire[:len(wirePlan)]
+
+		for i, l := range wirePlan {
+			outWire[i] = outFrame[:l]
+			outFrame = outFrame[l:]
 		}
-		l.transport.sendFrame(l.outFrame)
+		encoder.EncodeInto(&pkt, outWire)
+
+		// Consolidate fragments. Since we only overwrite behind, there is no conflict.
+		nbytes := 0
+		for _, b := range outWire {
+			nbytes += copy(l.outFrame[nbytes:], b)
+		}
+		l.transport.sendFrame(l.outFrame[:nbytes])
 	}
 }
 
@@ -293,10 +299,12 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 	// All incoming frames come through a link service
 	// Attempt to decode buffer into LpPacket
 	pkt := &defn.Pkt{
-		IncomingFaceID: utils.IdPtr(l.faceID),
+		IncomingFaceID: l.faceID,
 	}
 
-	L2, err := ReadPacketUnverified(enc.NewBufferReader(wire))
+	L2r := enc.NewBufferReader(wire)
+	L2, err := ReadPacketUnverified(L2r)
+	L2r.Free()
 	if err != nil {
 		core.LogError(l, err)
 		return
@@ -370,7 +378,9 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 		}
 
 		// Parse inner packet in place
-		L3, err := ReadPacketUnverified(enc.NewBufferReader(wire))
+		L3r := enc.NewBufferReader(wire)
+		L3, err := ReadPacketUnverified(L3r)
+		L3r.Free()
 		if err != nil {
 			return
 		}
@@ -444,8 +454,21 @@ func (op *NDNLPLinkServiceOptions) Flags() (ret uint64) {
 }
 
 // Reads a packet without validating the internal fields
-func ReadPacketUnverified(reader enc.ParseReader) (*spec.Packet, error) {
+func ReadPacketUnverified(reader enc.ParseReader) (ret defn.PacketIntf, err error) {
 	context := spec.PacketParsingContext{}
 	context.Init()
-	return context.Parse(reader, false)
+	packet, err := context.Parse(reader, false)
+	if err != nil {
+		return
+	}
+
+	if packet.LpPacket != nil {
+		ret.LpPacket = packet.LpPacket
+	} else if packet.Interest != nil {
+		ret.Interest = packet.Interest
+	} else if packet.Data != nil {
+		ret.Data = packet.Data
+	}
+
+	return ret, nil
 }

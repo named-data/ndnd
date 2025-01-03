@@ -13,7 +13,7 @@ func readTlvStream(
 	onFrame func([]byte),
 	ignoreError func(error) bool,
 ) error {
-	recvBuf := make([]byte, defn.MaxNDNPacketSize*32)
+	recvBuf := make([]byte, defn.MaxNDNPacketSize*8)
 	recvOff := 0
 	tlvOff := 0
 
@@ -33,20 +33,19 @@ func readTlvStream(
 		// Determine whether valid packet received
 		for {
 			rdr := enc.NewBufferReader(recvBuf[tlvOff:recvOff])
-
 			typ, err := enc.ReadTLNum(rdr)
 			if err != nil {
 				// Probably incomplete packet
 				break
 			}
-
-			len, err := enc.ReadTLNum(rdr)
+			length, err := enc.ReadTLNum(rdr)
 			if err != nil {
 				// Probably incomplete packet
 				break
 			}
+			rdr.Free()
 
-			tlvSize := typ.EncodingLength() + len.EncodingLength() + int(len)
+			tlvSize := typ.EncodingLength() + length.EncodingLength() + int(length)
 
 			if recvOff-tlvOff >= tlvSize {
 				// Packet was successfully received, send up to link service
@@ -61,8 +60,15 @@ func readTlvStream(
 			}
 		}
 
+		// If recvOff and tlvOff coincide, reset to beginning (for free!)
+		if recvOff == tlvOff {
+			recvOff = 0
+			tlvOff = 0
+			continue
+		}
+
 		// If less than one packet space remains in buffer, shift to beginning
-		if recvOff-tlvOff < defn.MaxNDNPacketSize {
+		if len(recvBuf)-recvOff < defn.MaxNDNPacketSize {
 			copy(recvBuf, recvBuf[tlvOff:recvOff])
 			recvOff -= tlvOff
 			tlvOff = 0

@@ -262,14 +262,12 @@ func TestRemoveInterest(t *testing.T) {
 	assert.True(t, removedInterest)
 	assert.Equal(t, pitCS.PitSize(), 0)
 
-	// Remove a nonexistent pit entry
+	// Remove a new pit entry
 	name2, _ := enc.NameFromStr("/interest2")
 	interest2 := makeInterest(name2)
 	pitEntry2, _ := pitCS.InsertInterest(interest2, hint, inFace)
-
-	removedInterest = pitCS.RemoveInterest(pitEntry)
-	assert.False(t, removedInterest)
 	assert.Equal(t, pitCS.PitSize(), 1)
+
 	removedInterest = pitCS.RemoveInterest(pitEntry2)
 	assert.True(t, removedInterest)
 	assert.Equal(t, pitCS.PitSize(), 0)
@@ -404,26 +402,23 @@ func TestInsertOutRecord(t *testing.T) {
 	pitEntry, _ := pitCS.InsertInterest(interest, hint, inFace)
 	outRecord := pitEntry.InsertOutRecord(interest, inFace)
 	assert.Equal(t, outRecord.Face, inFace)
-	assert.Equal(t, outRecord.LatestInterest, interest.NameV)
-	assert.True(t, outRecord.LatestNonce == *interest.NonceV)
+	assert.True(t, outRecord.LatestNonce == *interest.Nonce())
 
 	// Update existing outrecord
-	oldNonce := new(uint32)
+	oldNonce := new(uint64)
 	*oldNonce = 2
-	*interest.NonceV = *oldNonce
+	*interest.NonceV = uint32(*oldNonce)
 	*interest.NonceV = 3
 	outRecord = pitEntry.InsertOutRecord(interest, inFace)
 	assert.Equal(t, outRecord.Face, inFace)
-	assert.Equal(t, outRecord.LatestInterest, interest.NameV)
-	assert.True(t, outRecord.LatestNonce == *interest.NonceV)
+	assert.True(t, outRecord.LatestNonce == *interest.Nonce())
 	assert.False(t, outRecord.LatestNonce == *oldNonce)
 
 	// Add new outrecord on a different face
 	inFace2 := uint64(2222)
 	outRecord = pitEntry.InsertOutRecord(interest, inFace2)
 	assert.Equal(t, outRecord.Face, inFace2)
-	assert.Equal(t, outRecord.LatestInterest, interest.NameV)
-	assert.True(t, outRecord.LatestNonce == *interest.NonceV)
+	assert.True(t, outRecord.LatestNonce == *interest.Nonce())
 }
 
 func TestGetOutRecords(t *testing.T) {
@@ -441,8 +436,7 @@ func TestGetOutRecords(t *testing.T) {
 	outRecords := pitEntry.GetOutRecords()
 	assert.Equal(t, len(outRecords), 1)
 	assert.Equal(t, outRecords[0].Face, inFace)
-	assert.Equal(t, outRecords[0].LatestInterest, interest.NameV)
-	assert.True(t, outRecords[0].LatestNonce == *interest.NonceV)
+	assert.True(t, outRecords[0].LatestNonce == *interest.Nonce())
 
 	// Update existing outrecord
 	oldNonce := new(uint32)
@@ -453,8 +447,7 @@ func TestGetOutRecords(t *testing.T) {
 	outRecords = pitEntry.GetOutRecords()
 	assert.Equal(t, len(outRecords), 1)
 	assert.Equal(t, outRecords[0].Face, inFace)
-	assert.Equal(t, outRecords[0].LatestInterest, interest.NameV)
-	assert.True(t, outRecords[0].LatestNonce == *interest.NonceV)
+	assert.True(t, outRecords[0].LatestNonce == *interest.Nonce())
 
 	// Add new outrecord on a different face
 	inFace2 := uint64(2222)
@@ -467,12 +460,10 @@ func TestGetOutRecords(t *testing.T) {
 	assert.Equal(t, len(outRecords), 2)
 
 	assert.Equal(t, outRecords[0].Face, inFace)
-	assert.Equal(t, outRecords[0].LatestInterest, interest.NameV)
-	assert.True(t, outRecords[0].LatestNonce == *interest.NonceV)
+	assert.True(t, outRecords[0].LatestNonce == *interest.Nonce())
 
 	assert.Equal(t, outRecords[1].Face, inFace2)
-	assert.Equal(t, outRecords[1].LatestInterest, interest.NameV)
-	assert.True(t, outRecords[1].LatestNonce == *interest.NonceV)
+	assert.True(t, outRecords[1].LatestNonce == *interest.Nonce())
 }
 
 func FindMatchingDataFromCS(t *testing.T) {
