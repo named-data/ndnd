@@ -22,12 +22,8 @@ import (
 // URIType represents the type of the URI.
 type URIType int
 
-const devPattern = `^(?P<scheme>dev)://(?P<ifname>[A-Za-z0-9\-]+)$`
-const fdPattern = `^(?P<scheme>fd)://(?P<fd>[0-9]+)$`
-const ipv4Pattern = `^((25[0-4]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])\.){3}(25[0-4]|2[0-4][0-9]|1[0-9][0-9]|[0-9][0-9]|[0-9])$`
-const udpPattern = `^(?P<scheme>udp[46]?)://\[?(?P<host>[0-9A-Za-z\:\.\-]+)(%(?P<zone>[A-Za-z0-9\-]+))?\]?:(?P<port>[0-9]+)$`
-const tcpPattern = `^(?P<scheme>tcp[46]?)://\[?(?P<host>[0-9A-Za-z\:\.\-]+)(%(?P<zone>[A-Za-z0-9\-]+))?\]?:(?P<port>[0-9]+)$`
-const unixPattern = `^(?P<scheme>unix)://(?P<path>[/\\A-Za-z0-9\:\.\-_]+)$`
+// Regex to extract zone from URI
+var zoneRegex, _ = regexp.Compile(`:\/\/\[?(?:[0-9A-Za-z\:\.\-]+)(?:%(?P<zone>[A-Za-z0-9\-]+))?\]?`)
 
 const (
 	unknownURI URIType = iota
@@ -95,10 +91,6 @@ func MakeNullFaceURI() *URI {
 
 // MakeUDPFaceURI constructs a URI for a UDP face.
 func MakeUDPFaceURI(ipVersion int, host string, port uint16) *URI {
-	/*path := host
-	if zone != "" {
-		path += "%" + zone
-	}*/
 	uri := new(URI)
 	uri.uriType = udpURI
 	uri.scheme = "udp" + strconv.Itoa(ipVersion)
@@ -153,141 +145,81 @@ func MakeWebSocketClientFaceURI(addr net.Addr) *URI {
 	}
 }
 
-// DecodeURIString decodes a URI from a string.
 func DecodeURIString(str string) *URI {
-	u := new(URI)
-	u.uriType = unknownURI
-	u.scheme = "unknown"
-	schemeSplit := strings.SplitN(str, ":", 2)
-	if len(schemeSplit) < 2 {
-		// No scheme
-		return u
+	ret := &URI{
+		uriType: unknownURI,
+		scheme:  "unknown",
 	}
 
-	switch {
-	case strings.EqualFold("dev", schemeSplit[0]):
-		u.uriType = devURI
-		u.scheme = "dev"
+	// extract zone if present first, since this is non-standard
+	var zone string = ""
+	zoneMatch := zoneRegex.FindStringSubmatch(str)
+	if len(zoneMatch) > zoneRegex.SubexpIndex("zone") {
+		zone = zoneMatch[zoneRegex.SubexpIndex("zone")]
+		str = strings.Replace(str, "%"+zone, "", 1)
+	}
 
-		regex, err := regexp.Compile(devPattern)
-		if err != nil {
-			return u
-		}
+	// parse common URI schemes
+	uri, err := url.Parse(str)
+	if err != nil {
+		return ret
+	}
 
-		matches := regex.FindStringSubmatch(str)
-		if regex.SubexpIndex("ifname") < 0 || len(matches) <= regex.SubexpIndex("ifname") {
-			return u
-		}
-
-		ifname := matches[regex.SubexpIndex("ifname")]
-		// Pure function is not allowed to have side effect
-		// _, err = net.InterfaceByName(ifname)
-		// if err != nil {
-		// 	return u
-		// }
-		u.path = ifname
-	case strings.EqualFold("fd", schemeSplit[0]):
-		u.uriType = fdURI
-		u.scheme = "fd"
-
-		regex, err := regexp.Compile(fdPattern)
-		if err != nil {
-			return u
-		}
-
-		matches := regex.FindStringSubmatch(str)
-		// fmt.Println(matches, len(matches), regex.SubexpIndex("fd"))
-		if regex.SubexpIndex("fd") < 0 || len(matches) <= regex.SubexpIndex("fd") {
-			return u
-		}
-		u.path = matches[regex.SubexpIndex("fd")]
-	case strings.EqualFold("internal", schemeSplit[0]):
-		u.uriType = internalURI
-		u.scheme = "internal"
-	case strings.EqualFold("null", schemeSplit[0]):
-		u.uriType = nullURI
-		u.scheme = "null"
-	case strings.EqualFold("udp", schemeSplit[0]),
-		strings.EqualFold("udp4", schemeSplit[0]),
-		strings.EqualFold("udp6", schemeSplit[0]):
-		u.uriType = udpURI
-		u.scheme = "udp"
-
-		regex, err := regexp.Compile(udpPattern)
-		if err != nil {
-			return u
+	switch uri.Scheme {
+	case "dev":
+		ret.uriType = devURI
+		ret.scheme = uri.Scheme
+		ret.path = uri.Host
+	case "fd":
+		ret.uriType = fdURI
+		ret.scheme = uri.Scheme
+		ret.path = uri.Host
+	case "internal":
+		ret.uriType = internalURI
+		ret.scheme = uri.Scheme
+	case "null":
+		ret.uriType = nullURI
+		ret.scheme = uri.Scheme
+	case "udp", "udp4", "udp6", "tcp", "tcp4", "tcp6":
+		if strings.HasPrefix(uri.Scheme, "udp") {
+			ret.uriType = udpURI
+		} else {
+			ret.uriType = tcpURI
 		}
 
-		matches := regex.FindStringSubmatch(str)
-		if regex.SubexpIndex("host") < 0 || len(matches) <= regex.SubexpIndex("host") || regex.SubexpIndex("port") < 0 || len(matches) <= regex.SubexpIndex("port") {
-			return u
-		}
-		u.path = matches[regex.SubexpIndex("host")]
-		if regex.SubexpIndex("zone") < 0 || len(matches) >= regex.SubexpIndex("zone") && matches[regex.SubexpIndex("zone")] != "" {
-			u.path += "%" + matches[regex.SubexpIndex("zone")]
-		}
-		port, err := strconv.ParseUint(matches[regex.SubexpIndex("port")], 10, 16)
-		if err != nil || port <= 0 || port > 65535 {
-			return u
-		}
-		u.port = uint16(port)
-	case strings.EqualFold("tcp", schemeSplit[0]),
-		strings.EqualFold("tcp4", schemeSplit[0]),
-		strings.EqualFold("tcp6", schemeSplit[0]):
-		u.uriType = tcpURI
-		u.scheme = "tcp"
-
-		regex, err := regexp.Compile(tcpPattern)
-		if err != nil {
-			return u
+		ret.scheme = uri.Scheme
+		ret.path = uri.Hostname()
+		if uri.Port() != "" {
+			port, _ := strconv.ParseUint(uri.Port(), 10, 16)
+			ret.port = uint16(port)
+		} else {
+			ret.port = uint16(6363) // default NDN port
 		}
 
-		matches := regex.FindStringSubmatch(str)
-		if regex.SubexpIndex("host") < 0 || len(matches) <= regex.SubexpIndex("host") || regex.SubexpIndex("port") < 0 || len(matches) <= regex.SubexpIndex("port") {
-			return u
-		}
-		u.path = matches[regex.SubexpIndex("host")]
-		if regex.SubexpIndex("zone") < 0 || len(matches) >= regex.SubexpIndex("zone") && matches[regex.SubexpIndex("zone")] != "" {
-			u.path += "%" + matches[regex.SubexpIndex("zone")]
-		}
-		port, err := strconv.ParseUint(matches[regex.SubexpIndex("port")], 10, 16)
-		if err != nil || port <= 0 || port > 65535 {
-			return u
-		}
-		u.port = uint16(port)
-	case strings.EqualFold("unix", schemeSplit[0]):
-		u.uriType = unixURI
-		u.scheme = "unix"
-
-		regex, err := regexp.Compile(unixPattern)
-		if err != nil {
-			return u
+		if zone != "" {
+			ret.path += "%" + zone
 		}
 
-		matches := regex.FindStringSubmatch(str)
-		if len(matches) != 3 {
-			return u
-		}
-		u.path = matches[2]
-	case strings.EqualFold("ws", schemeSplit[0]),
-		strings.EqualFold("wss", schemeSplit[0]):
-		uri, e := url.Parse(str)
-		if e != nil || uri.User != nil || strings.TrimLeft(uri.Path, "/") != "" ||
-			uri.RawQuery != "" || uri.Fragment != "" {
+	case "unix":
+		ret.uriType = unixURI
+		ret.scheme = uri.Scheme
+		ret.path = uri.Path
+	case "ws", "wss":
+		if uri.User != nil || strings.TrimLeft(uri.Path, "/") != "" || uri.RawQuery != "" || uri.Fragment != "" {
 			return nil
 		}
 		return MakeWebSocketServerFaceURI(uri)
-	case strings.EqualFold("wsclient", schemeSplit[0]):
-		addr, e := net.ResolveTCPAddr("tcp", strings.Trim(schemeSplit[1], "/"))
-		if e != nil {
+	case "wsclient":
+		addr, err := net.ResolveTCPAddr("tcp", uri.Host)
+		if err != nil {
 			return nil
 		}
 		return MakeWebSocketClientFaceURI(addr)
 	}
 
-	// Canonize, if possible
-	u.Canonize()
-	return u
+	ret.Canonize()
+
+	return ret
 }
 
 // URIType returns the type of the face URI.
@@ -346,14 +278,15 @@ func (u *URI) IsCanonical() bool {
 		ip := net.ParseIP(u.PathHost())
 		// Port number is implicitly limited to <= 65535 by type uint16
 		// We have to test whether To16() && not IPv4 because the Go net library considers IPv4 addresses to be valid IPv6 addresses
-		isIPv4, _ := regexp.MatchString(ipv4Pattern, u.PathHost())
-		return ip != nil && ((u.scheme == "udp4" && ip.To4() != nil) || (u.scheme == "udp6" && ip.To16() != nil && !isIPv4)) && u.port > 0
+		isIPv4 := ip.To4() != nil
+		return ip != nil && ((u.scheme == "udp4" && isIPv4) ||
+			(u.scheme == "udp6" && ip.To16() != nil && !isIPv4)) && u.port > 0
 	case tcpURI:
 		// Split off zone, if any
 		ip := net.ParseIP(u.PathHost())
 		// Port number is implicitly limited to <= 65535 by type uint16
 		// We have to test whether To16() && not IPv4 because the Go net library considers IPv4 addresses to be valid IPv6 addresses
-		isIPv4, _ := regexp.MatchString(ipv4Pattern, u.PathHost())
+		isIPv4 := ip.To4() != nil
 		return ip != nil && u.port > 0 && ((u.scheme == "tcp4" && ip.To4() != nil) ||
 			(u.scheme == "tcp6" && ip.To16() != nil && !isIPv4))
 	case unixURI:

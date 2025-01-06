@@ -41,9 +41,6 @@ type PitCsTable interface {
 	Update()
 }
 
-// basePitCsTable contains properties common to all PIT-CS tables
-type basePitCsTable struct{}
-
 // PitEntry dictates what entries in a PIT-CS table should implement
 type PitEntry interface {
 	PitCs() PitCsTable

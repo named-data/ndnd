@@ -11,6 +11,12 @@ import (
 )
 
 func main() {
+	// Before running this example, make sure the strategy is correctly setup
+	// to multicast for the /ndn/svs prefix. For example, using the following:
+	//
+	//   ndnd fw strategy set prefix=/ndn/svs strategy=/localhost/nfd/strategy/multicast
+	//
+
 	log.SetLevel(log.InfoLevel)
 	logger := log.WithField("module", "main")
 
@@ -25,8 +31,7 @@ func main() {
 	}
 
 	// Create a new engine
-	face := engine.NewUnixFace("/var/run/nfd/nfd.sock")
-	app := engine.NewBasicEngine(face)
+	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err = app.Start()
 	if err != nil {
 		logger.Fatalf("Unable to start engine: %+v", err)
@@ -46,6 +51,7 @@ func main() {
 		logger.Errorf("Unable to register route: %+v", err)
 		return
 	}
+	defer app.UnregisterRoute(group)
 
 	err = svsync.Start()
 	if err != nil {

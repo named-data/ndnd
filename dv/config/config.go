@@ -8,11 +8,9 @@ import (
 )
 
 const CostInfinity = uint64(16)
-const MulticastStrategy = "/localhost/nfd/strategy/multicast"
 const NlsrOrigin = uint64(128)
 
-var Localhop = enc.Name{enc.NewStringComponent(enc.TypeGenericNameComponent, "localhop")}
-var Localhost = enc.Name{enc.NewStringComponent(enc.TypeGenericNameComponent, "localhost")}
+var MulticastStrategy, _ = enc.NameFromStr("/localhost/nfd/strategy/multicast")
 
 type Config struct {
 	// Network should be the same for all routers in the network.
@@ -41,7 +39,7 @@ type Config struct {
 	// Prefix Table Data Prefix
 	pfxDataPfxN enc.Name
 	// NLSR readvertise prefix
-	readvertisePfxN enc.Name
+	localPfxN enc.Name
 }
 
 func DefaultConfig() *Config {
@@ -81,29 +79,29 @@ func (c *Config) Parse() (err error) {
 	}
 
 	// Create name table
-	c.advSyncPfxN = append(Localhop, append(c.networkNameN,
+	c.advSyncPfxN = enc.LOCALHOP.Append(c.networkNameN.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "ADS"),
 	)...)
-	c.advSyncActivePfxN = append(c.advSyncPfxN,
+	c.advSyncActivePfxN = c.advSyncPfxN.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "ACT"),
 	)
-	c.advSyncPassivePfxN = append(c.advSyncPfxN,
+	c.advSyncPassivePfxN = c.advSyncPfxN.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "PSV"),
 	)
-	c.advDataPfxN = append(Localhop, append(c.routerNameN,
+	c.advDataPfxN = enc.LOCALHOP.Append(c.routerNameN.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "ADV"),
 	)...)
-	c.pfxSyncPfxN = append(c.networkNameN,
+	c.pfxSyncPfxN = c.networkNameN.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "PFS"),
 	)
-	c.pfxDataPfxN = append(c.routerNameN,
+	c.pfxDataPfxN = c.routerNameN.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "PFX"),
 	)
-	c.readvertisePfxN = append(Localhost,
+	c.localPfxN = enc.LOCALHOST.Append(
 		enc.NewStringComponent(enc.TypeGenericNameComponent, "nlsr"),
 	)
 
@@ -142,8 +140,20 @@ func (c *Config) PrefixTableDataPrefix() enc.Name {
 	return c.pfxDataPfxN
 }
 
+func (c *Config) LocalPrefix() enc.Name {
+	return c.localPfxN
+}
+
 func (c *Config) ReadvertisePrefix() enc.Name {
-	return c.readvertisePfxN
+	return c.localPfxN.Append(
+		enc.NewStringComponent(enc.TypeGenericNameComponent, "rib"),
+	)
+}
+
+func (c *Config) StatusPrefix() enc.Name {
+	return c.localPfxN.Append(
+		enc.NewStringComponent(enc.TypeGenericNameComponent, "status"),
+	)
 }
 
 func (c *Config) AdvertisementSyncInterval() time.Duration {

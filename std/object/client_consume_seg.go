@@ -122,9 +122,7 @@ func (s *rrSegFetcher) doCheck() {
 
 	// queue outgoing interest for the next segment
 	args := ExpressRArgs{
-		Name: append(state.fetchName,
-			enc.NewSegmentComponent(seg),
-		),
+		Name: state.fetchName.Append(enc.NewSegmentComponent(seg)),
 		Config: &ndn.InterestConfig{
 			MustBeFresh: false,
 		},
@@ -196,11 +194,8 @@ func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeSt
 
 	// copy the data into the buffer
 	state.content[segNum] = args.Data.Content().Join()
-
-	// empty data is not allowed
-	if len(state.content[segNum]) == 0 {
-		state.finalizeError(fmt.Errorf("consume: empty data segment %d", segNum))
-		return
+	if state.content[segNum] == nil { // never
+		panic("[BUG] consume: nil data segment")
 	}
 
 	// if this is the first outstanding segment, move windows
@@ -210,12 +205,12 @@ func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeSt
 		}
 
 		if state.wnd[1] == state.segCnt {
-			log.Debugf("consume: %s completed", state.name)
+			log.Debugf("consume: %s completed", state.args.Name)
 			state.complete = true
 			s.remove(state)
 		}
 
-		state.callback(state) // progress
+		state.args.Callback(state) // progress
 	}
 
 	// if segNum%1000 == 0 {

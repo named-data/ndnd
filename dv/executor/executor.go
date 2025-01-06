@@ -10,20 +10,13 @@ import (
 )
 
 type DvConfig struct {
-	// NFD related options
-	Nfd struct {
-		Unix string `json:"unix"`
-	} `json:"nfd"`
-
-	// Underlying configuration
-	Config *config.Config `json:"config"`
+	Config *config.Config `json:"dv"`
 }
 
 func DefaultConfig() DvConfig {
-	dc := DvConfig{}
-	dc.Nfd.Unix = "/var/run/nfd/nfd.sock"
-	dc.Config = config.DefaultConfig()
-	return dc
+	return DvConfig{
+		Config: config.DefaultConfig(),
+	}
 }
 
 func (dc DvConfig) Parse() error {
@@ -45,7 +38,7 @@ func NewDvExecutor(dc DvConfig) (*DvExecutor, error) {
 	}
 
 	// Start NDN engine
-	dve.engine = engine.NewBasicEngine(engine.NewUnixFace(dc.Nfd.Unix))
+	dve.engine = engine.NewBasicEngine(engine.NewDefaultFace())
 
 	// Create the DV router
 	dve.router, err = dv.NewRouter(dc.Config, dve.engine)

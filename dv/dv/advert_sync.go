@@ -29,7 +29,7 @@ func (dv *Router) advertSyncSendInterest() (err error) {
 
 func (dv *Router) advertSyncSendInterestImpl(prefix enc.Name) (err error) {
 	// SVS v2 Sync Interest
-	syncName := append(prefix, enc.NewVersionComponent(2))
+	syncName := prefix.Append(enc.NewVersionComponent(2))
 
 	// Sync Interest parameters for SVS
 	cfg := &ndn.InterestConfig{
@@ -40,7 +40,6 @@ func (dv *Router) advertSyncSendInterestImpl(prefix enc.Name) (err error) {
 	}
 
 	// State Vector for our group
-	// TODO: switch to new TLV types
 	sv := &svs_2024.StateVectorAppParam{
 		StateVector: &svs_2024.StateVector{
 			Entries: []*svs_2024.StateVectorEntry{{
@@ -135,12 +134,4 @@ func (dv *Router) advertSyncOnInterest(args ndn.InterestHandlerArgs, active bool
 	if fibDirty {
 		go dv.fibUpdate()
 	}
-}
-
-func (dv *Router) advertSyncNotifyNew() {
-	dv.mutex.Lock()
-	defer dv.mutex.Unlock()
-
-	dv.advertSyncSeq++
-	go dv.advertSyncSendInterest()
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 	defn "github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/face/impl"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // UnicastUDPTransport is a unicast UDP transport.
@@ -33,11 +34,15 @@ type UnicastUDPTransport struct {
 func MakeUnicastUDPTransport(
 	remoteURI *defn.URI,
 	localURI *defn.URI,
-	persistency Persistency,
+	persistency spec_mgmt.Persistency,
 ) (*UnicastUDPTransport, error) {
-	// Validate URIs
-	if !remoteURI.IsCanonical() || (remoteURI.Scheme() != "udp4" && remoteURI.Scheme() != "udp6") ||
-		(localURI != nil && !localURI.IsCanonical()) || (localURI != nil && remoteURI.Scheme() != localURI.Scheme()) {
+	// Validate remote URI
+	if remoteURI == nil || !remoteURI.IsCanonical() || (remoteURI.Scheme() != "udp4" && remoteURI.Scheme() != "udp6") {
+		return nil, core.ErrNotCanonical
+	}
+
+	// Validate local URI
+	if localURI != nil && (!localURI.IsCanonical() || remoteURI.Scheme() != localURI.Scheme()) {
 		return nil, core.ErrNotCanonical
 	}
 
@@ -90,7 +95,7 @@ func (t *UnicastUDPTransport) String() string {
 	return fmt.Sprintf("UnicastUDPTransport, FaceID=%d, RemoteURI=%s, LocalURI=%s", t.faceID, t.remoteURI, t.localURI)
 }
 
-func (t *UnicastUDPTransport) SetPersistency(persistency Persistency) bool {
+func (t *UnicastUDPTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
 	t.persistency = persistency
 	return true
 }

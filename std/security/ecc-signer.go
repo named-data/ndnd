@@ -9,38 +9,17 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	basic_engine "github.com/named-data/ndnd/std/engine/basic"
 	"github.com/named-data/ndnd/std/ndn"
-	"github.com/named-data/ndnd/std/utils"
 )
 
 // eccSigner is a signer that uses ECC key to sign packets.
 type eccSigner struct {
-	timer ndn.Timer
-	seq   uint64
-
-	keyLocatorName enc.Name
-	key            *ecdsa.PrivateKey
-	keyLen         uint
-	forCert        bool
-	forInt         bool
-	certExpireTime time.Duration
+	asymSigner
+	keyLen uint
+	key    *ecdsa.PrivateKey
 }
 
 func (s *eccSigner) SigInfo() (*ndn.SigConfig, error) {
-	ret := &ndn.SigConfig{
-		Type:    ndn.SignatureSha256WithEcdsa,
-		KeyName: s.keyLocatorName,
-	}
-	if s.forCert {
-		ret.NotBefore = utils.IdPtr(s.timer.Now())
-		ret.NotAfter = utils.IdPtr(s.timer.Now().Add(s.certExpireTime))
-	}
-	if s.forInt {
-		s.seq++
-		ret.Nonce = s.timer.Nonce()
-		ret.SigTime = utils.IdPtr(s.timer.Now())
-		ret.SeqNum = utils.IdPtr(s.seq)
-	}
-	return ret, nil
+	return s.genSigInfo(ndn.SignatureSha256WithEcdsa)
 }
 
 func (s *eccSigner) EstimateSize() uint {
@@ -67,13 +46,15 @@ func NewEccSigner(
 	keyLen := uint(key.Curve.Params().BitSize*2+7) / 8
 	keyLen += keyLen%2 + 8
 	return &eccSigner{
-		timer:          basic_engine.Timer{},
-		seq:            0,
-		keyLocatorName: keyLocatorName,
-		key:            key,
-		keyLen:         keyLen,
-		forCert:        forCert,
-		forInt:         forInt,
-		certExpireTime: expireTime,
+		asymSigner: asymSigner{
+			timer:          basic_engine.Timer{},
+			seq:            0,
+			keyLocatorName: keyLocatorName,
+			forCert:        forCert,
+			forInt:         forInt,
+			certExpireTime: expireTime,
+		},
+		keyLen: keyLen,
+		key:    key,
 	}
 }

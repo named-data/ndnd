@@ -125,6 +125,7 @@ func (n Name) PrefixHash() []uint64 {
 	return ret
 }
 
+// NameFromStr parses a URI string into a Name
 func NameFromStr(s string) (Name, error) {
 	strs := strings.Split(s, "/")
 	// Removing leading and trailing empty strings given by /
@@ -144,6 +145,7 @@ func NameFromStr(s string) (Name, error) {
 	return ret, nil
 }
 
+// NamePatternFromStr parses a string into a NamePattern
 func NamePatternFromStr(s string) (NamePattern, error) {
 	strs := strings.Split(s, "/")
 	// Removing leading and trailing empty strings given by /
@@ -164,6 +166,7 @@ func NamePatternFromStr(s string) (NamePattern, error) {
 	return ret, nil
 }
 
+// NameFromBytes parses a URI byte slice into a Name
 func NameFromBytes(buf []byte) (Name, error) {
 	r := NewBufferReader(buf)
 	t, err := ReadTLNum(r)
@@ -187,6 +190,15 @@ func NameFromBytes(buf []byte) (Name, error) {
 		return nil, ErrFormat{"encoding.NameFromBytes: given bytes have a wrong length"}
 	}
 	return ret, nil
+}
+
+// Append appends one or more components to a shallow copy of the name.
+// Using this function is recommended over the in-built `append`.
+func (n Name) Append(rest ...Component) Name {
+	ret := make(Name, len(n)+len(rest))
+	copy(ret, n)
+	copy(ret[len(n):], rest)
+	return ret
 }
 
 func (n Name) Compare(rhs Name) int {
@@ -296,9 +308,8 @@ func (n Name) ToFullName(rawData Wire) Name {
 		h.Write(buf)
 	}
 	digest := h.Sum(nil)
-	ret := append(n, Component{
+	return n.Append(Component{
 		Typ: TypeImplicitSha256DigestComponent,
 		Val: digest,
 	})
-	return ret
 }

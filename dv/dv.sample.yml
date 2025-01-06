@@ -1,8 +1,4 @@
-nfd:
-  # [optional] Unix socket used to connect to the local forwarder
-  unix: /var/run/nfd/nfd.sock
-
-config:
+dv:
   # [required] Global prefix for all DV routers in the network
   network: /ndn
   # [required] Unique name for each router in the network

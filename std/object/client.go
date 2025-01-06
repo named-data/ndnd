@@ -27,6 +27,7 @@ type Client struct {
 	segcheck chan bool
 }
 
+// Create a new client with given engine and store
 func NewClient(engine ndn.Engine, store ndn.Store) *Client {
 	client := new(Client)
 	client.engine = engine
@@ -42,6 +43,7 @@ func NewClient(engine ndn.Engine, store ndn.Store) *Client {
 	return client
 }
 
+// Start the client. The engine must be running.
 func (c *Client) Start() error {
 	if !c.engine.IsRunning() {
 		return errors.New("client start when engine not running")
@@ -55,15 +57,22 @@ func (c *Client) Start() error {
 	return nil
 }
 
+// Stop the client
 func (c *Client) Stop() {
 	c.stop <- true
 }
 
+// Get the underlying engine
 func (c *Client) Engine() ndn.Engine {
 	return c.engine
 }
 
-// main goroutine for all client processing
+// Get the underlying store
+func (c *Client) Store() ndn.Store {
+	return c.store
+}
+
+// Main goroutine for all client processing
 func (c *Client) run() {
 	for {
 		select {

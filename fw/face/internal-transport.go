@@ -13,8 +13,8 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 	defn "github.com/named-data/ndnd/fw/defn"
 	enc "github.com/named-data/ndnd/std/encoding"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	"github.com/named-data/ndnd/std/utils"
 )
 
 // InternalTransport is a transport for use by internal YaNFD modules (e.g., management).
@@ -30,7 +30,7 @@ func MakeInternalTransport() *InternalTransport {
 	t.makeTransportBase(
 		defn.MakeInternalFaceURI(),
 		defn.MakeInternalFaceURI(),
-		PersistencyPersistent,
+		spec_mgmt.PersistencyPersistent,
 		defn.Local,
 		defn.PointToPoint,
 		defn.MaxNDNPacketSize)
@@ -59,12 +59,12 @@ func (t *InternalTransport) String() string {
 }
 
 // SetPersistency changes the persistency of the face.
-func (t *InternalTransport) SetPersistency(persistency Persistency) bool {
+func (t *InternalTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
 	if persistency == t.persistency {
 		return true
 	}
 
-	if persistency == PersistencyPersistent {
+	if persistency == spec_mgmt.PersistencyPersistent {
 		t.persistency = persistency
 		return true
 	}
@@ -78,19 +78,8 @@ func (t *InternalTransport) GetSendQueueSize() uint64 {
 }
 
 // Send sends a packet from the perspective of the internal component.
-func (t *InternalTransport) Send(netWire enc.Wire, pitToken []byte, nextHopFaceID *uint64) {
-	lpPkt := &spec.LpPacket{
-		Fragment: netWire,
-	}
-	if len(pitToken) > 0 {
-		lpPkt.PitToken = append([]byte{}, pitToken...)
-	}
-	if nextHopFaceID != nil {
-		lpPkt.NextHopFaceId = utils.IdPtr(*nextHopFaceID)
-	}
-	pkt := &spec.Packet{
-		LpPacket: lpPkt,
-	}
+func (t *InternalTransport) Send(lpPkt *spec.LpPacket) {
+	pkt := &spec.Packet{LpPacket: lpPkt}
 	encoder := spec.PacketEncoder{}
 	encoder.Init(pkt)
 	lpPacketWire := encoder.Encode(pkt)
@@ -102,7 +91,7 @@ func (t *InternalTransport) Send(netWire enc.Wire, pitToken []byte, nextHopFaceI
 }
 
 // Receive receives a packet from the perspective of the internal component.
-func (t *InternalTransport) Receive() (enc.Wire, []byte, uint64) {
+func (t *InternalTransport) Receive() *spec.LpPacket {
 	for frame := range t.recvQueue {
 		packet, _, err := spec.ReadPacket(enc.NewBufferReader(frame))
 		if err != nil {
@@ -111,15 +100,15 @@ func (t *InternalTransport) Receive() (enc.Wire, []byte, uint64) {
 		}
 
 		lpPkt := packet.LpPacket
-		if lpPkt.Fragment.Length() == 0 {
+		if packet.LpPacket == nil || lpPkt.Fragment.Length() == 0 {
 			core.LogWarn(t, "Received empty fragment - DROP")
 			continue
 		}
 
-		return lpPkt.Fragment, lpPkt.PitToken, *lpPkt.IncomingFaceId
+		return lpPkt
 	}
 
-	return nil, []byte{}, 0
+	return nil
 }
 
 func (t *InternalTransport) sendFrame(frame []byte) {
@@ -149,7 +138,7 @@ func (t *InternalTransport) runReceive() {
 
 func (t *InternalTransport) Close() {
 	if t.running.Swap(false) {
+		// do not close the send queue, let it be garbage collected
 		close(t.recvQueue)
-		close(t.sendQueue)
 	}
 }

@@ -3,14 +3,36 @@ package dv
 import (
 	"time"
 
-	"github.com/named-data/ndnd/dv/config"
 	"github.com/named-data/ndnd/dv/tlv"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
-	"github.com/named-data/ndnd/std/ndn"
-	"github.com/named-data/ndnd/std/security"
+	"github.com/named-data/ndnd/std/object"
 	"github.com/named-data/ndnd/std/utils"
 )
+
+func (dv *Router) advertGenerateNew() {
+	dv.mutex.Lock()
+	defer dv.mutex.Unlock()
+
+	// Increment sequence number
+	dv.advertSyncSeq++
+
+	// Produce the advertisement
+	name, err := dv.client.Produce(object.ProduceArgs{
+		Name:            dv.config.AdvertisementDataPrefix(),
+		Content:         dv.rib.Advert().Encode(),
+		Version:         utils.IdPtr(dv.advertSyncSeq),
+		FreshnessPeriod: 10 * time.Second,
+	})
+	if err != nil {
+		log.Errorf("advert-data: failed to produce advertisement: %+v", err)
+	}
+	dv.advertDir.Push(name)
+	dv.advertDir.Evict(dv.client)
+
+	// Notify neighbors with sync for new advertisement
+	go dv.advertSyncSendInterest()
+}
 
 func (dv *Router) advertDataFetch(nodeId enc.Name, seqNo uint64) {
 	// debounce; wait before fetching, then check if this is still the latest
@@ -20,120 +42,56 @@ func (dv *Router) advertDataFetch(nodeId enc.Name, seqNo uint64) {
 		return
 	}
 
-	advName := append(config.Localhop, append(nodeId,
+	// Fetch the advertisement
+	advName := enc.LOCALHOP.Append(nodeId.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "ADV"),
-		enc.NewSequenceNumComponent(seqNo), // unused for now
+		enc.NewVersionComponent(seqNo),
 	)...)
 
-	// Fetch the advertisement
-	cfg := &ndn.InterestConfig{
-		MustBeFresh: true,
-		Lifetime:    utils.IdPtr(4 * time.Second),
-		Nonce:       utils.ConvertNonce(dv.engine.Timer().Nonce()),
-	}
+	dv.client.Consume(advName, func(state *object.ConsumeState) bool {
+		if !state.IsComplete() {
+			return true
+		}
 
-	interest, err := dv.engine.Spec().MakeInterest(advName, cfg, nil, nil)
-	if err != nil {
-		log.Warnf("advertDataFetch: failed to make Interest: %+v", err)
-		return
-	}
-
-	// Fetch the advertisement
-	err = dv.engine.Express(interest, func(args ndn.ExpressCallbackArgs) {
-		go func() { // Don't block the main loop
-			if args.Result != ndn.InterestResultData {
-				// If this wasn't a timeout, wait for 2s before retrying
-				// This prevents excessive retries in case of NACKs
-				if args.Result != ndn.InterestResultTimeout {
-					time.Sleep(2 * time.Second)
-				} else {
-					time.Sleep(100 * time.Millisecond)
-				}
-
-				// Keep retrying until we get the advertisement
-				// If the router is dead, we break out of this by checking
-				// that the sequence number is gone (above)
-				log.Warnf("advertDataFetch: retrying %s: %+v", interest.FinalName.String(), args.Result)
+		go func() {
+			fetchErr := state.Error()
+			if fetchErr != nil {
+				log.Warnf("advert-data: failed to fetch advertisement %s: %+v", state.Name(), fetchErr)
+				time.Sleep(1 * time.Second) // wait on error
 				dv.advertDataFetch(nodeId, seqNo)
 				return
 			}
 
 			// Process the advertisement
-			dv.advertDataHandler(args.Data)
+			dv.advertDataHandler(nodeId, seqNo, state.Content())
 		}()
+
+		return true
 	})
-	if err != nil {
-		log.Warnf("advertDataFetch: failed to express Interest: %+v", err)
-	}
-}
-
-// Received advertisement Interest
-func (dv *Router) advertDataOnInterest(args ndn.InterestHandlerArgs) {
-	// For now, just send the latest advertisement at all times
-	// This will need to change if we switch to differential updates
-
-	// TODO: sign the advertisement
-	signer := security.NewSha256Signer()
-
-	// Encode latest advertisement
-	content := func() *tlv.Advertisement {
-		dv.mutex.Lock()
-		defer dv.mutex.Unlock()
-		return dv.rib.Advert()
-	}().Encode()
-
-	data, err := dv.engine.Spec().MakeData(
-		args.Interest.Name(),
-		&ndn.DataConfig{
-			ContentType: utils.IdPtr(ndn.ContentTypeBlob),
-			Freshness:   utils.IdPtr(10 * time.Second),
-		},
-		content,
-		signer)
-	if err != nil {
-		log.Warnf("advertDataOnInterest: failed to make Data: %+v", err)
-		return
-	}
-
-	// Send the Data packet
-	err = args.Reply(data.Wire)
-	if err != nil {
-		log.Warnf("advertDataOnInterest: failed to reply: %+v", err)
-		return
-	}
 }
 
 // Received advertisement Data
-func (dv *Router) advertDataHandler(data ndn.Data) {
-	// Parse name components
-	name := data.Name()
-	neighbor := name[1 : len(name)-3]
-	seqNo := name[len(name)-1].NumberVal()
-
+func (dv *Router) advertDataHandler(nodeId enc.Name, seqNo uint64, data []byte) {
 	// Lock DV state
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
 	// Check if this is the latest advertisement
-	ns := dv.neighbors.Get(neighbor)
+	ns := dv.neighbors.Get(nodeId)
 	if ns == nil {
-		log.Warnf("advertDataHandler: unknown advertisement %s", neighbor)
+		log.Warnf("advert-handler: unknown advertisement %s", nodeId)
 		return
 	}
 	if ns.AdvertSeq != seqNo {
-		log.Debugf("advertDataHandler: old advertisement for %s (%d != %d)", neighbor, ns.AdvertSeq, seqNo)
+		log.Debugf("advert-handler: old advertisement for %s (%d != %d)", nodeId, ns.AdvertSeq, seqNo)
 		return
 	}
 
-	// TODO: verify signature on Advertisement
-	log.Debugf("advertDataHandler: received: %s", data.Name())
-
 	// Parse the advertisement
-	raw := data.Content().Join() // clone
-	advert, err := tlv.ParseAdvertisement(enc.NewBufferReader(raw), false)
+	advert, err := tlv.ParseAdvertisement(enc.NewBufferReader(data), false)
 	if err != nil {
-		log.Errorf("advertDataHandler: failed to parse advertisement: %+v", err)
+		log.Errorf("advert-handler: failed to parse advertisement: %+v", err)
 		return
 	}
 

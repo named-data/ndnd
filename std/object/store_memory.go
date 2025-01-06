@@ -90,6 +90,14 @@ func (s *MemoryStore) Rollback() error {
 	return nil
 }
 
+func (s *MemoryStore) MemSize() int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	size := 0
+	s.root.walk(func(n *memoryStoreNode) { size += len(n.wire) })
+	return size
+}
+
 func (n *memoryStoreNode) find(name enc.Name) *memoryStoreNode {
 	if len(name) == 0 {
 		return n
@@ -181,5 +189,12 @@ func (n *memoryStoreNode) merge(tx *memoryStoreNode) {
 		} else {
 			n.children[key] = child
 		}
+	}
+}
+
+func (n *memoryStoreNode) walk(f func(*memoryStoreNode)) {
+	f(n)
+	for _, child := range n.children {
+		child.walk(f)
 	}
 }

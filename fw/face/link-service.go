@@ -16,6 +16,7 @@ import (
 	defn "github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/dispatch"
 	"github.com/named-data/ndnd/fw/fw"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // LinkService is an interface for link service implementations
@@ -27,8 +28,8 @@ type LinkService interface {
 	FaceID() uint64
 	LocalURI() *defn.URI
 	RemoteURI() *defn.URI
-	Persistency() Persistency
-	SetPersistency(persistency Persistency)
+	Persistency() spec_mgmt.Persistency
+	SetPersistency(persistency spec_mgmt.Persistency)
 	Scope() defn.Scope
 	LinkType() defn.LinkType
 	MTU() int
@@ -121,12 +122,12 @@ func (l *linkServiceBase) RemoteURI() *defn.URI {
 }
 
 // Persistency returns the MTU of the underlying transport.
-func (l *linkServiceBase) Persistency() Persistency {
+func (l *linkServiceBase) Persistency() spec_mgmt.Persistency {
 	return l.transport.Persistency()
 }
 
 // SetPersistency sets the MTU of the underlying transport.
-func (l *linkServiceBase) SetPersistency(persistency Persistency) {
+func (l *linkServiceBase) SetPersistency(persistency spec_mgmt.Persistency) {
 	l.transport.SetPersistency(persistency)
 }
 

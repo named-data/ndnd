@@ -16,6 +16,7 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 	defn "github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/face/impl"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // MulticastUDPTransport is a multicast UDP transport.
@@ -48,7 +49,7 @@ func MakeMulticastUDPTransport(localURI *defn.URI) (*MulticastUDPTransport, erro
 	t := &MulticastUDPTransport{}
 	t.makeTransportBase(
 		defn.DecodeURIString(remote),
-		localURI, PersistencyPermanent,
+		localURI, spec_mgmt.PersistencyPermanent,
 		defn.NonLocal, defn.MultiAccess,
 		defn.MaxNDNPacketSize)
 
@@ -107,12 +108,12 @@ func (t *MulticastUDPTransport) String() string {
 	return fmt.Sprintf("MulticastUDPTransport, FaceID=%d, RemoteURI=%s, LocalURI=%s", t.faceID, t.remoteURI, t.localURI)
 }
 
-func (t *MulticastUDPTransport) SetPersistency(persistency Persistency) bool {
+func (t *MulticastUDPTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
 	if persistency == t.persistency {
 		return true
 	}
 
-	if persistency == PersistencyPermanent {
+	if persistency == spec_mgmt.PersistencyPermanent {
 		t.persistency = persistency
 		return true
 	}

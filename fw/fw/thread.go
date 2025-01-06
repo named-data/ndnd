@@ -8,7 +8,6 @@
 package fw
 
 import (
-	"bytes"
 	"encoding/binary"
 	"runtime"
 	"strconv"
@@ -26,14 +25,13 @@ const MaxFwThreads = 32
 
 // Threads contains all forwarding threads
 var Threads []*Thread
-var LOCALHOST = []byte{0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x68, 0x6f, 0x73, 0x74}
 
 // HashNameToFwThread hashes an NDN name to a forwarding thread.
 func HashNameToFwThread(name enc.Name) int {
 	// Dispatch all management requests to thread 0
 	// this is fine, all it does is make sure the pitcs table in thread 0 has the management stuff.
 	// This is not actually touching management.
-	if len(name) > 0 && bytes.Equal((name)[0].Val, LOCALHOST) {
+	if len(name) > 0 && name[0].Equal(enc.LOCALHOST) {
 		return 0
 	}
 	// to prevent negative modulos because we converted from uint to int
@@ -46,7 +44,7 @@ func HashNameToAllPrefixFwThreads(name enc.Name) []bool {
 	threads := make([]bool, len(Threads))
 
 	// Dispatch all management requests to thread 0
-	if len(name) > 0 && bytes.Equal((name)[0].Val, LOCALHOST) {
+	if len(name) > 0 && name[0].Equal(enc.LOCALHOST) {
 		threads[0] = true
 		return threads
 	}
@@ -193,9 +191,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	// Check if violates /localhost
-	if incomingFace.Scope() == defn.NonLocal &&
-		len(interest.Name()) > 0 &&
-		bytes.Equal(interest.Name()[0].Val, LOCALHOST) {
+	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOST) {
 		core.LogWarn(t, "Interest ", packet.Name, " from non-local face=", incomingFace.FaceID(), " violates /localhost scope - DROP")
 		return
 	}
@@ -293,6 +289,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		// Add the previous nonce to the dead nonce list to prevent further looping
 		// TODO: review this design, not specified in NFD dev guide
 		t.deadNonceList.Insert(interest.Name(), prevNonce)
+		t.deadNonceList.Insert(interest.Name(), prevNonce)
 	}
 
 	// Update PIT entry expiration timer
@@ -300,12 +297,11 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 
 	// If NextHopFaceId set, forward to that face (if it exists) or drop
 	if packet.NextHopFaceID != nil {
-		if dispatch.GetFace(*packet.NextHopFaceID) != nil {
+		if face := dispatch.GetFace(*packet.NextHopFaceID); face != nil {
 			if core.HasTraceLogs() {
 				core.LogTrace(t, "NextHopFaceId is set for Interest ", packet.Name, " - dispatching directly to face")
 			}
-
-			dispatch.GetFace(*packet.NextHopFaceID).SendPacket(dispatch.OutPkt{
+			face.SendPacket(dispatch.OutPkt{
 				Pkt:      packet,
 				PitToken: packet.PitToken, // TODO: ??
 				InFace:   packet.IncomingFaceID,
@@ -322,14 +318,26 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		lookupName = fhName
 	}
 
-	// Query the FIB for possible nexthops
+	// Query the FIB for all possible nexthops
 	nexthops := table.FibStrategyTable.FindNextHopsEnc(lookupName)
 
-	// Exclude faces that have an in-record for this interest
-	// TODO: unclear where NFD dev guide specifies such behavior (if any)
+	// If the first component is /localhop, we do not forward interests received
+	// on non-local faces to non-local faces
+	localFacesOnly := incomingFace.Scope() != defn.Local && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOP)
+
+	// Filter the nexthops that are allowed for this Interest
 	allowedNexthops := [defn.MaxNextHops]*table.FibNextHopEntry{}
 	allowedNexthopsCount := 0
 	for _, nexthop := range nexthops {
+		// Exclude non-local faces for localhop enforcement
+		if localFacesOnly {
+			if face := dispatch.GetFace(nexthop.Nexthop); face != nil && face.Scope() != defn.Local {
+				continue
+			}
+		}
+
+		// Exclude faces that have an in-record for this interest
+		// TODO: unclear where NFD dev guide specifies such behavior (if any)
 		record := pitEntry.InRecords()[nexthop.Nexthop]
 		if record == nil || nexthop.Nexthop == incomingFace.FaceID() {
 			allowedNexthops[allowedNexthopsCount] = nexthop
@@ -432,8 +440,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 	t.NInData++
 
 	// Check if violates /localhost
-	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 &&
-		bytes.Equal(data.Name()[0].Val, LOCALHOST) {
+	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOST) {
 		core.LogWarn(t, "Data ", packet.Name, " from non-local FaceID=", packet.IncomingFaceID, " violates /localhost scope - DROP")
 		return
 	}
@@ -447,6 +454,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 	pitEntries := t.pitCS.FindInterestPrefixMatchByDataEnc(data, pitToken)
 	if len(pitEntries) == 0 {
 		// Unsolicited Data - nothing more to do
+		core.LogDebug(t, "Unsolicited data ", packet.Name, " FaceID=", packet.IncomingFaceID, " - DROP")
 		core.LogDebug(t, "Unsolicited data ", packet.Name, " FaceID=", packet.IncomingFaceID, " - DROP")
 		return
 	}
@@ -542,7 +550,7 @@ func (t *Thread) processOutgoingData(
 	}
 
 	// Check if violates /localhost
-	if outgoingFace.Scope() == defn.NonLocal && len(data.Name()) > 0 && bytes.Equal(data.Name()[0].Val, LOCALHOST) {
+	if outgoingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOST) {
 		core.LogWarn(t, "Data ", packet.Name, " cannot be sent to non-local FaceID=", nexthop, " since violates /localhost scope - DROP")
 		return
 	}

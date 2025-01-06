@@ -12,6 +12,7 @@ import (
 	"time"
 
 	defn "github.com/named-data/ndnd/fw/defn"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // transport provides an interface for transports for specific face types
@@ -22,8 +23,8 @@ type transport interface {
 
 	RemoteURI() *defn.URI
 	LocalURI() *defn.URI
-	Persistency() Persistency
-	SetPersistency(persistency Persistency) bool
+	Persistency() spec_mgmt.Persistency
+	SetPersistency(persistency spec_mgmt.Persistency) bool
 	Scope() defn.Scope
 	LinkType() defn.LinkType
 	MTU() int
@@ -56,7 +57,7 @@ type transportBase struct {
 	remoteURI      *defn.URI
 	localURI       *defn.URI
 	scope          defn.Scope
-	persistency    Persistency
+	persistency    spec_mgmt.Persistency
 	linkType       defn.LinkType
 	mtu            int
 	expirationTime *time.Time
@@ -69,7 +70,7 @@ type transportBase struct {
 func (t *transportBase) makeTransportBase(
 	remoteURI *defn.URI,
 	localURI *defn.URI,
-	persistency Persistency,
+	persistency spec_mgmt.Persistency,
 	scope defn.Scope,
 	linkType defn.LinkType,
 	mtu int,
@@ -107,7 +108,7 @@ func (t *transportBase) RemoteURI() *defn.URI {
 	return t.remoteURI
 }
 
-func (t *transportBase) Persistency() Persistency {
+func (t *transportBase) Persistency() spec_mgmt.Persistency {
 	return t.persistency
 }
 
@@ -130,7 +131,7 @@ func (t *transportBase) SetMTU(mtu int) {
 // ExpirationPeriod returns the time until this face expires.
 // If transport not on-demand, returns 0.
 func (t *transportBase) ExpirationPeriod() time.Duration {
-	if t.expirationTime == nil || t.persistency != PersistencyOnDemand {
+	if t.expirationTime == nil || t.persistency != spec_mgmt.PersistencyOnDemand {
 		return 0
 	}
 	return time.Until(*t.expirationTime)

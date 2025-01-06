@@ -53,3 +53,10 @@ type PrefixOpRemove struct {
 	//+field:name
 	Name enc.Name `tlv:"0x07"`
 }
+
+type Status struct {
+	//+field:struct:Destination
+	NetworkName *Destination `tlv:"0x191"`
+	//+field:struct:Destination
+	RouterName *Destination `tlv:"0x193"`
+}

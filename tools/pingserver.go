@@ -48,11 +48,9 @@ func (ps *PingServer) run() {
 	if err != nil {
 		log.Fatalf("Invalid prefix: %s", ps.args[1])
 	}
-	ps.name = append(prefix,
-		enc.NewStringComponent(enc.TypeGenericNameComponent, "ping"))
+	ps.name = prefix.Append(enc.NewStringComponent(enc.TypeGenericNameComponent, "ping"))
 
-	face := engine.NewUnixFace("/var/run/nfd/nfd.sock")
-	ps.app = engine.NewBasicEngine(face)
+	ps.app = engine.NewBasicEngine(engine.NewDefaultFace())
 	err = ps.app.Start()
 	if err != nil {
 		log.Fatalf("Unable to start engine: %+v", err)

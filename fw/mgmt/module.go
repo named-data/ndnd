@@ -7,12 +7,18 @@
 
 package mgmt
 
-import "github.com/named-data/ndnd/std/ndn"
+import spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 
 // Module represents a management module
 type Module interface {
 	String() string
 	registerManager(manager *Thread)
 	getManager() *Thread
-	handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64)
+	handleIncomingInterest(interest *Interest)
+}
+
+type Interest struct {
+	spec.Interest
+	pitToken []byte
+	inFace   *uint64
 }

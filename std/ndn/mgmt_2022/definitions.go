@@ -2,6 +2,8 @@
 package mgmt_2022
 
 import (
+	"time"
+
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
@@ -27,12 +29,6 @@ const (
 	FaceFlagLocalFieldsEnabled       = uint64(1)
 	FaceFlagLpReliabilityEnabled     = uint64(2)
 	FaceFlagCongestionMarkingEnabled = uint64(4)
-)
-
-const (
-	RouteFlagNoFlag       = uint64(0)
-	RouteFlagChildInherit = uint64(1)
-	RouteFlagCapture      = uint64(2)
 )
 
 const (
@@ -139,10 +135,10 @@ type FaceEventNotification struct {
 type GeneralStatus struct {
 	//+field:string
 	NfdVersion string `tlv:"0x80"`
-	//+field:natural
-	StartTimestamp uint64 `tlv:"0x81"`
-	//+field:natural
-	CurrentTimestamp uint64 `tlv:"0x82"`
+	//+field:time
+	StartTimestamp time.Duration `tlv:"0x81"`
+	//+field:time
+	CurrentTimestamp time.Duration `tlv:"0x82"`
 	//+field:natural
 	NNameTreeEntries uint64 `tlv:"0x83"`
 	//+field:natural

@@ -3,32 +3,46 @@ package main
 import (
 	"os"
 
-	"github.com/named-data/ndnd/cmd"
 	dv "github.com/named-data/ndnd/dv/executor"
 	fw "github.com/named-data/ndnd/fw/executor"
+	"github.com/named-data/ndnd/std/utils"
 	tools "github.com/named-data/ndnd/tools"
+	dvc "github.com/named-data/ndnd/tools/dvc"
+	nfdc "github.com/named-data/ndnd/tools/nfdc"
 )
 
 func main() {
+	// subtrees from other packages
+	nfdcTree := nfdc.GetNfdcCmdTree()
+
 	// create a command tree
-	tree := cmd.CmdTree{
+	tree := utils.CmdTree{
 		Name: "ndnd",
 		Help: "Named Data Networking Daemon",
-		Sub: []*cmd.CmdTree{{
+		Sub: []*utils.CmdTree{{
 			Name: "fw",
 			Help: "NDN Forwarding Daemon",
-			Sub: []*cmd.CmdTree{{
+			Sub: append([]*utils.CmdTree{{
 				Name: "run",
 				Help: "Start the NDN Forwarding Daemon",
 				Fun:  fw.Main,
-			}},
+			}, {},
+			}, nfdcTree.Sub...),
 		}, {
 			Name: "dv",
 			Help: "NDN Distance Vector Routing Daemon",
-			Sub: []*cmd.CmdTree{{
+			Sub: []*utils.CmdTree{{
 				Name: "run",
 				Help: "Start the NDN Distance Vector Routing Daemon",
 				Fun:  dv.Main,
+			}, {}, {
+				Name: "link create",
+				Help: "Create a new active neighbor link",
+				Fun:  dvc.RunDvLinkCreate(&nfdcTree),
+			}, {
+				Name: "link destroy",
+				Help: "Destroy an active neighbor link",
+				Fun:  dvc.RunDvLinkDestroy(&nfdcTree),
 			}},
 		}, {
 			// tools separator

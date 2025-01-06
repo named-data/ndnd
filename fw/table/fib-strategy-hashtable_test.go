@@ -16,7 +16,6 @@ import (
 )
 
 func TestFindNextHopsEncEnc_HT(t *testing.T) {
-	fibTableAlgorithm = "hashtable"
 	newFibStrategyTableHashTable(1)
 
 	assert.NotNil(t, FibStrategyTable)

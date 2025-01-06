@@ -8,6 +8,7 @@
 package executor
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"time"
@@ -44,7 +45,11 @@ type YaNFD struct {
 	unixListener *face.UnixStreamListener
 	wsListener   *face.WebSocketListener
 	tcpListeners []*face.TCPListener
-	udpListener  *face.UDPListener
+	udpListeners []*face.UDPListener
+}
+
+func (y *YaNFD) String() string {
+	return "YaNFD"
 }
 
 // NewYaNFD creates a YaNFD. Don't call this function twice.
@@ -75,14 +80,13 @@ func NewYaNFD(config *YaNFDConfig) *YaNFD {
 // Start runs YaNFD. Note: this function may exit the program when there is error.
 // This function is non-blocking.
 func (y *YaNFD) Start() {
-	core.LogInfo("Main", "Starting YaNFD")
+	core.LogInfo(y, "Starting YaNFD")
 
 	// Start profiler
 	y.profiler.Start()
 
 	// Initialize FIB table
-	fibTableAlgorithm := core.GetConfig().Tables.Fib.Algorithm
-	table.CreateFIBTable(fibTableAlgorithm)
+	table.CreateFIBTable(core.GetConfig().Tables.Fib.Algorithm)
 
 	// Create null face
 	face.MakeNullLinkService(face.MakeNullTransport()).Run(nil)
@@ -92,10 +96,9 @@ func (y *YaNFD) Start() {
 
 	// Create forwarding threads
 	if fw.NumFwThreads < 1 || fw.NumFwThreads > fw.MaxFwThreads {
-		core.LogFatal("Main", "Number of forwarding threads must be in range [1, ", fw.MaxFwThreads, "]")
+		core.LogFatal(y, "Number of forwarding threads must be in range [1, ", fw.MaxFwThreads, "]")
 		os.Exit(2)
 	}
-
 	fw.Threads = make([]*fw.Thread, fw.NumFwThreads)
 	var fwForDispatch []dispatch.FWThread
 	for i := 0; i < fw.NumFwThreads; i++ {
@@ -106,89 +109,118 @@ func (y *YaNFD) Start() {
 	}
 	dispatch.InitializeFWThreads(fwForDispatch)
 
-	// Perform setup operations for each network interface
-	faceCnt := 0
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		core.LogFatal("Main", "Unable to access network interfaces: ", err)
-		os.Exit(2)
-	}
-	tcpEnabled := core.GetConfig().Faces.Tcp.Enabled
-	tcpPort := face.TCPUnicastPort
-	y.tcpListeners = make([]*face.TCPListener, 0)
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			core.LogInfo("Main", "Skipping interface ", iface.Name, " because not up")
-			continue
-		}
+	// Set up listeners for faces
+	listenerCount := 0
 
-		// Create UDP/TCP listener and multicast UDP interface for every address on interface
-		addrs, err := iface.Addrs()
-		if err != nil {
-			core.LogFatal("Main", "Unable to access addresses on network interface ", iface.Name, ": ", err)
-		}
-		for _, addr := range addrs {
-			ipAddr := addr.(*net.IPNet)
+	// Create unicast UDP face
+	if core.GetConfig().Faces.Udp.EnabledUnicast {
+		udpAddrs := []*net.UDPAddr{{
+			IP:   net.IPv4zero,
+			Port: int(face.UDPUnicastPort),
+		}, {
+			IP:   net.IPv6zero,
+			Port: int(face.UDPUnicastPort),
+		}}
 
-			ipVersion := 4
-			path := ipAddr.IP.String()
-			if ipAddr.IP.To4() == nil {
-				ipVersion = 6
-				path += "%" + iface.Name
-			}
-
-			if !addr.(*net.IPNet).IP.IsLoopback() {
-				multicastUDPTransport, err := face.MakeMulticastUDPTransport(
-					defn.MakeUDPFaceURI(ipVersion, path, face.UDPMulticastPort))
-				if err != nil {
-					core.LogError("Main", "Unable to create MulticastUDPTransport for ", path, " on ", iface.Name, ": ", err)
-					continue
-				}
-
-				face.MakeNDNLPLinkService(
-					multicastUDPTransport,
-					face.MakeNDNLPLinkServiceOptions(),
-				).Run(nil)
-
-				faceCnt += 1
-				core.LogInfo("Main", "Created multicast UDP face for ", path, " on ", iface.Name)
-			}
-
-			udpListener, err := face.MakeUDPListener(defn.MakeUDPFaceURI(ipVersion, path, face.UDPUnicastPort))
+		for _, udpAddr := range udpAddrs {
+			uri := fmt.Sprintf("udp://%s", udpAddr)
+			udpListener, err := face.MakeUDPListener(defn.DecodeURIString(uri))
 			if err != nil {
-				core.LogError("Main", "Unable to create UDP listener for ", path, " on ", iface.Name, ": ", err)
-				continue
+				core.LogError(y, "Unable to create UDP listener for ", uri, ": ", err)
+			} else {
+				listenerCount++
+				go udpListener.Run()
+				y.udpListeners = append(y.udpListeners, udpListener)
+				core.LogInfo(y, "Created unicast UDP listener for ", uri)
 			}
-			faceCnt += 1
-			go udpListener.Run()
-			y.udpListener = udpListener
-			core.LogInfo("Main", "Created UDP listener for ", path, " on ", iface.Name)
+		}
+	}
 
-			if tcpEnabled {
-				tcpListener, err := face.MakeTCPListener(defn.MakeTCPFaceURI(ipVersion, path, tcpPort))
-				if err != nil {
-					core.LogError("Main", "Unable to create TCP listener for ", path, " on ", iface.Name, ": ", err)
-					continue
-				}
-				faceCnt += 1
+	// Create unicast TCP face
+	if core.GetConfig().Faces.Tcp.Enabled {
+		tcpAddrs := []*net.TCPAddr{{
+			IP:   net.IPv4zero,
+			Port: int(face.TCPUnicastPort),
+		}, {
+			IP:   net.IPv6zero,
+			Port: int(face.TCPUnicastPort),
+		}}
+
+		for _, tcpAddr := range tcpAddrs {
+			uri := fmt.Sprintf("tcp://%s", tcpAddr)
+			tcpListener, err := face.MakeTCPListener(defn.DecodeURIString(uri))
+			if err != nil {
+				core.LogError(y, "Unable to create TCP listener for ", uri, ": ", err)
+			} else {
+				listenerCount++
 				go tcpListener.Run()
 				y.tcpListeners = append(y.tcpListeners, tcpListener)
-				core.LogInfo("Main", "Created TCP listener for ", path, " on ", iface.Name)
+				core.LogInfo(y, "Created unicast TCP listener for ", uri)
 			}
 		}
 	}
-	if core.GetConfig().Faces.Unix.Enabled {
-		// Set up Unix stream listener
-		y.unixListener, err = face.MakeUnixStreamListener(defn.MakeUnixFaceURI(face.UnixSocketPath))
+
+	// Create multicast UDP face on each non-loopback interface
+	if core.GetConfig().Faces.Udp.EnabledMulticast {
+		ifaces, err := net.Interfaces()
 		if err != nil {
-			core.LogError("Main", "Unable to create Unix stream listener at ", face.UnixSocketPath, ": ", err)
-		} else {
-			faceCnt += 1
-			go y.unixListener.Run()
-			core.LogInfo("Main", "Created Unix stream listener for ", face.UnixSocketPath)
+			core.LogError(y, "Unable to access network interfaces: ", err)
+		}
+
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagUp == 0 {
+				core.LogInfo(y, "Skipping interface ", iface.Name, " because not up")
+				continue
+			}
+
+			addrs, err := iface.Addrs()
+			if err != nil {
+				core.LogError(y, "Unable to access addresses on network interface ", iface.Name, ": ", err)
+				continue
+			}
+
+			for _, addr := range addrs {
+				ipAddr := addr.(*net.IPNet)
+				udpAddr := net.UDPAddr{
+					IP:   ipAddr.IP,
+					Zone: iface.Name,
+					Port: int(face.UDPMulticastPort),
+				}
+				uri := fmt.Sprintf("udp://%s", &udpAddr)
+
+				if !addr.(*net.IPNet).IP.IsLoopback() {
+					multicastUDPTransport, err := face.MakeMulticastUDPTransport(defn.DecodeURIString(uri))
+					if err != nil {
+						core.LogError(y, "Unable to create MulticastUDPTransport for ", uri, ": ", err)
+						continue
+					}
+
+					face.MakeNDNLPLinkService(
+						multicastUDPTransport,
+						face.MakeNDNLPLinkServiceOptions(),
+					).Run(nil)
+
+					listenerCount++
+					core.LogInfo(y, "Created multicast UDP face for ", uri)
+				}
+			}
 		}
 	}
 
+	// Set up Unix stream listener
+	if core.GetConfig().Faces.Unix.Enabled {
+		unixListener, err := face.MakeUnixStreamListener(defn.MakeUnixFaceURI(face.UnixSocketPath))
+		if err != nil {
+			core.LogError(y, "Unable to create Unix stream listener at ", face.UnixSocketPath, ": ", err)
+		} else {
+			listenerCount++
+			go unixListener.Run()
+			y.unixListener = unixListener
+			core.LogInfo(y, "Created Unix stream listener for ", face.UnixSocketPath)
+		}
+	}
+
+	// Set up WebSocket listener
 	if core.GetConfig().Faces.WebSocket.Enabled {
 		cfg := face.WebSocketListenerConfig{
 			Bind:       core.GetConfig().Faces.WebSocket.Bind,
@@ -197,25 +229,28 @@ func (y *YaNFD) Start() {
 			TLSCert:    core.ResolveConfigFileRelPath(core.GetConfig().Faces.WebSocket.TlsCert),
 			TLSKey:     core.ResolveConfigFileRelPath(core.GetConfig().Faces.WebSocket.TlsKey),
 		}
-		y.wsListener, err = face.NewWebSocketListener(cfg)
+
+		wsListener, err := face.NewWebSocketListener(cfg)
 		if err != nil {
-			core.LogError("Main", "Unable to create ", cfg, ": ", err)
+			core.LogError(y, "Unable to create ", cfg, ": ", err)
 		} else {
-			faceCnt++
-			go y.wsListener.Run()
-			core.LogInfo("Main", "Created ", cfg)
+			listenerCount++
+			go wsListener.Run()
+			y.wsListener = wsListener
+			core.LogInfo(y, "Created ", cfg)
 		}
 	}
 
-	if faceCnt <= 0 {
-		core.LogFatal("Main", "No face or listener is successfully created. Quit.")
+	// Check if any faces were created
+	if listenerCount <= 0 {
+		core.LogFatal(y, "No face or listener is successfully created. Quit.")
 		os.Exit(2)
 	}
 }
 
 // Stop shuts down YaNFD.
 func (y *YaNFD) Stop() {
-	core.LogInfo("Main", "Forwarder shutting down ...")
+	core.LogInfo(y, "Forwarder shutting down ...")
 	core.ShouldQuit = true
 
 	// Stop profiler
@@ -230,8 +265,8 @@ func (y *YaNFD) Stop() {
 	}
 
 	// Wait for UDP listener to quit
-	if y.udpListener != nil {
-		y.udpListener.Close()
+	for _, udpListener := range y.udpListeners {
+		udpListener.Close()
 	}
 
 	// Wait for TCP listeners to quit

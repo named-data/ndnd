@@ -331,3 +331,23 @@ func TestNameBytes(t *testing.T) {
 	n2 := utils.WithoutErr(enc.NameFromBytes([]byte("\x07\x0c\x08\x01a\x08\x01b\x08\x01c\x08\x01d")))
 	require.True(t, n.Equal(n2))
 }
+
+func TestNameAppend(t *testing.T) {
+	utils.SetTestingT(t)
+
+	// This section illustrates the issue with using append()
+	// If we have a prefix which has an underlying array larger than the slice itself,
+	// then subsequent appends will modify the same array. This will overwrite any
+	// names created from the same prefix.
+	prefix := utils.WithoutErr(enc.NameFromStr("/a/b/c/z/z/z"))[:3]
+	name1 := append(prefix, utils.WithoutErr(enc.NameFromStr("d1/e1/f1"))...)
+	name2 := append(prefix, utils.WithoutErr(enc.NameFromStr("d2/e2/f2"))...)
+	require.Equal(t, name1.String(), name2.String()) // should not be equal
+
+	// This section illustrates the correct way to append names
+	// The Append function allocates a new array for the new name
+	name3 := prefix.Append(utils.WithoutErr(enc.NameFromStr("d3/e3/f3"))...)
+	name4 := prefix.Append(utils.WithoutErr(enc.NameFromStr("d4/e4/f4"))...)
+	require.Equal(t, "/a/b/c/d3/e3/f3", name3.String())
+	require.Equal(t, "/a/b/c/d4/e4/f4", name4.String())
+}

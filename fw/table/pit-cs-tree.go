@@ -48,8 +48,6 @@ func newNameTreeCsEntry() interface{} {
 
 // PitCsTree represents a PIT-CS implementation that uses a name tree
 type PitCsTree struct {
-	basePitCsTable
-
 	root *pitCsTreeNode
 
 	nPitEntries int

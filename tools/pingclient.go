@@ -55,7 +55,7 @@ func (pc *PingClient) usage() {
 }
 
 func (pc *PingClient) send(seq uint64) {
-	name := append(pc.name, enc.NewSequenceNumComponent(seq))
+	name := pc.name.Append(enc.NewSequenceNumComponent(seq))
 
 	cfg := &ndn.InterestConfig{
 		Lifetime: utils.IdPtr(time.Duration(pc.timeout) * time.Millisecond),
@@ -88,6 +88,10 @@ func (pc *PingClient) send(seq uint64) {
 			fmt.Printf("content from %s: seq=%d, time=%f ms\n",
 				pc.prefix, seq,
 				float64(t2.Sub(t1).Microseconds())/1000.0)
+
+			if pc.nRecv == 0 { // lateinit
+				pc.rttMin = time.Duration(1<<63 - 1)
+			}
 
 			pc.nRecv++
 			pc.totalTime += t2.Sub(t1)
@@ -144,8 +148,7 @@ func (pc *PingClient) run() {
 		log.Fatalf("Invalid prefix: %s", pc.args[1])
 	}
 	pc.prefix = prefixN
-	pc.name = append(prefixN,
-		enc.NewStringComponent(enc.TypeGenericNameComponent, "ping"))
+	pc.name = prefixN.Append(enc.NewStringComponent(enc.TypeGenericNameComponent, "ping"))
 
 	// initialize sequence number
 	if pc.seq == 0 {
@@ -153,8 +156,7 @@ func (pc *PingClient) run() {
 	}
 
 	// start the engine
-	face := engine.NewUnixFace("/var/run/nfd/nfd.sock")
-	pc.app = engine.NewBasicEngine(face)
+	pc.app = engine.NewBasicEngine(engine.NewDefaultFace())
 	err = pc.app.Start()
 	if err != nil {
 		log.Fatalf("Unable to start engine: %+v", err)

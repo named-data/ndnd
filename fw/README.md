@@ -37,7 +37,6 @@ yanfd /etc/ndn/yanfd.yml
 ```
 
 *Runtime configuration* is performed via the [NFD Management Protocol](https://redmine.named-data.net/projects/nfd/wiki/Management).
-At the moment, this requires the installation of the [NFD](https://github.com/named-data/NFD) package to obtain the `nfdc` configuration utility.
 
 ## Building from source
 

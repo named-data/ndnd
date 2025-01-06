@@ -56,8 +56,7 @@ func main() {
 	log.SetLevel(log.InfoLevel)
 	logger := log.WithField("module", "main")
 
-	face := engine.NewUnixFace("/var/run/nfd/nfd.sock")
-	app = engine.NewBasicEngine(face)
+	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()
 	if err != nil {
 		logger.Fatalf("Unable to start engine: %+v", err)

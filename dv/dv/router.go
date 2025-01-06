@@ -11,6 +11,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
+	"github.com/named-data/ndnd/std/object"
 	ndn_sync "github.com/named-data/ndnd/std/sync"
 	"github.com/named-data/ndnd/std/utils"
 )
@@ -20,6 +21,8 @@ type Router struct {
 	engine ndn.Engine
 	// config for this router
 	config *config.Config
+	// object client
+	client *object.Client
 	// nfd management thread
 	nfdc *nfdc.NfdMgmtThread
 	// single mutex for all operations
@@ -43,6 +46,8 @@ type Router struct {
 
 	// advertisement sequence number for self
 	advertSyncSeq uint64
+	// object directory for advertisement data
+	advertDir *object.MemoryFifoDir
 	// prefix table svs instance
 	pfxSvs *ndn_sync.SvSync
 }
@@ -59,22 +64,27 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 	dv := &Router{
 		engine: engine,
 		config: config,
+		client: object.NewClient(engine, object.NewMemoryStore()),
 		nfdc:   nfdc.NewNfdMgmtThread(engine),
 		mutex:  sync.Mutex{},
 	}
 
 	// Create sync groups
-	dv.pfxSvs = ndn_sync.NewSvSync(engine, config.PrefixTableSyncPrefix(), dv.onPfxSyncUpdate)
+	dv.pfxSvs = ndn_sync.NewSvSync(engine, config.PrefixTableSyncPrefix(),
+		func(ssu ndn_sync.SvSyncUpdate) {
+			go dv.onPfxSyncUpdate(ssu)
+		})
 
-	// Set initial sequence numbers
+	// Initialize sync and dirs
 	now := uint64(time.Now().UnixMilli())
 	dv.advertSyncSeq = now
 	dv.pfxSvs.SetSeqNo(dv.config.RouterName(), now)
+	dv.advertDir = object.NewMemoryFifoDir(16) // keep last few advertisements
 
 	// Create tables
 	dv.neighbors = table.NewNeighborTable(config, dv.nfdc)
 	dv.rib = table.NewRib(config)
-	dv.pfx = table.NewPrefixTable(config, engine, dv.pfxSvs)
+	dv.pfx = table.NewPrefixTable(config, dv.client, dv.pfxSvs)
 	dv.fib = table.NewFib(config, dv.nfdc)
 
 	return dv, nil
@@ -93,6 +103,10 @@ func (dv *Router) Start() (err error) {
 	dv.deadcheck = time.NewTicker(dv.config.RouterDeadInterval())
 	defer dv.heartbeat.Stop()
 	defer dv.deadcheck.Stop()
+
+	// Start object client
+	dv.client.Start()
+	defer dv.client.Stop()
 
 	// Start management thread
 	go dv.nfdc.Start()
@@ -114,8 +128,9 @@ func (dv *Router) Start() (err error) {
 	dv.pfxSvs.Start()
 	defer dv.pfxSvs.Stop()
 
-	// Add self to the RIB
+	// Add self to the RIB and make initial advertisement
 	dv.rib.Set(dv.config.RouterName(), dv.config.RouterName(), 0)
+	dv.advertGenerateNew()
 
 	for {
 		select {
@@ -170,28 +185,19 @@ func (dv *Router) register() (err error) {
 		return err
 	}
 
-	// Advertisement Data
-	err = dv.engine.AttachHandler(dv.config.AdvertisementDataPrefix(),
-		func(args ndn.InterestHandlerArgs) {
-			go dv.advertDataOnInterest(args)
-		})
-	if err != nil {
-		return err
-	}
-
-	// Prefix Data
-	err = dv.engine.AttachHandler(dv.config.PrefixTableDataPrefix(),
-		func(args ndn.InterestHandlerArgs) {
-			go dv.pfx.OnDataInterest(args)
-		})
-	if err != nil {
-		return err
-	}
-
 	// Readvertise Data
 	err = dv.engine.AttachHandler(dv.config.ReadvertisePrefix(),
 		func(args ndn.InterestHandlerArgs) {
 			go dv.readvertiseOnInterest(args)
+		})
+	if err != nil {
+		return err
+	}
+
+	// Router status
+	err = dv.engine.AttachHandler(dv.config.StatusPrefix(),
+		func(args ndn.InterestHandlerArgs) {
+			go dv.statusOnInterest(args)
 		})
 	if err != nil {
 		return err
@@ -203,7 +209,7 @@ func (dv *Router) register() (err error) {
 		dv.config.AdvertisementDataPrefix(),
 		dv.config.PrefixTableSyncPrefix(),
 		dv.config.PrefixTableDataPrefix(),
-		dv.config.ReadvertisePrefix(),
+		dv.config.LocalPrefix(),
 	}
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
@@ -219,7 +225,6 @@ func (dv *Router) register() (err error) {
 	}
 
 	// Set strategy to multicast for sync prefixes
-	mcast, _ := enc.NameFromStr(config.MulticastStrategy)
 	pfxs = []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
 		dv.config.PrefixTableSyncPrefix(),
@@ -231,7 +236,7 @@ func (dv *Router) register() (err error) {
 			Args: &mgmt.ControlArgs{
 				Name: prefix,
 				Strategy: &mgmt.Strategy{
-					Name: mcast,
+					Name: config.MulticastStrategy,
 				},
 			},
 			Retries: -1,

@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/named-data/ndnd/fw/core"
 	defn "github.com/named-data/ndnd/fw/defn"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // WebSocketTransport communicates with web applications via WebSocket.
@@ -32,7 +33,7 @@ func NewWebSocketTransport(localURI *defn.URI, c *websocket.Conn) (t *WebSocketT
 	}
 
 	t = &WebSocketTransport{c: c}
-	t.makeTransportBase(remoteURI, localURI, PersistencyOnDemand, scope, defn.PointToPoint, defn.MaxNDNPacketSize)
+	t.makeTransportBase(remoteURI, localURI, spec_mgmt.PersistencyOnDemand, scope, defn.PointToPoint, defn.MaxNDNPacketSize)
 	t.running.Store(true)
 
 	return t
@@ -42,8 +43,8 @@ func (t *WebSocketTransport) String() string {
 	return fmt.Sprintf("WebSocketTransport, FaceID=%d, RemoteURI=%s, LocalURI=%s", t.faceID, t.remoteURI, t.localURI)
 }
 
-func (t *WebSocketTransport) SetPersistency(persistency Persistency) bool {
-	return persistency == PersistencyOnDemand
+func (t *WebSocketTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
+	return persistency == spec_mgmt.PersistencyOnDemand
 }
 
 func (t *WebSocketTransport) GetSendQueueSize() uint64 {

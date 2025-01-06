@@ -9,38 +9,17 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	basic_engine "github.com/named-data/ndnd/std/engine/basic"
 	"github.com/named-data/ndnd/std/ndn"
-	"github.com/named-data/ndnd/std/utils"
 )
 
 // rsaSigner is a signer that uses ECC key to sign packets.
 type rsaSigner struct {
-	timer ndn.Timer
-	seq   uint64
-
-	keyLocatorName enc.Name
-	key            *rsa.PrivateKey
-	keyLen         uint
-	forCert        bool
-	forInt         bool
-	certExpireTime time.Duration
+	asymSigner
+	keyLen uint
+	key    *rsa.PrivateKey
 }
 
 func (s *rsaSigner) SigInfo() (*ndn.SigConfig, error) {
-	ret := &ndn.SigConfig{
-		Type:    ndn.SignatureSha256WithEcdsa,
-		KeyName: s.keyLocatorName,
-	}
-	if s.forCert {
-		ret.NotBefore = utils.IdPtr(s.timer.Now())
-		ret.NotAfter = utils.IdPtr(s.timer.Now().Add(s.certExpireTime))
-	}
-	if s.forInt {
-		s.seq++
-		ret.Nonce = s.timer.Nonce()
-		ret.SigTime = utils.IdPtr(s.timer.Now())
-		ret.SeqNum = utils.IdPtr(s.seq)
-	}
-	return ret, nil
+	return s.genSigInfo(ndn.SignatureSha256WithRsa)
 }
 
 func (s *rsaSigner) EstimateSize() uint {
@@ -66,13 +45,16 @@ func NewRsaSigner(
 ) ndn.Signer {
 	keyLen := uint(key.Size())
 	return &rsaSigner{
-		timer:          basic_engine.Timer{},
-		seq:            0,
-		keyLocatorName: keyLocatorName,
-		key:            key,
-		keyLen:         keyLen,
-		forCert:        forCert,
-		forInt:         forInt,
-		certExpireTime: expireTime,
+		asymSigner: asymSigner{
+			timer:          basic_engine.Timer{},
+			seq:            0,
+			keyLocatorName: keyLocatorName,
+
+			forCert:        forCert,
+			forInt:         forInt,
+			certExpireTime: expireTime,
+		},
+		key:    key,
+		keyLen: keyLen,
 	}
 }

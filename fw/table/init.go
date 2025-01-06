@@ -14,9 +14,6 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
-// tableQueueSize is the maxmimum size of queues in the tables.
-var tableQueueSize int
-
 // deadNonceListLifetime is the lifetime of entries in the dead nonce list.
 var deadNonceListLifetime time.Duration
 
@@ -35,14 +32,8 @@ var csReplacementPolicy string
 // producerRegions contains the prefixes produced in this forwarder's region.
 var producerRegions []string
 
-// fibTableAlgorithm contains the options for how the FIB is implemented
-// Allowed values: nametree, hashtable
-var fibTableAlgorithm string
-
 // Configure configures the forwarding system.
 func Configure() {
-	tableQueueSize = core.GetConfig().Tables.QueueSize
-
 	// Content Store
 	csCapacity = int(core.GetConfig().Tables.ContentStore.Capacity)
 	csAdmit = core.GetConfig().Tables.ContentStore.Admit
@@ -74,6 +65,18 @@ func Configure() {
 	}
 }
 
+func CreateFIBTable(algo string) {
+	switch algo {
+	case "hashtable":
+		m := core.GetConfig().Tables.Fib.Hashtable.M
+		newFibStrategyTableHashTable(m)
+	case "nametree":
+		newFibStrategyTableTree()
+	default:
+		core.LogFatal("CreateFIBTable", "Unrecognized FIB table algorithm specified: ", algo)
+	}
+}
+
 // SetCsCapacity sets the CS capacity from management.
 func SetCsCapacity(capacity int) {
 	csCapacity = capacity
@@ -84,15 +87,22 @@ func CsCapacity() int {
 	return csCapacity
 }
 
-func CreateFIBTable(fibTableAlgorithm string) {
-	switch fibTableAlgorithm {
-	case "hashtable":
-		m := core.GetConfig().Tables.Fib.Hashtable.M
-		newFibStrategyTableHashTable(m)
-	case "nametree":
-		newFibStrategyTableTree()
-	default:
-		// Default to nametree
-		core.LogFatal("CreateFIBTable", "Unrecognized FIB table algorithm specified: ", fibTableAlgorithm)
-	}
+// SetCsAdmit sets the CS admit flag from management.
+func SetCsAdmit(admit bool) {
+	csAdmit = admit
+}
+
+// CsAdmit returns the CS admit flag
+func CsAdmit() bool {
+	return csAdmit
+}
+
+// SetCsServe sets the CS serve flag from management.
+func SetCsServe(serve bool) {
+	csServe = serve
+}
+
+// CsServe returns the CS serve flag
+func CsServe() bool {
+	return csServe
 }

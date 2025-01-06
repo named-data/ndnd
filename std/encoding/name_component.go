@@ -361,6 +361,10 @@ func (c Component) CanonicalString() string {
 	return tName + compValFmtText{}.ToString(c.Val)
 }
 
+func (c Component) Append(rest ...Component) Name {
+	return Name{c}.Append(rest...)
+}
+
 func ParseComponent(buf Buffer) (Component, int) {
 	typ, p1 := ParseTLNum(buf)
 	l, p2 := ParseTLNum(buf[p1:])

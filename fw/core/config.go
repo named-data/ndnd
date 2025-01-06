@@ -31,6 +31,10 @@ type Config struct {
 		LockThreadsToCores bool `json:"lock_threads_to_cores"`
 
 		Udp struct {
+			// Whether to enable unicast UDP listener
+			EnabledUnicast bool `json:"enabled_unicast"`
+			// Whether to enable multicast UDP listener
+			EnabledMulticast bool `json:"enabled_multicast"`
 			// Port used for unicast UDP faces
 			PortUnicast uint16 `json:"port_unicast"`
 			// Port used for multicast UDP faces
@@ -90,9 +94,6 @@ type Config struct {
 	} `json:"mgmt"`
 
 	Tables struct {
-		// Size of queues in the table system
-		QueueSize int `json:"queue_size"`
-
 		ContentStore struct {
 			// Capacity of each forwarding thread's content store (in number of Data packets). Note that the
 			// total capacity of all content stores in the forwarder will be the number of threads
@@ -143,6 +144,8 @@ func DefaultConfig() *Config {
 	c.Faces.CongestionMarking = true
 	c.Faces.LockThreadsToCores = false
 
+	c.Faces.Udp.EnabledUnicast = true
+	c.Faces.Udp.EnabledMulticast = true
 	c.Faces.Udp.PortUnicast = 6363
 	c.Faces.Udp.PortMulticast = 56363
 	c.Faces.Udp.MulticastAddressIpv4 = "224.0.23.170"
@@ -168,8 +171,6 @@ func DefaultConfig() *Config {
 	c.Fw.LockThreadsToCores = false
 
 	c.Mgmt.AllowLocalhop = false
-
-	c.Tables.QueueSize = 1024
 
 	c.Tables.ContentStore.Capacity = 1024
 	c.Tables.ContentStore.Admit = true

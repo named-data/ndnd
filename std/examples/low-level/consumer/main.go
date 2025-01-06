@@ -15,8 +15,7 @@ func main() {
 	log.SetLevel(log.InfoLevel)
 	logger := log.WithField("module", "main")
 
-	face := engine.NewUnixFace("/var/run/nfd/nfd.sock")
-	app := engine.NewBasicEngine(face)
+	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()
 	if err != nil {
 		logger.Fatalf("Unable to start engine: %+v", err)
@@ -25,7 +24,7 @@ func main() {
 	defer app.Stop()
 
 	name, _ := enc.NameFromStr("/example/testApp/randomData")
-	name = append(name, enc.NewTimestampComponent(utils.MakeTimestamp(time.Now())))
+	name = name.Append(enc.NewTimestampComponent(utils.MakeTimestamp(time.Now())))
 
 	intCfg := &ndn.InterestConfig{
 		MustBeFresh: true,

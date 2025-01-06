@@ -54,7 +54,7 @@ func (dv *Router) ribUpdate(ns *table.NeighborState) {
 	if dirty {
 		go func() {
 			dv.fibUpdate()
-			dv.advertSyncNotifyNew()
+			dv.advertGenerateNew()
 			dv.prefixDataFetchAll()
 		}()
 	}
@@ -83,7 +83,7 @@ func (dv *Router) checkDeadNeighbors() {
 	if dirty {
 		go func() {
 			dv.fibUpdate()
-			dv.advertSyncNotifyNew()
+			dv.advertGenerateNew()
 		}()
 	}
 }
@@ -119,9 +119,7 @@ func (dv *Router) fibUpdate() {
 		fes := dv.rib.GetFibEntries(dv.neighbors, routerName.Hash())
 
 		// Add entry to the router itself
-		routerPrefix := append(routerName,
-			enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
-		)
+		routerPrefix := routerName.Append(enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"))
 		register(routerPrefix, fes)
 
 		// Add entries to all prefixes announced by this router

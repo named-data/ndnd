@@ -445,10 +445,10 @@ func (e *Engine) Express(interest *ndn.EncodedInterest, callback ndn.ExpressCall
 	return err
 }
 
-func (e *Engine) ExecMgmtCmd(module string, cmd string, args any) error {
+func (e *Engine) ExecMgmtCmd(module string, cmd string, args any) (any, error) {
 	cmdArgs, ok := args.(*mgmt.ControlArgs)
 	if !ok {
-		return ndn.ErrInvalidValue{Item: "args", Value: args}
+		return nil, ndn.ErrInvalidValue{Item: "args", Value: args}
 	}
 
 	intCfg := &ndn.InterestConfig{
@@ -457,53 +457,63 @@ func (e *Engine) ExecMgmtCmd(module string, cmd string, args any) error {
 	}
 	interest, err := e.mgmtConf.MakeCmd(module, cmd, cmdArgs, intCfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	ch := make(chan error)
+
+	type mgmtResp struct {
+		err error
+		val *mgmt.ControlResponse
+	}
+	respCh := make(chan *mgmtResp)
+
 	err = e.Express(interest, func(args ndn.ExpressCallbackArgs) {
+		resp := &mgmtResp{}
+		defer func() {
+			respCh <- resp
+			close(respCh)
+		}()
+
 		if args.Result == ndn.InterestResultNack {
-			ch <- fmt.Errorf("nack received: %v", args.NackReason)
+			resp.err = fmt.Errorf("nack received: %v", args.NackReason)
 		} else if args.Result == ndn.InterestResultTimeout {
-			ch <- ndn.ErrDeadlineExceed
+			resp.err = ndn.ErrDeadlineExceed
 		} else if args.Result == ndn.InterestResultData {
 			data := args.Data
 			valid := e.cmdChecker(data.Name(), args.SigCovered, data.Signature())
 			if !valid {
-				ch <- fmt.Errorf("command signature is not valid")
+				resp.err = fmt.Errorf("command signature is not valid")
 			} else {
 				ret, err := mgmt.ParseControlResponse(enc.NewWireReader(data.Content()), true)
 				if err != nil {
-					ch <- err
+					resp.err = err
 				} else {
+					resp.val = ret
 					if ret.Val != nil {
 						if ret.Val.StatusCode == 200 {
-							ch <- nil
+							return
 						} else {
-							errText := ret.Val.StatusText
-							ch <- fmt.Errorf("command failed due to error %d: %s", ret.Val.StatusCode, errText)
+							resp.err = fmt.Errorf("command failed due to error %d: %s",
+								ret.Val.StatusCode, ret.Val.StatusText)
 						}
 					} else {
-						ch <- fmt.Errorf("improper response")
+						resp.err = fmt.Errorf("improper response")
 					}
 				}
 			}
 		} else {
-			ch <- fmt.Errorf("unknown result: %v", args.Result)
+			resp.err = fmt.Errorf("unknown result: %v", args.Result)
 		}
-		close(ch)
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = <-ch
-	if err != nil {
-		return err
-	}
-	return nil
+
+	resp := <-respCh
+	return resp.val, resp.err
 }
 
 func (e *Engine) RegisterRoute(prefix enc.Name) error {
-	err := e.ExecMgmtCmd("rib", "register", &mgmt.ControlArgs{Name: prefix})
+	_, err := e.ExecMgmtCmd("rib", "register", &mgmt.ControlArgs{Name: prefix})
 	if err != nil {
 		e.log.WithField("name", prefix.String()).
 			Errorf("Failed to register prefix: %v", err)
@@ -516,7 +526,7 @@ func (e *Engine) RegisterRoute(prefix enc.Name) error {
 }
 
 func (e *Engine) UnregisterRoute(prefix enc.Name) error {
-	err := e.ExecMgmtCmd("rib", "unregister", &mgmt.ControlArgs{Name: prefix})
+	_, err := e.ExecMgmtCmd("rib", "unregister", &mgmt.ControlArgs{Name: prefix})
 	if err != nil {
 		e.log.WithField("name", prefix.String()).
 			Errorf("Failed to register prefix: %v", err)

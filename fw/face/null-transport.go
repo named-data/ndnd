@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	defn "github.com/named-data/ndnd/fw/defn"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // NullTransport is a transport that drops all packets.
@@ -27,7 +28,7 @@ func MakeNullTransport() *NullTransport {
 	t.makeTransportBase(
 		defn.MakeNullFaceURI(),
 		defn.MakeNullFaceURI(),
-		PersistencyPermanent,
+		spec_mgmt.PersistencyPermanent,
 		defn.NonLocal,
 		defn.PointToPoint,
 		defn.MaxNDNPacketSize)
@@ -39,12 +40,12 @@ func (t *NullTransport) String() string {
 }
 
 // SetPersistency changes the persistency of the face.
-func (t *NullTransport) SetPersistency(persistency Persistency) bool {
+func (t *NullTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
 	if persistency == t.persistency {
 		return true
 	}
 
-	if persistency == PersistencyPermanent {
+	if persistency == spec_mgmt.PersistencyPermanent {
 		t.persistency = persistency
 		return true
 	}

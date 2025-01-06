@@ -89,6 +89,8 @@ func (s *SvSync) Start() (err error) {
 }
 
 func (s *SvSync) main() {
+	defer s.engine.DetachHandler(s.groupPrefix)
+
 	s.running.Store(true)
 	defer s.running.Store(false)
 
@@ -106,13 +108,8 @@ func (s *SvSync) main() {
 
 func (s *SvSync) Stop() {
 	s.ticker.Stop()
-
-	s.engine.DetachHandler(s.groupPrefix)
-	s.engine.UnregisterRoute(s.groupPrefix)
-
 	s.stop <- struct{}{}
 	close(s.stop)
-	close(s.recvSv)
 }
 
 func (s *SvSync) SetSeqNo(nodeId enc.Name, seqNo uint64) error {
@@ -289,7 +286,7 @@ func (s *SvSync) sendSyncInterest() {
 	}()
 
 	// SVS v2 Sync Interest
-	syncName := append(s.groupPrefix, enc.NewVersionComponent(2))
+	syncName := s.groupPrefix.Append(enc.NewVersionComponent(2))
 
 	// Sync Interest parameters for SVS
 	cfg := &ndn.InterestConfig{
@@ -313,6 +310,10 @@ func (s *SvSync) sendSyncInterest() {
 }
 
 func (s *SvSync) onSyncInterest(interest ndn.Interest) {
+	if !s.running.Load() {
+		return
+	}
+
 	// Check if app param is present
 	if interest.AppParam() == nil {
 		log.Debug("SvSync: onSyncInterest no AppParam, ignoring")

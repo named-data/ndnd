@@ -8,6 +8,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	rdr "github.com/named-data/ndnd/std/ndn/rdr_2024"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/utils"
 )
@@ -24,19 +25,15 @@ type ProduceArgs struct {
 	Version *uint64
 	// time for which the object version can be cached (default 4s)
 	FreshnessPeriod time.Duration
-	// final expiry of the object (default 0 = no expiry)
-	Expiry time.Time // TODO: not implemented
+	// do not create metadata packet
+	NoMetadata bool
 }
 
-func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
+// Produce and sign data, and insert into a store
+// This function does not rely on the engine or client, so it can also be used in YaNFD
+func Produce(args ProduceArgs, store ndn.Store, signer ndn.Signer) (enc.Name, error) {
 	content := args.Content
-	contentSize := 0
-	for _, c := range content {
-		contentSize += len(c)
-	}
-	if contentSize == 0 {
-		return nil, errors.New("cannot produce empty object")
-	}
+	contentSize := content.Length()
 
 	now := time.Now().UnixNano()
 	if now < 0 { // > 1970
@@ -52,7 +49,10 @@ func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
 		args.FreshnessPeriod = 4 * time.Second
 	}
 
-	lastSeg := uint64((contentSize - 1) / pSegmentSize)
+	lastSeg := uint64(0)
+	if contentSize > 0 {
+		lastSeg = uint64((contentSize - 1) / pSegmentSize)
+	}
 	finalBlockId := enc.NewSegmentComponent(lastSeg)
 
 	cfg := &ndn.DataConfig{
@@ -61,17 +61,15 @@ func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
 		FinalBlockID: &finalBlockId,
 	}
 
-	// TODO: sign the data
-	basename := append(args.Name, enc.NewVersionComponent(version))
-	signer := sec.NewSha256Signer()
+	basename := args.Name.Append(enc.NewVersionComponent(version))
 
 	// use a transaction to ensure the entire object is written
-	c.store.Begin()
-	defer c.store.Commit()
+	store.Begin()
+	defer store.Commit()
 
 	var seg uint64
-	for seg = 0; len(content) > 0; seg++ {
-		name := append(basename, enc.NewSegmentComponent(seg))
+	for seg = 0; seg <= lastSeg; seg++ {
+		name := basename.Append(enc.NewSegmentComponent(seg))
 
 		segContent := enc.Wire{}
 		segContentSize := 0
@@ -90,12 +88,12 @@ func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
 			}
 		}
 
-		data, err := c.engine.Spec().MakeData(name, cfg, segContent, signer)
+		data, err := spec.Spec{}.MakeData(name, cfg, segContent, signer)
 		if err != nil {
 			return nil, err
 		}
 
-		err = c.store.Put(name, version, data.Wire.Join())
+		err = store.Put(name, version, data.Wire.Join())
 		if err != nil {
 			return nil, err
 		}
@@ -106,9 +104,10 @@ func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
 		}
 	}
 
-	{ // write metadata packet
-		name := append(args.Name,
-			enc.NewStringComponent(enc.TypeKeywordNameComponent, "metadata"),
+	if !args.NoMetadata {
+		// write metadata packet
+		name := args.Name.Append(
+			rdr.METADATA,
 			enc.NewVersionComponent(version),
 			enc.NewSegmentComponent(0),
 		)
@@ -117,12 +116,12 @@ func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
 			FinalBlockID: finalBlockId.Bytes(),
 		}
 
-		data, err := c.engine.Spec().MakeData(name, cfg, content.Encode(), signer)
+		data, err := spec.Spec{}.MakeData(name, cfg, content.Encode(), signer)
 		if err != nil {
 			return nil, err
 		}
 
-		err = c.store.Put(name, version, data.Wire.Join())
+		err = store.Put(name, version, data.Wire.Join())
 		if err != nil {
 			return nil, err
 		}
@@ -131,6 +130,44 @@ func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
 	return basename, nil
 }
 
+// Produce and sign data, and insert into the client's store.
+// The input data will be freed as the object is segmented.
+func (c *Client) Produce(args ProduceArgs) (enc.Name, error) {
+	// TODO: sign the data
+	signer := sec.NewSha256Signer()
+
+	return Produce(args, c.store, signer)
+}
+
+// Remove an object from the client's store by name
+func (c *Client) Remove(name enc.Name) error {
+	// This will clear the store (probably not what you want)
+	if len(name) == 0 {
+		return nil
+	}
+
+	c.store.Begin()
+	defer c.store.Commit()
+
+	// Remove object data
+	err := c.store.Remove(name, true)
+	if err != nil {
+		return err
+	}
+
+	// Remove RDR metadata if we have a version
+	// If there is no version, we removed this anyway in the previous step
+	if version := name[len(name)-1]; version.Typ == enc.TypeVersionNameComponent {
+		err = c.store.Remove(name[:len(name)-1].Append(rdr.METADATA, version), true)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// onInterest looks up the store for the requested data
 func (c *Client) onInterest(args ndn.InterestHandlerArgs) {
 	// TODO: consult security if we can send this
 	wire, err := c.store.Get(args.Interest.Name(), args.Interest.CanBePrefix())

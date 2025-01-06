@@ -16,6 +16,7 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 	defn "github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/face/impl"
+	"github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // TCPListener listens for incoming TCP unicast connections.
@@ -75,7 +76,7 @@ func (l *TCPListener) Run() {
 			continue
 		}
 
-		newTransport, err := AcceptUnicastTCPTransport(remoteConn, l.localURI, PersistencyPersistent)
+		newTransport, err := AcceptUnicastTCPTransport(remoteConn, l.localURI, mgmt_2022.PersistencyPersistent)
 		if err != nil {
 			core.LogError(l, "Failed to create new unicast TCP transport: ", err)
 			continue

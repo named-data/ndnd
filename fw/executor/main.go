@@ -70,7 +70,7 @@ func Main(args []string) {
 	sigChannel := make(chan os.Signal, 1)
 	signal.Notify(sigChannel, os.Interrupt, syscall.SIGTERM)
 	receivedSig := <-sigChannel
-	core.LogInfo("Main", "Received signal ", receivedSig, " - exiting")
+	core.LogInfo(yanfd, "Received signal ", receivedSig, " - exiting")
 
 	yanfd.Stop()
 }

@@ -15,14 +15,12 @@ import (
 	"github.com/named-data/ndnd/fw/fw"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
-	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // ForwarderStatusModule is the module that provide forwarder status information.
 type ForwarderStatusModule struct {
-	manager                   *Thread
-	nextGeneralDatasetVersion uint64
+	manager *Thread
 }
 
 func (f *ForwarderStatusModule) String() string {
@@ -37,28 +35,26 @@ func (f *ForwarderStatusModule) getManager() *Thread {
 	return f.manager
 }
 
-func (f *ForwarderStatusModule) handleIncomingInterest(interest ndn.Interest, pitToken []byte, inFace uint64) {
+func (f *ForwarderStatusModule) handleIncomingInterest(interest *Interest) {
 	// Only allow from /localhost
-	if !f.manager.localPrefix.IsPrefix(interest.Name()) {
+	if !LOCAL_PREFIX.IsPrefix(interest.Name()) {
 		core.LogWarn(f, "Received forwarder status management Interest from non-local source - DROP")
 		return
 	}
 
 	// Dispatch by verb
-	verb := interest.Name()[f.manager.prefixLength()+1].String()
+	verb := interest.Name()[len(LOCAL_PREFIX)+1].String()
 	switch verb {
 	case "general":
-		f.general(interest, pitToken, inFace)
+		f.general(interest)
 	default:
-		core.LogWarn(f, "Received Interest for non-existent verb '", verb, "'")
-		response := makeControlResponse(501, "Unknown verb", nil)
-		f.manager.sendResponse(response, interest, pitToken, inFace)
+		f.manager.sendCtrlResp(interest, 501, "Unknown verb", nil)
 		return
 	}
 }
 
-func (f *ForwarderStatusModule) general(interest ndn.Interest, pitToken []byte, _ uint64) {
-	if len(interest.Name()) > f.manager.prefixLength()+2 {
+func (f *ForwarderStatusModule) general(interest *Interest) {
+	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
 		// Ignore because contains version and/or segment components
 		return
 	}
@@ -66,8 +62,8 @@ func (f *ForwarderStatusModule) general(interest ndn.Interest, pitToken []byte, 
 	// Generate new dataset
 	status := &mgmt.GeneralStatus{
 		NfdVersion:       core.Version,
-		StartTimestamp:   uint64(core.StartTimestamp.UnixNano() / 1000 / 1000),
-		CurrentTimestamp: uint64(time.Now().UnixNano() / 1000 / 1000),
+		StartTimestamp:   time.Duration(core.StartTimestamp.UnixNano()),
+		CurrentTimestamp: time.Duration(time.Now().UnixNano()),
 		NFibEntries:      uint64(len(table.FibStrategyTable.GetAllFIBEntries())),
 	}
 	// Don't set NNameTreeEntries because we don't use a NameTree
@@ -82,13 +78,10 @@ func (f *ForwarderStatusModule) general(interest ndn.Interest, pitToken []byte, 
 		status.NSatisfiedInterests += thread.(*fw.Thread).NSatisfiedInterests
 		status.NUnsatisfiedInterests += thread.(*fw.Thread).NUnsatisfiedInterests
 	}
-	wire := status.Encode()
 
-	name, _ := enc.NameFromStr(f.manager.localPrefix.String() + "/status/general")
-	segments := makeStatusDataset(name, f.nextGeneralDatasetVersion, wire)
-	f.manager.transport.Send(segments, pitToken, nil)
-
-	core.LogTrace(f, "Published forwarder status dataset version=", f.nextGeneralDatasetVersion,
-		", containing ", len(segments), " segments")
-	f.nextGeneralDatasetVersion++
+	name := LOCAL_PREFIX.Append(
+		enc.NewStringComponent(enc.TypeGenericNameComponent, "status"),
+		enc.NewStringComponent(enc.TypeGenericNameComponent, "general"),
+	)
+	f.manager.sendStatusDataset(interest, name, status.Encode())
 }

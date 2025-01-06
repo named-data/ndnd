@@ -96,16 +96,18 @@ func (ns *NeighborState) IsDead() bool {
 // and update the last seen time for the neighbor.
 // Return => true if the face ID has changed
 func (ns *NeighborState) RecvPing(faceId uint64, active bool) (error, bool) {
+	if ns.isFaceActive && !active {
+		// This ping is passive, but we already have an active ping.
+		return nil, false // ignore this ping.
+	}
+
 	// Update last seen time for neighbor
+	// Note that we skip this when the face is active and the ping is passive.
+	// This is because we want to detect if the active face is removed.
 	ns.lastSeen = time.Now()
 
 	// If face ID has changed, re-register face.
 	if ns.faceId != faceId {
-		if ns.isFaceActive && !active {
-			// This ping is passive, but we already have an active ping.
-			return nil, false // ignore this ping.
-		}
-
 		ns.isFaceActive = active
 		log.Infof("neighbor: %s face ID changed from %d to %d", ns.Name, ns.faceId, faceId)
 		ns.routeUnregister()
@@ -125,7 +127,7 @@ func (ns *NeighborState) delete() {
 }
 
 func (ns *NeighborState) localRoute() enc.Name {
-	return append(config.Localhop, append(ns.Name,
+	return enc.LOCALHOP.Append(ns.Name.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
 	)...)
 }

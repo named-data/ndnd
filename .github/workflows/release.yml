@@ -6,6 +6,9 @@ on:
       - "v*"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   binary:
     name: Binary
@@ -38,4 +41,4 @@ jobs:
           file_glob: true
           tag: ${{ github.ref }}
           overwrite: true
-          make_latest: false
+          make_latest: true

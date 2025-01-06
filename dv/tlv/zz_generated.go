@@ -1832,3 +1832,226 @@ func ParsePrefixOpRemove(reader enc.ParseReader, ignoreCritical bool) (*PrefixOp
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
+
+type StatusEncoder struct {
+	length uint
+
+	NetworkName_encoder DestinationEncoder
+	RouterName_encoder  DestinationEncoder
+}
+
+type StatusParsingContext struct {
+	NetworkName_context DestinationParsingContext
+	RouterName_context  DestinationParsingContext
+}
+
+func (encoder *StatusEncoder) Init(value *Status) {
+	if value.NetworkName != nil {
+		encoder.NetworkName_encoder.Init(value.NetworkName)
+	}
+	if value.RouterName != nil {
+		encoder.RouterName_encoder.Init(value.RouterName)
+	}
+
+	l := uint(0)
+	if value.NetworkName != nil {
+		l += 3
+		switch x := encoder.NetworkName_encoder.length; {
+		case x <= 0xfc:
+			l += 1
+		case x <= 0xffff:
+			l += 3
+		case x <= 0xffffffff:
+			l += 5
+		default:
+			l += 9
+		}
+		l += encoder.NetworkName_encoder.length
+	}
+	if value.RouterName != nil {
+		l += 3
+		switch x := encoder.RouterName_encoder.length; {
+		case x <= 0xfc:
+			l += 1
+		case x <= 0xffff:
+			l += 3
+		case x <= 0xffffffff:
+			l += 5
+		default:
+			l += 9
+		}
+		l += encoder.RouterName_encoder.length
+	}
+	encoder.length = l
+
+}
+
+func (context *StatusParsingContext) Init() {
+	context.NetworkName_context.Init()
+	context.RouterName_context.Init()
+}
+
+func (encoder *StatusEncoder) EncodeInto(value *Status, buf []byte) {
+
+	pos := uint(0)
+
+	if value.NetworkName != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(401))
+		pos += 3
+		switch x := encoder.NetworkName_encoder.length; {
+		case x <= 0xfc:
+			buf[pos] = byte(x)
+			pos += 1
+		case x <= 0xffff:
+			buf[pos] = 0xfd
+			binary.BigEndian.PutUint16(buf[pos+1:], uint16(x))
+			pos += 3
+		case x <= 0xffffffff:
+			buf[pos] = 0xfe
+			binary.BigEndian.PutUint32(buf[pos+1:], uint32(x))
+			pos += 5
+		default:
+			buf[pos] = 0xff
+			binary.BigEndian.PutUint64(buf[pos+1:], uint64(x))
+			pos += 9
+		}
+		if encoder.NetworkName_encoder.length > 0 {
+			encoder.NetworkName_encoder.EncodeInto(value.NetworkName, buf[pos:])
+			pos += encoder.NetworkName_encoder.length
+		}
+	}
+	if value.RouterName != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(403))
+		pos += 3
+		switch x := encoder.RouterName_encoder.length; {
+		case x <= 0xfc:
+			buf[pos] = byte(x)
+			pos += 1
+		case x <= 0xffff:
+			buf[pos] = 0xfd
+			binary.BigEndian.PutUint16(buf[pos+1:], uint16(x))
+			pos += 3
+		case x <= 0xffffffff:
+			buf[pos] = 0xfe
+			binary.BigEndian.PutUint32(buf[pos+1:], uint32(x))
+			pos += 5
+		default:
+			buf[pos] = 0xff
+			binary.BigEndian.PutUint64(buf[pos+1:], uint64(x))
+			pos += 9
+		}
+		if encoder.RouterName_encoder.length > 0 {
+			encoder.RouterName_encoder.EncodeInto(value.RouterName, buf[pos:])
+			pos += encoder.RouterName_encoder.length
+		}
+	}
+}
+
+func (encoder *StatusEncoder) Encode(value *Status) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *StatusParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*Status, error) {
+	if reader == nil {
+		return nil, enc.ErrBufferOverflow
+	}
+
+	var handled_NetworkName bool = false
+	var handled_RouterName bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &Status{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = enc.ReadTLNum(reader)
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = enc.ReadTLNum(reader)
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 401:
+				if true {
+					handled = true
+					handled_NetworkName = true
+					drdr := reader.Delegate(int(l))
+					value.NetworkName, err = context.NetworkName_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
+				}
+			case 403:
+				if true {
+					handled = true
+					handled_RouterName = true
+					drdr := reader.Delegate(int(l))
+					value.RouterName, err = context.RouterName_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_NetworkName && err == nil {
+		value.NetworkName = nil
+	}
+	if !handled_RouterName && err == nil {
+		value.RouterName = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *Status) Encode() enc.Wire {
+	encoder := StatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *Status) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseStatus(reader enc.ParseReader, ignoreCritical bool) (*Status, error) {
+	context := StatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}

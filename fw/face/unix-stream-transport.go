@@ -14,6 +14,7 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 	defn "github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/face/impl"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // UnixStreamTransport is a Unix stream transport for communicating with local applications.
@@ -30,7 +31,7 @@ func MakeUnixStreamTransport(remoteURI *defn.URI, localURI *defn.URI, conn net.C
 	}
 
 	t := new(UnixStreamTransport)
-	t.makeTransportBase(remoteURI, localURI, PersistencyPersistent, defn.Local, defn.PointToPoint, defn.MaxNDNPacketSize)
+	t.makeTransportBase(remoteURI, localURI, spec_mgmt.PersistencyPersistent, defn.Local, defn.PointToPoint, defn.MaxNDNPacketSize)
 
 	// Set connection
 	t.conn = conn.(*net.UnixConn)
@@ -44,12 +45,12 @@ func (t *UnixStreamTransport) String() string {
 }
 
 // SetPersistency changes the persistency of the face.
-func (t *UnixStreamTransport) SetPersistency(persistency Persistency) bool {
+func (t *UnixStreamTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
 	if persistency == t.persistency {
 		return true
 	}
 
-	if persistency == PersistencyPersistent {
+	if persistency == spec_mgmt.PersistencyPersistent {
 		t.persistency = persistency
 		return true
 	}

@@ -15,9 +15,6 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
-// StrategyPrefix is the prefix of all strategy names for YaNFD
-const StrategyPrefix = "/localhost/nfd/strategy"
-
 // Strategy represents a forwarding strategy.
 type Strategy interface {
 	Instantiate(fwThread *Thread)
@@ -61,15 +58,10 @@ func (s *StrategyBase) NewStrategyBase(
 	version uint64,
 	strategyLogName string,
 ) {
-	var err error
 	s.thread = fwThread
 	s.threadID = s.thread.threadID
-	s.name, err = enc.NameFromStr(StrategyPrefix)
-	if err != nil {
-		panic("StrategyPrefix is a bad NDN Name")
-	}
 	s.strategyName = strategyName
-	s.name = append(s.name, strategyName, enc.NewVersionComponent(version))
+	s.name = defn.STRATEGY_PREFIX.Append(strategyName, enc.NewVersionComponent(version))
 	s.version = version
 	s.strategyLogName = strategyLogName
 }

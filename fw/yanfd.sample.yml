@@ -14,6 +14,10 @@ faces:
   lock_threads_to_cores: false
 
   udp:
+    # Whether to enable unicast UDP listener
+    enabled_unicast: true
+    # Whether to enable multicast UDP listener
+    enabled_multicast: true
     # Port used for unicast UDP faces
     port_unicast: 6363
     # Port used for multicast UDP faces
@@ -66,8 +70,6 @@ mgmt:
   allow_localhop: false
 
 tables:
-  # Size of queues in the table system
-  queue_size: 1024
 
   content_store:
     # Capacity of each forwarding thread's content store (in number of Data packets). Note that the

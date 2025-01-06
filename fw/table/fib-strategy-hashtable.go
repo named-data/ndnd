@@ -16,6 +16,7 @@ package table
 import (
 	"sync"
 
+	"github.com/named-data/ndnd/fw/defn"
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
@@ -59,13 +60,11 @@ func newFibStrategyTableHashTable(m uint16) {
 	fibStrategyTableHashTable.realTable = make(map[uint64]*baseFibStrategyEntry)
 	fibStrategyTableHashTable.virtTable = make(map[uint64]*virtualDetails)
 	fibStrategyTableHashTable.virtTableNames = make(map[uint64]map[string]int)
-	rootName, _ := enc.NameFromStr(("/"))
-	defaultStrategy, _ := enc.NameFromStr("/localhost/nfd/strategy/best-route/v=1")
 
 	rtEntry := new(baseFibStrategyEntry)
-	rtEntry.name = rootName
-	rtEntry.strategy = defaultStrategy
-	fibStrategyTableHashTable.realTable[rootName.Hash()] = rtEntry
+	rtEntry.name = enc.Name{}
+	rtEntry.strategy = defn.DEFAULT_STRATEGY
+	fibStrategyTableHashTable.realTable[enc.Name{}.Hash()] = rtEntry
 }
 
 // findLongestPrefixMatch returns the entry corresponding to the longest

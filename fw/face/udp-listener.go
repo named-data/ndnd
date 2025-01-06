@@ -12,11 +12,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/named-data/ndnd/fw/core"
 	defn "github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/face/impl"
+	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // UDPListener listens for incoming UDP unicast connections.
@@ -79,26 +79,22 @@ func (l *UDPListener) Run() {
 		}
 
 		// Construct remote URI
-		var remoteURI *defn.URI
-		host, port, err := net.SplitHostPort(remoteAddr.String())
-		if err != nil {
-			core.LogWarn(l, "Unable to create face from ", remoteAddr, ": could not split host from port")
-			continue
-		}
-		portInt, err := strconv.ParseUint(port, 10, 16)
-		if err != nil {
-			core.LogWarn(l, "Unable to create face from ", remoteAddr, ": could not split host from port")
-			continue
-		}
-		remoteURI = defn.MakeUDPFaceURI(4, host, uint16(portInt))
-		remoteURI.Canonize()
-		if !remoteURI.IsCanonical() {
+		remoteURI := defn.DecodeURIString(fmt.Sprintf("udp://%s", remoteAddr))
+		if remoteURI == nil || !remoteURI.IsCanonical() {
 			core.LogWarn(l, "Unable to create face from ", remoteURI, ": remote URI is not canonical")
 			continue
 		}
 
+		// Check if frame received here is for an existing face.
+		// This is probably because it was received too fast.
+		// For now just drop the frame, ideally we should pass it to face.
+		if face := FaceTable.GetByURI(remoteURI); face != nil {
+			core.LogTrace(l, "Received frame for existing face ", face)
+			continue
+		}
+
 		// If frame received here, must be for new remote endpoint
-		newTransport, err := MakeUnicastUDPTransport(remoteURI, l.localURI, PersistencyOnDemand)
+		newTransport, err := MakeUnicastUDPTransport(remoteURI, l.localURI, spec_mgmt.PersistencyOnDemand)
 		if err != nil {
 			core.LogError(l, "Failed to create new unicast UDP transport: ", err)
 			continue

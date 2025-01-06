@@ -1,4 +1,4 @@
-package cmd
+package utils
 
 import (
 	"fmt"
@@ -47,12 +47,31 @@ func (c *CmdTree) Execute(args []string) {
 
 	// recursively search for subcommand
 	for _, sub := range c.Sub {
-		if len(sub.Name) > 0 && args[1] == sub.Name {
-			name := args[0] + " " + args[1]
-			sargs := append([]string{name}, args[2:]...)
-			sub.Execute(sargs)
-			return
+		if len(sub.Name) == 0 {
+			continue // empty subcommand
 		}
+
+		subname := strings.Split(sub.Name, " ")
+		if len(args) < len(subname)+1 {
+			continue // not enough arguments
+		}
+
+		matches := true
+		for i, s := range subname {
+			if args[i+1] != s {
+				matches = false
+				break
+			}
+		}
+		if !matches {
+			continue // no match
+		}
+
+		// execute subcommand
+		name := args[0] + " " + sub.Name
+		sargs := append([]string{name}, args[1+len(subname):]...)
+		sub.Execute(sargs)
+		return
 	}
 
 	// command not found

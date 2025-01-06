@@ -32,10 +32,10 @@ func main() {
 		logger.Errorf("Unable to start engine: %+v", err)
 		return
 	}
-	defer app.Shutdown()
+	defer app.Stop()
 
 	name, _ := enc.NameFromStr("/example/testApp/randomData")
-	name = append(name, enc.NewTimestampComponent(utils.MakeTimestamp(timer.Now())))
+	name = name.Append(enc.NewTimestampComponent(utils.MakeTimestamp(timer.Now())))
 
 	intCfg := &ndn.InterestConfig{
 		MustBeFresh: true,

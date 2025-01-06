@@ -3,6 +3,8 @@ package rdr
 
 import enc "github.com/named-data/ndnd/std/encoding"
 
+var METADATA = enc.NewStringComponent(enc.TypeKeywordNameComponent, "metadata")
+
 type ManifestDigest struct {
 	//+field:natural
 	SegNo uint64 `tlv:"0xcc"`
