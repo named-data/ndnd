@@ -21,11 +21,11 @@ func main() {
 	logger := log.WithField("module", "main")
 
 	if len(os.Args) < 2 {
-		log.Fatalf("Usage: %s <nodeId>", os.Args[0])
+		log.Fatalf("Usage: %s <name>", os.Args[0])
 	}
 
 	// Parse command line arguments
-	nodeId, err := enc.NameFromStr(os.Args[1])
+	name, err := enc.NameFromStr(os.Args[1])
 	if err != nil {
 		log.Fatalf("Invalid node ID: %s", os.Args[1])
 	}
@@ -63,7 +63,7 @@ func main() {
 	ticker := time.NewTicker(3 * time.Second)
 
 	for range ticker.C {
-		new := svsync.IncrSeqNo(nodeId)
+		new := svsync.IncrSeqNo(name)
 		logger.Infof("Published new sequence number: %d", new)
 	}
 }

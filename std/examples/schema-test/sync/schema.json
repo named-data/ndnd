@@ -6,7 +6,7 @@
         "ChannelSize": 1000,
         "SyncInterval": 2000,
         "SuppressionInterval": 100,
-        "SelfNodeId": "$nodeId",
+        "SelfName": "$nodeId",
         "BaseMatching": {}
       }
     }

@@ -40,9 +40,9 @@ type SvSync struct {
 }
 
 type SvSyncUpdate struct {
-	NodeId enc.Name
-	High   uint64
-	Low    uint64
+	Name enc.Name
+	High uint64
+	Low  uint64
 }
 
 func NewSvSync(
@@ -112,11 +112,11 @@ func (s *SvSync) Stop() {
 	close(s.stop)
 }
 
-func (s *SvSync) SetSeqNo(nodeId enc.Name, seqNo uint64) error {
+func (s *SvSync) SetSeqNo(name enc.Name, seqNo uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	hash := s.hashName(nodeId)
+	hash := s.hashName(name)
 	prev := s.state[hash]
 
 	if seqNo <= prev {
@@ -131,18 +131,18 @@ func (s *SvSync) SetSeqNo(nodeId enc.Name, seqNo uint64) error {
 	return nil
 }
 
-func (s *SvSync) GetSeqNo(nodeId enc.Name) uint64 {
+func (s *SvSync) GetSeqNo(name enc.Name) uint64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	hash := s.hashName(nodeId)
+	hash := s.hashName(name)
 	return s.state[hash]
 }
 
-func (s *SvSync) IncrSeqNo(nodeId enc.Name) uint64 {
+func (s *SvSync) IncrSeqNo(name enc.Name) uint64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	hash := s.hashName(nodeId)
+	hash := s.hashName(name)
 	val := s.state[hash] + 1
 	s.state[hash] = val
 
@@ -153,10 +153,10 @@ func (s *SvSync) IncrSeqNo(nodeId enc.Name) uint64 {
 	return val
 }
 
-func (s *SvSync) hashName(nodeId enc.Name) uint64 {
-	hash := nodeId.Hash()
+func (s *SvSync) hashName(name enc.Name) uint64 {
+	hash := name.Hash()
 	if _, ok := s.names[hash]; !ok {
-		s.names[hash] = nodeId.Clone()
+		s.names[hash] = name.Clone()
 	}
 	return hash
 }
@@ -170,7 +170,7 @@ func (s *SvSync) onReceiveStateVector(sv *stlv.StateVector) {
 	recvSet := make(map[uint64]bool)
 
 	for _, entry := range sv.Entries {
-		hash := s.hashName(entry.NodeId)
+		hash := s.hashName(entry.Name)
 		recvSet[hash] = true
 
 		prev := s.state[hash]
@@ -185,9 +185,9 @@ func (s *SvSync) onReceiveStateVector(sv *stlv.StateVector) {
 
 			// Notify the application of the update
 			s.onUpdate(SvSyncUpdate{
-				NodeId: entry.NodeId,
-				High:   entry.SeqNo,
-				Low:    prev + 1,
+				Name: entry.Name,
+				High: entry.SeqNo,
+				Low:  prev + 1,
 			})
 		} else if entry.SeqNo < prev {
 			isOutdated = true
@@ -213,8 +213,8 @@ func (s *SvSync) onReceiveStateVector(sv *stlv.StateVector) {
 	// The above checks each node in the incoming state vector, but
 	// does not check if a node is missing from the incoming state vector.
 	if !isOutdated {
-		for nodeId := range s.state {
-			if _, ok := recvSet[nodeId]; !ok {
+		for nameHash := range s.state {
+			if _, ok := recvSet[nameHash]; !ok {
 				isOutdated = true
 				canDrop = false
 				break
@@ -250,8 +250,8 @@ func (s *SvSync) timerExpired() {
 	if s.suppress {
 		// [Spec] If MergedStateVector is up-to-date; no inconsistency.
 		send := false
-		for nodeId, seqNo := range s.state {
-			if seqNo > s.merge[nodeId] {
+		for nameHash, seqNo := range s.state {
+			if seqNo > s.merge[nameHash] {
 				send = true
 				break
 			}
@@ -336,16 +336,16 @@ func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 // Call with mutex locked
 func (s *SvSync) encodeSv() enc.Wire {
 	entries := make([]*stlv.StateVectorEntry, 0, len(s.state))
-	for nodeId, seqNo := range s.state {
+	for nameHash, seqNo := range s.state {
 		entries = append(entries, &stlv.StateVectorEntry{
-			NodeId: s.names[nodeId],
-			SeqNo:  seqNo,
+			Name:  s.names[nameHash],
+			SeqNo: seqNo,
 		})
 	}
 
 	// Sort entries by in the NDN canonical order
 	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].NodeId.Compare(entries[j].NodeId) < 0
+		return entries[i].Name.Compare(entries[j].Name) < 0
 	})
 
 	params := stlv.StateVectorAppParam{

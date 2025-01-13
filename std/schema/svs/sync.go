@@ -18,7 +18,7 @@ import (
 type SyncState int
 
 type MissingData struct {
-	NodeId   enc.Name
+	Name     enc.Name
 	StartSeq uint64
 	EndSeq   uint64
 }
@@ -43,7 +43,7 @@ type SvsNode struct {
 	SuppressionInterval time.Duration
 	BaseMatching        enc.Matching
 	ChannelSize         uint64
-	SelfNodeId          enc.Name
+	SelfName            enc.Name
 
 	dataLock        sync.Mutex
 	timer           ndn.Timer
@@ -98,10 +98,10 @@ func CreateSvsNode(node *schema.Node) schema.NodeImpl {
 	return ret
 }
 
-func findSvsEntry(v *stlv.StateVector, nodeId enc.Name) int {
+func findSvsEntry(v *stlv.StateVector, name enc.Name) int {
 	// This is less efficient but enough for a demo.
 	for i, n := range v.Entries {
-		if nodeId.Equal(n.NodeId) {
+		if name.Equal(n.Name) {
 			return i
 		}
 	}
@@ -124,34 +124,34 @@ func (n *SvsNode) onSyncInt(event *schema.Event) any {
 	// needFetch := false
 	needNotif := false
 	for _, cur := range remoteSv.Entries {
-		li := findSvsEntry(&n.localSv, cur.NodeId)
+		li := findSvsEntry(&n.localSv, cur.Name)
 		if li == -1 {
 			n.localSv.Entries = append(n.localSv.Entries, &stlv.StateVectorEntry{
-				NodeId: cur.NodeId,
-				SeqNo:  cur.SeqNo,
+				Name:  cur.Name,
+				SeqNo: cur.SeqNo,
 			})
 			// needFetch = true
 			n.missChan <- MissingData{
-				NodeId:   cur.NodeId,
+				Name:     cur.Name,
 				StartSeq: 1,
 				EndSeq:   cur.SeqNo + 1,
 			}
 		} else if n.localSv.Entries[li].SeqNo < cur.SeqNo {
-			log.Debugf("Missing data for: [%d]: %d < %d", cur.NodeId, n.localSv.Entries[li].SeqNo, cur.SeqNo)
+			log.Debugf("Missing data for: [%d]: %d < %d", cur.Name, n.localSv.Entries[li].SeqNo, cur.SeqNo)
 			n.missChan <- MissingData{
-				NodeId:   cur.NodeId,
+				Name:     cur.Name,
 				StartSeq: n.localSv.Entries[li].SeqNo + 1,
 				EndSeq:   cur.SeqNo + 1,
 			}
 			n.localSv.Entries[li].SeqNo = cur.SeqNo
 			// needFetch = true
 		} else if n.localSv.Entries[li].SeqNo > cur.SeqNo {
-			log.Debugf("Outdated remote on: [%d]: %d < %d", cur.NodeId, cur.SeqNo, n.localSv.Entries[li].SeqNo)
+			log.Debugf("Outdated remote on: [%d]: %d < %d", cur.Name, cur.SeqNo, n.localSv.Entries[li].SeqNo)
 			needNotif = true
 		}
 	}
 	for _, cur := range n.localSv.Entries {
-		li := findSvsEntry(remoteSv, cur.NodeId)
+		li := findSvsEntry(remoteSv, cur.Name)
 		if li == -1 {
 			needNotif = true
 		}
@@ -213,11 +213,11 @@ func (n *SvsNode) MySequence() uint64 {
 
 func (n *SvsNode) aggregate(remoteSv *stlv.StateVector) {
 	for _, cur := range remoteSv.Entries {
-		li := findSvsEntry(&n.aggSv, cur.NodeId)
+		li := findSvsEntry(&n.aggSv, cur.Name)
 		if li == -1 {
 			n.aggSv.Entries = append(n.aggSv.Entries, &stlv.StateVectorEntry{
-				NodeId: cur.NodeId,
-				SeqNo:  cur.SeqNo,
+				Name:  cur.Name,
+				SeqNo: cur.SeqNo,
 			})
 		} else {
 			n.aggSv.Entries[li].SeqNo = utils.Max(n.aggSv.Entries[li].SeqNo, cur.SeqNo)
@@ -234,7 +234,7 @@ func (n *SvsNode) onSyncTimer() {
 		n.state = SyncSteady
 		notNecessary = true
 		for _, cur := range n.localSv.Entries {
-			li := findSvsEntry(&n.aggSv, cur.NodeId)
+			li := findSvsEntry(&n.aggSv, cur.Name)
 			if li == -1 || n.aggSv.Entries[li].SeqNo < cur.SeqNo {
 				notNecessary = false
 				break
@@ -276,7 +276,7 @@ func (n *SvsNode) NewData(mNode schema.MatchedNode, content enc.Wire) enc.Wire {
 	mLeafNode := mNode.Refine(newDataName)
 	ret := mLeafNode.Call("Provide", content).(enc.Wire)
 	if len(ret) > 0 {
-		li := findSvsEntry(&n.localSv, n.SelfNodeId)
+		li := findSvsEntry(&n.localSv, n.SelfName)
 		if li >= 0 {
 			n.localSv.Entries[li].SeqNo = n.selfSeq
 		}
@@ -291,7 +291,7 @@ func (n *SvsNode) NewData(mNode schema.MatchedNode, content enc.Wire) enc.Wire {
 }
 
 func (n *SvsNode) onAttach(event *schema.Event) any {
-	if n.ChannelSize == 0 || len(n.SelfNodeId) == 0 ||
+	if n.ChannelSize == 0 || len(n.SelfName) == 0 ||
 		n.BaseMatching == nil || n.SyncInterval <= 0 || n.SuppressionInterval <= 0 {
 		panic(errors.New("SvsNode: not configured before Init"))
 	}
@@ -302,7 +302,7 @@ func (n *SvsNode) onAttach(event *schema.Event) any {
 	defer n.dataLock.Unlock()
 
 	n.ownPrefix = event.TargetNode.Apply(n.BaseMatching).Name
-	n.ownPrefix = append(n.ownPrefix, n.SelfNodeId...)
+	n.ownPrefix = append(n.ownPrefix, n.SelfName...)
 
 	// OnMissingData callback
 
@@ -322,8 +322,8 @@ func (n *SvsNode) onAttach(event *schema.Event) any {
 	// initialize localSv
 	// TODO: this demo does not consider recovery from off-line. Should be done via ENV and storage policy.
 	n.localSv.Entries = append(n.localSv.Entries, &stlv.StateVectorEntry{
-		NodeId: n.SelfNodeId,
-		SeqNo:  0,
+		Name:  n.SelfName,
+		SeqNo: 0,
 	})
 	n.selfSeq = 0
 	return nil
@@ -343,10 +343,10 @@ func (n *SvsNode) callbackRoutine() {
 	panic("TODO: TO BE DONE")
 }
 
-func (n *SvsNode) GetDataName(mNode schema.MatchedNode, nodeId []byte, seq uint64) enc.Name {
+func (n *SvsNode) GetDataName(mNode schema.MatchedNode, name []byte, seq uint64) enc.Name {
 	ret := make(enc.Name, len(mNode.Name)+2)
 	copy(ret, mNode.Name)
-	ret[len(mNode.Name)] = enc.Component{Typ: enc.TypeGenericNameComponent, Val: nodeId}
+	ret[len(mNode.Name)] = enc.Component{Typ: enc.TypeGenericNameComponent, Val: name}
 	ret[len(mNode.Name)+1] = enc.NewSequenceNumComponent(seq)
 	return ret
 }
@@ -372,7 +372,7 @@ func init() {
 			"SuppressionInterval": schema.TimePropertyDesc("SuppressionInterval"),
 			"BaseMatching":        schema.MatchingPropertyDesc("BaseMatching"),
 			"ChannelSize":         schema.DefaultPropertyDesc("ChannelSize"),
-			"SelfNodeId":          schema.DefaultPropertyDesc("SelfNodeId"),
+			"SelfName":            schema.DefaultPropertyDesc("SelfName"),
 			"ContentType":         schema.SubNodePropertyDesc("/<8=nodeId>/<seq=seqNo>", "ContentType"),
 			"Lifetime":            schema.SubNodePropertyDesc("/<8=nodeId>/<seq=seqNo>", "Lifetime"),
 			"Freshness":           schema.SubNodePropertyDesc("/<8=nodeId>/<seq=seqNo>", "Freshness"),

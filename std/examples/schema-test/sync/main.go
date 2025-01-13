@@ -28,7 +28,7 @@ const SchemaJson = `{
         "ChannelSize": 1000,
         "SyncInterval": 2000,
         "SuppressionInterval": 100,
-        "SelfNodeId": "$nodeId",
+        "SelfName": "$nodeId",
         "BaseMatching": {}
       }
     }
@@ -132,13 +132,13 @@ func main() {
 			select {
 			case missData := <-ch:
 				for i := missData.StartSeq; i < missData.EndSeq; i++ {
-					dataName := mNode.Call("GetDataName", missData.NodeId, i).(enc.Name)
+					dataName := mNode.Call("GetDataName", missData.Name, i).(enc.Name)
 					mLeafNode := tree.Match(dataName)
 					result := <-mLeafNode.Call("NeedChan").(chan schema.NeedResult)
 					if result.Status != ndn.InterestResultData {
-						fmt.Printf("Data fetching failed for (%s, %d): %+v\n", missData.NodeId.String(), i, result.Status)
+						fmt.Printf("Data fetching failed for (%s, %d): %+v\n", missData.Name.String(), i, result.Status)
 					} else {
-						fmt.Printf("Fetched (%s, %d): %s", missData.NodeId.String(), i, string(result.Content.Join()))
+						fmt.Printf("Fetched (%s, %d): %s", missData.Name.String(), i, string(result.Content.Join()))
 					}
 				}
 			case <-ctx.Done():

@@ -17,7 +17,7 @@ type StateVector struct {
 
 type StateVectorEntry struct {
 	//+field:name
-	NodeId enc.Name `tlv:"0x07"`
+	Name enc.Name `tlv:"0x07"`
 	//+field:natural
 	SeqNo uint64 `tlv:"0xcc"`
 }

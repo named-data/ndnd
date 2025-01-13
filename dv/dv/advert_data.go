@@ -34,16 +34,16 @@ func (dv *Router) advertGenerateNew() {
 	go dv.advertSyncSendInterest()
 }
 
-func (dv *Router) advertDataFetch(nodeId enc.Name, seqNo uint64) {
+func (dv *Router) advertDataFetch(nName enc.Name, seqNo uint64) {
 	// debounce; wait before fetching, then check if this is still the latest
 	// sequence number known for this neighbor
 	time.Sleep(10 * time.Millisecond)
-	if ns := dv.neighbors.Get(nodeId); ns == nil || ns.AdvertSeq != seqNo {
+	if ns := dv.neighbors.Get(nName); ns == nil || ns.AdvertSeq != seqNo {
 		return
 	}
 
 	// Fetch the advertisement
-	advName := enc.LOCALHOP.Append(nodeId.Append(
+	advName := enc.LOCALHOP.Append(nName.Append(
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"),
 		enc.NewStringComponent(enc.TypeKeywordNameComponent, "ADV"),
 		enc.NewVersionComponent(seqNo),
@@ -59,12 +59,12 @@ func (dv *Router) advertDataFetch(nodeId enc.Name, seqNo uint64) {
 			if fetchErr != nil {
 				log.Warnf("advert-data: failed to fetch advertisement %s: %+v", state.Name(), fetchErr)
 				time.Sleep(1 * time.Second) // wait on error
-				dv.advertDataFetch(nodeId, seqNo)
+				dv.advertDataFetch(nName, seqNo)
 				return
 			}
 
 			// Process the advertisement
-			dv.advertDataHandler(nodeId, seqNo, state.Content())
+			dv.advertDataHandler(nName, seqNo, state.Content())
 		}()
 
 		return true
@@ -72,19 +72,19 @@ func (dv *Router) advertDataFetch(nodeId enc.Name, seqNo uint64) {
 }
 
 // Received advertisement Data
-func (dv *Router) advertDataHandler(nodeId enc.Name, seqNo uint64, data []byte) {
+func (dv *Router) advertDataHandler(nName enc.Name, seqNo uint64, data []byte) {
 	// Lock DV state
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
 	// Check if this is the latest advertisement
-	ns := dv.neighbors.Get(nodeId)
+	ns := dv.neighbors.Get(nName)
 	if ns == nil {
-		log.Warnf("advert-handler: unknown advertisement %s", nodeId)
+		log.Warnf("advert-handler: unknown advertisement %s", nName)
 		return
 	}
 	if ns.AdvertSeq != seqNo {
-		log.Debugf("advert-handler: old advertisement for %s (%d != %d)", nodeId, ns.AdvertSeq, seqNo)
+		log.Debugf("advert-handler: old advertisement for %s (%d != %d)", nName, ns.AdvertSeq, seqNo)
 		return
 	}
 

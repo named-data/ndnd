@@ -407,24 +407,24 @@ func ParseStateVector(reader enc.ParseReader, ignoreCritical bool) (*StateVector
 type StateVectorEntryEncoder struct {
 	length uint
 
-	NodeId_length uint
+	Name_length uint
 }
 
 type StateVectorEntryParsingContext struct {
 }
 
 func (encoder *StateVectorEntryEncoder) Init(value *StateVectorEntry) {
-	if value.NodeId != nil {
-		encoder.NodeId_length = 0
-		for _, c := range value.NodeId {
-			encoder.NodeId_length += uint(c.EncodingLength())
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
 		}
 	}
 
 	l := uint(0)
-	if value.NodeId != nil {
+	if value.Name != nil {
 		l += 1
-		switch x := encoder.NodeId_length; {
+		switch x := encoder.Name_length; {
 		case x <= 0xfc:
 			l += 1
 		case x <= 0xffff:
@@ -434,7 +434,7 @@ func (encoder *StateVectorEntryEncoder) Init(value *StateVectorEntry) {
 		default:
 			l += 9
 		}
-		l += encoder.NodeId_length
+		l += encoder.Name_length
 	}
 	l += 1
 	switch x := value.SeqNo; {
@@ -459,10 +459,10 @@ func (encoder *StateVectorEntryEncoder) EncodeInto(value *StateVectorEntry, buf 
 
 	pos := uint(0)
 
-	if value.NodeId != nil {
+	if value.Name != nil {
 		buf[pos] = byte(7)
 		pos += 1
-		switch x := encoder.NodeId_length; {
+		switch x := encoder.Name_length; {
 		case x <= 0xfc:
 			buf[pos] = byte(x)
 			pos += 1
@@ -479,7 +479,7 @@ func (encoder *StateVectorEntryEncoder) EncodeInto(value *StateVectorEntry, buf 
 			binary.BigEndian.PutUint64(buf[pos+1:], uint64(x))
 			pos += 9
 		}
-		for _, c := range value.NodeId {
+		for _, c := range value.Name {
 			pos += uint(c.EncodeInto(buf[pos:]))
 		}
 	}
@@ -520,7 +520,7 @@ func (context *StateVectorEntryParsingContext) Parse(reader enc.ParseReader, ign
 		return nil, enc.ErrBufferOverflow
 	}
 
-	var handled_NodeId bool = false
+	var handled_Name bool = false
 	var handled_SeqNo bool = false
 
 	progress := -1
@@ -551,19 +551,19 @@ func (context *StateVectorEntryParsingContext) Parse(reader enc.ParseReader, ign
 			case 7:
 				if true {
 					handled = true
-					handled_NodeId = true
-					value.NodeId = make(enc.Name, l/2+1)
+					handled_Name = true
+					value.Name = make(enc.Name, l/2+1)
 					startName := reader.Pos()
 					endName := startName + int(l)
-					for j := range value.NodeId {
+					for j := range value.Name {
 						if reader.Pos() >= endName {
-							value.NodeId = value.NodeId[:j]
+							value.Name = value.Name[:j]
 							break
 						}
 						var err1, err3 error
-						value.NodeId[j].Typ, err1 = enc.ReadTLNum(reader)
+						value.Name[j].Typ, err1 = enc.ReadTLNum(reader)
 						l, err2 := enc.ReadTLNum(reader)
-						value.NodeId[j].Val, err3 = reader.ReadBuf(int(l))
+						value.Name[j].Val, err3 = reader.ReadBuf(int(l))
 						if err1 != nil || err2 != nil || err3 != nil {
 							err = io.ErrUnexpectedEOF
 							break
@@ -610,8 +610,8 @@ func (context *StateVectorEntryParsingContext) Parse(reader enc.ParseReader, ign
 	startPos = reader.Pos()
 	err = nil
 
-	if !handled_NodeId && err == nil {
-		value.NodeId = nil
+	if !handled_Name && err == nil {
+		value.Name = nil
 	}
 	if !handled_SeqNo && err == nil {
 		err = enc.ErrSkipRequired{Name: "SeqNo", TypeNum: 204}

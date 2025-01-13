@@ -26,33 +26,33 @@ func (dv *Router) prefixDataFetchAll() {
 func (dv *Router) onPfxSyncUpdate(ssu ndn_sync.SvSyncUpdate) {
 	// Update the prefix table
 	dv.mutex.Lock()
-	dv.pfx.GetRouter(ssu.NodeId).Latest = ssu.High
+	dv.pfx.GetRouter(ssu.Name).Latest = ssu.High
 	dv.mutex.Unlock()
 
 	// Start a fetching thread (if needed)
-	dv.prefixDataFetch(ssu.NodeId)
+	dv.prefixDataFetch(ssu.Name)
 }
 
 // Fetch prefix data
-func (dv *Router) prefixDataFetch(nodeId enc.Name) {
+func (dv *Router) prefixDataFetch(nName enc.Name) {
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
 	// Check if the RIB has this destination
-	if !dv.rib.Has(nodeId) {
+	if !dv.rib.Has(nName) {
 		return
 	}
 
 	// At any given time, there is only one thread fetching
 	// prefix data for a node. This thread recursively calls itself.
-	router := dv.pfx.GetRouter(nodeId)
+	router := dv.pfx.GetRouter(nName)
 	if router == nil || router.Fetching || router.Known >= router.Latest {
 		return
 	}
 	router.Fetching = true
 
 	// Fetch the prefix data object
-	log.Debugf("prefix-table: fetching object for %s [%d => %d]", nodeId, router.Known, router.Latest)
+	log.Debugf("prefix-table: fetching object for %s [%d => %d]", nName, router.Known, router.Latest)
 
 	name := router.GetNextDataName()
 	dv.client.Consume(name, func(state *object.ConsumeState) bool {
@@ -78,7 +78,7 @@ func (dv *Router) prefixDataFetch(nodeId enc.Name) {
 
 			// Done fetching, restart if needed
 			router.Fetching = false
-			go dv.prefixDataFetch(nodeId)
+			go dv.prefixDataFetch(nName)
 		}()
 
 		return true

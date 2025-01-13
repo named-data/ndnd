@@ -43,8 +43,8 @@ func (dv *Router) advertSyncSendInterestImpl(prefix enc.Name) (err error) {
 	sv := &svs_2024.StateVectorAppParam{
 		StateVector: &svs_2024.StateVector{
 			Entries: []*svs_2024.StateVectorEntry{{
-				NodeId: dv.config.RouterName(),
-				SeqNo:  dv.advertSyncSeq,
+				Name:  dv.config.RouterName(),
+				SeqNo: dv.advertSyncSeq,
 			}},
 		},
 	}
@@ -102,15 +102,15 @@ func (dv *Router) advertSyncOnInterest(args ndn.InterestHandlerArgs, active bool
 
 	// There should only be one entry in the StateVector, but check all anyway
 	for _, entry := range params.StateVector.Entries {
-		// Parse name from NodeId
-		nodeId := entry.NodeId
-		if nodeId == nil {
-			log.Warnf("advertSyncOnInterest: failed to parse NodeId: %+v", err)
+		// Parse name from entry
+		nName := entry.Name
+		if nName == nil {
+			log.Warnf("advertSyncOnInterest: failed to parse neighbor name: %+v", err)
 			continue
 		}
 
 		// Check if the entry is newer than what we know
-		ns := dv.neighbors.Get(nodeId)
+		ns := dv.neighbors.Get(nName)
 		if ns != nil {
 			if ns.AdvertSeq >= entry.SeqNo {
 				// Nothing has changed, skip
@@ -121,13 +121,13 @@ func (dv *Router) advertSyncOnInterest(args ndn.InterestHandlerArgs, active bool
 			// Create new neighbor entry cause none found
 			// This is the ONLY place where neighbors are created
 			// In all other places, quit if not found
-			ns = dv.neighbors.Add(nodeId)
+			ns = dv.neighbors.Add(nName)
 		}
 
 		markRecvPing(ns)
 		ns.AdvertSeq = entry.SeqNo
 
-		go dv.advertDataFetch(nodeId, entry.SeqNo)
+		go dv.advertDataFetch(nName, entry.SeqNo)
 	}
 
 	// Update FIB if needed
