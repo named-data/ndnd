@@ -1097,7 +1097,7 @@ type NoCopyStructEncoder struct {
 type NoCopyStructParsingContext struct {
 }
 
-func (encoder *NoCopyStructEncoder) Init(value *NoCopyStruct) {
+func (encoder *NoCopyStructEncoder) Init(value *NoCopyStruct) []uint {
 	if value.Wire1 != nil {
 		encoder.Wire1_length = 0
 		for _, c := range value.Wire1 {
@@ -1154,7 +1154,7 @@ func (encoder *NoCopyStructEncoder) Init(value *NoCopyStruct) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Wire1 != nil {
 		l += 1
@@ -1209,6 +1209,7 @@ func (encoder *NoCopyStructEncoder) Init(value *NoCopyStruct) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *NoCopyStructParsingContext) Init() {
@@ -1322,11 +1323,15 @@ func (encoder *NoCopyStructEncoder) EncodeInto(value *NoCopyStruct, wire enc.Wir
 
 func (encoder *NoCopyStructEncoder) Encode(value *NoCopyStruct) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 

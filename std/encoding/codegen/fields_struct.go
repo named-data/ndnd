@@ -147,8 +147,8 @@ func (f *StructField) GenSkipProcess() (string, error) {
 }
 
 func (f *StructField) GenReadFrom() (string, error) {
-	return fmt.Sprintf(
-		"value.%[1]s, err = context.%[1]s_context.Parse(reader.Delegate(int(l)), ignoreCritical)",
-		f.name,
-	), nil
+	code := fmt.Sprintf("drdr := reader.Delegate(int(l))\n")
+	code += fmt.Sprintf("value.%[1]s, err = context.%[1]s_context.Parse(drdr, ignoreCritical)\n", f.name)
+	code += fmt.Sprintf("drdr.Free()")
+	return code, nil
 }

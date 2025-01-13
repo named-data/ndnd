@@ -436,7 +436,7 @@ func TestReadIntBasic(t *testing.T) {
 	require.True(t, interest.CanBePrefix())
 	require.True(t, interest.MustBeFresh())
 	require.Equal(t, uint64(0), *interest.Nonce())
-	require.Equal(t, uint(1), *interest.HopLimit())
+	require.Equal(t, byte(1), *interest.HopLimit())
 	require.True(t, interest.Signature().SigType() == ndn.SignatureNone)
 
 	interest, _, err = spec.ReadInterest(enc.NewBufferReader([]byte(

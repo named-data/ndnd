@@ -1363,7 +1363,9 @@ func (context *CertAdditionalDescriptionParsingContext) Parse(reader enc.ParseRe
 						}{}
 						{
 							value := &pseudoValue
-							value.DescriptionEntries, err = context.DescriptionEntries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.DescriptionEntries, err = context.DescriptionEntries_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.DescriptionEntries = append(value.DescriptionEntries, pseudoValue.DescriptionEntries)
@@ -1791,7 +1793,9 @@ func (context *SignatureInfoParsingContext) Parse(reader enc.ParseReader, ignore
 				if true {
 					handled = true
 					handled_KeyLocator = true
-					value.KeyLocator, err = context.KeyLocator_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.KeyLocator, err = context.KeyLocator_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 38:
 				if true {
@@ -1851,13 +1855,17 @@ func (context *SignatureInfoParsingContext) Parse(reader enc.ParseReader, ignore
 				if true {
 					handled = true
 					handled_ValidityPeriod = true
-					value.ValidityPeriod, err = context.ValidityPeriod_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.ValidityPeriod, err = context.ValidityPeriod_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 258:
 				if true {
 					handled = true
 					handled_AdditionalDescription = true
-					value.AdditionalDescription, err = context.AdditionalDescription_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.AdditionalDescription, err = context.AdditionalDescription_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -2265,7 +2273,7 @@ type LpPacketParsingContext struct {
 	CachePolicy_context CachePolicyParsingContext
 }
 
-func (encoder *LpPacketEncoder) Init(value *LpPacket) {
+func (encoder *LpPacketEncoder) Init(value *LpPacket) []uint {
 
 	if value.Nack != nil {
 		encoder.Nack_encoder.Init(value.Nack)
@@ -2442,7 +2450,7 @@ func (encoder *LpPacketEncoder) Init(value *LpPacket) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Sequence != nil {
 		l += 1
@@ -2609,6 +2617,7 @@ func (encoder *LpPacketEncoder) Init(value *LpPacket) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *LpPacketParsingContext) Init() {
@@ -2925,11 +2934,15 @@ func (encoder *LpPacketEncoder) EncodeInto(value *LpPacket, wire enc.Wire) {
 
 func (encoder *LpPacketEncoder) Encode(value *LpPacket) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -3061,7 +3074,9 @@ func (context *LpPacketParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if true {
 					handled = true
 					handled_Nack = true
-					value.Nack, err = context.Nack_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Nack, err = context.Nack_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 812:
 				if true {
@@ -3113,7 +3128,9 @@ func (context *LpPacketParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if true {
 					handled = true
 					handled_CachePolicy = true
-					value.CachePolicy, err = context.CachePolicy_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.CachePolicy, err = context.CachePolicy_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 832:
 				if true {
@@ -3315,7 +3332,7 @@ type InterestParsingContext struct {
 	digestCoverEnd int
 }
 
-func (encoder *InterestEncoder) Init(value *Interest) {
+func (encoder *InterestEncoder) Init(value *Interest) []uint {
 
 	encoder.NameV_wireIdx = -1
 	encoder.NameV_length = 0
@@ -3455,7 +3472,7 @@ func (encoder *InterestEncoder) Init(value *Interest) {
 	encoder.digestCoverEnd = int(l)
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 
 	if value.NameV != nil {
@@ -3572,6 +3589,7 @@ func (encoder *InterestEncoder) Init(value *Interest) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *InterestParsingContext) Init() {
@@ -3823,11 +3841,15 @@ func (encoder *InterestEncoder) EncodeInto(value *Interest, wire enc.Wire) {
 
 func (encoder *InterestEncoder) Encode(value *Interest) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -3933,7 +3955,9 @@ func (context *InterestParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if progress+1 == 5 {
 					handled = true
 					handled_ForwardingHintV = true
-					value.ForwardingHintV, err = context.ForwardingHintV_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.ForwardingHintV, err = context.ForwardingHintV_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 10:
 				if progress+1 == 6 {
@@ -4004,7 +4028,9 @@ func (context *InterestParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if progress+1 == 12 {
 					handled = true
 					handled_SignatureInfo = true
-					value.SignatureInfo, err = context.SignatureInfo_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.SignatureInfo, err = context.SignatureInfo_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 46:
 				if progress+1 == 13 {
@@ -4162,7 +4188,7 @@ type DataParsingContext struct {
 	SignatureInfo_context SignatureInfoParsingContext
 }
 
-func (encoder *DataEncoder) Init(value *Data) {
+func (encoder *DataEncoder) Init(value *Data) []uint {
 
 	if value.NameV != nil {
 		encoder.NameV_length = 0
@@ -4259,7 +4285,7 @@ func (encoder *DataEncoder) Init(value *Data) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 
 	if value.NameV != nil {
@@ -4345,6 +4371,7 @@ func (encoder *DataEncoder) Init(value *Data) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *DataParsingContext) Init() {
@@ -4528,11 +4555,15 @@ func (encoder *DataEncoder) EncodeInto(value *Data, wire enc.Wire) {
 
 func (encoder *DataEncoder) Encode(value *Data) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -4606,7 +4637,9 @@ func (context *DataParsingContext) Parse(reader enc.ParseReader, ignoreCritical 
 				if progress+1 == 3 {
 					handled = true
 					handled_MetaInfo = true
-					value.MetaInfo, err = context.MetaInfo_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.MetaInfo, err = context.MetaInfo_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 21:
 				if progress+1 == 4 {
@@ -4618,7 +4651,9 @@ func (context *DataParsingContext) Parse(reader enc.ParseReader, ignoreCritical 
 				if progress+1 == 5 {
 					handled = true
 					handled_SignatureInfo = true
-					value.SignatureInfo, err = context.SignatureInfo_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.SignatureInfo, err = context.SignatureInfo_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 23:
 				if progress+1 == 6 {
@@ -4716,7 +4751,7 @@ type PacketParsingContext struct {
 	LpPacket_context LpPacketParsingContext
 }
 
-func (encoder *PacketEncoder) Init(value *Packet) {
+func (encoder *PacketEncoder) Init(value *Packet) []uint {
 	if value.Interest != nil {
 		encoder.Interest_encoder.Init(value.Interest)
 	}
@@ -4772,7 +4807,7 @@ func (encoder *PacketEncoder) Init(value *Packet) {
 	}
 	encoder.length = l
 
-	wirePlan := make([]uint, 0)
+	wirePlan := make([]uint, 0, 16)
 	l = uint(0)
 	if value.Interest != nil {
 		l += 1
@@ -4853,6 +4888,7 @@ func (encoder *PacketEncoder) Init(value *Packet) {
 		wirePlan = append(wirePlan, l)
 	}
 	encoder.wirePlan = wirePlan
+	return wirePlan
 }
 
 func (context *PacketParsingContext) Init() {
@@ -5022,11 +5058,15 @@ func (encoder *PacketEncoder) EncodeInto(value *Packet, wire enc.Wire) {
 
 func (encoder *PacketEncoder) Encode(value *Packet) enc.Wire {
 
+	total := uint(0)
+	for _, l := range encoder.wirePlan {
+		total += l
+	}
+	inner := make([]byte, total)
 	wire := make(enc.Wire, len(encoder.wirePlan))
 	for i, l := range encoder.wirePlan {
-		if l > 0 {
-			wire[i] = make([]byte, l)
-		}
+		wire[i] = inner[:l]
+		inner = inner[l:]
 	}
 	encoder.EncodeInto(value, wire)
 
@@ -5071,19 +5111,25 @@ func (context *PacketParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 				if true {
 					handled = true
 					handled_Interest = true
-					value.Interest, err = context.Interest_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Interest, err = context.Interest_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 6:
 				if true {
 					handled = true
 					handled_Data = true
-					value.Data, err = context.Data_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Data, err = context.Data_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 100:
 				if true {
 					handled = true
 					handled_LpPacket = true
-					value.LpPacket, err = context.LpPacket_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.LpPacket, err = context.LpPacket_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {

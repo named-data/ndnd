@@ -67,8 +67,8 @@ func (n Name) EncodingLength() int {
 // Clone returns a deep copy of a Name
 func (n Name) Clone() Name {
 	ret := make(Name, len(n))
-	for i, c := range n {
-		ret[i] = c.Clone()
+	for i := range n {
+		ret[i] = n[i].Clone()
 	}
 	return ret
 }
@@ -104,8 +104,8 @@ func (n Name) Hash() uint64 {
 	h := hashPool.Get().(hash.Hash64)
 	defer hashPool.Put(h)
 	h.Reset()
-	for _, c := range n {
-		c.HashInto(h)
+	for i := range n {
+		n[i].HashInto(h)
 	}
 	return h.Sum64()
 }

@@ -11,20 +11,21 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 // PitCsTable dictates what functionality a Pit-Cs table should implement
 // Warning: All functions must be called in the same forwarding goroutine as the creation of the table.
 type PitCsTable interface {
-	InsertInterest(interest *spec.Interest, hint enc.Name, inFace uint64) (PitEntry, bool)
+	InsertInterest(interest ndn.Interest, hint enc.Name, inFace uint64) (PitEntry, bool)
 	RemoveInterest(pitEntry PitEntry) bool
-	FindInterestExactMatchEnc(interest *spec.Interest) PitEntry
-	FindInterestPrefixMatchByDataEnc(data *spec.Data, token *uint32) []PitEntry
+	FindInterestExactMatchEnc(interest ndn.Interest) PitEntry
+	FindInterestPrefixMatchByDataEnc(data ndn.Data, token *uint32) []PitEntry
 	PitSize() int
 
-	InsertData(data *spec.Data, wire []byte)
-	FindMatchingDataFromCS(interest *spec.Interest) CsEntry
+	InsertData(data ndn.Data, wire []byte)
+	FindMatchingDataFromCS(interest ndn.Interest) CsEntry
 	CsSize() int
 	IsCsAdmitting() bool
 	IsCsServing() bool
@@ -57,8 +58,8 @@ type PitEntry interface {
 
 	Token() uint32
 
-	InsertInRecord(interest *spec.Interest, face uint64, incomingPitToken []byte) (*PitInRecord, bool, uint32)
-	InsertOutRecord(interest *spec.Interest, face uint64) *PitOutRecord
+	InsertInRecord(interest ndn.Interest, face uint64, incomingPitToken []byte) (*PitInRecord, bool, uint64)
+	InsertOutRecord(interest ndn.Interest, face uint64) *PitOutRecord
 
 	GetOutRecords() []*PitOutRecord
 	ClearOutRecords()
@@ -86,8 +87,7 @@ type basePitEntry struct {
 type PitInRecord struct {
 	Face            uint64
 	LatestTimestamp time.Time
-	LatestInterest  enc.Name
-	LatestNonce     uint32
+	LatestNonce     uint64
 	ExpirationTime  time.Time
 	PitToken        []byte
 }
@@ -96,8 +96,7 @@ type PitInRecord struct {
 type PitOutRecord struct {
 	Face            uint64
 	LatestTimestamp time.Time
-	LatestInterest  enc.Name
-	LatestNonce     uint32
+	LatestNonce     uint64
 	ExpirationTime  time.Time
 }
 
@@ -105,7 +104,7 @@ type PitOutRecord struct {
 type CsEntry interface {
 	Index() uint64 // the hash of the entry, for fast lookup
 	StaleTime() time.Time
-	Copy() (*spec.Data, []byte, error)
+	Copy() (ndn.Data, []byte, error)
 }
 
 type baseCsEntry struct {
@@ -118,10 +117,10 @@ type baseCsEntry struct {
 // metadata and returning whether there was already an in-record in the entry.
 // The third return value is the previous nonce if the in-record already existed.
 func (bpe *basePitEntry) InsertInRecord(
-	interest *spec.Interest,
+	interest ndn.Interest,
 	face uint64,
 	incomingPitToken []byte,
-) (*PitInRecord, bool, uint32) {
+) (*PitInRecord, bool, uint64) {
 	lifetime := time.Millisecond * 4000
 	if interest.Lifetime() != nil {
 		lifetime = *interest.Lifetime()
@@ -132,9 +131,8 @@ func (bpe *basePitEntry) InsertInRecord(
 	if record, ok = bpe.inRecords[face]; !ok {
 		record := new(PitInRecord)
 		record.Face = face
-		record.LatestNonce = *interest.NonceV
+		record.LatestNonce = *interest.Nonce()
 		record.LatestTimestamp = time.Now()
-		record.LatestInterest = interest.NameV.Clone()
 		record.ExpirationTime = time.Now().Add(lifetime)
 		record.PitToken = append([]byte{}, incomingPitToken...)
 		bpe.inRecords[face] = record
@@ -143,9 +141,8 @@ func (bpe *basePitEntry) InsertInRecord(
 
 	// Existing record
 	previousNonce := record.LatestNonce
-	record.LatestNonce = *interest.NonceV
+	record.LatestNonce = *interest.Nonce()
 	record.LatestTimestamp = time.Now()
-	record.LatestInterest = interest.NameV.Clone()
 	record.ExpirationTime = time.Now().Add(lifetime)
 	return record, true, previousNonce
 }
@@ -238,7 +235,7 @@ func (bce *baseCsEntry) StaleTime() time.Time {
 	return bce.staleTime
 }
 
-func (bce *baseCsEntry) Copy() (*spec.Data, []byte, error) {
+func (bce *baseCsEntry) Copy() (ndn.Data, []byte, error) {
 	wire := make([]byte, len(bce.wire))
 	copy(wire, bce.wire)
 

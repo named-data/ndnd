@@ -33,7 +33,7 @@ type Interest interface {
 	// Lifetime of the Interest
 	Lifetime() *time.Duration
 	// Max number of hops the Interest can traverse
-	HopLimit() *uint
+	HopLimit() *byte
 	// Application parameters of the Interest (optional)
 	AppParam() enc.Wire
 	// Signature on the Interest (optional)

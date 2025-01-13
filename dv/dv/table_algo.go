@@ -108,20 +108,22 @@ func (dv *Router) fibUpdate() {
 
 	// Update paths to all routers from RIB
 	for _, router := range dv.rib.Entries() {
+		routerName := router.Name()
+
 		// Skip if this is us
-		if router.Name().Equal(dv.config.RouterName()) {
+		if routerName.Equal(dv.config.RouterName()) {
 			continue
 		}
 
 		// Get FIB entry to reach this router
-		fes := dv.rib.GetFibEntries(dv.neighbors, router.Name().Hash())
+		fes := dv.rib.GetFibEntries(dv.neighbors, routerName.Hash())
 
 		// Add entry to the router itself
-		routerPrefix := router.Name().Append(enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"))
+		routerPrefix := routerName.Append(enc.NewStringComponent(enc.TypeKeywordNameComponent, "DV"))
 		register(routerPrefix, fes)
 
 		// Add entries to all prefixes announced by this router
-		for _, prefix := range dv.pfx.GetRouter(router.Name()).Prefixes {
+		for _, prefix := range dv.pfx.GetRouter(routerName).Prefixes {
 			// Use the same nexthop entries as the exit router itself
 			// De-duplication is done by the fib table update function
 			register(prefix.Name, fes)

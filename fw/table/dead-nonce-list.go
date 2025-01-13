@@ -31,15 +31,15 @@ func NewDeadNonceList() *DeadNonceList {
 }
 
 // Find returns whether the specified name and nonce combination are present in the Dead Nonce List.
-func (d *DeadNonceList) Find(name enc.Name, nonce uint32) bool {
-	_, ok := d.list[name.Hash()+uint64(nonce)]
+func (d *DeadNonceList) Find(name enc.Name, nonce uint64) bool {
+	_, ok := d.list[name.Hash()+nonce]
 	return ok
 }
 
 // Insert inserts an entry in the Dead Nonce List with the specified name and nonce.
 // Returns whether nonce already present.
-func (d *DeadNonceList) Insert(name enc.Name, nonce uint32) bool {
-	hash := name.Hash() + uint64(nonce)
+func (d *DeadNonceList) Insert(name enc.Name, nonce uint64) bool {
+	hash := name.Hash() + nonce
 	_, exists := d.list[hash]
 
 	if !exists {

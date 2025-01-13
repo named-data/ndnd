@@ -1103,7 +1103,9 @@ func (context *ControlArgsParsingContext) Parse(reader enc.ParseReader, ignoreCr
 				if true {
 					handled = true
 					handled_Strategy = true
-					value.Strategy, err = context.Strategy_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Strategy, err = context.Strategy_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			case 109:
 				if true {
@@ -1775,7 +1777,9 @@ func (context *ControlResponseValParsingContext) Parse(reader enc.ParseReader, i
 				if true {
 					handled = true
 					handled_Params = true
-					value.Params, err = context.Params_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Params, err = context.Params_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -1995,7 +1999,9 @@ func (context *ControlParametersParsingContext) Parse(reader enc.ParseReader, ig
 				if true {
 					handled = true
 					handled_Val = true
-					value.Val, err = context.Val_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Val, err = context.Val_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -2157,7 +2163,9 @@ func (context *ControlResponseParsingContext) Parse(reader enc.ParseReader, igno
 				if true {
 					handled = true
 					handled_Val = true
-					value.Val, err = context.Val_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Val, err = context.Val_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -2848,7 +2856,9 @@ func (context *FaceEventNotificationParsingContext) Parse(reader enc.ParseReader
 				if true {
 					handled = true
 					handled_Val = true
-					value.Val, err = context.Val_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Val, err = context.Val_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -5760,7 +5770,9 @@ func (context *FaceStatusMsgParsingContext) Parse(reader enc.ParseReader, ignore
 						}{}
 						{
 							value := &pseudoValue
-							value.Vals, err = context.Vals_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Vals, err = context.Vals_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Vals = append(value.Vals, pseudoValue.Vals)
@@ -6444,7 +6456,9 @@ func (context *FaceQueryFilterParsingContext) Parse(reader enc.ParseReader, igno
 				if true {
 					handled = true
 					handled_Val = true
-					value.Val, err = context.Val_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Val, err = context.Val_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -7126,7 +7140,9 @@ func (context *RibEntryParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 						}{}
 						{
 							value := &pseudoValue
-							value.Routes, err = context.Routes_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Routes, err = context.Routes_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Routes = append(value.Routes, pseudoValue.Routes)
@@ -7359,7 +7375,9 @@ func (context *RibStatusParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 						}{}
 						{
 							value := &pseudoValue
-							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Entries, err = context.Entries_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Entries = append(value.Entries, pseudoValue.Entries)
@@ -7876,7 +7894,9 @@ func (context *FibEntryParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 						}{}
 						{
 							value := &pseudoValue
-							value.NextHopRecords, err = context.NextHopRecords_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.NextHopRecords, err = context.NextHopRecords_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.NextHopRecords = append(value.NextHopRecords, pseudoValue.NextHopRecords)
@@ -8109,7 +8129,9 @@ func (context *FibStatusParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 						}{}
 						{
 							value := &pseudoValue
-							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.Entries, err = context.Entries_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.Entries = append(value.Entries, pseudoValue.Entries)
@@ -8348,7 +8370,9 @@ func (context *StrategyChoiceParsingContext) Parse(reader enc.ParseReader, ignor
 				if true {
 					handled = true
 					handled_Strategy = true
-					value.Strategy, err = context.Strategy_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.Strategy, err = context.Strategy_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -8576,7 +8600,9 @@ func (context *StrategyChoiceMsgParsingContext) Parse(reader enc.ParseReader, ig
 						}{}
 						{
 							value := &pseudoValue
-							value.StrategyChoices, err = context.StrategyChoices_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							drdr := reader.Delegate(int(l))
+							value.StrategyChoices, err = context.StrategyChoices_context.Parse(drdr, ignoreCritical)
+							drdr.Free()
 							_ = value
 						}
 						value.StrategyChoices = append(value.StrategyChoices, pseudoValue.StrategyChoices)
@@ -9120,7 +9146,9 @@ func (context *CsInfoMsgParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 				if true {
 					handled = true
 					handled_CsInfo = true
-					value.CsInfo, err = context.CsInfo_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+					drdr := reader.Delegate(int(l))
+					value.CsInfo, err = context.CsInfo_context.Parse(drdr, ignoreCritical)
+					drdr.Free()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
