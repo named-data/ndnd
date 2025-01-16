@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path"
 
@@ -16,6 +17,10 @@ import (
 
 type FileTpm struct {
 	path string
+}
+
+func (tpm *FileTpm) String() string {
+	return fmt.Sprintf("file-tpm (%s)", tpm.path)
 }
 
 func (tpm *FileTpm) ToFileName(keyNameBytes []byte) string {
@@ -30,7 +35,7 @@ func (tpm *FileTpm) GetSigner(keyName enc.Name, keyLocatorName enc.Name) ndn.Sig
 
 	text, err := os.ReadFile(fileName)
 	if err != nil {
-		log.WithField("module", "FileTpm").Errorf("unable to read private key file: %s, %+v", fileName, err)
+		log.Error(tpm, "Unable to read private key file", "file", fileName, "error", err)
 		return nil
 	}
 
@@ -38,7 +43,7 @@ func (tpm *FileTpm) GetSigner(keyName enc.Name, keyLocatorName enc.Name) ndn.Sig
 	block := make([]byte, blockLen)
 	n, err := base64.StdEncoding.Decode(block, text)
 	if err != nil {
-		log.WithField("module", "FileTpm").Errorf("unable to base64 decode private key file: %s, %+v", fileName, err)
+		log.Error(tpm, "Unable to base64 decode private key file", "file", fileName, "error", err)
 		return nil
 	}
 	block = block[:n]
@@ -58,7 +63,7 @@ func (tpm *FileTpm) GetSigner(keyName enc.Name, keyLocatorName enc.Name) ndn.Sig
 		return sec.NewRsaSigner(false, false, 0, rsabits, keyLocatorName)
 	}
 
-	log.WithField("module", "FileTpm").Errorf("unrecognized private key format: %s", fileName)
+	log.Error(tpm, "Unrecognized private key format", "file", fileName)
 	return nil
 }
 

@@ -9,32 +9,32 @@ import (
 )
 
 type Profiler struct {
-	config  *YaNFDConfig
+	config  *core.Config
 	cpuFile *os.File
 	block   *pprof.Profile
 }
 
-func NewProfiler(config *YaNFDConfig) *Profiler {
+func NewProfiler(config *core.Config) *Profiler {
 	return &Profiler{config: config}
 }
 
 func (p *Profiler) String() string {
-	return "Profiler"
+	return "profiler"
 }
 
 func (p *Profiler) Start() (err error) {
-	if p.config.CpuProfile != "" {
-		p.cpuFile, err = os.Create(p.config.CpuProfile)
+	if p.config.Core.CpuProfile != "" {
+		p.cpuFile, err = os.Create(p.config.Core.CpuProfile)
 		if err != nil {
-			core.LogFatal(p, "Unable to open output file for CPU profile: ", err)
+			core.Log.Fatal(p, "Unable to open output file for CPU profile", "err", err)
 		}
 
-		core.LogInfo(p, "Profiling CPU - outputting to ", p.config.CpuProfile)
+		core.Log.Info(p, "Profiling CPU", "out", p.config.Core.CpuProfile)
 		pprof.StartCPUProfile(p.cpuFile)
 	}
 
-	if p.config.BlockProfile != "" {
-		core.LogInfo(p, "Profiling blocking operations - outputting to ", p.config.BlockProfile)
+	if p.config.Core.BlockProfile != "" {
+		core.Log.Info(p, "Profiling blocking operations", "out", p.config.Core.BlockProfile)
 		runtime.SetBlockProfileRate(1)
 		p.block = pprof.Lookup("block")
 	}
@@ -44,27 +44,27 @@ func (p *Profiler) Start() (err error) {
 
 func (p *Profiler) Stop() {
 	if p.block != nil {
-		blockProfileFile, err := os.Create(p.config.BlockProfile)
+		blockProfileFile, err := os.Create(p.config.Core.BlockProfile)
 		if err != nil {
-			core.LogFatal(p, "Unable to open output file for block profile: ", err)
+			core.Log.Fatal(p, "Unable to open output file for block profile", "err", err)
 		}
 		if err := p.block.WriteTo(blockProfileFile, 0); err != nil {
-			core.LogFatal(p, "Unable to write block profile: ", err)
+			core.Log.Fatal(p, "Unable to write block profile", "err", err)
 		}
 		blockProfileFile.Close()
 	}
 
-	if p.config.MemProfile != "" {
-		memProfileFile, err := os.Create(p.config.MemProfile)
+	if p.config.Core.MemProfile != "" {
+		memProfileFile, err := os.Create(p.config.Core.MemProfile)
 		if err != nil {
-			core.LogFatal(p, "Unable to open output file for memory profile: ", err)
+			core.Log.Fatal(p, "Unable to open output file for memory profile", "err", err)
 		}
 		defer memProfileFile.Close()
 
-		core.LogInfo(p, "Profiling memory - outputting to ", p.config.MemProfile)
+		core.Log.Info(p, "Profiling memory", "out", p.config.Core.MemProfile)
 		runtime.GC()
 		if err := pprof.WriteHeapProfile(memProfileFile); err != nil {
-			core.LogFatal(p, "Unable to write memory profile: ", err)
+			core.Log.Fatal(p, "Unable to write memory profile", "err", err)
 		}
 	}
 

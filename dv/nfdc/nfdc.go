@@ -32,6 +32,10 @@ func NewNfdMgmtThread(engine ndn.Engine) *NfdMgmtThread {
 	}
 }
 
+func (m *NfdMgmtThread) String() string {
+	return "dv-nfdc"
+}
+
 func (m *NfdMgmtThread) Start() {
 	for {
 		select {
@@ -39,7 +43,8 @@ func (m *NfdMgmtThread) Start() {
 			for i := 0; i < cmd.Retries || cmd.Retries < 0; i++ {
 				_, err := m.engine.ExecMgmtCmd(cmd.Module, cmd.Cmd, cmd.Args)
 				if err != nil {
-					log.Errorf("nfdc %s %s failed: %s %+v [%d]", cmd.Module, cmd.Cmd, cmd.Args.Name, err, i)
+					log.Error(m, "Forwarder command failed", "err", err, "attempt", i,
+						"module", cmd.Module, "cmd", cmd.Cmd, "args", cmd.Args)
 					time.Sleep(100 * time.Millisecond)
 				} else {
 					time.Sleep(1 * time.Millisecond)

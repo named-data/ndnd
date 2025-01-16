@@ -11,15 +11,11 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
+// NetworkRegion contains producer region names for this forwarder..
+var NetworkRegion = &networkRegionTable{}
+
 type networkRegionTable struct {
 	table []enc.Name
-}
-
-// NetworkRegion contains producer region names for this forwarder..
-var NetworkRegion *networkRegionTable
-
-func init() {
-	NetworkRegion = new(networkRegionTable)
 }
 
 // Add adds a name to the network region table.

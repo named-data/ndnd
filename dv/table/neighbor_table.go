@@ -27,6 +27,8 @@ type NeighborState struct {
 
 	// neighbor name
 	Name enc.Name
+	// advertisement boot time for neighbor
+	AdvertBoot uint64
 	// advertisement sequence number for neighbor
 	AdvertSeq uint64
 	// most recent advertisement
@@ -46,6 +48,10 @@ func NewNeighborTable(config *config.Config, nfdc *nfdc.NfdMgmtThread) *Neighbor
 		nfdc:      nfdc,
 		neighbors: make(map[uint64]*NeighborState),
 	}
+}
+
+func (nt *NeighborTable) String() string {
+	return "dv-neighbors"
 }
 
 func (nt *NeighborTable) Get(name enc.Name) *NeighborState {
@@ -109,7 +115,7 @@ func (ns *NeighborState) RecvPing(faceId uint64, active bool) (error, bool) {
 	// If face ID has changed, re-register face.
 	if ns.faceId != faceId {
 		ns.isFaceActive = active
-		log.Infof("neighbor: %s face ID changed from %d to %d", ns.Name, ns.faceId, faceId)
+		log.Info(ns.nt, "Neighbor face change", "neighbor", ns.Name, "faceid", faceId, "old", ns.faceId)
 		ns.routeUnregister()
 		ns.routeRegister(faceId)
 		return nil, true

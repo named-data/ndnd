@@ -5,8 +5,6 @@ import (
 	"hash"
 	"io"
 	"strings"
-
-	"github.com/named-data/ndnd/std/utils"
 )
 
 type Name []Component
@@ -16,16 +14,18 @@ type NamePattern []ComponentPattern
 const TypeName TLNum = 0x07
 
 func (n Name) String() string {
-	ret := ""
-	for _, c := range n {
-		ret += "/" + c.String()
+	sb := strings.Builder{}
+	for i, c := range n {
+		sb.WriteRune('/')
+		sz := c.WriteTo(&sb)
+		if i == len(n)-1 && sz == 0 {
+			sb.WriteRune('/')
+		}
 	}
-	if len(ret) == 0 {
-		ret = "/"
-	} else if n[len(n)-1].Typ == TypeGenericNameComponent && len(n[len(n)-1].Val) == 0 {
-		ret += "/"
+	if sb.Len() == 0 {
+		return "/"
 	}
-	return ret
+	return sb.String()
 }
 
 func (n NamePattern) String() string {
@@ -202,7 +202,7 @@ func (n Name) Append(rest ...Component) Name {
 }
 
 func (n Name) Compare(rhs Name) int {
-	for i := 0; i < utils.Min(len(n), len(rhs)); i++ {
+	for i := 0; i < min(len(n), len(rhs)); i++ {
 		if ret := n[i].Compare(rhs[i]); ret != 0 {
 			return ret
 		}
@@ -218,7 +218,7 @@ func (n Name) Compare(rhs Name) int {
 }
 
 func (n NamePattern) Compare(rhs NamePattern) int {
-	for i := 0; i < utils.Min(len(n), len(rhs)); i++ {
+	for i := 0; i < min(len(n), len(rhs)); i++ {
 		if ret := n[i].Compare(rhs[i]); ret != 0 {
 			return ret
 		}

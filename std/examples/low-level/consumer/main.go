@@ -12,13 +12,10 @@ import (
 )
 
 func main() {
-	log.SetLevel(log.InfoLevel)
-	logger := log.WithField("module", "main")
-
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -33,7 +30,7 @@ func main() {
 	}
 	interest, err := app.Spec().MakeInterest(name, intCfg, nil, nil)
 	if err != nil {
-		logger.Errorf("Unable to make Interest: %+v", err)
+		log.Error(nil, "Unable to make Interest", "err", err)
 		return
 	}
 
@@ -56,7 +53,7 @@ func main() {
 			ch <- struct{}{}
 		})
 	if err != nil {
-		logger.Errorf("Unable to send Interest: %+v", err)
+		log.Error(nil, "Unable to send Interest", "err", err)
 		return
 	}
 

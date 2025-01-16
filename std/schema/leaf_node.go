@@ -5,6 +5,7 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/utils"
 )
@@ -37,7 +38,6 @@ func (n *LeafNode) Provide(
 	node := n.Node
 	engine := n.Node.engine
 	spec := engine.Spec()
-	logger := mNode.Logger("LeafNode")
 	if dataCfg == nil {
 		dataCfg = &ndn.DataConfig{
 			ContentType:  utils.IdPtr(n.ContentType),
@@ -63,7 +63,7 @@ func (n *LeafNode) Provide(
 
 	data, err := spec.MakeData(mNode.Name, dataCfg, content, signer)
 	if err != nil {
-		logger.Errorf("Unable to encode Data in Provide(): %+v", err)
+		log.Error(n, "Unable to encode Data in Provide()", "err", err)
 		return nil
 	}
 
@@ -114,14 +114,14 @@ func initLeafNodeDesc() {
 	LeafNodeDesc.Functions["Provide"] = func(mNode MatchedNode, args ...any) any {
 		if len(args) < 1 || len(args) > 2 {
 			err := fmt.Errorf("LeafNode.Provide requires 1~2 arguments but got %d", len(args))
-			mNode.Logger("LeafNode").Error(err.Error())
+			log.Error(mNode.Node, err.Error())
 			return err
 		}
 		// content enc.Wire, dataCfg *ndn.DataConfig,
 		content, ok := args[0].(enc.Wire)
 		if !ok && args[0] != nil {
 			err := ndn.ErrInvalidValue{Item: "content", Value: args[0]}
-			mNode.Logger("LeafNode").Error(err.Error())
+			log.Error(mNode.Node, err.Error())
 			return err
 		}
 		var dataCfg *ndn.DataConfig
@@ -129,7 +129,7 @@ func initLeafNodeDesc() {
 			dataCfg, ok = args[1].(*ndn.DataConfig)
 			if !ok && args[1] != nil {
 				err := ndn.ErrInvalidValue{Item: "dataCfg", Value: args[0]}
-				mNode.Logger("LeafNode").Error(err.Error())
+				log.Error(mNode.Node, err.Error())
 				return err
 			}
 		}

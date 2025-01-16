@@ -5,12 +5,17 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 const CostInfinity = uint64(16)
-const NlsrOrigin = uint64(128)
+const NlsrOrigin = uint64(mgmt.RouteOriginNLSR)
 
-var MulticastStrategy, _ = enc.NameFromStr("/localhost/nfd/strategy/multicast")
+var MulticastStrategy = enc.LOCALHOST.Append(
+	enc.NewStringComponent(enc.TypeGenericNameComponent, "nfd"),
+	enc.NewStringComponent(enc.TypeGenericNameComponent, "strategy"),
+	enc.NewStringComponent(enc.TypeGenericNameComponent, "multicast"),
+)
 
 type Config struct {
 	// Network should be the same for all routers in the network.

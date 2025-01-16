@@ -21,6 +21,10 @@ func RunPutChunks(args []string) {
 	(&PutChunks{args: args}).run()
 }
 
+func (pc *PutChunks) String() string {
+	return "put"
+}
+
 func (pc *PutChunks) usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s <name>\n", pc.args[0])
 	fmt.Fprintf(os.Stderr, "\n")
@@ -29,8 +33,6 @@ func (pc *PutChunks) usage() {
 }
 
 func (pc *PutChunks) run() {
-	log.SetLevel(log.InfoLevel)
-
 	if len(pc.args) < 2 {
 		pc.usage()
 		os.Exit(3)
@@ -39,14 +41,15 @@ func (pc *PutChunks) run() {
 	// get name from cli
 	name, err := enc.NameFromStr(pc.args[1])
 	if err != nil {
-		log.Fatalf("Invalid name: %s", pc.args[1])
+		log.Fatal(pc, "Invalid object name", "name", pc.args[1])
+		return
 	}
 
 	// start face and engine
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err = app.Start()
 	if err != nil {
-		log.Errorf("Unable to start engine: %+v", err)
+		log.Fatal(pc, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -55,7 +58,7 @@ func (pc *PutChunks) run() {
 	cli := object.NewClient(app, object.NewMemoryStore())
 	err = cli.Start()
 	if err != nil {
-		log.Errorf("Unable to start object client: %+v", err)
+		log.Fatal(pc, "Unable to start object client", "err", err)
 		return
 	}
 	defer cli.Stop()
@@ -79,22 +82,23 @@ func (pc *PutChunks) run() {
 		Content: content,
 	})
 	if err != nil {
-		log.Fatalf("Unable to produce object: %+v", err)
+		log.Fatal(pc, "Unable to produce object", "err", err)
 		return
 	}
 
 	content = nil // gc
-	log.Infof("Object produced: %s", vname)
+	log.Info(pc, "Object produced", "name", vname)
 
 	// register route to the object
 	err = app.RegisterRoute(name)
 	if err != nil {
-		log.Fatalf("Unable to register route: %+v", err)
+		log.Fatal(pc, "Unable to register route", "err", err)
 		return
 	}
 
 	// wait forever
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
-	<-sigchan
+	receivedSig := <-sigchan
+	log.Info(nil, "Received signal - exiting", "signal", receivedSig)
 }

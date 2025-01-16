@@ -110,9 +110,6 @@ const (
 )
 
 func main() {
-	log.SetLevel(log.InfoLevel)
-	logger := log.WithField("module", "main")
-
 	nodeId := fmt.Sprintf("node-%d", rand.Int())
 	prefix, _ := enc.NameFromStr("/example/schema/signedBy")
 
@@ -122,12 +119,12 @@ func main() {
 	// Enroll trust anchor
 	trustAnchorBuf, err := base64.StdEncoding.DecodeString(TrustAnchorPktB64)
 	if err != nil {
-		logger.Fatalf("Invalid trust anchor: %+v", err)
+		log.Fatal(nil, "Invalid trust anchor", "err", err)
 		return
 	}
 	err = keyStore.AddTrustAnchor(trustAnchorBuf)
 	if err != nil {
-		logger.Fatalf("Unable to add trust anchor: %+v", err)
+		log.Fatal(nil, "Unable to add trust anchor", "err", err)
 		return
 	}
 	spec := spec_2022.Spec{}
@@ -141,7 +138,7 @@ func main() {
 	}
 	err = keyStore.EnrollKey(producerKeyName, enc.Buffer(ProducerKey), trustAnchorData.Name())
 	if err != nil {
-		logger.Fatalf("Unable to enroll the producer key: %+v", err)
+		log.Fatal(nil, "Unable to enroll the producer key", "err", err)
 		return
 	}
 
@@ -156,7 +153,7 @@ func main() {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err = app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -164,7 +161,7 @@ func main() {
 	// Attach schema
 	err = tree.Attach(prefix, app)
 	if err != nil {
-		logger.Fatalf("Unable to attach the schema to the engine: %+v", err)
+		log.Fatal(nil, "Unable to attach the schema to the engine", "err", err)
 		return
 	}
 	defer tree.Detach()
@@ -183,5 +180,5 @@ func main() {
 	fmt.Print("Start serving ...\n")
 	signal.Notify(sigChannel, os.Interrupt, syscall.SIGTERM)
 	receivedSig := <-sigChannel
-	logger.Infof("Received signal %+v - exiting\n", receivedSig)
+	log.Info(nil, "Received signal - exiting", "signal", receivedSig)
 }

@@ -39,6 +39,10 @@ type SqlitePib struct {
 	tpm Tpm
 }
 
+func (pib *SqlitePib) String() string {
+	return "sqlite-pib"
+}
+
 func (pib *SqlitePib) Tpm() Tpm {
 	return pib.tpm
 }
@@ -252,7 +256,7 @@ func (key *SqliteKey) FindCert(check func(Cert) bool) Cert {
 func NewSqlitePib(path string, tpm Tpm) *SqlitePib {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
-		log.WithField("module", "SqlitePib").Errorf("unable to connect to sqlite PIB: %+v", err)
+		log.Error(nil, "Unable to connect to sqlite PIB", "err", err)
 		return nil
 	}
 	return &SqlitePib{

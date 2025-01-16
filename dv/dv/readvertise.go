@@ -32,7 +32,7 @@ func (dv *Router) readvertiseOnInterest(args ndn.InterestHandlerArgs) {
 			res.Encode(),
 			signer)
 		if err != nil {
-			log.Warnf("readvertise: failed to make response Data: %+v", err)
+			log.Warn(dv, "Failed to make readvertise response Data", "err", err)
 			return
 		}
 		args.Reply(data.Wire)
@@ -42,23 +42,23 @@ func (dv *Router) readvertiseOnInterest(args ndn.InterestHandlerArgs) {
 	// readvertise:  /localhost/nlsr/rib/unregister/h%0C%07%07%08%05cathyo%01A/params-sha256=026dd595c75032c5101b321fbc11eeb96277661c66bc0564ac7ea1a281ae8210
 	iname := args.Interest.Name()
 	if len(iname) != 6 {
-		log.Warnf("readvertise: invalid interest %s", iname)
+		log.Warn(dv, "Invalid readvertise Interest", "name", iname)
 		return
 	}
 
 	module, cmd, advC := iname[2], iname[3], iname[4]
 	if module.String() != "rib" {
-		log.Warnf("readvertise: unknown module %s", iname)
+		log.Warn(dv, "Unknown readvertise module", "name", iname)
 		return
 	}
 
 	params, err := mgmt.ParseControlParameters(enc.NewBufferReader(advC.Val), false)
 	if err != nil || params.Val == nil || params.Val.Name == nil {
-		log.Warnf("readvertise: failed to parse advertised name (%s)", err)
+		log.Warn(dv, "Failed to parse readvertised name", "err", err)
 		return
 	}
 
-	log.Debugf("readvertise: %s %s", cmd, params.Val.Name)
+	log.Debug(dv, "Received readvertise request", "cmd", cmd, "name", params.Val.Name)
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
@@ -68,7 +68,7 @@ func (dv *Router) readvertiseOnInterest(args ndn.InterestHandlerArgs) {
 	case "unregister":
 		dv.pfx.Withdraw(params.Val.Name)
 	default:
-		log.Warnf("readvertise: unknown cmd %s", cmd)
+		log.Warn(dv, "Unknown readvertise cmd", "cmd", cmd)
 		return
 	}
 

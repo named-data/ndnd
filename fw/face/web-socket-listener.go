@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -53,12 +52,7 @@ func (cfg WebSocketListenerConfig) URL() *url.URL {
 }
 
 func (cfg WebSocketListenerConfig) String() string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "WebSocket listener at %s", cfg.URL())
-	if cfg.TLSEnabled {
-		fmt.Fprintf(&b, " with TLS cert %s and key %s", cfg.TLSCert, cfg.TLSKey)
-	}
-	return b.String()
+	return fmt.Sprintf("web-socket-listener (url=%s tls=%s)", cfg.URL(), cfg.TLSCert)
 }
 
 func NewWebSocketListener(cfg WebSocketListenerConfig) (*WebSocketListener, error) {
@@ -99,7 +93,7 @@ func (l *WebSocketListener) Run() {
 		err = l.server.ListenAndServeTLS("", "")
 	}
 	if !errors.Is(err, http.ErrServerClosed) {
-		core.LogFatal(l, "Unable to start listener: ", err)
+		core.Log.Fatal(l, "Unable to start listener", "err", err)
 	}
 }
 
@@ -110,7 +104,7 @@ func (l *WebSocketListener) handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newTransport := NewWebSocketTransport(l.localURI, c)
-	core.LogInfo(l, "Accepting new WebSocket face ", newTransport.RemoteURI())
+	core.Log.Info(l, "Accepting new WebSocket face", "uri", newTransport.RemoteURI())
 
 	options := MakeNDNLPLinkServiceOptions()
 	options.IsFragmentationEnabled = false // reliable stream
@@ -118,6 +112,6 @@ func (l *WebSocketListener) handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *WebSocketListener) Close() {
-	core.LogInfo(l, "Stopping listener")
+	core.Log.Info(l, "Stopping listener")
 	l.server.Shutdown(context.TODO())
 }

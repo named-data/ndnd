@@ -44,7 +44,7 @@ func MakeUnicastTCPTransport(
 	// Validate URIs.
 	if !remoteURI.IsCanonical() ||
 		(remoteURI.Scheme() != "tcp4" && remoteURI.Scheme() != "tcp6") {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 	if localURI != nil {
 		return nil, errors.New("do not specify localURI for TCP")
@@ -53,7 +53,7 @@ func MakeUnicastTCPTransport(
 	// Construct transport
 	t := new(UnicastTCPTransport)
 	t.makeTransportBase(remoteURI, localURI, persistency, defn.NonLocal, defn.PointToPoint, defn.MaxNDNPacketSize)
-	t.expirationTime = utils.IdPtr(time.Now().Add(tcpLifetime))
+	t.expirationTime = utils.IdPtr(time.Now().Add(CfgTCPLifetime()))
 	t.rechan = make(chan bool, 2)
 
 	// Set scope
@@ -65,7 +65,7 @@ func MakeUnicastTCPTransport(
 	}
 
 	// Set local and remote addresses
-	t.localAddr.Port = int(TCPUnicastPort)
+	t.localAddr.Port = CfgTCPUnicastPort()
 	t.remoteAddr.IP = net.ParseIP(remoteURI.Path())
 	t.remoteAddr.Port = int(remoteURI.Port())
 
@@ -97,13 +97,13 @@ func AcceptUnicastTCPTransport(
 	// Construct transport
 	t := new(UnicastTCPTransport)
 	t.makeTransportBase(remoteURI, localURI, persistency, defn.NonLocal, defn.PointToPoint, defn.MaxNDNPacketSize)
-	t.expirationTime = utils.IdPtr(time.Now().Add(tcpLifetime))
+	t.expirationTime = utils.IdPtr(time.Now().Add(CfgTCPLifetime()))
 	t.rechan = make(chan bool, 1)
 
 	var success bool
 	t.conn, success = remoteConn.(*net.TCPConn)
 	if !success {
-		core.LogError("UnicastTCPTransport", "Specified connection ", remoteConn, " is not a net.TCPConn")
+		core.Log.Error(t, "Specified connection is not a net.TCPConn", "conn", remoteConn)
 		return nil, errors.New("specified connection is not a net.TCPConn")
 	}
 	t.running.Store(true)
@@ -132,7 +132,7 @@ func AcceptUnicastTCPTransport(
 }
 
 func (t *UnicastTCPTransport) String() string {
-	return fmt.Sprintf("UnicastTCPTransport, FaceID=%d, RemoteURI=%s, LocalURI=%s", t.faceID, t.remoteURI, t.localURI)
+	return fmt.Sprintf("unicast-tcp-transport (faceid=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
 
 func (t *UnicastTCPTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
@@ -143,7 +143,7 @@ func (t *UnicastTCPTransport) SetPersistency(persistency spec_mgmt.Persistency) 
 func (t *UnicastTCPTransport) GetSendQueueSize() uint64 {
 	rawConn, err := t.conn.SyscallConn()
 	if err != nil {
-		core.LogWarn(t, "Unable to get raw connection to get socket length: ", err)
+		core.Log.Warn(t, "Unable to get raw connection to get socket length", "err", err)
 	}
 	return impl.SyscallGetSocketSendQueueSize(rawConn)
 }
@@ -186,7 +186,7 @@ func (t *UnicastTCPTransport) reconnect() {
 		remote := net.JoinHostPort(t.remoteURI.Path(), strconv.Itoa(int(t.remoteURI.Port())))
 		conn, err := t.dialer.Dial(t.remoteURI.Scheme(), remote)
 		if err != nil {
-			core.LogWarn(t, "Unable to connect to remote endpoint [", attempt, "]: ", err)
+			core.Log.Warn(t, "Unable to connect to remote endpoint", "err", err, "attempt", attempt)
 			time.Sleep(5 * time.Second) // TODO: configurable
 			continue
 		}
@@ -211,19 +211,19 @@ func (t *UnicastTCPTransport) sendFrame(frame []byte) {
 	}
 
 	if len(frame) > t.MTU() {
-		core.LogWarn(t, "Attempted to send frame larger than MTU - DROP")
+		core.Log.Warn(t, "Attempted to send frame larger than MTU")
 		return
 	}
 
 	_, err := t.conn.Write(frame)
 	if err != nil {
-		core.LogWarn(t, "Unable to send on socket - DROP")
+		core.Log.Warn(t, "Unable to send on socket")
 		t.CloseConn() // receive might restart if needed
 		return
 	}
 
 	t.nOutBytes += uint64(len(frame))
-	*t.expirationTime = time.Now().Add(tcpLifetime)
+	*t.expirationTime = time.Now().Add(CfgTCPLifetime())
 }
 
 func (t *UnicastTCPTransport) runReceive() {
@@ -235,14 +235,14 @@ func (t *UnicastTCPTransport) runReceive() {
 		if t.conn != nil {
 			err := readTlvStream(t.conn, func(b []byte) {
 				t.nInBytes += uint64(len(b))
-				*t.expirationTime = time.Now().Add(tcpLifetime)
+				*t.expirationTime = time.Now().Add(CfgTCPLifetime())
 				t.linkService.handleIncomingFrame(b)
 			}, nil)
 			if err == nil || t.closed {
 				break // EOF
 			}
 
-			core.LogWarn(t, "Unable to read from socket (", err, ") - Face DOWN")
+			core.Log.Warn(t, "Unable to read from socket - Face DOWN", "err", err)
 		}
 
 		// Persistent faces will reconnect, otherwise close
@@ -251,7 +251,7 @@ func (t *UnicastTCPTransport) runReceive() {
 			return // do not continue
 		}
 
-		core.LogInfo(t, "Connected socket - Face UP")
+		core.Log.Info(t, "Connected socket - Face UP")
 		t.running.Store(true)
 	}
 }

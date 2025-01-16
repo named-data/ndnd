@@ -32,6 +32,11 @@ const (
 	DigestShaNameConvention = "sha256digest"
 )
 
+var (
+	HEX_LOWER = []rune("0123456789abcdef")
+	HEX_UPPER = []rune("0123456789ABCDEF")
+)
+
 var hashPool = sync.Pool{
 	New: func() interface{} {
 		return xxhash.New()
@@ -39,7 +44,7 @@ var hashPool = sync.Pool{
 }
 
 type compValFmt interface {
-	ToString(val []byte) string
+	WriteTo(val []byte, sb *strings.Builder) int
 	FromString(s string) ([]byte, error)
 	ToMatching(val []byte) any
 	FromMatching(m any) ([]byte, error)
@@ -50,8 +55,8 @@ type compValFmtText struct{}
 type compValFmtDec struct{}
 type compValFmtHex struct{}
 
-func (compValFmtInvalid) ToString(val []byte) string {
-	return ""
+func (compValFmtInvalid) WriteTo(val []byte, sb *strings.Builder) int {
+	return 0
 }
 
 func (compValFmtInvalid) FromString(s string) ([]byte, error) {
@@ -66,16 +71,20 @@ func (compValFmtInvalid) FromMatching(m any) ([]byte, error) {
 	return nil, ErrFormat{"Invalid component format"}
 }
 
-func (compValFmtText) ToString(val []byte) string {
-	vText := ""
+func (compValFmtText) WriteTo(val []byte, sb *strings.Builder) int {
+	size := 0
 	for _, b := range val {
 		if isLegalCompText(b) {
-			vText = vText + string(b)
+			sb.WriteByte(b)
+			size += 1
 		} else {
-			vText = vText + fmt.Sprintf("%%%02X", b)
+			sb.WriteRune('%')
+			sb.WriteRune(HEX_UPPER[b>>4])
+			sb.WriteRune(HEX_UPPER[b&0x0F])
+			size += 3
 		}
 	}
-	return vText
+	return size
 }
 
 func (compValFmtText) FromString(valStr string) ([]byte, error) {
@@ -128,12 +137,14 @@ func (compValFmtText) FromMatching(m any) ([]byte, error) {
 	}
 }
 
-func (compValFmtDec) ToString(val []byte) string {
+func (compValFmtDec) WriteTo(val []byte, sb *strings.Builder) int {
 	x := uint64(0)
 	for _, b := range val {
 		x = (x << 8) | uint64(b)
 	}
-	return strconv.FormatUint(x, 10)
+	vstr := strconv.FormatUint(x, 10)
+	sb.WriteString(vstr)
+	return len(vstr)
 }
 
 func (compValFmtDec) FromString(s string) ([]byte, error) {
@@ -164,12 +175,12 @@ func (compValFmtDec) FromMatching(m any) ([]byte, error) {
 	return ret, nil
 }
 
-func (compValFmtHex) ToString(val []byte) string {
-	vText := ""
+func (compValFmtHex) WriteTo(val []byte, sb *strings.Builder) int {
 	for _, b := range val {
-		vText = vText + fmt.Sprintf("%02x", b)
+		sb.WriteRune(HEX_LOWER[b>>4])
+		sb.WriteRune(HEX_LOWER[b&0x0F])
 	}
-	return vText
+	return len(val) * 2
 }
 
 func (compValFmtHex) FromString(s string) ([]byte, error) {
@@ -342,23 +353,40 @@ func isLegalCompText(b byte) bool {
 }
 
 func (c Component) String() string {
+	sb := strings.Builder{}
+	c.WriteTo(&sb)
+	return sb.String()
+}
+
+func (c Component) WriteTo(sb *strings.Builder) int {
+	size := 0
+
 	vFmt := compValFmt(compValFmtText{})
-	tName := ""
 	if conv, ok := compConvByType[c.Typ]; ok {
 		vFmt = conv.vFmt
-		tName = conv.name + "="
+		typ := conv.name
+		sb.WriteString(typ)
+		sb.WriteRune('=')
+		size += len(typ) + 1
 	} else if c.Typ != TypeGenericNameComponent {
-		tName = strconv.FormatUint(uint64(c.Typ), 10) + "="
+		typ := strconv.FormatUint(uint64(c.Typ), 10)
+		sb.WriteString(typ)
+		sb.WriteRune('=')
+		size += len(typ) + 1
 	}
-	return tName + vFmt.ToString(c.Val)
+
+	size += vFmt.WriteTo(c.Val, sb)
+	return size
 }
 
 func (c Component) CanonicalString() string {
-	tName := ""
+	sb := strings.Builder{}
 	if c.Typ != TypeGenericNameComponent {
-		tName = strconv.FormatUint(uint64(c.Typ), 10) + "="
+		sb.WriteString(strconv.FormatUint(uint64(c.Typ), 10))
+		sb.WriteRune('=')
 	}
-	return tName + compValFmtText{}.ToString(c.Val)
+	compValFmtText{}.WriteTo(c.Val, &sb)
+	return sb.String()
 }
 
 func (c Component) Append(rest ...Component) Name {

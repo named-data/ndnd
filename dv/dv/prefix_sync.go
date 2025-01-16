@@ -17,42 +17,47 @@ func (dv *Router) prefixDataFetchAll() {
 	for _, e := range dv.rib.Entries() {
 		router := dv.pfx.GetRouter(e.Name())
 		if router != nil && router.Known < router.Latest {
-			go dv.prefixDataFetch(e.Name())
+			dv.prefixDataFetch(e.Name())
 		}
 	}
 }
 
 // Received prefix sync update
 func (dv *Router) onPfxSyncUpdate(ssu ndn_sync.SvSyncUpdate) {
-	// Update the prefix table
-	dv.mutex.Lock()
-	dv.pfx.GetRouter(ssu.NodeId).Latest = ssu.High
-	dv.mutex.Unlock()
-
-	// Start a fetching thread (if needed)
-	dv.prefixDataFetch(ssu.NodeId)
-}
-
-// Fetch prefix data
-func (dv *Router) prefixDataFetch(nodeId enc.Name) {
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
+	// Update the prefix table
+	r := dv.pfx.GetRouter(ssu.Name)
+	if ssu.Boot > r.BootTime {
+		r.BootTime = ssu.Boot
+		r.Known = 0 // new boot
+	} else if ssu.Boot < r.BootTime {
+		return // old update
+	}
+	r.Latest = ssu.High
+
+	// Start a fetching thread (if needed)
+	dv.prefixDataFetch(ssu.Name)
+}
+
+// Fetch prefix data (call with lock held)
+func (dv *Router) prefixDataFetch(nName enc.Name) {
 	// Check if the RIB has this destination
-	if !dv.rib.Has(nodeId) {
+	if !dv.rib.Has(nName) {
 		return
 	}
 
 	// At any given time, there is only one thread fetching
 	// prefix data for a node. This thread recursively calls itself.
-	router := dv.pfx.GetRouter(nodeId)
+	router := dv.pfx.GetRouter(nName)
 	if router == nil || router.Fetching || router.Known >= router.Latest {
 		return
 	}
 	router.Fetching = true
 
 	// Fetch the prefix data object
-	log.Debugf("prefix-table: fetching object for %s [%d => %d]", nodeId, router.Known, router.Latest)
+	log.Debug(dv.pfx, "Fetching prefix data", "router", nName, "known", router.Known, "latest", router.Latest)
 
 	name := router.GetNextDataName()
 	dv.client.Consume(name, func(state *object.ConsumeState) bool {
@@ -63,7 +68,7 @@ func (dv *Router) prefixDataFetch(nodeId enc.Name) {
 		go func() {
 			fetchErr := state.Error()
 			if fetchErr != nil {
-				log.Warnf("prefix-table: failed to fetch object %s: %+v", state.Name(), fetchErr)
+				log.Warn(dv.pfx, "Failed to fetch prefix data", "name", state.Name(), "err", fetchErr)
 				time.Sleep(1 * time.Second) // wait on error
 			}
 
@@ -78,7 +83,7 @@ func (dv *Router) prefixDataFetch(nodeId enc.Name) {
 
 			// Done fetching, restart if needed
 			router.Fetching = false
-			go dv.prefixDataFetch(nodeId)
+			dv.prefixDataFetch(nName)
 		}()
 
 		return true

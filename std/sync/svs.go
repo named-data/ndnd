@@ -2,9 +2,9 @@ package sync
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	rand "math/rand/v2"
-	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,70 +12,99 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
-	stlv "github.com/named-data/ndnd/std/ndn/svs_2024"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/utils"
 )
 
 type SvSync struct {
-	engine      ndn.Engine
-	groupPrefix enc.Name
-	onUpdate    func(SvSyncUpdate)
+	o SvSyncOpts
 
 	running atomic.Bool
 	stop    chan struct{}
 	ticker  *time.Ticker
 
-	periodicTimeout   time.Duration
-	suppressionPeriod time.Duration
-
 	mutex sync.Mutex
-	state map[uint64]uint64
-	names map[uint64]enc.Name
-	mtime map[uint64]time.Time
+	state SvMap
+	mtime map[string]time.Time
 
 	suppress bool
-	merge    map[uint64]uint64
+	merge    SvMap
 
-	recvSv chan *stlv.StateVector
+	recvSv chan *spec_svs.StateVector
+}
+
+type SvSyncOpts struct {
+	Engine      ndn.Engine
+	GroupPrefix enc.Name
+	OnUpdate    func(SvSyncUpdate)
+
+	BootTime          uint64
+	PeriodicTimeout   time.Duration
+	SuppressionPeriod time.Duration
 }
 
 type SvSyncUpdate struct {
-	NodeId enc.Name
-	High   uint64
-	Low    uint64
+	Name enc.Name
+	Boot uint64
+	High uint64
+	Low  uint64
 }
 
-func NewSvSync(
-	engine ndn.Engine,
-	groupPrefix enc.Name,
-	onUpdate func(SvSyncUpdate),
-) *SvSync {
+// NewSvSync creates a new SV Sync instance.
+func NewSvSync(opts SvSyncOpts) *SvSync {
+	// Check required options
+	if opts.Engine == nil {
+		panic("SvSync: Engine is required")
+	}
+	if len(opts.GroupPrefix) == 0 {
+		panic("SvSync: GroupPrefix is required")
+	}
+	if opts.OnUpdate == nil {
+		panic("SvSync: OnUpdate is required")
+	}
+
+	// Set default options
+	if opts.BootTime == 0 {
+		opts.BootTime = uint64(time.Now().Unix())
+	}
+	if opts.PeriodicTimeout == 0 {
+		opts.PeriodicTimeout = 30 * time.Second
+	}
+	if opts.SuppressionPeriod == 0 {
+		opts.SuppressionPeriod = 200 * time.Millisecond
+	}
+
+	// Deep copy referenced options
+	opts.GroupPrefix = opts.GroupPrefix.Clone()
+
 	return &SvSync{
-		engine:      engine,
-		groupPrefix: groupPrefix.Clone(),
-		onUpdate:    onUpdate,
+		o: opts,
 
 		running: atomic.Bool{},
 		stop:    make(chan struct{}),
 		ticker:  time.NewTicker(1 * time.Second),
 
-		periodicTimeout:   30 * time.Second,
-		suppressionPeriod: 200 * time.Millisecond,
-
 		mutex: sync.Mutex{},
-		state: make(map[uint64]uint64),
-		names: make(map[uint64]enc.Name),
-		mtime: make(map[uint64]time.Time),
+		state: NewSvMap(0),
+		mtime: make(map[string]time.Time),
 
 		suppress: false,
-		merge:    make(map[uint64]uint64),
+		merge:    NewSvMap(0),
 
-		recvSv: make(chan *stlv.StateVector, 128),
+		recvSv: make(chan *spec_svs.StateVector, 128),
 	}
 }
 
+// Instance log identifier
+func (s *SvSync) String() string {
+	return fmt.Sprintf("svs (%s)", s.o.GroupPrefix)
+}
+
+// Start the SV Sync instance.
 func (s *SvSync) Start() (err error) {
-	err = s.engine.AttachHandler(s.groupPrefix, func(args ndn.InterestHandlerArgs) {
+	err = s.o.Engine.AttachHandler(s.o.GroupPrefix, func(args ndn.InterestHandlerArgs) {
 		go s.onSyncInterest(args.Interest)
 	})
 	if err != nil {
@@ -89,7 +118,7 @@ func (s *SvSync) Start() (err error) {
 }
 
 func (s *SvSync) main() {
-	defer s.engine.DetachHandler(s.groupPrefix)
+	defer s.o.Engine.DetachHandler(s.o.GroupPrefix)
 
 	s.running.Store(true)
 	defer s.running.Store(false)
@@ -106,120 +135,124 @@ func (s *SvSync) main() {
 	}
 }
 
+// Stop the SV Sync instance.
 func (s *SvSync) Stop() {
 	s.ticker.Stop()
 	s.stop <- struct{}{}
 	close(s.stop)
 }
 
-func (s *SvSync) SetSeqNo(nodeId enc.Name, seqNo uint64) error {
+// SetSeqNo sets the sequence number for a name.
+// The instance must only set sequence numbers for names it owns.
+// The sequence number must be greater than the previous value.
+func (s *SvSync) SetSeqNo(name enc.Name, seqNo uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	hash := s.hashName(nodeId)
-	prev := s.state[hash]
+	hash := name.String()
 
-	if seqNo <= prev {
+	entry := s.state.Get(hash, s.o.BootTime)
+	if seqNo <= entry.SeqNo {
 		return errors.New("SvSync: seqNo must be greater than previous")
 	}
 
 	// [Spec] When the node generates a new publication,
 	// immediately emit a Sync Interest
-	s.state[hash] = seqNo
+	s.state.Set(hash, s.o.BootTime, seqNo)
 	go s.sendSyncInterest()
 
 	return nil
 }
 
-func (s *SvSync) GetSeqNo(nodeId enc.Name) uint64 {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	hash := s.hashName(nodeId)
-	return s.state[hash]
-}
-
-func (s *SvSync) IncrSeqNo(nodeId enc.Name) uint64 {
+// IncrSeqNo increments the sequence number for a name.
+// The instance must only increment sequence numbers for names it owns.
+func (s *SvSync) IncrSeqNo(name enc.Name) uint64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	hash := s.hashName(nodeId)
-	val := s.state[hash] + 1
-	s.state[hash] = val
+	hash := name.String()
+
+	entry := s.state.Get(hash, s.o.BootTime)
+	s.state.Set(hash, s.o.BootTime, entry.SeqNo+1)
 
 	// [Spec] When the node generates a new publication,
 	// immediately emit a Sync Interest
 	go s.sendSyncInterest()
 
-	return val
+	return entry.SeqNo + 1
 }
 
-func (s *SvSync) hashName(nodeId enc.Name) uint64 {
-	hash := nodeId.Hash()
-	if _, ok := s.names[hash]; !ok {
-		s.names[hash] = nodeId.Clone()
-	}
-	return hash
+func (s *SvSync) GetBootTime() uint64 {
+	return s.o.BootTime
 }
 
-func (s *SvSync) onReceiveStateVector(sv *stlv.StateVector) {
+func (s *SvSync) onReceiveStateVector(sv *spec_svs.StateVector) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	isOutdated := false
 	canDrop := true
-	recvSet := make(map[uint64]bool)
+	recvSv := NewSvMap(len(sv.Entries))
 
-	for _, entry := range sv.Entries {
-		hash := s.hashName(entry.NodeId)
-		recvSet[hash] = true
+	for _, node := range sv.Entries {
+		hash := node.Name.String()
 
-		prev := s.state[hash]
-		if entry.SeqNo > prev {
-			// [Spec] If the incoming state vector is newer,
-			// update the local state vector.
-			s.state[hash] = entry.SeqNo
+		for _, entry := range node.SeqNoEntries {
+			recvSv.Set(hash, entry.BootstrapTime, entry.SeqNo)
 
-			// [Spec] Store the current timestamp as the last update
-			// time for each updated node.
-			s.mtime[hash] = time.Now()
-
-			// Notify the application of the update
-			s.onUpdate(SvSyncUpdate{
-				NodeId: entry.NodeId,
-				High:   entry.SeqNo,
-				Low:    prev + 1,
-			})
-		} else if entry.SeqNo < prev {
-			isOutdated = true
-
-			// [Spec] If every node with an outdated sequence number
-			// in the incoming state vector was updated in the last
-			// SuppressionPeriod, drop the Sync Interest.
-			if time.Now().After(s.mtime[hash].Add(s.suppressionPeriod)) {
-				canDrop = false
+			// [SPEC] If any received BootstrapTime is more than 86400s in the
+			// future compared to current time, the entire state vector SHOULD be ignored.
+			if entry.BootstrapTime > uint64(time.Now().Unix())+86400 {
+				log.Warn(s, "Dropping state vector with far future BootstrapTime: %d", entry.BootstrapTime)
+				return
 			}
-		}
 
-		// [Spec] Suppression state
-		if s.suppress {
-			// [Spec] For every incoming Sync Interest, aggregate
-			// the state vector into a MergedStateVector.
-			if entry.SeqNo > s.merge[hash] {
-				s.merge[hash] = entry.SeqNo
+			// Get existing state vector entry
+			known := s.state.Get(hash, entry.BootstrapTime)
+			if entry.SeqNo > known.SeqNo {
+				// [Spec] If the incoming state vector is newer,
+				// update the local state vector.
+				s.state.Set(hash, entry.BootstrapTime, entry.SeqNo)
+
+				// [Spec] Store the current timestamp as the last update
+				// time for each updated node.
+				s.mtime[hash] = time.Now()
+
+				// Notify the application of the update
+				s.o.OnUpdate(SvSyncUpdate{
+					Name: node.Name,
+					Boot: entry.BootstrapTime,
+					High: entry.SeqNo,
+					Low:  known.SeqNo + 1,
+				})
+			} else if entry.SeqNo < known.SeqNo {
+				isOutdated = true
+
+				// [Spec] If every node with an outdated sequence number
+				// in the incoming state vector was updated in the last
+				// SuppressionPeriod, drop the Sync Interest.
+				if time.Now().After(s.mtime[hash].Add(s.o.SuppressionPeriod)) {
+					canDrop = false
+				}
+			}
+
+			// [Spec] Suppression state
+			if s.suppress {
+				// [Spec] For every incoming Sync Interest, aggregate
+				// the state vector into a MergedStateVector.
+				known := s.merge.Get(hash, entry.BootstrapTime)
+				if entry.SeqNo > known.SeqNo {
+					s.merge.Set(hash, entry.BootstrapTime, entry.SeqNo)
+				}
 			}
 		}
 	}
 
 	// The above checks each node in the incoming state vector, but
 	// does not check if a node is missing from the incoming state vector.
-	if !isOutdated {
-		for nodeId := range s.state {
-			if _, ok := recvSet[nodeId]; !ok {
-				isOutdated = true
-				canDrop = false
-				break
-			}
-		}
+	if !isOutdated && s.state.IsNewerThan(recvSv, true) {
+		isOutdated = true
+		canDrop = false
 	}
 
 	if !isOutdated {
@@ -235,7 +268,7 @@ func (s *SvSync) onReceiveStateVector(sv *stlv.StateVector) {
 	// [Spec] Incoming Sync Interest is outdated.
 	// [Spec] Move to Suppression State.
 	s.suppress = true
-	s.merge = make(map[uint64]uint64)
+	s.merge = make(SvMap, len(s.state))
 
 	// [Spec] When entering Suppression State, reset
 	// the Sync Interest timer to SuppressionTimeout
@@ -249,14 +282,7 @@ func (s *SvSync) timerExpired() {
 	// [Spec] Suppression State
 	if s.suppress {
 		// [Spec] If MergedStateVector is up-to-date; no inconsistency.
-		send := false
-		for nodeId, seqNo := range s.state {
-			if seqNo > s.merge[nodeId] {
-				send = true
-				break
-			}
-		}
-		if !send {
+		if !s.state.IsNewerThan(s.merge, false) {
 			s.enterSteadyState()
 			return
 		}
@@ -275,37 +301,47 @@ func (s *SvSync) sendSyncInterest() {
 	}
 
 	// Critical section
-	svWire := func() enc.Wire {
+	sv := func() *spec_svs.StateVector {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
 		// [Spec*] Sending always triggers Steady State
 		s.enterSteadyState()
 
-		return s.encodeSv()
+		return s.state.Encode()
 	}()
+	svWire := (&spec_svs.SvsData{StateVector: sv}).Encode()
 
-	// SVS v2 Sync Interest
-	syncName := s.groupPrefix.Append(enc.NewVersionComponent(2))
+	// SVS v3 Sync Data
+	syncName := s.o.GroupPrefix.Append(enc.NewVersionComponent(3))
 
-	// Sync Interest parameters for SVS
-	cfg := &ndn.InterestConfig{
-		Lifetime: utils.IdPtr(1 * time.Second),
-		Nonce:    utils.ConvertNonce(s.engine.Timer().Nonce()),
+	// TODO: sign the sync data
+	signer := sec.NewSha256Signer()
+
+	dataCfg := &ndn.DataConfig{
+		ContentType: utils.IdPtr(ndn.ContentTypeBlob),
+	}
+	data, err := s.o.Engine.Spec().MakeData(syncName, dataCfg, svWire, signer)
+	if err != nil {
+		log.Error(s, "sendSyncInterest failed make data", "err", err)
+		return
 	}
 
-	// TODO: sign the sync interest
-
-	interest, err := s.engine.Spec().MakeInterest(syncName, cfg, svWire, nil)
+	// Make SVS Sync Interest
+	intCfg := &ndn.InterestConfig{
+		Lifetime: utils.IdPtr(1 * time.Second),
+		Nonce:    utils.ConvertNonce(s.o.Engine.Timer().Nonce()),
+	}
+	interest, err := s.o.Engine.Spec().MakeInterest(syncName, intCfg, data.Wire, nil)
 	if err != nil {
-		log.Errorf("SvSync: sendSyncInterest failed make: %+v", err)
+		log.Error(s, "sendSyncInterest failed make interest", "err", err)
 		return
 	}
 
 	// [Spec] Sync Ack Policy - Do not acknowledge Sync Interests
-	err = s.engine.Express(interest, nil)
+	err = s.o.Engine.Express(interest, nil)
 	if err != nil {
-		log.Errorf("SvSync: sendSyncInterest failed express: %+v", err)
+		log.Error(s, "sendSyncInterest failed express", "err", err)
 	}
 }
 
@@ -316,43 +352,32 @@ func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 
 	// Check if app param is present
 	if interest.AppParam() == nil {
-		log.Debug("SvSync: onSyncInterest no AppParam, ignoring")
+		log.Debug(s, "onSyncInterest no AppParam, ignoring")
 		return
 	}
 
-	// TODO: verify signature on Sync Interest
+	// Decode Sync Data
+	pkt, _, err := spec.ReadPacket(enc.NewWireReader(interest.AppParam()))
+	if err != nil {
+		log.Warn(s, "onSyncInterest failed to parse SyncData", "err", err)
+		return
+	}
+	if pkt.Data == nil {
+		log.Warn(s, "onSyncInterest no Data, ignoring")
+		return
+	}
+
+	// TODO: verify signature on Sync Data
 
 	// Decode state vector
-	raw := enc.Wire{interest.AppParam().Join()}
-	params, err := stlv.ParseStateVectorAppParam(enc.NewWireReader(raw), false)
+	svWire := pkt.Data.Content().Join()
+	params, err := spec_svs.ParseSvsData(enc.NewBufferReader(svWire), false)
 	if err != nil || params.StateVector == nil {
-		log.Warnf("SvSync: onSyncInterest failed to parse StateVec: %+v", err)
+		log.Warn(s, "onSyncInterest failed to parse StateVec", "err", err)
 		return
 	}
 
 	s.recvSv <- params.StateVector
-}
-
-// Call with mutex locked
-func (s *SvSync) encodeSv() enc.Wire {
-	entries := make([]*stlv.StateVectorEntry, 0, len(s.state))
-	for nodeId, seqNo := range s.state {
-		entries = append(entries, &stlv.StateVectorEntry{
-			NodeId: s.names[nodeId],
-			SeqNo:  seqNo,
-		})
-	}
-
-	// Sort entries by in the NDN canonical order
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].NodeId.Compare(entries[j].NodeId) < 0
-	})
-
-	params := stlv.StateVectorAppParam{
-		StateVector: &stlv.StateVector{Entries: entries},
-	}
-
-	return params.Encode()
 }
 
 // Call with mutex locked
@@ -364,9 +389,9 @@ func (s *SvSync) enterSteadyState() {
 
 func (s *SvSync) getPeriodicTimeout() time.Duration {
 	// [Spec] ±10% uniform jitter
-	jitter := s.periodicTimeout / 10
-	min := s.periodicTimeout - jitter
-	max := s.periodicTimeout + jitter
+	jitter := s.o.PeriodicTimeout / 10
+	min := s.o.PeriodicTimeout - jitter
+	max := s.o.PeriodicTimeout + jitter
 	return time.Duration(rand.Int64N(int64(max-min))) + min
 }
 
@@ -375,8 +400,8 @@ func (s *SvSync) getSuppressionTimeout() time.Duration {
 	// [Spec] c = SuppressionPeriod  // constant factor
 	// [Spec] v = random(0, c)       // uniform random value
 	// [Spec] f = 10.0               // decay factor
-	c := float64(s.suppressionPeriod)
-	v := float64(rand.Int64N(int64(s.suppressionPeriod)))
+	c := float64(s.o.SuppressionPeriod)
+	v := float64(rand.Int64N(int64(s.o.SuppressionPeriod)))
 	f := float64(10.0)
 
 	// [Spec] SuppressionTimeout = c * (1 - e^((v - c) / (c / f)))

@@ -4,6 +4,8 @@
 core:
   # Logging level
   log_level: INFO
+  # Output log to file
+  log_file: ""
 
 faces:
   # Size of queues in the face system

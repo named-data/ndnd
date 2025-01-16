@@ -43,6 +43,11 @@ func NewClient(engine ndn.Engine, store ndn.Store) *Client {
 	return client
 }
 
+// Instance log identifier
+func (c *Client) String() string {
+	return "client"
+}
+
 // Start the client. The engine must be running.
 func (c *Client) Start() error {
 	if !c.engine.IsRunning() {

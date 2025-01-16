@@ -7,7 +7,6 @@ require (
 	github.com/goccy/go-yaml v1.15.13
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.24
-	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	go.etcd.io/bbolt v1.3.11
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67

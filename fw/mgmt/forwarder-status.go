@@ -24,7 +24,7 @@ type ForwarderStatusModule struct {
 }
 
 func (f *ForwarderStatusModule) String() string {
-	return "ForwarderStatusMgmt"
+	return "mgmt-status"
 }
 
 func (f *ForwarderStatusModule) registerManager(manager *Thread) {
@@ -38,7 +38,7 @@ func (f *ForwarderStatusModule) getManager() *Thread {
 func (f *ForwarderStatusModule) handleIncomingInterest(interest *Interest) {
 	// Only allow from /localhost
 	if !LOCAL_PREFIX.IsPrefix(interest.Name()) {
-		core.LogWarn(f, "Received forwarder status management Interest from non-local source - DROP")
+		core.Log.Warn(f, "Received forwarder status management Interest from non-local source - DROP")
 		return
 	}
 
@@ -67,7 +67,7 @@ func (f *ForwarderStatusModule) general(interest *Interest) {
 		NFibEntries:      uint64(len(table.FibStrategyTable.GetAllFIBEntries())),
 	}
 	// Don't set NNameTreeEntries because we don't use a NameTree
-	for threadID := 0; threadID < fw.NumFwThreads; threadID++ {
+	for threadID := 0; threadID < fw.CfgNumThreads(); threadID++ {
 		thread := dispatch.GetFWThread(threadID)
 		status.NPitEntries += uint64(thread.GetNumPitEntries())
 		status.NCsEntries += uint64(thread.GetNumCsEntries())

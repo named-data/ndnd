@@ -47,6 +47,10 @@ func RunPingClient(args []string) {
 	(&PingClient{args: args}).run()
 }
 
+func (pc *PingClient) String() string {
+	return "ping"
+}
+
 func (pc *PingClient) usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s <prefix>\n", pc.args[0])
 	fmt.Fprintf(os.Stderr, "\n")
@@ -64,7 +68,7 @@ func (pc *PingClient) send(seq uint64) {
 
 	interest, err := pc.app.Spec().MakeInterest(name, cfg, nil, nil)
 	if err != nil {
-		log.Errorf("Unable to make Interest: %+v", err)
+		log.Error(pc, "Unable to make Interest", "err", err)
 		return
 	}
 
@@ -101,7 +105,7 @@ func (pc *PingClient) send(seq uint64) {
 		}
 	})
 	if err != nil {
-		log.Errorf("Unable to send Interest: %+v", err)
+		log.Error(pc, "Unable to send Interest", "err", err)
 	}
 }
 
@@ -121,8 +125,6 @@ func (pc *PingClient) stats() {
 }
 
 func (pc *PingClient) run() {
-	log.SetLevel(log.InfoLevel)
-
 	flagset := flag.NewFlagSet("ping", flag.ExitOnError)
 	flagset.Usage = func() {
 		pc.usage()
@@ -145,7 +147,8 @@ func (pc *PingClient) run() {
 	// parse name prefix
 	prefixN, err := enc.NameFromStr(prefix)
 	if err != nil {
-		log.Fatalf("Invalid prefix: %s", pc.args[1])
+		log.Fatal(pc, "Invalid prefix", "name", pc.args[1])
+		return
 	}
 	pc.prefix = prefixN
 	pc.name = prefixN.Append(enc.NewStringComponent(enc.TypeGenericNameComponent, "ping"))
@@ -159,7 +162,7 @@ func (pc *PingClient) run() {
 	pc.app = engine.NewBasicEngine(engine.NewDefaultFace())
 	err = pc.app.Start()
 	if err != nil {
-		log.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(pc, "Unable to start engine", "err", err)
 		return
 	}
 	defer pc.app.Stop()

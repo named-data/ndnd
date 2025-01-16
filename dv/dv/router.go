@@ -44,10 +44,8 @@ type Router struct {
 	// forwarding table
 	fib *table.Fib
 
-	// advertisement sequence number for self
-	advertSyncSeq uint64
-	// object directory for advertisement data
-	advertDir *object.MemoryFifoDir
+	// advertisement module
+	advert advertModule
 	// prefix table svs instance
 	pfxSvs *ndn_sync.SvSync
 }
@@ -69,17 +67,21 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		mutex:  sync.Mutex{},
 	}
 
-	// Create sync groups
-	dv.pfxSvs = ndn_sync.NewSvSync(engine, config.PrefixTableSyncPrefix(),
-		func(ssu ndn_sync.SvSyncUpdate) {
-			go dv.onPfxSyncUpdate(ssu)
-		})
+	// Initialize advertisement module
+	dv.advert = advertModule{
+		dv:       dv,
+		bootTime: uint64(time.Now().Unix()),
+		seq:      0,
+		objDir:   object.NewMemoryFifoDir(32), // keep last few advertisements
+	}
 
-	// Initialize sync and dirs
-	now := uint64(time.Now().UnixMilli())
-	dv.advertSyncSeq = now
-	dv.pfxSvs.SetSeqNo(dv.config.RouterName(), now)
-	dv.advertDir = object.NewMemoryFifoDir(16) // keep last few advertisements
+	// Create sync groups
+	dv.pfxSvs = ndn_sync.NewSvSync(ndn_sync.SvSyncOpts{
+		Engine:      engine,
+		GroupPrefix: config.PrefixTableSyncPrefix(),
+		OnUpdate:    func(ssu ndn_sync.SvSyncUpdate) { go dv.onPfxSyncUpdate(ssu) },
+		BootTime:    dv.advert.bootTime,
+	})
 
 	// Create tables
 	dv.neighbors = table.NewNeighborTable(config, dv.nfdc)
@@ -90,10 +92,15 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 	return dv, nil
 }
 
+// Log identifier for the DV router.
+func (dv *Router) String() string {
+	return "dv-router"
+}
+
 // Start the DV router. Blocks until Stop() is called.
 func (dv *Router) Start() (err error) {
-	log.Infof("Starting DV router")
-	defer log.Infof("Stopping DV router")
+	log.Info(dv, "Starting router")
+	defer log.Info(dv, "Stopping router")
 
 	// Initialize channels
 	dv.stop = make(chan bool, 1)
@@ -130,12 +137,12 @@ func (dv *Router) Start() (err error) {
 
 	// Add self to the RIB and make initial advertisement
 	dv.rib.Set(dv.config.RouterName(), dv.config.RouterName(), 0)
-	dv.advertGenerateNew()
+	dv.advert.generate()
 
 	for {
 		select {
 		case <-dv.heartbeat.C:
-			dv.advertSyncSendInterest()
+			dv.advert.sendSyncInterest()
 		case <-dv.deadcheck.C:
 			dv.checkDeadNeighbors()
 		case <-dv.stop:
@@ -156,8 +163,8 @@ func (dv *Router) configureFace() (err error) {
 		Module: "faces",
 		Cmd:    "update",
 		Args: &mgmt.ControlArgs{
-			Mask:  utils.IdPtr(uint64(0x01)),
-			Flags: utils.IdPtr(uint64(0x01)),
+			Mask:  utils.IdPtr(mgmt.FaceFlagLocalFieldsEnabled),
+			Flags: utils.IdPtr(mgmt.FaceFlagLocalFieldsEnabled),
 		},
 		Retries: -1,
 	})
@@ -170,7 +177,7 @@ func (dv *Router) register() (err error) {
 	// Advertisement Sync (active)
 	err = dv.engine.AttachHandler(dv.config.AdvertisementSyncActivePrefix(),
 		func(args ndn.InterestHandlerArgs) {
-			go dv.advertSyncOnInterest(args, true)
+			go dv.advert.OnSyncInterest(args, true)
 		})
 	if err != nil {
 		return err
@@ -179,7 +186,7 @@ func (dv *Router) register() (err error) {
 	// Advertisement Sync (passive)
 	err = dv.engine.AttachHandler(dv.config.AdvertisementSyncPassivePrefix(),
 		func(args ndn.InterestHandlerArgs) {
-			go dv.advertSyncOnInterest(args, false)
+			go dv.advert.OnSyncInterest(args, false)
 		})
 	if err != nil {
 		return err

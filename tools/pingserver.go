@@ -30,6 +30,10 @@ func RunPingServer(args []string) {
 	}).run()
 }
 
+func (ps *PingServer) String() string {
+	return "ping-server"
+}
+
 func (ps *PingServer) usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s <prefix>\n", ps.args[0])
 	fmt.Fprintf(os.Stderr, "\n")
@@ -37,8 +41,6 @@ func (ps *PingServer) usage() {
 }
 
 func (ps *PingServer) run() {
-	log.SetLevel(log.InfoLevel)
-
 	if len(ps.args) < 2 {
 		ps.usage()
 		os.Exit(3)
@@ -46,27 +48,28 @@ func (ps *PingServer) run() {
 
 	prefix, err := enc.NameFromStr(ps.args[1])
 	if err != nil {
-		log.Fatalf("Invalid prefix: %s", ps.args[1])
+		log.Fatal(ps, "Invalid prefix", "name", ps.args[1])
+		return
 	}
 	ps.name = prefix.Append(enc.NewStringComponent(enc.TypeGenericNameComponent, "ping"))
 
 	ps.app = engine.NewBasicEngine(engine.NewDefaultFace())
 	err = ps.app.Start()
 	if err != nil {
-		log.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(ps, "Unable to start engine", "err", err)
 		return
 	}
 	defer ps.app.Stop()
 
 	err = ps.app.AttachHandler(ps.name, ps.onInterest)
 	if err != nil {
-		log.Fatalf("Unable to register handler: %+v", err)
+		log.Fatal(ps, "Unable to register handler", "err", err)
 		return
 	}
 
 	err = ps.app.RegisterRoute(ps.name)
 	if err != nil {
-		log.Fatalf("Unable to register route: %+v", err)
+		log.Fatal(ps, "Unable to register route", "err", err)
 		return
 	}
 
@@ -95,12 +98,12 @@ func (ps *PingServer) onInterest(args ndn.InterestHandlerArgs) {
 		args.Interest.AppParam(),
 		ps.signer)
 	if err != nil {
-		log.Errorf("Unable to encode data: %+v", err)
+		log.Error(ps, "Unable to encode data", "err", err)
 		return
 	}
 	err = args.Reply(data.Wire)
 	if err != nil {
-		log.Errorf("Unable to reply with data: %+v", err)
+		log.Error(ps, "Unable to reply with data", "err", err)
 		return
 	}
 }

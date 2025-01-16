@@ -201,6 +201,9 @@ func (n *Nfdc) printCtrlResponse(res *mgmt.ControlResponse) {
 	fmt.Printf("Status=%d (%s)\n", res.Val.StatusCode, res.Val.StatusText)
 
 	// iterate over parameters in sorted order
+	if res.Val.Params == nil {
+		return
+	}
 	params := res.Val.Params.ToDict()
 	keys := make([]string, 0, len(params))
 	for key := range params {

@@ -10,7 +10,6 @@ package face
 import (
 	"math"
 	"runtime"
-	"strconv"
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
@@ -97,14 +96,6 @@ func MakeNDNLPLinkService(transport transport, options NDNLPLinkServiceOptions) 
 	return l
 }
 
-func (l *NDNLPLinkService) String() string {
-	if l.transport != nil {
-		return "NDNLPLinkService, " + l.transport.String()
-	}
-
-	return "NDNLPLinkService, FaceID=" + strconv.FormatUint(l.faceID, 10)
-}
-
 // Options gets the settings of the NDNLPLinkService.
 func (l *NDNLPLinkService) Options() NDNLPLinkServiceOptions {
 	return l.options
@@ -133,7 +124,7 @@ func (l *NDNLPLinkService) computeHeaderOverhead() {
 // Run starts the face and associated goroutines
 func (l *NDNLPLinkService) Run(initial []byte) {
 	if l.transport == nil {
-		core.LogError(l, "Unable to start face due to unset transport")
+		core.Log.Error(l, "Unable to start face due to unset transport")
 		return
 	}
 
@@ -151,7 +142,7 @@ func (l *NDNLPLinkService) Run(initial []byte) {
 }
 
 func (l *NDNLPLinkService) runReceive() {
-	if lockThreadsToCores {
+	if CfgLockThreadsToCores() {
 		runtime.LockOSThread()
 	}
 
@@ -160,7 +151,7 @@ func (l *NDNLPLinkService) runReceive() {
 }
 
 func (l *NDNLPLinkService) runSend() {
-	if lockThreadsToCores {
+	if CfgLockThreadsToCores() {
 		runtime.LockOSThread()
 	}
 
@@ -189,7 +180,7 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 	// Congestion marking
 	congestionMark := pkt.CongestionMark // from upstream
 	if l.checkCongestion(wire) && congestionMark == nil {
-		core.LogWarn(l, "Marking congestion")
+		core.Log.Warn(l, "Marking congestion")
 		congestionMark = utils.IdPtr(uint64(1)) // ours
 	}
 
@@ -206,7 +197,7 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 	var fragments []*spec.LpPacket
 	if len(wire) > effectiveMtu {
 		if !l.options.IsFragmentationEnabled {
-			core.LogInfo(l, "Attempted to send frame over MTU on link without fragmentation - DROP")
+			core.Log.Info(l, "Attempted to send frame over MTU on link without fragmentation - DROP")
 			return
 		}
 
@@ -225,7 +216,7 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 
 			frag, err := reader.ReadWire(readSize)
 			if err != nil {
-				core.LogFatal(l, "Unexpected Wire reading error")
+				core.Log.Fatal(l, "Unexpected wire reading error")
 			}
 
 			// Create fragment with sequence and index
@@ -298,7 +289,7 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 	L2, err := readPacketUnverified(L2r)
 	L2r.Free()
 	if err != nil {
-		core.LogError(l, err)
+		core.Log.Error(l, "Unable to decode incoming frame", "err", err)
 		return
 	}
 
@@ -313,7 +304,7 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 
 		// If there is no fragment, then IDLE packet, drop.
 		if len(fragment) == 0 {
-			core.LogTrace(l, "IDLE frame - DROP")
+			core.Log.Trace(l, "IDLE frame - DROP")
 			return
 		}
 
@@ -329,7 +320,7 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 			}
 			baseSequence := *LP.Sequence - fragIndex
 
-			core.LogTrace(l, "Received fragment ", fragIndex, " of ", fragCount, " for ", baseSequence)
+			core.Log.Trace(l, "Received fragment", "index", fragIndex, "count", fragCount, "base", baseSequence)
 			if fragIndex == 0 && fragCount == 1 {
 				// Bypass reassembly since only one fragment
 			} else {
@@ -340,7 +331,7 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 				}
 			}
 		} else if LP.FragCount != nil || LP.FragIndex != nil {
-			core.LogWarn(l, "Received NDNLPv2 frame containing fragmentation fields but reassembly disabled - DROP")
+			core.Log.Warn(l, "Received NDNLPv2 frame with fragmentation fields but reassembly disabled - DROP")
 			return
 		}
 
@@ -388,7 +379,7 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 		l.nInData++
 		l.dispatchData(pkt)
 	} else {
-		core.LogError(l, "Attempted dispatch packet of unknown type")
+		core.Log.Error(l, "Received packet of unknown type")
 	}
 }
 
@@ -421,13 +412,15 @@ func (l *NDNLPLinkService) reassemble(
 
 	// Validate fragCount has not changed
 	if fragCount != uint64(len(buffer)) {
-		core.LogWarn(l, "Received fragment count ", fragCount, " does not match expected count ", len(buffer), " for base sequence ", baseSequence, " - DROP")
+		core.Log.Warn(l, "Received fragment count does not match expected count",
+			"count", fragCount, "expected", len(buffer), "base", baseSequence)
 		return nil
 	}
 
 	// Validate fragIndex is valid
 	if fragIndex >= uint64(len(buffer)) {
-		core.LogWarn(l, "Received fragment index ", fragIndex, " out of range for base sequence ", baseSequence, " - DROP")
+		core.Log.Warn(l, "Received fragment index out of range",
+			"index", fragIndex, "count", fragCount, "base", baseSequence)
 		return nil
 	}
 
@@ -449,7 +442,7 @@ func (l *NDNLPLinkService) reassemble(
 }
 
 func (l *NDNLPLinkService) checkCongestion(wire []byte) bool {
-	if !congestionMarking {
+	if !CfgCongestionMarking() {
 		return false
 	}
 

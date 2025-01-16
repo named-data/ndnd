@@ -27,7 +27,7 @@ type UnixStreamTransport struct {
 func MakeUnixStreamTransport(remoteURI *defn.URI, localURI *defn.URI, conn net.Conn) (*UnixStreamTransport, error) {
 	// Validate URIs
 	if !remoteURI.IsCanonical() || remoteURI.Scheme() != "fd" || !localURI.IsCanonical() || localURI.Scheme() != "unix" {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 
 	t := new(UnixStreamTransport)
@@ -41,7 +41,7 @@ func MakeUnixStreamTransport(remoteURI *defn.URI, localURI *defn.URI, conn net.C
 }
 
 func (t *UnixStreamTransport) String() string {
-	return fmt.Sprintf("UnixStreamTransport, FaceID=%d, RemoteURI=%s, LocalURI=%s", t.faceID, t.remoteURI, t.localURI)
+	return fmt.Sprintf("unix-stream-transport (faceid=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
 
 // SetPersistency changes the persistency of the face.
@@ -62,7 +62,7 @@ func (t *UnixStreamTransport) SetPersistency(persistency spec_mgmt.Persistency) 
 func (t *UnixStreamTransport) GetSendQueueSize() uint64 {
 	rawConn, err := t.conn.SyscallConn()
 	if err != nil {
-		core.LogWarn(t, "Unable to get raw connection to get socket length: ", err)
+		core.Log.Warn(t, "Unable to get raw connection to get socket length", "err", err)
 	}
 	return impl.SyscallGetSocketSendQueueSize(rawConn)
 }
@@ -73,13 +73,13 @@ func (t *UnixStreamTransport) sendFrame(frame []byte) {
 	}
 
 	if len(frame) > t.MTU() {
-		core.LogWarn(t, "Attempted to send frame larger than MTU - DROP")
+		core.Log.Warn(t, "Attempted to send frame larger than MTU")
 		return
 	}
 
 	_, err := t.conn.Write(frame)
 	if err != nil {
-		core.LogWarn(t, "Unable to send on socket - DROP and Face DOWN")
+		core.Log.Warn(t, "Unable to send on socket - Face DOWN")
 		t.Close()
 		return
 	}
@@ -95,7 +95,7 @@ func (t *UnixStreamTransport) runReceive() {
 		t.linkService.handleIncomingFrame(b)
 	}, nil)
 	if err != nil && t.running.Load() {
-		core.LogWarn(t, "Unable to read from socket (", err, ") - Face DOWN")
+		core.Log.Warn(t, "Unable to read from socket - Face DOWN", "err", err)
 	}
 }
 

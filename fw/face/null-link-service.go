@@ -8,8 +8,6 @@
 package face
 
 import (
-	"strconv"
-
 	"github.com/named-data/ndnd/fw/core"
 )
 
@@ -27,14 +25,6 @@ func MakeNullLinkService(transport transport) *NullLinkService {
 	return l
 }
 
-func (l *NullLinkService) String() string {
-	if l.transport != nil {
-		return "NullLinkService, " + l.transport.String()
-	}
-
-	return "NullLinkService, FaceID=" + strconv.FormatUint(l.faceID, 10)
-}
-
 // Run runs the NullLinkService.
 func (l *NullLinkService) Run(initial []byte) {
 	FaceTable.Add(l)
@@ -46,5 +36,5 @@ func (l *NullLinkService) Run(initial []byte) {
 
 func (l *NullLinkService) handleIncomingFrame(frame []byte) {
 	// Do nothing
-	core.LogDebug(l, "Received frame on null link service - DROP")
+	core.Log.Debug(l, "Received frame on null link service - DROP")
 }

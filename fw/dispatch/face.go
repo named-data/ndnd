@@ -39,10 +39,6 @@ type OutPkt struct {
 // FaceDispatch is used to allow forwarding to interact with faces without a circular dependency issue.
 var FaceDispatch sync.Map
 
-func init() {
-	FaceDispatch = sync.Map{}
-}
-
 // AddFace adds the specified face to the dispatch list.
 func AddFace(id uint64, face Face) {
 	FaceDispatch.Store(id, face)

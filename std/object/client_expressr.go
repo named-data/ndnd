@@ -46,7 +46,7 @@ func (c *Client) expressRImpl(args ExpressRArgs) {
 	// TODO: reexpress faster than lifetime
 	err = c.engine.Express(interest, func(res ndn.ExpressCallbackArgs) {
 		if res.Result == ndn.InterestResultTimeout {
-			log.Debugf("client::expressr retrying %s", args.Name)
+			log.Debug(c, "ExpressR Interest timeout", "name", args.Name)
 
 			// check if retries are exhausted
 			if args.Retries == 0 {

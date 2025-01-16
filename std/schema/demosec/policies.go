@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/schema"
 	sec "github.com/named-data/ndnd/std/security"
@@ -17,6 +18,10 @@ type KeyStoragePolicy struct {
 	KeyStore *DemoHmacKeyStore
 }
 
+func (p *KeyStoragePolicy) String() string {
+	return "KeyStoragePolicy"
+}
+
 func (p *KeyStoragePolicy) PolicyTrait() schema.Policy {
 	return p
 }
@@ -25,10 +30,9 @@ func (p *KeyStoragePolicy) onSearch(event *schema.Event) any {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	logger := event.Target.Logger("KeyStoragePolicy")
 	// event.IntConfig is always valid for onSearch, no matter if there is an Interest.
 	if event.IntConfig.CanBePrefix {
-		logger.Errorf("the Demo HMAC key storage does not support CanBePrefix Interest to fetch certificates.")
+		log.Error(p, "the Demo HMAC key storage does not support CanBePrefix Interest to fetch certificates.")
 		return nil
 	}
 	key := p.KeyStore.GetKey(event.Target.Name)
@@ -85,6 +89,10 @@ type SignedByPolicy struct {
 	keyNode *schema.Node
 }
 
+func (p *SignedByPolicy) String() string {
+	return "SignedByPolicy"
+}
+
 func (p *SignedByPolicy) PolicyTrait() schema.Policy {
 	return p
 }
@@ -108,15 +116,14 @@ func (p *SignedByPolicy) ConvertName(mNode *schema.MatchedNode) *schema.MatchedN
 }
 
 func (p *SignedByPolicy) onGetDataSigner(event *schema.Event) any {
-	logger := event.Target.Logger("SignedByPolicy")
 	keyMNode := p.ConvertName(event.Target)
 	if keyMNode == nil {
-		logger.Errorf("Cannot construct the key name to sign this data. Leave unsigned.")
+		log.Error(p, "Cannot construct the key name to sign this data. Leave unsigned.")
 		return nil
 	}
 	key := p.KeyStore.GetKey(keyMNode.Name)
 	if key == nil {
-		logger.Errorf("The key to sign this data is missing. Leave unsigned.")
+		log.Error(p, "The key to sign this data is missing. Leave unsigned.")
 		return nil
 	}
 	return sec.NewHmacSigner(keyMNode.Name, key.KeyBits, false, 0)
@@ -125,7 +132,6 @@ func (p *SignedByPolicy) onGetDataSigner(event *schema.Event) any {
 func (p *SignedByPolicy) onValidateData(event *schema.Event) any {
 	sigCovered := event.SigCovered
 	signature := event.Signature
-	logger := event.Target.Logger("SignedByPolicy")
 	if sigCovered == nil || signature == nil || signature.SigType() != ndn.SignatureHmacWithSha256 {
 		return schema.VrSilence
 	}
@@ -133,13 +139,13 @@ func (p *SignedByPolicy) onValidateData(event *schema.Event) any {
 	//TODO: Compute the deadline
 	result := <-keyMNode.Call("NeedChan").(chan schema.NeedResult)
 	if result.Status != ndn.InterestResultData {
-		logger.Warnf("Unable to fetch the key that signed this data.")
+		log.Warn(p, "Unable to fetch the key that signed this data.")
 		return schema.VrFail
 	}
 	if sec.CheckHmacSig(sigCovered, signature.SigValue(), result.Content.Join()) {
 		return schema.VrPass
 	} else {
-		logger.Warnf("Failed to verify the signature.")
+		log.Warn(p, "Failed to verify the signature.")
 		return schema.VrFail
 	}
 }

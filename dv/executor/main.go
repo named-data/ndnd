@@ -7,8 +7,6 @@ import (
 	"syscall"
 
 	"github.com/goccy/go-yaml"
-
-	"github.com/named-data/ndnd/std/log"
 )
 
 func Main(args []string) {
@@ -28,8 +26,6 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "Unable to parse configuration file: %s\n", err)
 		os.Exit(3)
 	}
-
-	log.SetLevel(log.InfoLevel)
 
 	dve, err := NewDvExecutor(dc)
 	if err != nil {

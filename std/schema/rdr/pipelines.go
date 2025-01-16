@@ -4,6 +4,7 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/schema"
 )
@@ -40,10 +41,9 @@ type RdrPipelineCubic struct {
 
 // DataFetcher tries to get specified Data packet up to `maxRetries` times.
 func DataFetcher(mNode schema.MatchedNode, intConfig *ndn.InterestConfig, maxRetries int) schema.NeedResult {
-	logger := mNode.Logger("DataFetcher")
 	var result schema.NeedResult
 	for j := 0; j < maxRetries; j++ {
-		logger.Debugf("Fetching [the %d/%d trial]", j, maxRetries)
+		log.Debug(mNode.Node, "Fetching", "j", j, "retries", maxRetries)
 		result = <-mNode.Call("NeedChan").(chan schema.NeedResult)
 		switch result.Status {
 		case ndn.InterestResultData:

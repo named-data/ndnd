@@ -64,16 +64,13 @@ const SchemaJson = `{
 const HmacKey = "Hello, World!"
 
 func main() {
-	log.SetLevel(log.InfoLevel)
-	logger := log.WithField("module", "main")
-
 	if len(os.Args) < 2 {
-		logger.Fatal("Insufficient argument. Please input the version number given by the producer.")
+		log.Fatal(nil, "Insufficient argument. Please input the version number given by the producer.")
 		return
 	}
 	ver, err := strconv.Atoi(os.Args[1])
 	if err != nil {
-		logger.Fatal("Invalid argument")
+		log.Fatal(nil, "Invalid argument")
 		return
 	}
 
@@ -87,7 +84,7 @@ func main() {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err = app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -96,7 +93,7 @@ func main() {
 	prefix, _ := enc.NameFromStr("/example/schema/encryptionApp")
 	err = tree.Attach(prefix, app)
 	if err != nil {
-		logger.Fatalf("Unable to attach the schema to the engine: %+v", err)
+		log.Fatal(nil, "Unable to attach the schema to the engine", "err", err)
 		return
 	}
 	defer tree.Detach()

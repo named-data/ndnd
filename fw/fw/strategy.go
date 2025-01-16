@@ -8,7 +8,7 @@
 package fw
 
 import (
-	"strconv"
+	"fmt"
 
 	"github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/table"
@@ -43,31 +43,31 @@ type Strategy interface {
 
 // StrategyBase provides common helper methods for YaNFD forwarding strategies.
 type StrategyBase struct {
-	thread          *Thread
-	threadID        int
-	name            enc.Name
-	strategyName    enc.Component
-	version         uint64
-	strategyLogName string
+	thread   *Thread
+	threadID int
+	name     enc.Name
+	version  uint64
+	logName  string
 }
 
 // NewStrategyBase is a helper that allows specific strategies to initialize the base.
 func (s *StrategyBase) NewStrategyBase(
 	fwThread *Thread,
-	strategyName enc.Component,
+	name string,
 	version uint64,
-	strategyLogName string,
 ) {
 	s.thread = fwThread
 	s.threadID = s.thread.threadID
-	s.strategyName = strategyName
-	s.name = defn.STRATEGY_PREFIX.Append(strategyName, enc.NewVersionComponent(version))
+	s.name = defn.STRATEGY_PREFIX.Append(
+		enc.NewStringComponent(enc.TypeGenericNameComponent, name),
+		enc.NewVersionComponent(version),
+	)
 	s.version = version
-	s.strategyLogName = strategyLogName
+	s.logName = name
 }
 
 func (s *StrategyBase) String() string {
-	return s.strategyLogName + "-v" + strconv.FormatUint(s.version, 10) + "-Thread" + strconv.Itoa(s.threadID)
+	return fmt.Sprintf("%s (v=%d t=%d)", s.logName, s.version, s.threadID)
 }
 
 // GetName returns the name of strategy, including version information.

@@ -14,3 +14,6 @@ var Version string
 
 // StartTimestamp is the time the forwarder was started.
 var StartTimestamp time.Time
+
+// ShouldQuit indicates whether threads should quit
+var ShouldQuit = false

@@ -46,6 +46,11 @@ func NewRib(config *config.Config) *Rib {
 	}
 }
 
+// Log identifier for the RIB.
+func (r *Rib) String() string {
+	return "dv-rib"
+}
+
 // Print the RIB to the console (for debugging).
 func (r *Rib) Print() {
 	for _, entry := range r.entries {
@@ -208,9 +213,9 @@ func (e *RibEntry) refresh() bool {
 		e.lowest2 = lowest2
 		e.nextHop1 = nextHop1
 		e.nextHop2 = nextHop2
-		log.Infof("rib: update next hop %s => %s[%d], %s[%d]", e.name,
-			e.rib.neighbors[nextHop1], lowest1,
-			e.rib.neighbors[nextHop2], lowest2)
+		log.Info(e.rib, "Update next hop", "name", e.name,
+			"hop1", e.rib.neighbors[nextHop1], "cost1", lowest1,
+			"hop2", e.rib.neighbors[nextHop2], "cost2", lowest2)
 		return true
 	}
 

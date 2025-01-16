@@ -19,6 +19,10 @@ type Tree struct {
 	engine ndn.Engine
 }
 
+func (t *Tree) String() string {
+	return "schema"
+}
+
 func (t *Tree) Engine() ndn.Engine {
 	return t.engine
 }
@@ -48,7 +52,7 @@ func (t *Tree) Attach(prefix enc.Name, engine ndn.Engine) error {
 	if err != nil {
 		return err
 	}
-	log.WithField("module", "schema").Info("Attached to engine.")
+	log.Info(t, "Attached to engine")
 	t.engine = engine
 	return nil
 }
@@ -61,7 +65,7 @@ func (t *Tree) Detach() {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	log.WithField("module", "schema").Info("Detached from engine")
+	log.Info(t, "Detached from engine")
 	t.engine.DetachHandler(t.root.AttachedPrefix())
 	t.root.OnDetach()
 }
@@ -79,9 +83,7 @@ func (t *Tree) intHandler(args ndn.InterestHandlerArgs) {
 	matchName := args.Interest.Name()
 	mNode := t.root.Match(matchName)
 	if mNode == nil {
-		log.WithField("module", "schema").
-			WithField("name", args.Interest.Name().String()).
-			Warn("Unexpected Interest. Drop.")
+		log.Warn(t, "Unexpected Interest - DROP", "name", matchName)
 		return
 	}
 	mNode.Node.OnInterest(args, mNode.Matching)

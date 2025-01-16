@@ -30,7 +30,7 @@ type TCPListener struct {
 func MakeTCPListener(localURI *defn.URI) (*TCPListener, error) {
 	localURI.Canonize()
 	if !localURI.IsCanonical() || (localURI.Scheme() != "tcp4" && localURI.Scheme() != "tcp6") {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 
 	l := new(TCPListener)
@@ -40,7 +40,7 @@ func MakeTCPListener(localURI *defn.URI) (*TCPListener, error) {
 }
 
 func (l *TCPListener) String() string {
-	return fmt.Sprintf("TCPListener, %s", l.localURI)
+	return fmt.Sprintf("tcp-listener (%s)", l.localURI)
 }
 
 func (l *TCPListener) Run() {
@@ -61,7 +61,7 @@ func (l *TCPListener) Run() {
 	var err error
 	l.conn, err = listenConfig.Listen(context.Background(), l.localURI.Scheme(), remote)
 	if err != nil {
-		core.LogError(l, "Unable to start TCP listener: ", err)
+		core.Log.Error(l, "Unable to start TCP listener", "err", err)
 		return
 	}
 
@@ -72,17 +72,17 @@ func (l *TCPListener) Run() {
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
-			core.LogWarn(l, "Unable to accept connection: ", err)
+			core.Log.Warn(l, "Unable to accept connection", "err", err)
 			continue
 		}
 
 		newTransport, err := AcceptUnicastTCPTransport(remoteConn, l.localURI, mgmt_2022.PersistencyPersistent)
 		if err != nil {
-			core.LogError(l, "Failed to create new unicast TCP transport: ", err)
+			core.Log.Error(l, "Failed to create new unicast TCP transport", "err", err)
 			continue
 		}
 
-		core.LogInfo(l, "Accepting new TCP face ", newTransport.RemoteURI())
+		core.Log.Info(l, "Accepting new TCP face", "uri", newTransport.RemoteURI())
 		options := MakeNDNLPLinkServiceOptions()
 		options.IsFragmentationEnabled = false // reliable stream
 		MakeNDNLPLinkService(newTransport, options).Run(nil)

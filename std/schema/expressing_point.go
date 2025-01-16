@@ -6,6 +6,7 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/utils"
 )
@@ -44,6 +45,10 @@ type ExpressPoint struct {
 	MustBeFresh bool
 	Lifetime    time.Duration
 	SupressInt  bool
+}
+
+func (n *ExpressPoint) String() string {
+	return "express-point"
 }
 
 func (n *ExpressPoint) NodeImplTrait() NodeImpl {
@@ -92,7 +97,6 @@ func (n *ExpressPoint) OnInterest(args ndn.InterestHandlerArgs, matching enc.Mat
 		Deadline:   &args.Deadline,
 		Content:    args.Interest.AppParam(),
 	}
-	logger := event.Target.Logger("ExpressPoint")
 
 	// Handle FullName: the implicit sha256 component should be removed from data name
 	if event.Target.Name[len(event.Target.Name)-1].Typ == enc.TypeImplicitSha256DigestComponent {
@@ -108,7 +112,7 @@ func (n *ExpressPoint) OnInterest(args ndn.InterestHandlerArgs, matching enc.Mat
 	if len(cachedData) > 0 {
 		err := args.Reply(cachedData)
 		if err != nil {
-			logger.Errorf("Unable to reply Interest. Drop: %+v", err)
+			log.Error(n, "Unable to reply Interest - DROP", "err", err)
 		}
 		return
 	}
@@ -127,11 +131,11 @@ func (n *ExpressPoint) OnInterest(args ndn.InterestHandlerArgs, matching enc.Mat
 			})
 			res, ok := ret.(ValidRes)
 			if !ok || res < VrSilence {
-				logger.Warnf("Verification failed (%d) for Interest. Drop.", res)
+				log.Warn(n, "Verification failed for Interest - DROP", "res", res)
 				return
 			}
 			if res == VrSilence {
-				logger.Warn("Unverified Interest. Drop.")
+				log.Warn(n, "Unverified Interest - DROP")
 				return
 			}
 		}
@@ -169,7 +173,6 @@ func (n *ExpressPoint) NeedCallback(
 	node := n.Node
 	engine := n.Node.engine
 	spec := engine.Spec()
-	logger := mNode.Logger("ExpressPoint")
 	if intConfig == nil {
 		intConfig = &ndn.InterestConfig{
 			CanBePrefix:    n.CanBePrefix,
@@ -219,7 +222,7 @@ func (n *ExpressPoint) NeedCallback(
 				// return ret
 				return nil
 			} else {
-				logger.Error("The storage returned an invalid data")
+				log.Error(n, "The storage returned an invalid data")
 			}
 		}
 		// storageSearched = true
@@ -228,7 +231,7 @@ func (n *ExpressPoint) NeedCallback(
 	// Construct Interest
 	interest, err := spec.MakeInterest(mNode.Name, intConfig, appParam, signer)
 	if err != nil {
-		logger.Errorf("Unable to encode Interest in Need(): %+v", err)
+		log.Error(n, "Unable to encode Interest in Need()", "err", err)
 		go callback(&Event{
 			TargetNode: node,
 			NeedStatus: utils.IdPtr(ndn.InterestResultNone),
@@ -300,14 +303,14 @@ func (n *ExpressPoint) NeedCallback(
 				cbEvt.ValidResult = &res
 			}
 			if !ok || res < VrSilence {
-				logger.Warnf("Verification failed (%d) for Data. Drop.", res)
+				log.Warn(n, "Verification failed for Data - DROP", "res", res)
 				cbEvt.NeedStatus = utils.IdPtr(ndn.InterestResultUnverified)
 				cbEvt.Content = nil
 				callback(cbEvt)
 				return
 			}
 			if res == VrSilence {
-				logger.Warn("Unverified Data. Drop.")
+				log.Warn(n, "Unverified Data - DROP", "res", res)
 				cbEvt.NeedStatus = utils.IdPtr(ndn.InterestResultUnverified)
 				cbEvt.Content = nil
 				callback(cbEvt)
@@ -324,7 +327,7 @@ func (n *ExpressPoint) NeedCallback(
 		}()
 	})
 	if err != nil {
-		logger.Warn("Failed to express Interest.")
+		log.Warn(n, "Failed to express Interest")
 		go callback(&Event{
 			TargetNode: node,
 			NeedStatus: utils.IdPtr(ndn.InterestResultNone),
@@ -399,13 +402,13 @@ func initExpressPointDesc() {
 			"Need": func(mNode MatchedNode, args ...any) any {
 				if len(args) < 1 || len(args) > 4 {
 					err := fmt.Errorf("ExpressPoint.Need requires 1~4 arguments but got %d", len(args))
-					mNode.Logger("ExpressPoint").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				callback, ok := args[0].(Callback)
 				if !ok {
 					err := ndn.ErrInvalidValue{Item: "callback", Value: args[0]}
-					mNode.Logger("ExpressPoint").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				var appParam enc.Wire = nil
@@ -413,7 +416,7 @@ func initExpressPointDesc() {
 					appParam, ok = args[1].(enc.Wire)
 					if !ok && args[1] != nil {
 						err := ndn.ErrInvalidValue{Item: "appParam", Value: args[0]}
-						mNode.Logger("ExpressPoint").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -422,7 +425,7 @@ func initExpressPointDesc() {
 					intConfig, ok = args[2].(*ndn.InterestConfig)
 					if !ok && args[2] != nil {
 						err := ndn.ErrInvalidValue{Item: "intConfig", Value: args[0]}
-						mNode.Logger("ExpressPoint").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -431,7 +434,7 @@ func initExpressPointDesc() {
 					suppress, ok = args[3].(bool)
 					if !ok {
 						err := ndn.ErrInvalidValue{Item: "suppress", Value: args[0]}
-						mNode.Logger("ExpressPoint").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -440,7 +443,7 @@ func initExpressPointDesc() {
 			"NeedChan": func(mNode MatchedNode, args ...any) any {
 				if len(args) > 3 {
 					err := fmt.Errorf("ExpressPoint.NeedChan requires 0~3 arguments but got %d", len(args))
-					mNode.Logger("ExpressPoint").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				var appParam enc.Wire = nil
@@ -449,7 +452,7 @@ func initExpressPointDesc() {
 					appParam, ok = args[0].(enc.Wire)
 					if !ok && args[0] != nil {
 						err := ndn.ErrInvalidValue{Item: "appParam", Value: args[0]}
-						mNode.Logger("ExpressPoint").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -458,7 +461,7 @@ func initExpressPointDesc() {
 					intConfig, ok = args[1].(*ndn.InterestConfig)
 					if !ok && args[1] != nil {
 						err := ndn.ErrInvalidValue{Item: "intConfig", Value: args[0]}
-						mNode.Logger("ExpressPoint").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -467,7 +470,7 @@ func initExpressPointDesc() {
 					suppress, ok = args[2].(bool)
 					if !ok {
 						err := ndn.ErrInvalidValue{Item: "suppress", Value: args[0]}
-						mNode.Logger("ExpressPoint").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}

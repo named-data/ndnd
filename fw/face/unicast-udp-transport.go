@@ -38,19 +38,19 @@ func MakeUnicastUDPTransport(
 ) (*UnicastUDPTransport, error) {
 	// Validate remote URI
 	if remoteURI == nil || !remoteURI.IsCanonical() || (remoteURI.Scheme() != "udp4" && remoteURI.Scheme() != "udp6") {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 
 	// Validate local URI
 	if localURI != nil && (!localURI.IsCanonical() || remoteURI.Scheme() != localURI.Scheme()) {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 
 	// Construct transport
 	t := new(UnicastUDPTransport)
 	t.makeTransportBase(remoteURI, localURI, persistency, defn.NonLocal, defn.PointToPoint, defn.MaxNDNPacketSize)
 	t.expirationTime = new(time.Time)
-	*t.expirationTime = time.Now().Add(udpLifetime)
+	*t.expirationTime = time.Now().Add(CfgUDPLifetime())
 
 	// Set scope
 	ip := net.ParseIP(remoteURI.Path())
@@ -65,7 +65,7 @@ func MakeUnicastUDPTransport(
 		t.localAddr.IP = net.ParseIP(localURI.Path())
 		t.localAddr.Port = int(localURI.Port())
 	} else {
-		t.localAddr.Port = int(UDPUnicastPort)
+		t.localAddr.Port = CfgUDPUnicastPort()
 	}
 	t.remoteAddr.IP = net.ParseIP(remoteURI.Path())
 	t.remoteAddr.Port = int(remoteURI.Port())
@@ -92,7 +92,7 @@ func MakeUnicastUDPTransport(
 }
 
 func (t *UnicastUDPTransport) String() string {
-	return fmt.Sprintf("UnicastUDPTransport, FaceID=%d, RemoteURI=%s, LocalURI=%s", t.faceID, t.remoteURI, t.localURI)
+	return fmt.Sprintf("unicast-udp-transport (face=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
 
 func (t *UnicastUDPTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
@@ -103,7 +103,7 @@ func (t *UnicastUDPTransport) SetPersistency(persistency spec_mgmt.Persistency) 
 func (t *UnicastUDPTransport) GetSendQueueSize() uint64 {
 	rawConn, err := t.conn.SyscallConn()
 	if err != nil {
-		core.LogWarn(t, "Unable to get raw connection to get socket length: ", err)
+		core.Log.Warn(t, "Unable to get raw connection to get socket length", "err", err)
 	}
 	return impl.SyscallGetSocketSendQueueSize(rawConn)
 }
@@ -114,19 +114,19 @@ func (t *UnicastUDPTransport) sendFrame(frame []byte) {
 	}
 
 	if len(frame) > t.MTU() {
-		core.LogWarn(t, "Attempted to send frame larger than MTU - DROP")
+		core.Log.Warn(t, "Attempted to send frame larger than MTU")
 		return
 	}
 
 	_, err := t.conn.Write(frame)
 	if err != nil {
-		core.LogWarn(t, "Unable to send on socket - DROP and Face DOWN")
+		core.Log.Warn(t, "Unable to send on socket - Face DOWN")
 		t.Close()
 		return
 	}
 
 	t.nOutBytes += uint64(len(frame))
-	*t.expirationTime = time.Now().Add(udpLifetime)
+	*t.expirationTime = time.Now().Add(CfgUDPLifetime())
 }
 
 func (t *UnicastUDPTransport) runReceive() {
@@ -134,7 +134,7 @@ func (t *UnicastUDPTransport) runReceive() {
 
 	err := readTlvStream(t.conn, func(b []byte) {
 		t.nInBytes += uint64(len(b))
-		*t.expirationTime = time.Now().Add(udpLifetime)
+		*t.expirationTime = time.Now().Add(CfgUDPLifetime())
 		t.linkService.handleIncomingFrame(b)
 	}, func(err error) bool {
 		// Ignore since UDP is a connectionless protocol
@@ -142,7 +142,7 @@ func (t *UnicastUDPTransport) runReceive() {
 		return strings.Contains(err.Error(), "connection refused")
 	})
 	if err != nil && t.running.Load() {
-		core.LogWarn(t, "Unable to read from socket (", err, ") - Face DOWN")
+		core.Log.Warn(t, "Unable to read from socket - Face DOWN", "err", err)
 	}
 }
 

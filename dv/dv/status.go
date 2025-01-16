@@ -26,7 +26,7 @@ func (dv *Router) statusOnInterest(args ndn.InterestHandlerArgs) {
 
 	data, err := dv.engine.Spec().MakeData(name, cfg, status.Encode(), signer)
 	if err != nil {
-		log.Warnf("readvertise: failed to make response Data: %+v", err)
+		log.Warn(dv, "Failed to make readvertise response Data", "err", err)
 		return
 	}
 

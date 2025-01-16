@@ -30,7 +30,7 @@ type UDPListener struct {
 func MakeUDPListener(localURI *defn.URI) (*UDPListener, error) {
 	localURI.Canonize()
 	if !localURI.IsCanonical() || (localURI.Scheme() != "udp4" && localURI.Scheme() != "udp6") {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 
 	l := new(UDPListener)
@@ -40,7 +40,7 @@ func MakeUDPListener(localURI *defn.URI) (*UDPListener, error) {
 }
 
 func (l *UDPListener) String() string {
-	return fmt.Sprintf("UDPListener, %s", l.localURI)
+	return fmt.Sprintf("udp-listener (%s)", l.localURI)
 }
 
 // Run starts the UDP listener.
@@ -62,7 +62,7 @@ func (l *UDPListener) Run() {
 	var err error
 	l.conn, err = listenConfig.ListenPacket(context.Background(), l.localURI.Scheme(), remote)
 	if err != nil {
-		core.LogError(l, "Unable to start UDP listener: ", err)
+		core.Log.Error(l, "Unable to start UDP listener", "err", err)
 		return
 	}
 
@@ -74,14 +74,14 @@ func (l *UDPListener) Run() {
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
-			core.LogWarn(l, "Unable to read from socket (", err, ") - DROP ")
+			core.Log.Warn(l, "Unable to read from socket", "err", err)
 			return
 		}
 
 		// Construct remote URI
 		remoteURI := defn.DecodeURIString(fmt.Sprintf("udp://%s", remoteAddr))
 		if remoteURI == nil || !remoteURI.IsCanonical() {
-			core.LogWarn(l, "Unable to create face from ", remoteURI, ": remote URI is not canonical")
+			core.Log.Warn(l, "Unable to create face remote URI is not canonical", "uri", remoteURI)
 			continue
 		}
 
@@ -89,18 +89,18 @@ func (l *UDPListener) Run() {
 		// This is probably because it was received too fast.
 		// For now just drop the frame, ideally we should pass it to face.
 		if face := FaceTable.GetByURI(remoteURI); face != nil {
-			core.LogTrace(l, "Received frame for existing face ", face)
+			core.Log.Trace(l, "Received frame for existing", "face", face)
 			continue
 		}
 
 		// If frame received here, must be for new remote endpoint
 		newTransport, err := MakeUnicastUDPTransport(remoteURI, l.localURI, spec_mgmt.PersistencyOnDemand)
 		if err != nil {
-			core.LogError(l, "Failed to create new unicast UDP transport: ", err)
+			core.Log.Error(l, "Failed to create new unicast UDP transport", "err", err)
 			continue
 		}
 
-		core.LogInfo(l, "Accepting new UDP face ", newTransport.RemoteURI())
+		core.Log.Info(l, "Accepting new UDP face", "uri", newTransport.RemoteURI())
 		MakeNDNLPLinkService(newTransport, MakeNDNLPLinkServiceOptions()).Run(recvBuf[:readSize])
 	}
 }

@@ -28,15 +28,15 @@ func NewNlsrReadvertiser(m *Thread) *NlsrReadvertiser {
 }
 
 func (r *NlsrReadvertiser) String() string {
-	return "NlsrReadvertiser"
+	return "mgmt-nlsr-readvertiser"
 }
 
 func (r *NlsrReadvertiser) Announce(name enc.Name, route *table.Route) {
 	if route.Origin != uint64(spec_mgmt.RouteOriginClient) {
-		core.LogDebug(r, "skip advertise=", name, " origin=", route.Origin)
+		core.Log.Debug(r, "Skip advertise", "name", name, "origin", route.Origin)
 		return
 	}
-	core.LogInfo(r, "advertise=", name)
+	core.Log.Info(r, "Advertise", "name", name)
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -64,7 +64,7 @@ func (r *NlsrReadvertiser) Announce(name enc.Name, route *table.Route) {
 
 func (r *NlsrReadvertiser) Withdraw(name enc.Name, route *table.Route) {
 	if route.Origin != uint64(spec_mgmt.RouteOriginClient) {
-		core.LogDebug(r, "skip withdraw=", name, " origin=", route.Origin)
+		core.Log.Debug(r, "Skip withdraw (origin)", "name", name, "origin", route.Origin)
 		return
 	}
 
@@ -74,10 +74,10 @@ func (r *NlsrReadvertiser) Withdraw(name enc.Name, route *table.Route) {
 	nhash := name.Hash()
 	r.advertised[nhash] -= 1
 	if r.advertised[nhash] > 0 {
-		core.LogDebug(r, "skip withdraw=", name, " still advertised")
+		core.Log.Debug(r, "Skip withdraw (still advertised)", "name", name)
 		return
 	}
-	core.LogInfo(r, "withdraw=", name)
+	core.Log.Info(r, "Withdraw", "name", name)
 
 	params := &spec_mgmt.ControlArgs{
 		Name:   name,

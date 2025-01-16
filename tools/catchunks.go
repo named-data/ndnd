@@ -19,6 +19,10 @@ func RunCatChunks(args []string) {
 	(&CatChunks{args: args}).run()
 }
 
+func (cc *CatChunks) String() string {
+	return "cat"
+}
+
 func (cc *CatChunks) usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s <name>\n", cc.args[0])
 	fmt.Fprintf(os.Stderr, "\n")
@@ -27,8 +31,6 @@ func (cc *CatChunks) usage() {
 }
 
 func (cc *CatChunks) run() {
-	log.SetLevel(log.InfoLevel)
-
 	if len(cc.args) < 2 {
 		cc.usage()
 		os.Exit(3)
@@ -37,14 +39,14 @@ func (cc *CatChunks) run() {
 	// get name from cli
 	name, err := enc.NameFromStr(cc.args[1])
 	if err != nil {
-		log.Fatalf("Invalid name: %s", cc.args[1])
+		log.Fatal(cc, "Invalid name", "name", cc.args[1])
 	}
 
 	// start face and engine
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err = app.Start()
 	if err != nil {
-		log.Errorf("Unable to start engine: %+v", err)
+		log.Error(cc, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -53,7 +55,7 @@ func (cc *CatChunks) run() {
 	cli := object.NewClient(app, object.NewMemoryStore())
 	err = cli.Start()
 	if err != nil {
-		log.Errorf("Unable to start object client: %+v", err)
+		log.Error(cc, "Unable to start object client", "err", err)
 		return
 	}
 	defer cli.Stop()
@@ -79,7 +81,7 @@ func (cc *CatChunks) run() {
 		}
 
 		if status.Progress()%1000 == 0 {
-			log.Debugf("Progress: %.2f%%", float64(status.Progress())/float64(status.ProgressMax())*100)
+			log.Debug(cc, "Consume progress", "progress", float64(status.Progress())/float64(status.ProgressMax())*100)
 			write(status)
 		}
 
@@ -88,13 +90,14 @@ func (cc *CatChunks) run() {
 	state := <-done
 
 	if state.Error() != nil {
-		log.Errorf("Error fetching object: %+v", state.Error())
+		log.Error(cc, "Error fetching object", "err", state.Error())
 		return
 	}
 
 	// statistics
-	log.Infof("Object fetched: %s", state.Name())
-	log.Infof("Content: %d bytes", byteCount)
-	log.Infof("Time taken: %s", t2.Sub(t1))
-	log.Infof("Throughput: %f Mbit/s", float64(byteCount*8)/t2.Sub(t1).Seconds()/1e6)
+	fmt.Fprintf(os.Stderr, "Object fetched %s\n", state.Name())
+	fmt.Fprintf(os.Stderr, "Content: %d bytes\n", byteCount)
+	fmt.Fprintf(os.Stderr, "Time taken: %s\n", t2.Sub(t1))
+	fmt.Fprintf(os.Stderr, "Throughput: %f Mbit/s\n", float64(byteCount*8)/t2.Sub(t1).Seconds()/1e6)
+
 }

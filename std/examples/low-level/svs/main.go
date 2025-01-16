@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -17,45 +18,48 @@ func main() {
 	//   ndnd fw strategy set prefix=/ndn/svs strategy=/localhost/nfd/strategy/multicast
 	//
 
-	log.SetLevel(log.InfoLevel)
-	logger := log.WithField("module", "main")
-
 	if len(os.Args) < 2 {
-		log.Fatalf("Usage: %s <nodeId>", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s <name>", os.Args[0])
+		os.Exit(1)
 	}
 
 	// Parse command line arguments
-	nodeId, err := enc.NameFromStr(os.Args[1])
+	name, err := enc.NameFromStr(os.Args[1])
 	if err != nil {
-		log.Fatalf("Invalid node ID: %s", os.Args[1])
+		log.Fatal(nil, "Invalid node ID", "name", os.Args[1])
+		return
 	}
 
 	// Create a new engine
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err = app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
 
 	// Start SVS instance
 	group, _ := enc.NameFromStr("/ndn/svs")
-	svsync := sync.NewSvSync(app, group, func(ssu sync.SvSyncUpdate) {
-		logger.Infof("Received update: %+v", ssu)
+	svsync := sync.NewSvSync(sync.SvSyncOpts{
+		Engine:      app,
+		GroupPrefix: group,
+		OnUpdate: func(ssu sync.SvSyncUpdate) {
+			log.Info(nil, "Received update", "update", ssu)
+		},
 	})
 
 	// Register group prefix route
 	err = app.RegisterRoute(group)
 	if err != nil {
-		logger.Errorf("Unable to register route: %+v", err)
+		log.Error(nil, "Unable to register route", "err", err)
 		return
 	}
 	defer app.UnregisterRoute(group)
 
 	err = svsync.Start()
 	if err != nil {
-		logger.Errorf("Unable to create SvSync: %+v", err)
+		log.Error(nil, "Unable to create SvSync", "err", err)
 		return
 	}
 
@@ -63,7 +67,7 @@ func main() {
 	ticker := time.NewTicker(3 * time.Second)
 
 	for range ticker.C {
-		new := svsync.IncrSeqNo(nodeId)
-		logger.Infof("Published new sequence number: %d", new)
+		seq := svsync.IncrSeqNo(name)
+		log.Info(nil, "Published new sequence number", "seq", seq)
 	}
 }

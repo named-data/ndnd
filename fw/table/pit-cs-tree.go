@@ -101,11 +101,11 @@ func NewPitCS(onExpiration OnPitExpiration) *PitCsTree {
 
 	// This value has already been validated from loading the configuration,
 	// so we know it will be one of the following (or else fatal)
-	switch csReplacementPolicy {
+	switch CfgCsReplacementPolicy() {
 	case "lru":
 		pitCs.csReplacement = NewCsLRU(pitCs)
 	default:
-		core.LogFatal(pitCs, "Unknown CS replacement policy ", csReplacementPolicy)
+		core.Log.Fatal(nil, "Unknown CS replacement policy", "policy", CfgCsReplacementPolicy())
 	}
 	pitCs.csMap = make(map[uint64]*nameTreeCsEntry)
 
@@ -289,12 +289,12 @@ func (p *PitCsTree) CsSize() int {
 
 // IsCsAdmitting returns whether the CS is admitting content.
 func (p *PitCsTree) IsCsAdmitting() bool {
-	return csAdmit
+	return CfgCsAdmit()
 }
 
 // IsCsServing returns whether the CS is serving content.
 func (p *PitCsTree) IsCsServing() bool {
-	return csServe
+	return CfgCsServe()
 }
 
 // InsertOutRecord inserts an outrecord for the given interest, updating the

@@ -23,7 +23,7 @@ func SyscallGetSocketSendQueueSize(c syscall.RawConn) uint64 {
 		var err error
 		val, err = unix.IoctlGetInt(int(fd), unix.SIOCOUTQ)
 		if err != nil {
-			core.LogWarn("Face-Syscall", "Unable to get size of socket send queue for fd=", fd, ": ", err)
+			core.Log.Warn(nil, "Unable to get size of socket send queue", "fd", fd, "err", err)
 			val = 0
 		}
 	})

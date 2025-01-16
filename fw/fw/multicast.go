@@ -13,9 +13,9 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 	"github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/table"
-	enc "github.com/named-data/ndnd/std/encoding"
 )
 
+// MulticastSuppressionTime is the time to suppress retransmissions of the same Interest.
 const MulticastSuppressionTime = 500 * time.Millisecond
 
 // Multicast is a forwarding strategy that forwards Interests to all nexthop faces.
@@ -24,16 +24,12 @@ type Multicast struct {
 }
 
 func init() {
-	strategyTypes = append(strategyTypes, func() Strategy {
-		return &Multicast{}
-	})
+	strategyInit = append(strategyInit, func() Strategy { return &Multicast{} })
 	StrategyVersions["multicast"] = []uint64{1}
 }
 
 func (s *Multicast) Instantiate(fwThread *Thread) {
-	s.NewStrategyBase(fwThread, enc.Component{
-		Typ: enc.TypeGenericNameComponent, Val: []byte("multicast"),
-	}, 1, "Multicast")
+	s.NewStrategyBase(fwThread, "multicast", 1)
 }
 
 func (s *Multicast) AfterContentStoreHit(
@@ -41,7 +37,7 @@ func (s *Multicast) AfterContentStoreHit(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.LogTrace(s, "AfterContentStoreHit: Forwarding content store hit Data=", packet.Name, " to FaceID=", inFace)
+	core.Log.Trace(s, "AfterContentStoreHit", "name", packet.Name, "faceid", inFace)
 	s.SendData(packet, pitEntry, inFace, 0) // 0 indicates ContentStore is source
 }
 
@@ -50,9 +46,9 @@ func (s *Multicast) AfterReceiveData(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.LogTrace(s, "AfterReceiveData: Data=", packet.Name, ", ", len(pitEntry.InRecords()), " In-Records")
+	core.Log.Trace(s, "AfterReceiveData", "name", packet.Name, "inrecords", len(pitEntry.InRecords()))
 	for faceID := range pitEntry.InRecords() {
-		core.LogTrace(s, "AfterReceiveData: Forwarding Data=", packet.Name, " to FaceID=", faceID)
+		core.Log.Trace(s, "Forwarding Data", "name", packet.Name, "faceid", faceID)
 		s.SendData(packet, pitEntry, faceID, inFace)
 	}
 }
@@ -64,10 +60,8 @@ func (s *Multicast) AfterReceiveInterest(
 	nexthops [defn.MaxNextHops]*table.FibNextHopEntry,
 	nexthopsCount int,
 ) {
-	if nexthopsCount == 0 {
-		if core.HasDebugLogs() {
-			core.LogDebug(s, "AfterReceiveInterest: No nexthop for Interest=", packet.Name, " - DROP")
-		}
+	if len(nexthops) == 0 {
+		core.Log.Debug(s, "No nexthop for Interest", "name", packet.Name)
 		return
 	}
 
@@ -76,22 +70,14 @@ func (s *Multicast) AfterReceiveInterest(
 	for _, outRecord := range pitEntry.OutRecords() {
 		if outRecord.LatestNonce != *packet.L3.Interest.Nonce() &&
 			outRecord.LatestTimestamp.Add(MulticastSuppressionTime).After(time.Now()) {
-			if core.HasDebugLogs() {
-				core.LogDebug(s, "AfterReceiveInterest: Suppressed Interest=", packet.Name, " - DROP")
-			}
+			core.Log.Debug(s, "Suppressed Interest", "name", packet.Name)
 			return
 		}
 	}
 
 	// Send interest to all nexthops
-	for i := 0; i < nexthopsCount; i++ {
-		nexthop := nexthops[i]
-		if nexthop == nil {
-			continue
-		}
-		if core.HasTraceLogs() {
-			core.LogTrace(s, "AfterReceiveInterest: Forwarding Interest=", packet.Name, " to FaceID=", nexthop.Nexthop)
-		}
+	for _, nexthop := range nexthops {
+		core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nexthop.Nexthop)
 		s.SendInterest(packet, pitEntry, nexthop.Nexthop, inFace)
 	}
 }

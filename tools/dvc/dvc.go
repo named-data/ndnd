@@ -5,14 +5,14 @@ import (
 	"os"
 	"time"
 
-	dvtlv "github.com/named-data/ndnd/dv/tlv"
+	spec_dv "github.com/named-data/ndnd/dv/tlv"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/utils"
 )
 
-func dvGetStatus() *dvtlv.Status {
+func dvGetStatus() *spec_dv.Status {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()
 	if err != nil {
@@ -45,7 +45,7 @@ func dvGetStatus() *dvtlv.Status {
 		os.Exit(1)
 	}
 
-	status, err := dvtlv.ParseStatus(enc.NewWireReader(args.Data.Content()), false)
+	status, err := spec_dv.ParseStatus(enc.NewWireReader(args.Data.Content()), false)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to parse router state: %v\n", err)
 		os.Exit(1)

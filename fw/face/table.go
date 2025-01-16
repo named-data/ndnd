@@ -24,17 +24,11 @@ var FaceTable Table
 // Table hold all faces used by the forwarder.
 type Table struct {
 	faces      sync.Map
-	nextFaceID atomic.Uint64
-}
-
-func init() {
-	FaceTable.faces = sync.Map{}
-	FaceTable.nextFaceID.Store(1)
-	go FaceTable.ExpirationHandler()
+	nextFaceID atomic.Uint64 // starts at 1
 }
 
 func (t *Table) String() string {
-	return "FaceTable"
+	return "face-table"
 }
 
 // Add adds a face to the face table.
@@ -43,7 +37,7 @@ func (t *Table) Add(face LinkService) {
 	face.SetFaceID(faceID)
 	t.faces.Store(faceID, face)
 	dispatch.AddFace(faceID, face)
-	core.LogDebug(t, "Registered FaceID=", faceID)
+	core.Log.Debug(t, "Registered face", "faceid", faceID)
 }
 
 // Get gets the face with the specified ID (if any) from the face table.
@@ -84,12 +78,13 @@ func (t *Table) Remove(id uint64) {
 	t.faces.Delete(id)
 	dispatch.RemoveFace(id)
 	table.Rib.CleanUpFace(id)
-	core.LogInfo(t, "Unregistered FaceID=", id)
+	core.Log.Info(t, "Unregistered face", "faceid", id)
 }
 
-// ExpirationHandler stops the faces that have expired
-func (t *Table) ExpirationHandler() {
-	for {
+// expirationHandler stops the faces that have expired
+// Runs in a separate goroutine called from Initialize()
+func (t *Table) expirationHandler() {
+	for !core.ShouldQuit {
 		// Check for expired faces every 10 seconds
 		time.Sleep(10 * time.Second)
 
@@ -97,7 +92,7 @@ func (t *Table) ExpirationHandler() {
 		t.faces.Range(func(_, face interface{}) bool {
 			transport := face.(LinkService).Transport()
 			if transport != nil && transport.ExpirationPeriod() < 0 {
-				core.LogInfo(transport, "Face expired")
+				core.Log.Info(t, "Face expired", "transport", transport)
 				transport.Close()
 			}
 			return true

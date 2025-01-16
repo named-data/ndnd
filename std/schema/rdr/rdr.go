@@ -6,6 +6,7 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	rtlv "github.com/named-data/ndnd/std/ndn/rdr_2024"
 	"github.com/named-data/ndnd/std/schema"
@@ -51,6 +52,10 @@ func CreateSegmentedNode(node *schema.Node) schema.NodeImpl {
 	return ret
 }
 
+func (n *SegmentedNode) String() string {
+	return fmt.Sprintf("SegmentedNode (%s)", n.Node)
+}
+
 func (n *SegmentedNode) Provide(mNode schema.MatchedNode, content enc.Wire, needManifest bool) any {
 	if mNode.Node != n.Node {
 		panic("NTSchema tree compromised.")
@@ -77,7 +82,7 @@ func (n *SegmentedNode) Provide(mNode schema.MatchedNode, content enc.Wire, need
 		pktContent := enc.Wire{}
 		remSize := n.SegmentSize
 		for remSize > 0 && wireIdx < len(content) && bufferIdx < len(content[wireIdx]) {
-			curSize := int(utils.Min(uint64(len(content[wireIdx])-bufferIdx), remSize))
+			curSize := int(min(uint64(len(content[wireIdx])-bufferIdx), remSize))
 			pktContent = append(pktContent, content[wireIdx][bufferIdx:bufferIdx+curSize])
 			bufferIdx += curSize
 			remSize -= uint64(curSize)
@@ -99,7 +104,7 @@ func (n *SegmentedNode) Provide(mNode schema.MatchedNode, content enc.Wire, need
 			ret[i] = h.Sum(nil)
 		}
 	}
-	mNode.Logger("SegmentedNode").Debugf("Segmented into %d segments \n", segCnt)
+	log.Debug(n, "Segmented object", "segCnt", segCnt)
 	if needManifest {
 		return ret
 	} else {
@@ -117,7 +122,7 @@ func (n *SegmentedNode) NeedCallback(
 		go n.SinglePacketPipeline(mNode, callback, manifest)
 		return nil
 	}
-	mNode.Logger("SegmentedNode").Errorf("unrecognized pipeline: %s", n.Pipeline)
+	log.Error(n, "Unrecognized pipeline", "pipeline", n.Pipeline)
 	return fmt.Errorf("unrecognized pipeline: %s", n.Pipeline)
 }
 
@@ -147,7 +152,6 @@ func (n *SegmentedNode) SinglePacketPipeline(
 	var lastNackReason *uint64
 	var lastValidationRes *schema.ValidRes
 	var lastNeedStatus ndn.InterestResult
-	logger := mNode.Logger("SegmentedNode")
 	nameLen := len(mNode.Name)
 	var newName enc.Name
 	if len(manifest) > 0 {
@@ -165,7 +169,7 @@ func (n *SegmentedNode) SinglePacketPipeline(
 		newMNode := mNode.Refine(newName)
 		succeeded = false
 		for j := 0; !succeeded && j < int(n.MaxRetriesOnFailure); j++ {
-			logger.Debugf("Fetching the %d fragment [the %d trial]", i, j)
+			log.Debug(n, "Fetching packet", "trial", j, "retries")
 			result := <-newMNode.Call("NeedChan").(chan schema.NeedResult)
 			lastData = result.Data
 			lastNackReason = result.NackReason
@@ -223,6 +227,10 @@ type RdrNode struct {
 
 	MetaFreshness     time.Duration
 	MaxRetriesForMeta uint64
+}
+
+func (n *RdrNode) String() string {
+	return fmt.Sprintf("RdrNode (%s)", n.Node)
 }
 
 func (n *RdrNode) NodeImplTrait() schema.NodeImpl {
@@ -299,7 +307,6 @@ func (n *RdrNode) NeedCallback(mNode schema.MatchedNode, callback schema.Callbac
 
 	go func() {
 		nameLen := len(mNode.Name)
-		logger := mNode.Logger("RdrNode")
 		var err error = nil
 		var fullName enc.Name
 		var metadata *rtlv.MetaData
@@ -314,14 +321,14 @@ func (n *RdrNode) NeedCallback(mNode schema.MatchedNode, callback schema.Callbac
 
 			succeeded := false
 			for j := 0; !succeeded && j < int(n.MaxRetriesForMeta); j++ {
-				logger.Debugf("Fetching the metadata packet [the %d trial]", j)
+				log.Debug(n, "Fetching the metadata", "trial", j)
 				lastResult = <-epMNode.Call("NeedChan").(chan schema.NeedResult)
 				switch lastResult.Status {
 				case ndn.InterestResultData:
 					succeeded = true
 					metadata, err = rtlv.ParseMetaData(enc.NewWireReader(lastResult.Content), true)
 					if err != nil {
-						logger.Errorf("Unable to parse and extract name from the metadata packet: %v\n", err)
+						log.Error(n, "Unable to parse and extract name from the metadata packet", "err", err)
 						lastResult.Status = ndn.InterestResultError
 					}
 					fullName = metadata.Name
@@ -433,6 +440,10 @@ func CreateGeneralObjNode(node *schema.Node) schema.NodeImpl {
 	return ret
 }
 
+func (n *GeneralObjNode) String() string {
+	return fmt.Sprintf("GeneralObjNode (%s)", n.Node)
+}
+
 func (n *GeneralObjNode) Provide(mNode schema.MatchedNode, content enc.Wire) uint64 {
 	if mNode.Node != n.Node {
 		panic("NTSchema tree compromised.")
@@ -493,7 +504,6 @@ func (n *GeneralObjNode) NeedCallback(mNode schema.MatchedNode, callback schema.
 
 	go func() {
 		nameLen := len(mNode.Name)
-		logger := mNode.Logger("GeneralObjNode")
 		var err error = nil
 		var manifest *rtlv.ManifestData
 		var lastResult schema.NeedResult
@@ -506,14 +516,14 @@ func (n *GeneralObjNode) NeedCallback(mNode schema.MatchedNode, callback schema.
 
 		succeeded := false
 		for j := 0; !succeeded && j < int(n.MaxRetriesForManifest); j++ {
-			logger.Debugf("Fetching the manifest packet [the %d trial]", j)
+			log.Debug(n, "Fetching the manifest packet", "trial", j)
 			lastResult = <-manifestMNode.Call("NeedChan").(chan schema.NeedResult)
 			switch lastResult.Status {
 			case ndn.InterestResultData:
 				succeeded = true
 				manifest, err = rtlv.ParseManifestData(enc.NewWireReader(lastResult.Content), true)
 				if err != nil {
-					logger.Errorf("Unable to parse the manifest packet: %v\n", err)
+					log.Error(n, "Unable to parse the manifest packet", "err", err)
 					lastResult.Status = ndn.InterestResultError
 				}
 			}
@@ -597,13 +607,13 @@ func initRdrNodes() {
 			"Provide": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) < 1 || len(args) > 2 {
 					err := fmt.Errorf("SegmentedNode.Provide requires 1~2 arguments but got %d", len(args))
-					mNode.Logger("SegmentedNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				content, ok := args[0].(enc.Wire)
 				if !ok && args[0] != nil {
 					err := ndn.ErrInvalidValue{Item: "content", Value: args[0]}
-					mNode.Logger("SegmentedNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				var needManifest bool = false
@@ -611,7 +621,7 @@ func initRdrNodes() {
 					needManifest, ok = args[1].(bool)
 					if !ok && args[1] != nil {
 						err := ndn.ErrInvalidValue{Item: "needManifest", Value: args[0]}
-						mNode.Logger("SegmentedNode").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -620,13 +630,13 @@ func initRdrNodes() {
 			"Need": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) < 1 || len(args) > 2 {
 					err := fmt.Errorf("SegmentedNode.Need requires 1~2 arguments but got %d", len(args))
-					mNode.Logger("SegmentedNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				callback, ok := args[0].(schema.Callback)
 				if !ok {
 					err := ndn.ErrInvalidValue{Item: "callback", Value: args[0]}
-					mNode.Logger("SegmentedNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				var manifest []enc.Buffer = nil
@@ -634,7 +644,7 @@ func initRdrNodes() {
 					manifest, ok = args[1].([]enc.Buffer)
 					if !ok && args[1] != nil {
 						err := ndn.ErrInvalidValue{Item: "manifest", Value: args[0]}
-						mNode.Logger("SegmentedNode").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -643,7 +653,7 @@ func initRdrNodes() {
 			"NeedChan": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) > 1 {
 					err := fmt.Errorf("SegmentedNode.NeedChan requires 0~1 arguments but got %d", len(args))
-					mNode.Logger("SegmentedNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				var manifest []enc.Buffer = nil
@@ -652,7 +662,7 @@ func initRdrNodes() {
 					manifest, ok = args[0].([]enc.Buffer)
 					if !ok && args[0] != nil {
 						err := ndn.ErrInvalidValue{Item: "manifest", Value: args[0]}
-						mNode.Logger("SegmentedNode").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -686,13 +696,13 @@ func initRdrNodes() {
 			"Provide": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) != 1 {
 					err := fmt.Errorf("RdrNode.Provide requires 1 arguments but got %d", len(args))
-					mNode.Logger("RdrNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				content, ok := args[0].(enc.Wire)
 				if !ok && args[0] != nil {
 					err := ndn.ErrInvalidValue{Item: "content", Value: args[0]}
-					mNode.Logger("RdrNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				return schema.QueryInterface[*RdrNode](mNode.Node).Provide(mNode, content)
@@ -700,13 +710,13 @@ func initRdrNodes() {
 			"Need": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) < 1 || len(args) > 2 {
 					err := fmt.Errorf("RdrNode.Need requires 1~2 arguments but got %d", len(args))
-					mNode.Logger("RdrNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				callback, ok := args[0].(schema.Callback)
 				if !ok {
 					err := ndn.ErrInvalidValue{Item: "callback", Value: args[0]}
-					mNode.Logger("RdrNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				var version *uint64 = nil
@@ -714,7 +724,7 @@ func initRdrNodes() {
 					version, ok = args[1].(*uint64)
 					if !ok && args[1] != nil {
 						err := ndn.ErrInvalidValue{Item: "version", Value: args[0]}
-						mNode.Logger("RdrNode").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -724,7 +734,7 @@ func initRdrNodes() {
 			"NeedChan": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) > 1 {
 					err := fmt.Errorf("RdrNode.NeedChan requires 0~1 arguments but got %d", len(args))
-					mNode.Logger("RdrNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				var version *uint64 = nil
@@ -733,7 +743,7 @@ func initRdrNodes() {
 					version, ok = args[0].(*uint64)
 					if !ok && args[0] != nil {
 						err := ndn.ErrInvalidValue{Item: "version", Value: args[0]}
-						mNode.Logger("RdrNode").Error(err.Error())
+						log.Error(mNode.Node, err.Error())
 						return err
 					}
 				}
@@ -770,13 +780,13 @@ func initRdrNodes() {
 			"Provide": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) != 1 {
 					err := fmt.Errorf("GeneralObjNode.Provide requires 1 arguments but got %d", len(args))
-					mNode.Logger("GeneralObjNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				content, ok := args[0].(enc.Wire)
 				if !ok && args[0] != nil {
 					err := ndn.ErrInvalidValue{Item: "content", Value: args[0]}
-					mNode.Logger("GeneralObjNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				return schema.QueryInterface[*GeneralObjNode](mNode.Node).Provide(mNode, content)
@@ -784,13 +794,13 @@ func initRdrNodes() {
 			"Need": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) != 1 {
 					err := fmt.Errorf("GeneralObjNode.Need requires 1 arguments but got %d", len(args))
-					mNode.Logger("GeneralObjNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				callback, ok := args[0].(schema.Callback)
 				if !ok {
 					err := ndn.ErrInvalidValue{Item: "callback", Value: args[0]}
-					mNode.Logger("GeneralObjNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				schema.QueryInterface[*GeneralObjNode](mNode.Node).NeedCallback(mNode, callback)
@@ -799,7 +809,7 @@ func initRdrNodes() {
 			"NeedChan": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) > 0 {
 					err := fmt.Errorf("GeneralObjNode.NeedChan requires 0 arguments but got %d", len(args))
-					mNode.Logger("GeneralObjNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				return schema.QueryInterface[*GeneralObjNode](mNode.Node).NeedChan(mNode)

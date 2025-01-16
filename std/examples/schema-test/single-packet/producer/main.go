@@ -50,7 +50,7 @@ func onInterest(event *schema.Event) any {
 	dataWire := mNode.Call("Provide", enc.Wire{content}).(enc.Wire)
 	err := event.Reply(dataWire)
 	if err != nil {
-		log.WithField("module", "main").Errorf("unable to reply with data: %+v", err)
+		log.Error(nil, "Unable to reply with Data", "err", err)
 		return true
 	}
 	fmt.Printf("<< D: %s\n", mNode.Name.String())
@@ -60,9 +60,6 @@ func onInterest(event *schema.Event) any {
 }
 
 func main() {
-	log.SetLevel(log.InfoLevel)
-	logger := log.WithField("module", "main")
-
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{
 		"$onInterest": onInterest,
@@ -73,7 +70,7 @@ func main() {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -82,7 +79,7 @@ func main() {
 	prefix, _ := enc.NameFromStr("/example/testApp")
 	err = tree.Attach(prefix, app)
 	if err != nil {
-		logger.Fatalf("Unable to attach the schema to the engine: %+v", err)
+		log.Fatal(nil, "Unable to attach the schema to the engine", "err", err)
 		return
 	}
 	defer tree.Detach()
@@ -91,5 +88,5 @@ func main() {
 	sigChannel := make(chan os.Signal, 1)
 	signal.Notify(sigChannel, os.Interrupt, syscall.SIGTERM)
 	receivedSig := <-sigChannel
-	logger.Infof("Received signal %+v - exiting\n", receivedSig)
+	log.Info(nil, "Received signal - exiting\n", "signal", receivedSig)
 }

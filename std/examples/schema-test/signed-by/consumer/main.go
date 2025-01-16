@@ -106,11 +106,8 @@ const (
 )
 
 func main() {
-	log.SetLevel(log.InfoLevel)
-	logger := log.WithField("module", "main")
-
 	if len(os.Args) < 2 {
-		logger.Fatal("Insufficient argument. Please input the version number given by the producer.")
+		log.Fatal(nil, "Insufficient argument. Please input the version number given by the producer.")
 		return
 	}
 	nodeId := os.Args[1]
@@ -122,12 +119,12 @@ func main() {
 	// Enroll trust anchor
 	trustAnchorBuf, err := base64.StdEncoding.DecodeString(TrustAnchorPktB64)
 	if err != nil {
-		logger.Fatalf("Invalid trust anchor: %+v", err)
+		log.Fatal(nil, "Invalid trust anchor", "err", err)
 		return
 	}
 	err = keyStore.AddTrustAnchor(trustAnchorBuf)
 	if err != nil {
-		logger.Fatalf("Unable to add trust anchor: %+v", err)
+		log.Fatal(nil, "Unable to add trust anchor", "err", err)
 		return
 	}
 
@@ -142,7 +139,7 @@ func main() {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err = app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -150,7 +147,7 @@ func main() {
 	// Attach schema
 	err = tree.Attach(prefix, app)
 	if err != nil {
-		logger.Fatalf("Unable to attach the schema to the engine: %+v", err)
+		log.Fatal(nil, "Unable to attach the schema to the engine", "err", err)
 		return
 	}
 	defer tree.Detach()

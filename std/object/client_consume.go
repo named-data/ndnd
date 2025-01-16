@@ -193,7 +193,7 @@ func (c *Client) fetchMetadata(
 	name enc.Name,
 	callback func(meta *rdr.MetaData, err error),
 ) {
-	log.Debugf("consume: fetching object metadata %s", name)
+	log.Debug(c, "Fetching object metadata", "name", name)
 	args := ExpressRArgs{
 		Name: name.Append(rdr.METADATA),
 		Config: &ndn.InterestConfig{
@@ -233,7 +233,7 @@ func (c *Client) fetchDataByPrefix(
 	name enc.Name,
 	callback func(data ndn.Data, err error),
 ) {
-	log.Debugf("consume: fetching data with prefix %s", name)
+	log.Debug(c, "Fetching data with prefix", "name", name)
 	args := ExpressRArgs{
 		Name: name,
 		Config: &ndn.InterestConfig{

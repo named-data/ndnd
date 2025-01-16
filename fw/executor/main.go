@@ -12,10 +12,8 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 )
 
-var Version string
-
 func Main(args []string) {
-	config := &YaNFDConfig{}
+	config := core.DefaultConfig()
 
 	flagset := flag.NewFlagSet("yanfd", flag.ExitOnError)
 	flagset.Usage = func() {
@@ -26,16 +24,16 @@ func Main(args []string) {
 	var printVersion bool
 	flagset.BoolVar(&printVersion, "version", false, "Print version and exit")
 
-	flagset.StringVar(&config.CpuProfile, "cpu-profile", "", "Enable CPU profiling (output to specified file)")
-	flagset.StringVar(&config.MemProfile, "mem-profile", "", "Enable memory profiling (output to specified file)")
-	flagset.StringVar(&config.BlockProfile, "block-profile", "", "Enable block profiling (output to specified file)")
-	flagset.IntVar(&config.MemoryBallastSize, "memory-ballast", 0, "Enable memory ballast of specified size (in GB) to avoid frequent garbage collection")
+	flagset.StringVar(&config.Core.CpuProfile, "cpu-profile", "", "Enable CPU profiling (output to specified file)")
+	flagset.StringVar(&config.Core.MemProfile, "mem-profile", "", "Enable memory profiling (output to specified file)")
+	flagset.StringVar(&config.Core.BlockProfile, "block-profile", "", "Enable block profiling (output to specified file)")
+	flagset.IntVar(&config.Core.MemoryBallastSize, "memory-ballast", 0, "Enable memory ballast of specified size (in GB) to avoid frequent garbage collection")
 
 	flagset.Parse(args[1:])
 
 	if printVersion {
 		fmt.Fprintln(os.Stderr, "YaNFD: Yet another NDN Forwarding Daemon")
-		fmt.Fprintln(os.Stderr, "Version: ", Version)
+		fmt.Fprintln(os.Stderr, "Version: ", core.Version)
 		fmt.Fprintln(os.Stderr, "Copyright (C) 2020-2024 University of California")
 		fmt.Fprintln(os.Stderr, "Released under the terms of the MIT License")
 		return
@@ -46,7 +44,7 @@ func Main(args []string) {
 		flagset.Usage()
 		os.Exit(3)
 	}
-	config.BaseDir = filepath.Dir(configfile)
+	config.Core.BaseDir = filepath.Dir(configfile)
 
 	f, err := os.Open(configfile)
 	if err != nil {
@@ -55,9 +53,8 @@ func Main(args []string) {
 	}
 	defer f.Close()
 
-	config.Config = core.DefaultConfig()
 	dec := yaml.NewDecoder(f, yaml.Strict())
-	if err = dec.Decode(config.Config); err != nil {
+	if err = dec.Decode(config); err != nil {
 		fmt.Fprintln(os.Stderr, "Unable to parse configuration file: "+err.Error())
 		os.Exit(3)
 	}
@@ -70,7 +67,7 @@ func Main(args []string) {
 	sigChannel := make(chan os.Signal, 1)
 	signal.Notify(sigChannel, os.Interrupt, syscall.SIGTERM)
 	receivedSig := <-sigChannel
-	core.LogInfo(yanfd, "Received signal ", receivedSig, " - exiting")
+	core.Log.Info(yanfd, "Received signal - exit", "signal", receivedSig)
 
 	yanfd.Stop()
 }

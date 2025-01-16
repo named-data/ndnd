@@ -26,7 +26,7 @@ type RIBModule struct {
 }
 
 func (r *RIBModule) String() string {
-	return "RIBMgmt"
+	return "mgmt-rib"
 }
 
 func (r *RIBModule) registerManager(manager *Thread) {
@@ -110,11 +110,11 @@ func (r *RIBModule) register(interest *Interest) {
 		ExpirationPeriod: expirationPeriod,
 	})
 	if expirationPeriod != nil {
-		core.LogInfo(r, "Created route for Prefix=", params.Name, ", FaceID=", faceID, ", Origin=", origin,
-			", Cost=", cost, ", Flags=0x", strconv.FormatUint(flags, 16), ", ExpirationPeriod=", expirationPeriod)
+		core.Log.Info(r, "Created route", "name", params.Name, "faceid", faceID, "origin", origin,
+			"cost", cost, "flags", strconv.FormatUint(flags, 16), "expires", expirationPeriod)
 	} else {
-		core.LogInfo(r, "Created route for Prefix=", params.Name, ", FaceID=", faceID, ", Origin=", origin,
-			", Cost=", cost, ", Flags=0x", strconv.FormatUint(flags, 16))
+		core.Log.Info(r, "Created route", "name", params.Name, "faceid", faceID, "origin", origin,
+			"cost", cost, "flags", strconv.FormatUint(flags, 16))
 	}
 	responseParams := &mgmt.ControlArgs{
 		Name:   params.Name,
@@ -163,7 +163,7 @@ func (r *RIBModule) unregister(interest *Interest) {
 		Origin: utils.IdPtr(origin),
 	})
 
-	core.LogInfo(r, "Removed route for Prefix=", params.Name, ", FaceID=", faceID, ", Origin=", origin)
+	core.Log.Info(r, "Removed route", "name", params.Name, "faceid", faceID, "origin", origin)
 }
 
 func (r *RIBModule) announce(interest *Interest) {

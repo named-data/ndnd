@@ -13,9 +13,9 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 	"github.com/named-data/ndnd/fw/defn"
 	"github.com/named-data/ndnd/fw/table"
-	enc "github.com/named-data/ndnd/std/encoding"
 )
 
+// BestRouteSuppressionTime is the time to suppress retransmissions of the same Interest.
 const BestRouteSuppressionTime = 500 * time.Millisecond
 
 // BestRoute is a forwarding strategy that forwards Interests
@@ -25,16 +25,12 @@ type BestRoute struct {
 }
 
 func init() {
-	strategyTypes = append(strategyTypes, func() Strategy {
-		return &BestRoute{}
-	})
+	strategyInit = append(strategyInit, func() Strategy { return &BestRoute{} })
 	StrategyVersions["best-route"] = []uint64{1}
 }
 
 func (s *BestRoute) Instantiate(fwThread *Thread) {
-	s.NewStrategyBase(fwThread, enc.Component{
-		Typ: enc.TypeGenericNameComponent, Val: []byte("best-route"),
-	}, 1, "BestRoute")
+	s.NewStrategyBase(fwThread, "best-route", 1)
 }
 
 func (s *BestRoute) AfterContentStoreHit(
@@ -42,7 +38,7 @@ func (s *BestRoute) AfterContentStoreHit(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.LogTrace(s, "AfterContentStoreHit: Forwarding content store hit Data=", packet.Name, " to FaceID=", inFace)
+	core.Log.Trace(s, "AfterContentStoreHit", "name", packet.Name, "faceid", inFace)
 	s.SendData(packet, pitEntry, inFace, 0) // 0 indicates ContentStore is source
 }
 
@@ -51,9 +47,9 @@ func (s *BestRoute) AfterReceiveData(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.LogTrace(s, "AfterReceiveData: Data=", ", ", len(pitEntry.InRecords()), " In-Records")
+	core.Log.Trace(s, "AfterReceiveData", "name", packet.Name, "inrecords", len(pitEntry.InRecords()))
 	for faceID := range pitEntry.InRecords() {
-		core.LogTrace(s, "AfterReceiveData: Forwarding Data=", packet.Name, " to FaceID=", faceID)
+		core.Log.Trace(s, "Forwarding Data", "name", packet.Name, "faceid", faceID)
 		s.SendData(packet, pitEntry, faceID, inFace)
 	}
 }
@@ -65,10 +61,8 @@ func (s *BestRoute) AfterReceiveInterest(
 	nexthops [defn.MaxNextHops]*table.FibNextHopEntry,
 	nexthopsCount int,
 ) {
-	if nexthopsCount == 0 {
-		if core.HasDebugLogs() {
-			core.LogDebug(s, "AfterReceiveInterest: No nexthop for Interest=", packet.Name, " - DROP")
-		}
+	if len(nexthops) == 0 {
+		core.Log.Debug(s, "No nexthop for Interest", "name", packet.Name)
 		return
 	}
 
@@ -77,9 +71,7 @@ func (s *BestRoute) AfterReceiveInterest(
 	for _, outRecord := range pitEntry.OutRecords() {
 		if outRecord.LatestNonce != *packet.L3.Interest.Nonce() &&
 			outRecord.LatestTimestamp.Add(BestRouteSuppressionTime).After(time.Now()) {
-			if core.HasDebugLogs() {
-				core.LogDebug(s, "AfterReceiveInterest: Suppressed Interest=", packet.Name, " - DROP")
-			}
+			core.Log.Debug(s, "Suppressed Interest", "name", packet.Name)
 			return
 		}
 	}
@@ -108,17 +100,13 @@ func (s *BestRoute) AfterReceiveInterest(
 	}
 
 	for nh := getLowest(); nh != nil; nh = getLowest() {
-		if core.HasTraceLogs() {
-			core.LogTrace(s, "AfterReceiveInterest: Forwarding Interest=", packet.Name, " to FaceID=", nh.Nexthop)
-		}
+		core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nh.Nexthop)
 		if sent := s.SendInterest(packet, pitEntry, nh.Nexthop, inFace); sent {
 			return
 		}
 	}
 
-	if core.HasDebugLogs() {
-		core.LogDebug(s, "AfterReceiveInterest: No usable nexthop for Interest=", packet.Name, " - DROP")
-	}
+	core.Log.Debug(s, "No usable nexthop for Interest - DROP", "name", packet.Name)
 }
 
 func (s *BestRoute) BeforeSatisfyInterest(pitEntry table.PitEntry, inFace uint64) {

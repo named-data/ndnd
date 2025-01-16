@@ -28,7 +28,7 @@ const SchemaJson = `{
         "ChannelSize": 1000,
         "SyncInterval": 2000,
         "SuppressionInterval": 100,
-        "SelfNodeId": "$nodeId",
+        "SelfName": "$nodeId",
         "BaseMatching": {}
       }
     }
@@ -72,9 +72,6 @@ const SchemaJson = `{
 
 func main() {
 	// Note: remember to ` nfdc strategy set /example/schema /localhost/nfd/strategy/multicast `
-	log.SetLevel(log.ErrorLevel)
-	logger := log.WithField("module", "main")
-	rand.Seed(time.Now().UnixMicro())
 	nodeId := fmt.Sprintf("node-%d", rand.Int())
 
 	// Setup schema tree
@@ -87,7 +84,7 @@ func main() {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -96,7 +93,7 @@ func main() {
 	prefix, _ := enc.NameFromStr("/example/schema/syncApp")
 	err = tree.Attach(prefix, app)
 	if err != nil {
-		logger.Fatalf("Unable to attach the schema to the engine: %+v", err)
+		log.Fatal(nil, "Unable to attach the schema to the engine", "err", err)
 		return
 	}
 	defer tree.Detach()
@@ -132,13 +129,13 @@ func main() {
 			select {
 			case missData := <-ch:
 				for i := missData.StartSeq; i < missData.EndSeq; i++ {
-					dataName := mNode.Call("GetDataName", missData.NodeId, i).(enc.Name)
+					dataName := mNode.Call("GetDataName", missData.Name, i).(enc.Name)
 					mLeafNode := tree.Match(dataName)
 					result := <-mLeafNode.Call("NeedChan").(chan schema.NeedResult)
 					if result.Status != ndn.InterestResultData {
-						fmt.Printf("Data fetching failed for (%s, %d): %+v\n", missData.NodeId.String(), i, result.Status)
+						fmt.Printf("Data fetching failed for (%s, %d): %+v\n", missData.Name.String(), i, result.Status)
 					} else {
-						fmt.Printf("Fetched (%s, %d): %s", missData.NodeId.String(), i, string(result.Content.Join()))
+						fmt.Printf("Fetched (%s, %d): %s", missData.Name.String(), i, string(result.Content.Join()))
 					}
 				}
 			case <-ctx.Done():
@@ -152,7 +149,7 @@ func main() {
 	fmt.Print("Start serving ...\n")
 	signal.Notify(sigChannel, os.Interrupt, syscall.SIGTERM)
 	receivedSig := <-sigChannel
-	logger.Infof("Received signal %+v - exiting\n", receivedSig)
+	log.Info(nil, "Received signal - exiting", "signal", receivedSig)
 	cancel()
 	wg.Wait()
 }

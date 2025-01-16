@@ -8,6 +8,7 @@
 package defn
 
 import (
+	"errors"
 	"net"
 	"net/url"
 	"os"
@@ -15,8 +16,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-
-	"github.com/named-data/ndnd/fw/core"
 )
 
 // URIType represents the type of the URI.
@@ -24,6 +23,9 @@ type URIType int
 
 // Regex to extract zone from URI
 var zoneRegex, _ = regexp.Compile(`:\/\/\[?(?:[0-9A-Za-z\:\.\-]+)(?:%(?P<zone>[A-Za-z0-9\-]+))?\]?`)
+
+// URL not canonical error
+var ErrNotCanonical = errors.New("URI could not be canonized")
 
 const (
 	unknownURI URIType = iota
@@ -316,11 +318,11 @@ func (u *URI) Canonize() error {
 			// Resolve DNS
 			resolvedIPs, err := net.LookupHost(path)
 			if err != nil || len(resolvedIPs) == 0 {
-				return core.ErrNotCanonical
+				return ErrNotCanonical
 			}
 			ip = net.ParseIP(resolvedIPs[0])
 			if ip == nil {
-				return core.ErrNotCanonical
+				return ErrNotCanonical
 			}
 		}
 
@@ -339,7 +341,7 @@ func (u *URI) Canonize() error {
 			}
 			u.path = ip.String() + zone
 		} else {
-			return core.ErrNotCanonical
+			return ErrNotCanonical
 		}
 	case unixURI:
 		u.scheme = "unix"
@@ -350,14 +352,14 @@ func (u *URI) Canonize() error {
 		fileInfo, err := os.Stat(testPath)
 		if err != nil && !os.IsNotExist(err) {
 			// File couldn't be opened, but not just because it doesn't exist
-			return core.ErrNotCanonical
+			return ErrNotCanonical
 		} else if err == nil && fileInfo.IsDir() {
 			// File is a directory
-			return core.ErrNotCanonical
+			return ErrNotCanonical
 		}
 		u.port = 0
 	default:
-		return core.ErrNotCanonical
+		return ErrNotCanonical
 	}
 
 	return nil

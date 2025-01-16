@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/schema"
 )
@@ -35,6 +36,10 @@ func (n *ContentKeyNode) CastTo(ptr any) any {
 	default:
 		return nil
 	}
+}
+
+func (n *ContentKeyNode) String() string {
+	return fmt.Sprintf("ContentKeyNode (%s)", n.Node)
 }
 
 func CreateContentKeyNode(node *schema.Node) schema.NodeImpl {
@@ -69,15 +74,14 @@ func (n *ContentKeyNode) GenKey(mNode schema.MatchedNode) ContentKey {
 }
 
 func (n *ContentKeyNode) Encrypt(mNode schema.MatchedNode, ck ContentKey, content enc.Wire) enc.Wire {
-	logger := mNode.Logger("RdrNode")
 	if len(ck.ckid) != 8 || len(ck.keybits) != 32 {
-		logger.Errorf("invalid content key: %v", hex.EncodeToString(ck.ckid))
+		log.Error(n, "Invalid content key", "ckid", hex.EncodeToString(ck.ckid))
 		return nil
 	}
 
 	aescis, err := aes.NewCipher(ck.keybits)
 	if err != nil {
-		logger.Errorf("unable to create cipher: %+v", err)
+		log.Error(n, "Unable to create cipher", "err", err)
 		return nil
 	}
 	iv := make([]byte, aescis.BlockSize())
@@ -105,11 +109,9 @@ func (n *ContentKeyNode) Encrypt(mNode schema.MatchedNode, ck ContentKey, conten
 
 func (n *ContentKeyNode) Decrypt(mNode schema.MatchedNode, encryptedContent enc.Wire) enc.Wire {
 	// Note: In real-world implementation, a callback/channel version should be provided
-	logger := mNode.Logger("RdrNode")
-
 	encContent, err := ParseEncryptedContent(enc.NewWireReader(encryptedContent), true)
 	if err != nil {
-		logger.Errorf("malformed encrypted packet")
+		log.Error(n, "Malformed encrypted packet")
 		return nil
 	}
 
@@ -121,13 +123,13 @@ func (n *ContentKeyNode) Decrypt(mNode schema.MatchedNode, encryptedContent enc.
 
 	ckResult := <-ckMNode.Call("NeedChan").(chan schema.NeedResult)
 	if ckResult.Status != ndn.InterestResultData {
-		logger.Warnf("unable to fetch content key: %s", ckName.String())
+		log.Warn(n, "Unable to fetch content key", "ck", ckName)
 		return nil
 	}
 
 	aescis, err := aes.NewCipher(ckResult.Content.Join())
 	if err != nil {
-		logger.Errorf("unable to create AES cipher for key: %s", ckResult.Data.Name().String())
+		log.Error(n, "Unable to create AES cipher for key", "name", ckResult.Data.Name())
 		return nil
 	}
 
@@ -135,7 +137,7 @@ func (n *ContentKeyNode) Decrypt(mNode schema.MatchedNode, encryptedContent enc.
 	inbuf := encContent.CipherText.Join()
 	cip := cipher.NewCBCDecrypter(aescis, iv)
 	if len(inbuf)%cip.BlockSize() != 0 {
-		logger.Errorf("input AES buf has a wrong length")
+		log.Error(n, "Input AES buf has a wrong length")
 		return nil
 	}
 	cip.CryptBlocks(inbuf, inbuf)
@@ -162,7 +164,7 @@ func init() {
 			"GenKey": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) > 0 {
 					err := fmt.Errorf("ContentKeyNode.GenKey requires 0 arguments but got %d", len(args))
-					mNode.Logger("ContentKeyNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 				return schema.QueryInterface[*ContentKeyNode](mNode.Node).GenKey(mNode)
@@ -170,21 +172,21 @@ func init() {
 			"Encrypt": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) != 2 {
 					err := fmt.Errorf("ContentKeyNode.Encrypt requires 2 arguments but got %d", len(args))
-					mNode.Logger("ContentKeyNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 
 				ck, ok := args[0].(ContentKey)
 				if !ok && args[0] != nil {
 					err := ndn.ErrInvalidValue{Item: "ck", Value: args[0]}
-					mNode.Logger("ContentKeyNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 
 				content, ok := args[1].(enc.Wire)
 				if !ok && args[1] != nil {
 					err := ndn.ErrInvalidValue{Item: "content", Value: args[1]}
-					mNode.Logger("ContentKeyNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 
@@ -193,14 +195,14 @@ func init() {
 			"Decrypt": func(mNode schema.MatchedNode, args ...any) any {
 				if len(args) != 1 {
 					err := fmt.Errorf("ContentKeyNode.Decrypt requires 1 arguments but got %d", len(args))
-					mNode.Logger("ContentKeyNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 
 				encryptedContent, ok := args[0].(enc.Wire)
 				if !ok && args[0] != nil {
 					err := ndn.ErrInvalidValue{Item: "encryptedContent", Value: args[0]}
-					mNode.Logger("ContentKeyNode").Error(err.Error())
+					log.Error(mNode.Node, err.Error())
 					return err
 				}
 

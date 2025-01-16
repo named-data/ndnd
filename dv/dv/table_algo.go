@@ -54,7 +54,7 @@ func (dv *Router) ribUpdate(ns *table.NeighborState) {
 	if dirty {
 		go func() {
 			dv.fibUpdate()
-			dv.advertGenerateNew()
+			dv.advert.generate()
 			dv.prefixDataFetchAll()
 		}()
 	}
@@ -69,7 +69,7 @@ func (dv *Router) checkDeadNeighbors() {
 	for _, ns := range dv.neighbors.GetAll() {
 		// Check if the neighbor is entirely dead
 		if ns.IsDead() {
-			log.Infof("checkDeadNeighbors: neighbor %s is dead", ns.Name.String())
+			log.Info(dv, "Neighbor is dead", "router", ns.Name)
 
 			// This is the ONLY place that can remove neighbors
 			dv.neighbors.Remove(ns.Name)
@@ -83,14 +83,14 @@ func (dv *Router) checkDeadNeighbors() {
 	if dirty {
 		go func() {
 			dv.fibUpdate()
-			dv.advertGenerateNew()
+			dv.advert.generate()
 		}()
 	}
 }
 
 // Update the FIB
 func (dv *Router) fibUpdate() {
-	log.Debugf("Sychronizing updates to forwarding table")
+	log.Debug(dv, "Sychronizing updates to forwarding table")
 
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()

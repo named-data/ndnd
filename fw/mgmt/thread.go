@@ -40,7 +40,7 @@ type Thread struct {
 }
 
 func (m *Thread) String() string {
-	return "Mgmt"
+	return "mgmt"
 }
 
 // MakeMgmtThread creates a new management thread.
@@ -61,7 +61,7 @@ func MakeMgmtThread() *Thread {
 
 	// readvertisers run in the management thread for ease of
 	// implementation, since they use the internal transport
-	if core.GetConfig().Tables.Rib.ReadvertiseNlsr {
+	if core.C.Tables.Rib.ReadvertiseNlsr {
 		table.AddReadvertiser(NewNlsrReadvertiser(m))
 	}
 
@@ -75,12 +75,12 @@ func (m *Thread) registerModule(name string, module Module) {
 
 // Run management thread
 func (m *Thread) Run() {
-	core.LogInfo(m, "Starting management thread")
+	core.Log.Info(m, "Starting management thread")
 
 	// Create and register Internal transport
 	m.face, m.transport = face.RegisterInternalTransport()
 	table.FibStrategyTable.InsertNextHopEnc(LOCAL_PREFIX, m.face.FaceID(), 0)
-	if enableLocalhopManagement {
+	if core.C.Mgmt.AllowLocalhop {
 		table.FibStrategyTable.InsertNextHopEnc(NON_LOCAL_PREFIX, m.face.FaceID(), 0)
 	}
 
@@ -88,24 +88,24 @@ func (m *Thread) Run() {
 		lpPkt := m.transport.Receive()
 		if lpPkt == nil {
 			// Indicates that internal face has quit, which means it's time for us to quit
-			core.LogInfo(m, "Face quit, so management quitting")
+			core.Log.Info(m, "Face quit, so management quitting")
 			break
 		}
 
 		if lpPkt.IncomingFaceId == nil || len(lpPkt.Fragment) == 0 {
-			core.LogWarn(m, "Received malformed packet on internal face, drop")
+			core.Log.Warn(m, "Received malformed packet on internal face - DROP")
 			continue
 		}
 
 		pkt, _, err := spec.ReadPacket(enc.NewWireReader(lpPkt.Fragment))
 		if err != nil {
-			core.LogWarn(m, "Unable to decode internal packet, drop")
+			core.Log.Warn(m, "Unable to decode internal packet - DROP", "err", err)
 			continue
 		}
 
 		// We only expect Interests, so drop Data packets
 		if pkt.Interest == nil {
-			core.LogDebug(m, "Dropping received non-Interest packet")
+			core.Log.Debug(m, "Dropping received non-Interest packet")
 			continue
 		}
 
@@ -118,15 +118,15 @@ func (m *Thread) Run() {
 
 		// Ensure Interest name matches expectations
 		if len(interest.Name()) < len(LOCAL_PREFIX)+2 { // Module + Verb
-			core.LogWarn(m, "Control command name ", interest.Name(), " has unexpected number of components - DROP")
+			core.Log.Warn(m, "Control command name has unexpected number of components - DROP", "name", interest.Name())
 			continue
 		}
 		if !LOCAL_PREFIX.IsPrefix(interest.Name()) && !NON_LOCAL_PREFIX.IsPrefix(interest.Name()) {
-			core.LogWarn(m, "Control command name ", interest.Name(), " has unexpected prefix - DROP")
+			core.Log.Warn(m, "Control command name has unexpected prefix - DROP", "name", interest.Name())
 			continue
 		}
 
-		core.LogTrace(m, "Received management Interest ", interest.Name())
+		core.Log.Trace(m, "Received management Interest", "name", interest.Name())
 
 		// Look for any matching data in object store.
 		// We only use exact match here since RDR is unnecessary.
@@ -145,7 +145,7 @@ func (m *Thread) Run() {
 		if module, ok := m.modules[moduleName]; ok {
 			module.handleIncomingInterest(interest)
 		} else {
-			core.LogWarn(m, "Received management Interest for unknown module ", moduleName)
+			core.Log.Warn(m, "Received management Interest for unknown module", "module", moduleName)
 			m.sendCtrlResp(interest, 501, "Unknown module", nil)
 		}
 	}
@@ -159,12 +159,12 @@ func (m *Thread) sendInterest(name enc.Name, params enc.Wire) {
 	}
 	interest, err := spec.Spec{}.MakeInterest(name, &config, params, sec.NewSha256IntSigner(m.timer))
 	if err != nil {
-		core.LogWarn(m, "Unable to encode Interest for ", name, ": ", err)
+		core.Log.Warn(m, "Unable to encode Interest", "name", name, "err", err)
 		return
 	}
 
 	m.transport.Send(&spec.LpPacket{Fragment: interest.Wire})
-	core.LogTrace(m, "Sent management Interest for ", interest.FinalName)
+	core.Log.Trace(m, "Sent management Interest", "name", interest.FinalName)
 }
 
 // Send a Data packet to the internal transport
@@ -178,7 +178,7 @@ func (m *Thread) sendData(interest *Interest, name enc.Name, content enc.Wire) {
 		sec.NewSha256Signer(),
 	)
 	if err != nil {
-		core.LogWarn(m, "Unable to encode Data for ", interest.Name(), ": ", err)
+		core.Log.Warn(m, "Unable to encode Data", "name", interest.Name(), "err", err)
 		return
 	}
 
@@ -187,7 +187,7 @@ func (m *Thread) sendData(interest *Interest, name enc.Name, content enc.Wire) {
 		PitToken:      interest.pitToken,
 		NextHopFaceId: interest.inFace,
 	})
-	core.LogTrace(m, "Sent management Data for ", name)
+	core.Log.Trace(m, "Sent management Data", "name", name)
 }
 
 // Send a ControlResponse Data packet to the internal transport
@@ -216,7 +216,7 @@ func (m *Thread) sendStatusDataset(interest *Interest, name enc.Name, dataset en
 		NoMetadata:      true,
 	}, m.store, sec.NewSha256Signer())
 	if err != nil {
-		core.LogWarn(m, "Unable to produce status dataset: ", err)
+		core.Log.Warn(m, "Unable to produce status dataset", "err", err)
 		return
 	}
 	m.objDir.Push(objName)
@@ -224,14 +224,14 @@ func (m *Thread) sendStatusDataset(interest *Interest, name enc.Name, dataset en
 	// Evict oldest object if we have too many
 	if old := m.objDir.Pop(); old != nil {
 		if err := m.store.Remove(old, true); err != nil {
-			core.LogWarn(m, "Unable to clean up old status dataset: ", err)
+			core.Log.Warn(m, "Unable to clean up old status dataset", "err", err)
 		}
 	}
 
 	// Get first segment from object name
 	segment, err := m.store.Get(objName.Append(enc.NewSegmentComponent(0)), false)
 	if err != nil || segment == nil {
-		core.LogWarn(m, "Unable to get first segment of status dataset: ", err)
+		core.Log.Warn(m, "Unable to get first segment of status dataset", "err", err)
 		return
 	}
 

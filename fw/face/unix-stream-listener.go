@@ -9,6 +9,7 @@ package face
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -29,7 +30,7 @@ type UnixStreamListener struct {
 func MakeUnixStreamListener(localURI *defn.URI) (*UnixStreamListener, error) {
 	localURI.Canonize()
 	if !localURI.IsCanonical() || localURI.Scheme() != "unix" {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 
 	return &UnixStreamListener{
@@ -40,7 +41,7 @@ func MakeUnixStreamListener(localURI *defn.URI) (*UnixStreamListener, error) {
 }
 
 func (l *UnixStreamListener) String() string {
-	return "UnixStreamListener, " + l.localURI.String()
+	return fmt.Sprintf("unix-stream-listener (%s)", l.localURI)
 }
 
 func (l *UnixStreamListener) Run() {
@@ -57,15 +58,15 @@ func (l *UnixStreamListener) Run() {
 	// Create listener
 	var err error
 	if l.conn, err = net.Listen(l.localURI.Scheme(), sockPath); err != nil {
-		core.LogFatal(l, "Unable to start Unix stream listener: ", err)
+		core.Log.Fatal(l, "Unable to start Unix stream listener", "err", err)
 	}
 
 	// Set permissions to allow all local apps to communicate with us
 	if err := os.Chmod(sockPath, os.ModePerm); err != nil {
-		core.LogFatal(l, "Unable to change permissions on Unix stream listener: ", err)
+		core.Log.Fatal(l, "Unable to change permissions on Unix stream listener", "err", err)
 	}
 
-	core.LogInfo(l, "Listening")
+	core.Log.Info(l, "Listening for connections")
 
 	// Run accept loop
 	for !core.ShouldQuit {
@@ -74,24 +75,24 @@ func (l *UnixStreamListener) Run() {
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
-			core.LogWarn(l, "Unable to accept connection: ", err)
+			core.Log.Warn(l, "Unable to accept connection", "err", err)
 			return
 		}
 
 		remoteURI := defn.MakeFDFaceURI(l.nextFD)
 		l.nextFD++
 		if !remoteURI.IsCanonical() {
-			core.LogWarn(l, "Unable to create face from ", remoteURI, " as remote URI is not canonical")
+			core.Log.Warn(l, "Unable to create face remote URI is not canonical", "uri", remoteURI)
 			continue
 		}
 
 		newTransport, err := MakeUnixStreamTransport(remoteURI, l.localURI, newConn)
 		if err != nil {
-			core.LogError(l, "Failed to create new Unix stream transport: ", err)
+			core.Log.Error(l, "Failed to create new unix stream transport", "err", err)
 			continue
 		}
 
-		core.LogInfo(l, "Accepting new Unix stream face ", remoteURI)
+		core.Log.Info(l, "Accepting new unix stream face", "uri", remoteURI)
 		options := MakeNDNLPLinkServiceOptions()
 		options.IsFragmentationEnabled = false // reliable stream
 		MakeNDNLPLinkService(newTransport, options).Run(nil)

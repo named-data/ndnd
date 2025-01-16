@@ -61,7 +61,7 @@ func (l *CsLRU) BeforeUse(index uint64, wire []byte) {
 // EvictEntries is called to instruct the policy to evict enough entries to reduce the Content Store size
 // below its size limit.
 func (l *CsLRU) EvictEntries() {
-	for l.queue.Len() > csCapacity {
+	for l.queue.Len() > CfgCsCapacity() {
 		indexToErase := l.queue.Front().Value.(uint64)
 		l.cs.eraseCsDataFromReplacementStrategy(indexToErase) // TODO: find better name for this method
 		l.queue.Remove(l.queue.Front())

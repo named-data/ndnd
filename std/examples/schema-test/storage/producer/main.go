@@ -49,9 +49,6 @@ const SchemaJson = `{
 }`
 
 func main() {
-	log.SetLevel(log.InfoLevel)
-	logger := log.WithField("module", "main")
-
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{
 		"$isProducer": true,
@@ -61,7 +58,7 @@ func main() {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()
 	if err != nil {
-		logger.Fatalf("Unable to start engine: %+v", err)
+		log.Fatal(nil, "Unable to start engine", "err", err)
 		return
 	}
 	defer app.Stop()
@@ -70,7 +67,7 @@ func main() {
 	prefix, _ := enc.NameFromStr("/example/schema/storageApp")
 	err = tree.Attach(prefix, app)
 	if err != nil {
-		logger.Fatalf("Unable to attach the schema to the engine: %+v", err)
+		log.Fatal(nil, "Unable to attach the schema to the engine", "err", err)
 		return
 	}
 	defer tree.Detach()
@@ -90,5 +87,5 @@ func main() {
 	fmt.Print("Start serving ...\n")
 	signal.Notify(sigChannel, os.Interrupt, syscall.SIGTERM)
 	receivedSig := <-sigChannel
-	logger.Infof("Received signal %+v - exiting\n", receivedSig)
+	log.Info(nil, "Received signal - exiting", "signal", receivedSig)
 }

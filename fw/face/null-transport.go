@@ -8,7 +8,7 @@
 package face
 
 import (
-	"strconv"
+	"fmt"
 
 	defn "github.com/named-data/ndnd/fw/defn"
 	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
@@ -36,7 +36,7 @@ func MakeNullTransport() *NullTransport {
 }
 
 func (t *NullTransport) String() string {
-	return "NullTransport, FaceID=" + strconv.FormatUint(t.faceID, 10) + ", RemoteURI=" + t.remoteURI.String() + ", LocalURI=" + t.localURI.String()
+	return fmt.Sprintf("null-transport (faceid=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
 
 // SetPersistency changes the persistency of the face.

@@ -34,15 +34,15 @@ func MakeMulticastUDPTransport(localURI *defn.URI) (*MulticastUDPTransport, erro
 	// Validate local URI
 	localURI.Canonize()
 	if !localURI.IsCanonical() || (localURI.Scheme() != "udp4" && localURI.Scheme() != "udp6") {
-		return nil, core.ErrNotCanonical
+		return nil, defn.ErrNotCanonical
 	}
 
 	// Get remote Uri
 	var remote string
 	if localURI.Scheme() == "udp4" {
-		remote = fmt.Sprintf("udp4://%s:%d", udp4MulticastAddress, UDPMulticastPort)
+		remote = fmt.Sprintf("udp4://%s:%d", CfgUDP4MulticastAddress(), CfgUDPMulticastPort())
 	} else if localURI.Scheme() == "udp6" {
-		remote = fmt.Sprintf("udp6://[%s]:%d", udp6MulticastAddress, UDPMulticastPort)
+		remote = fmt.Sprintf("udp6://[%s]:%d", CfgUDP6MulticastAddress(), CfgUDPMulticastPort())
 	}
 
 	// Create transport
@@ -105,7 +105,7 @@ func (t *MulticastUDPTransport) connectRecv() error {
 }
 
 func (t *MulticastUDPTransport) String() string {
-	return fmt.Sprintf("MulticastUDPTransport, FaceID=%d, RemoteURI=%s, LocalURI=%s", t.faceID, t.remoteURI, t.localURI)
+	return fmt.Sprintf("multicast-udp-transport (faceid=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
 
 func (t *MulticastUDPTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
@@ -124,7 +124,7 @@ func (t *MulticastUDPTransport) SetPersistency(persistency spec_mgmt.Persistency
 func (t *MulticastUDPTransport) GetSendQueueSize() uint64 {
 	rawConn, err := t.recvConn.SyscallConn()
 	if err != nil {
-		core.LogWarn(t, "Unable to get raw connection to get socket length: ", err)
+		core.Log.Warn(t, "Unable to get raw connection to get socket length", "err", err)
 	}
 	return impl.SyscallGetSocketSendQueueSize(rawConn)
 }
@@ -135,19 +135,19 @@ func (t *MulticastUDPTransport) sendFrame(frame []byte) {
 	}
 
 	if len(frame) > t.MTU() {
-		core.LogWarn(t, "Attempted to send frame larger than MTU - DROP")
+		core.Log.Warn(t, "Attempted to send frame larger than MTU")
 		return
 	}
 
 	_, err := t.sendConn.Write(frame)
 	if err != nil {
-		core.LogWarn(t, "Unable to send on socket - DROP")
+		core.Log.Warn(t, "Unable to send on socket")
 
 		// Re-create the socket if connection is still running
 		if t.running.Load() {
 			err = t.connectSend()
 			if err != nil {
-				core.LogError(t, "Unable to re-create send connection: ", err)
+				core.Log.Error(t, "Unable to re-create send connection", "err", err)
 				return
 			}
 		}
@@ -169,10 +169,10 @@ func (t *MulticastUDPTransport) runReceive() {
 		})
 		if err != nil && t.running.Load() {
 			// Re-create the socket if connection is still running
-			core.LogWarn(t, "Unable to read from socket (", err, ") - Face DOWN")
+			core.Log.Warn(t, "Unable to read from socket - Face DOWN", "err", err)
 			err = t.connectRecv()
 			if err != nil {
-				core.LogError(t, "Unable to re-create receive connection: ", err)
+				core.Log.Error(t, "Unable to re-create receive connection", "err", err)
 				return
 			}
 		}

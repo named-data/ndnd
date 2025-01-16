@@ -6,7 +6,6 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
-	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 )
 
@@ -386,13 +385,4 @@ func (mNode MatchedNode) Refine(name enc.Name) *MatchedNode {
 	} else {
 		return nil
 	}
-}
-
-// Logger returns the logger used in functions provided by this node.
-// If module is "", the node's impl's class name will be used as a default value.
-func (mNode MatchedNode) Logger(module string) *log.Entry {
-	if module == "" {
-		module = mNode.Node.desc.ClassName
-	}
-	return mNode.Node.Log().WithField("name", mNode.Name.String()).WithField("module", module)
 }

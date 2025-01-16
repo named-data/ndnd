@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/named-data/ndnd/fw/core"
 	enc "github.com/named-data/ndnd/std/encoding"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/utils"
@@ -47,8 +48,12 @@ func makeInterest(name enc.Name) *spec.Interest {
 	}
 }
 
+func setReplacementPolicy(policy string) {
+	core.C.Tables.ContentStore.ReplacementPolicy = policy
+}
+
 func TestNewPitCSTree(t *testing.T) {
-	csReplacementPolicy = "lru"
+	setReplacementPolicy("lru")
 	pitCS := NewPitCS(func(PitEntry) {})
 
 	// Initialization size should be 0
@@ -84,37 +89,41 @@ func TestNewPitCSTree(t *testing.T) {
 }
 
 func TestIsCsAdmitting(t *testing.T) {
-	csAdmit = false
-	csReplacementPolicy = "lru"
+	setReplacementPolicy("lru")
+	CfgSetCsAdmit(false)
 
 	pitCS := NewPitCS(func(PitEntry) {})
-	assert.Equal(t, pitCS.IsCsAdmitting(), csAdmit)
+	assert.Equal(t, pitCS.IsCsAdmitting(), false)
+	assert.Equal(t, CfgCsAdmit(), false)
 
-	csAdmit = true
+	CfgSetCsAdmit(true)
 	pitCS = NewPitCS(func(PitEntry) {})
-	assert.Equal(t, pitCS.IsCsAdmitting(), csAdmit)
+	assert.Equal(t, pitCS.IsCsAdmitting(), true)
+	assert.Equal(t, CfgCsAdmit(), true)
 }
 
 func TestIsCsServing(t *testing.T) {
-	csServe = false
-	csReplacementPolicy = "lru"
+	setReplacementPolicy("lru")
+	CfgSetCsServe(false)
 
 	pitCS := NewPitCS(func(PitEntry) {})
-	assert.Equal(t, pitCS.IsCsServing(), csServe)
+	assert.Equal(t, pitCS.IsCsServing(), false)
+	assert.Equal(t, CfgCsServe(), false)
 
-	csServe = true
+	CfgSetCsServe(true)
 	pitCS = NewPitCS(func(PitEntry) {})
-	assert.Equal(t, pitCS.IsCsServing(), csServe)
+	assert.Equal(t, pitCS.IsCsServing(), true)
+	assert.Equal(t, CfgCsServe(), true)
 }
 
 func TestInsertInterest(t *testing.T) {
+	setReplacementPolicy("lru")
+
 	// Interest does not already exist
 	hint, _ := enc.NameFromStr("/")
 	inFace := uint64(1111)
 	name, _ := enc.NameFromStr("/interest1")
 	interest := makeInterest(name)
-
-	csReplacementPolicy = "lru"
 
 	pitCS := NewPitCS(func(PitEntry) {})
 
@@ -249,7 +258,8 @@ func TestInsertInterest(t *testing.T) {
 }
 
 func TestRemoveInterest(t *testing.T) {
-	csReplacementPolicy = "lru"
+	setReplacementPolicy("lru")
+
 	pitCS := NewPitCS(func(PitEntry) {})
 	hint, _ := enc.NameFromStr("/")
 	inFace := uint64(1111)
@@ -304,7 +314,8 @@ func TestRemoveInterest(t *testing.T) {
 }
 
 func TestFindInterestExactMatch(t *testing.T) {
-	csReplacementPolicy = "lru"
+	setReplacementPolicy("lru")
+
 	pitCS := NewPitCS(func(PitEntry) {})
 	hint, _ := enc.NameFromStr("/")
 	inFace := uint64(1111)
@@ -345,8 +356,9 @@ func TestFindInterestExactMatch(t *testing.T) {
 }
 
 func TestFindInterestPrefixMatchByData(t *testing.T) {
+	setReplacementPolicy("lru")
+
 	// Basically the same as FindInterestPrefixMatch, but with data instead
-	csReplacementPolicy = "lru"
 	pitCS := NewPitCS(func(PitEntry) {})
 	name, _ := enc.NameFromStr("/interest1")
 	data := makeData(name, enc.Wire{})
@@ -390,7 +402,8 @@ func TestFindInterestPrefixMatchByData(t *testing.T) {
 }
 
 func TestInsertOutRecord(t *testing.T) {
-	csReplacementPolicy = "lru"
+	setReplacementPolicy("lru")
+
 	pitCS := NewPitCS(func(PitEntry) {})
 	name, _ := enc.NameFromStr("/interest1")
 	hint, _ := enc.NameFromStr("/")
@@ -422,7 +435,8 @@ func TestInsertOutRecord(t *testing.T) {
 }
 
 func TestGetOutRecords(t *testing.T) {
-	csReplacementPolicy = "lru"
+	setReplacementPolicy("lru")
+
 	pitCS := NewPitCS(func(PitEntry) {})
 	name, _ := enc.NameFromStr("/interest1")
 	hint, _ := enc.NameFromStr("/")
@@ -467,8 +481,9 @@ func TestGetOutRecords(t *testing.T) {
 }
 
 func FindMatchingDataFromCS(t *testing.T) {
-	csReplacementPolicy = "lru"
-	csCapacity = 1024
+	setReplacementPolicy("lru")
+	CfgSetCsCapacity(1024)
+
 	pitCS := NewPitCS(func(PitEntry) {})
 
 	// Data does not already exist
@@ -518,7 +533,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_1))
 
 	// Reduced CS capacity to check that eviction occurs
-	csCapacity = 1
+	CfgSetCsCapacity(1)
 	pitCS = NewPitCS(func(PitEntry) {})
 	pitCS.InsertData(data1, VALID_DATA_1)
 	pitCS.InsertData(data2, VALID_DATA_2)

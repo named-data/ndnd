@@ -26,9 +26,6 @@ type Node struct {
 	// Change when there found evidences showing this is the bottleneck.
 	chd []*Node
 
-	// Log is the logger
-	log *log.Entry
-
 	dep  uint
 	par  *Node
 	edge enc.ComponentPattern
@@ -38,6 +35,10 @@ type Node struct {
 	attachedPrefix enc.Name
 
 	engine ndn.Engine
+}
+
+func (n *Node) String() string {
+	return n.path.String()
 }
 
 // Children of the node
@@ -71,11 +72,6 @@ func (n *Node) UpEdge() enc.ComponentPattern {
 // will have a depth=2.
 func (n *Node) Depth() uint {
 	return n.dep
-}
-
-// Log returns the log entry of this node
-func (n *Node) Log() *log.Entry {
-	return n.log
 }
 
 // Impl returns the actual functional part of the node
@@ -196,7 +192,7 @@ func (n *Node) ConstructName(matching enc.Matching, ret enc.Name) error {
 // A base node shouldn't receive any Interest, so drops it.
 func (n *Node) OnInterest(args ndn.InterestHandlerArgs, matching enc.Matching) {
 	if n.impl == nil {
-		n.log.WithField("name", args.Interest.Name().String()).Warn("Unexpected Interest. Drop.")
+		log.Warn(n, "Unexpected Interest. Drop.", "name", args.Interest.Name())
 	} else {
 		n.impl.OnInterest(args, matching)
 	}
@@ -207,7 +203,6 @@ func (n *Node) OnInterest(args ndn.InterestHandlerArgs, matching enc.Matching) {
 func (n *Node) OnAttach(path enc.NamePattern, engine ndn.Engine) error {
 	n.engine = engine
 	n.dep = uint(len(path))
-	n.log = log.WithField("module", "schema").WithField("path", path.String())
 	n.path = make(enc.NamePattern, len(path))
 	copy(n.path, path)
 
@@ -346,7 +341,7 @@ func (n *BaseNodeImpl) NodeImplTrait() NodeImpl {
 
 // OnInterest is the callback function when there is an incoming Interest.
 func (n *BaseNodeImpl) OnInterest(args ndn.InterestHandlerArgs, matching enc.Matching) {
-	n.Node.Log().WithField("name", args.Interest.Name().String()).Warn("Unexpected Interest. Drop.")
+	log.Warn(n.Node, "Unexpected Interest. Drop.", "name", args.Interest.Name())
 }
 
 // OnAttach is called when the node is attached to an engine

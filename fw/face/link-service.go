@@ -9,7 +9,7 @@ package face
 
 import (
 	"encoding/binary"
-	"strconv"
+	"fmt"
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
@@ -75,10 +75,10 @@ type linkServiceBase struct {
 
 func (l *linkServiceBase) String() string {
 	if l.transport != nil {
-		return "LinkService, " + l.transport.String()
+		return fmt.Sprintf("link-service (%s)", l.transport)
 	}
 
-	return "LinkService, FaceID=" + strconv.FormatUint(l.faceID, 10)
+	return fmt.Sprintf("link-service (faceid=%d)", l.faceID)
 }
 
 func (l *linkServiceBase) SetFaceID(faceID uint64) {
@@ -94,7 +94,7 @@ func (l *linkServiceBase) SetFaceID(faceID uint64) {
 
 func (l *linkServiceBase) makeLinkServiceBase() {
 	l.stopped = make(chan bool)
-	l.sendQueue = make(chan dispatch.OutPkt, faceQueueSize)
+	l.sendQueue = make(chan dispatch.OutPkt, CfgFaceQueueSize())
 }
 
 //
@@ -212,10 +212,10 @@ func (l *linkServiceBase) SendPacket(out dispatch.OutPkt) {
 	select {
 	case l.sendQueue <- out:
 		// Packet queued successfully
-		core.LogTrace(l, "Queued packet for Link Service")
+		core.Log.Trace(l, "Queued packet for link service")
 	default:
 		// Drop packet due to congestion
-		core.LogDebug(l, "Dropped packet due to congestion")
+		core.Log.Debug(l, "Dropped packet due to congestion")
 
 		// TODO: Signal congestion
 	}
@@ -231,7 +231,7 @@ func (l *linkServiceBase) dispatchInterest(pkt *defn.Pkt) {
 
 	// Hash name to thread
 	thread := fw.HashNameToFwThread(pkt.Name)
-	core.LogTrace(l, "Dispatched Interest to thread ", thread)
+	core.Log.Trace(l, "Dispatched Interest", "thread", thread)
 	dispatch.GetFWThread(thread).QueueInterest(pkt)
 }
 
@@ -248,11 +248,11 @@ func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 		thread := binary.BigEndian.Uint16(pkt.PitToken)
 		fwThread := dispatch.GetFWThread(int(thread))
 		if fwThread == nil {
-			core.LogError(l, "Invalid PIT token attached to Data packet - DROP")
+			core.Log.Error(l, "Invalid PIT token attached to Data packet")
 			return
 		}
 
-		core.LogTrace(l, "Dispatched Data to thread ", thread)
+		core.Log.Trace(l, "Dispatched Data", "thread", thread)
 		fwThread.QueueData(pkt)
 		return
 	}
@@ -263,7 +263,7 @@ func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 	if l.Scope() == defn.Local {
 		for i, match := range fw.HashNameToAllPrefixFwThreads(pkt.Name) {
 			if match {
-				core.LogTrace(l, "Prefix dispatched local-origin Data packet to thread ", i)
+				core.Log.Trace(l, "Prefix dispatched local-origin Data", "thread", i)
 				dispatch.GetFWThread(i).QueueData(pkt)
 			}
 		}
@@ -272,6 +272,6 @@ func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 
 	// Only exact-match for now (no CanBePrefix)
 	thread := fw.HashNameToFwThread(pkt.Name)
-	core.LogTrace(l, "Dispatched Data to thread ", thread)
+	core.Log.Trace(l, "Dispatched Data", "thread", thread)
 	dispatch.GetFWThread(thread).QueueData(pkt)
 }

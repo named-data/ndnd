@@ -11,15 +11,28 @@ import (
 	"path/filepath"
 )
 
-var (
-	baseDir string  = ""
-	config  *Config = DefaultConfig()
-)
+// Global initial configuration of the forwarder.
+// This configuration is IMMUTABLE. Do not modify it.
+var C = DefaultConfig()
 
+// Config represents the configuration of the forwarder.
 type Config struct {
 	Core struct {
 		// Logging level
 		LogLevel string `json:"log_level"`
+		// Output log to file
+		LogFile string `json:"log_file"`
+
+		// Config file base dir
+		BaseDir string `json:"-"`
+		// Enable CPU profiling
+		CpuProfile string `json:"-"`
+		// Enable memory profiling
+		MemProfile string `json:"-"`
+		// Enable block profiling
+		BlockProfile string `json:"-"`
+		// Memory ballast size (in GB)
+		MemoryBallastSize int `json:"-"`
 	} `json:"core"`
 
 	Faces struct {
@@ -139,6 +152,13 @@ type Config struct {
 func DefaultConfig() *Config {
 	c := &Config{}
 	c.Core.LogLevel = "INFO"
+	c.Core.LogFile = ""
+
+	c.Core.BaseDir = ""
+	c.Core.CpuProfile = ""
+	c.Core.MemProfile = ""
+	c.Core.BlockProfile = ""
+	c.Core.MemoryBallastSize = 0
 
 	c.Faces.QueueSize = 1024
 	c.Faces.CongestionMarking = true
@@ -187,22 +207,10 @@ func DefaultConfig() *Config {
 	return c
 }
 
-func LoadConfig(cfg *Config, basedir string) {
-	if cfg == nil {
-		LogFatal("Config", "Config is nil")
-	}
-	config = cfg
-	baseDir = basedir
-}
-
-func GetConfig() *Config {
-	return config
-}
-
-// ResolveConfigFileRelPath resolves a possibly relative path based on config file path.
-func ResolveConfigFileRelPath(target string) (abs string) {
+// ResolveRelPath resolves a possibly relative path based on config file path.
+func (c *Config) ResolveRelPath(target string) string {
 	if filepath.IsAbs(target) {
 		return target
 	}
-	return filepath.Join(baseDir, target)
+	return filepath.Join(c.Core.BaseDir, target)
 }
