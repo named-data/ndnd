@@ -277,7 +277,7 @@ func TestRoute(t *testing.T) {
 					ContentType: utils.IdPtr(ndn.ContentTypeBlob),
 				},
 				enc.Wire{[]byte("test")},
-				sig.NewEmptySigner())
+				sig.NewTestSigner(enc.Name{}, 0))
 			require.NoError(t, err)
 			args.Reply(data.Wire)
 		}
@@ -307,7 +307,7 @@ func TestPitToken(t *testing.T) {
 					ContentType: utils.IdPtr(ndn.ContentTypeBlob),
 				},
 				enc.Wire{[]byte("test")},
-				sig.NewEmptySigner())
+				sig.NewTestSigner(enc.Name{}, 0))
 			require.NoError(t, err)
 			args.Reply(data.Wire)
 		}
