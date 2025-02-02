@@ -192,8 +192,8 @@ func (encoder *T1Encoder) Encode(value *T1) enc.Wire {
 	return wire
 }
 
-func (context *T1ParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*T1, error) {
-	if reader == nil {
+func (context *T1ParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*T1, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -217,11 +217,11 @@ func (context *T1ParsingContext) Parse(reader enc.ParseReader, ignoreCritical bo
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -579,8 +579,8 @@ func (encoder *T2Encoder) Encode(value *T2) enc.Wire {
 	return wire
 }
 
-func (context *T2ParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*T2, error) {
-	if reader == nil {
+func (context *T2ParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*T2, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -605,11 +605,11 @@ func (context *T2ParsingContext) Parse(reader enc.ParseReader, ignoreCritical bo
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -634,8 +634,8 @@ func (context *T2ParsingContext) Parse(reader enc.ParseReader, ignoreCritical bo
 								value.Name = value.Name[:j]
 								break
 							}
-							value.Name[j].Typ, err1 = enc.ReadTLNum(reader)
-							l, err2 := enc.ReadTLNum(reader)
+							value.Name[j].Typ, err1 = enc.ReadTLNumFast(reader)
+							l, err2 := enc.ReadTLNumFast(reader)
 							value.Name[j].Val, err3 = reader.ReadBuf(int(l))
 							if err1 != nil || err2 != nil || err3 != nil {
 								err = io.ErrUnexpectedEOF

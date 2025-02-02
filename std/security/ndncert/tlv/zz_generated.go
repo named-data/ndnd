@@ -165,8 +165,8 @@ func (encoder *CaProfileEncoder) Encode(value *CaProfile) enc.Wire {
 	return wire
 }
 
-func (context *CaProfileParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*CaProfile, error) {
-	if reader == nil {
+func (context *CaProfileParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*CaProfile, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -189,11 +189,11 @@ func (context *CaProfileParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -213,7 +213,7 @@ func (context *CaProfileParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 					handled_CaInfo = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							value.CaInfo = builder.String()
 						}
@@ -234,7 +234,7 @@ func (context *CaProfileParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 							value := &pseudoValue
 							{
 								var builder strings.Builder
-								_, err = io.CopyN(&builder, reader, int64(l))
+								_, err = reader.CopyN(&builder, int64(l))
 								if err == nil {
 									value.ParamKey = builder.String()
 								}
@@ -321,7 +321,7 @@ func (value *CaProfile) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseCaProfile(reader enc.ParseReader, ignoreCritical bool) (*CaProfile, error) {
+func ParseCaProfile(reader enc.FastReader, ignoreCritical bool) (*CaProfile, error) {
 	context := CaProfileParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -442,8 +442,8 @@ func (encoder *ProbeReqEncoder) Encode(value *ProbeReq) enc.Wire {
 	return wire
 }
 
-func (context *ProbeReqParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ProbeReq, error) {
-	if reader == nil {
+func (context *ProbeReqParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ProbeReq, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -462,11 +462,11 @@ func (context *ProbeReqParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -490,18 +490,18 @@ func (context *ProbeReqParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 							value := &pseudoValue
 							{
 								var builder strings.Builder
-								_, err = io.CopyN(&builder, reader, int64(l))
+								_, err = reader.CopyN(&builder, int64(l))
 								if err == nil {
 									value.Params_k = builder.String()
 								}
 							}
 							typ := enc.TLNum(0)
 							l := enc.TLNum(0)
-							typ, err = enc.ReadTLNum(reader)
+							typ, err = enc.ReadTLNumFast(reader)
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
-							l, err = enc.ReadTLNum(reader)
+							l, err = enc.ReadTLNumFast(reader)
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
@@ -509,7 +509,7 @@ func (context *ProbeReqParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 								return nil, enc.ErrFailToParse{TypeNum: 133, Err: enc.ErrUnrecognizedField{TypeNum: typ}}
 							}
 							value.Params_v = make([]byte, l)
-							_, err = io.ReadFull(reader, value.Params_v)
+							_, err = reader.ReadFull(value.Params_v)
 							_ = value
 						}
 						value.Params[pseudoValue.Params_k] = pseudoValue.Params_v
@@ -555,7 +555,7 @@ func (value *ProbeReq) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseProbeReq(reader enc.ParseReader, ignoreCritical bool) (*ProbeReq, error) {
+func ParseProbeReq(reader enc.FastReader, ignoreCritical bool) (*ProbeReq, error) {
 	context := ProbeReqParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -628,8 +628,8 @@ func (encoder *ProbeResValsEncoder) Encode(value *ProbeResVals) enc.Wire {
 	return wire
 }
 
-func (context *ProbeResValsParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ProbeResVals, error) {
-	if reader == nil {
+func (context *ProbeResValsParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ProbeResVals, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -649,11 +649,11 @@ func (context *ProbeResValsParsingContext) Parse(reader enc.ParseReader, ignoreC
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -665,7 +665,7 @@ func (context *ProbeResValsParsingContext) Parse(reader enc.ParseReader, ignoreC
 				if true {
 					handled = true
 					handled_Response = true
-					value.Response, err = enc.ReadName(reader.Delegate(int(l)))
+					value.Response, err = enc.ReadNameFast(reader.Delegate(int(l)))
 				}
 			case 143:
 				if true {
@@ -732,7 +732,7 @@ func (value *ProbeResVals) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseProbeResVals(reader enc.ParseReader, ignoreCritical bool) (*ProbeResVals, error) {
+func ParseProbeResVals(reader enc.FastReader, ignoreCritical bool) (*ProbeResVals, error) {
 	context := ProbeResValsParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -866,8 +866,8 @@ func (encoder *ProbeResEncoder) Encode(value *ProbeRes) enc.Wire {
 	return wire
 }
 
-func (context *ProbeResParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ProbeRes, error) {
-	if reader == nil {
+func (context *ProbeResParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ProbeRes, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -887,11 +887,11 @@ func (context *ProbeResParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -967,7 +967,7 @@ func (value *ProbeRes) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseProbeRes(reader enc.ParseReader, ignoreCritical bool) (*ProbeRes, error) {
+func ParseProbeRes(reader enc.FastReader, ignoreCritical bool) (*ProbeRes, error) {
 	context := ProbeResParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1042,8 +1042,8 @@ func (encoder *NewReqEncoder) Encode(value *NewReq) enc.Wire {
 	return wire
 }
 
-func (context *NewReqParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*NewReq, error) {
-	if reader == nil {
+func (context *NewReqParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*NewReq, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1063,11 +1063,11 @@ func (context *NewReqParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1080,7 +1080,7 @@ func (context *NewReqParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 					handled = true
 					handled_EcdhPub = true
 					value.EcdhPub = make([]byte, l)
-					_, err = io.ReadFull(reader, value.EcdhPub)
+					_, err = reader.ReadFull(value.EcdhPub)
 				}
 			case 147:
 				if true {
@@ -1130,7 +1130,7 @@ func (value *NewReq) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseNewReq(reader enc.ParseReader, ignoreCritical bool) (*NewReq, error) {
+func ParseNewReq(reader enc.FastReader, ignoreCritical bool) (*NewReq, error) {
 	context := NewReqParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1270,8 +1270,8 @@ func (encoder *NewResEncoder) Encode(value *NewRes) enc.Wire {
 	return wire
 }
 
-func (context *NewResParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*NewRes, error) {
-	if reader == nil {
+func (context *NewResParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*NewRes, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1293,11 +1293,11 @@ func (context *NewResParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1310,21 +1310,21 @@ func (context *NewResParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 					handled = true
 					handled_EcdhPub = true
 					value.EcdhPub = make([]byte, l)
-					_, err = io.ReadFull(reader, value.EcdhPub)
+					_, err = reader.ReadFull(value.EcdhPub)
 				}
 			case 149:
 				if true {
 					handled = true
 					handled_Salt = true
 					value.Salt = make([]byte, l)
-					_, err = io.ReadFull(reader, value.Salt)
+					_, err = reader.ReadFull(value.Salt)
 				}
 			case 151:
 				if true {
 					handled = true
 					handled_ReqId = true
 					value.ReqId = make([]byte, l)
-					_, err = io.ReadFull(reader, value.ReqId)
+					_, err = reader.ReadFull(value.ReqId)
 				}
 			case 153:
 				if true {
@@ -1341,7 +1341,7 @@ func (context *NewResParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 							value := &pseudoValue
 							{
 								var builder strings.Builder
-								_, err = io.CopyN(&builder, reader, int64(l))
+								_, err = reader.CopyN(&builder, int64(l))
 								if err == nil {
 									value.Challenge = builder.String()
 								}
@@ -1400,7 +1400,7 @@ func (value *NewRes) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseNewRes(reader enc.ParseReader, ignoreCritical bool) (*NewRes, error) {
+func ParseNewRes(reader enc.FastReader, ignoreCritical bool) (*NewRes, error) {
 	context := NewResParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1476,8 +1476,8 @@ func (encoder *CipherMsgEncoder) Encode(value *CipherMsg) enc.Wire {
 	return wire
 }
 
-func (context *CipherMsgParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*CipherMsg, error) {
-	if reader == nil {
+func (context *CipherMsgParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*CipherMsg, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1498,11 +1498,11 @@ func (context *CipherMsgParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1515,21 +1515,21 @@ func (context *CipherMsgParsingContext) Parse(reader enc.ParseReader, ignoreCrit
 					handled = true
 					handled_InitVec = true
 					value.InitVec = make([]byte, l)
-					_, err = io.ReadFull(reader, value.InitVec)
+					_, err = reader.ReadFull(value.InitVec)
 				}
 			case 175:
 				if true {
 					handled = true
 					handled_AuthNTag = true
 					value.AuthNTag = make([]byte, l)
-					_, err = io.ReadFull(reader, value.AuthNTag)
+					_, err = reader.ReadFull(value.AuthNTag)
 				}
 			case 159:
 				if true {
 					handled = true
 					handled_Payload = true
 					value.Payload = make([]byte, l)
-					_, err = io.ReadFull(reader, value.Payload)
+					_, err = reader.ReadFull(value.Payload)
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -1576,7 +1576,7 @@ func (value *CipherMsg) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseCipherMsg(reader enc.ParseReader, ignoreCritical bool) (*CipherMsg, error) {
+func ParseCipherMsg(reader enc.FastReader, ignoreCritical bool) (*CipherMsg, error) {
 	context := CipherMsgParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1706,8 +1706,8 @@ func (encoder *ChallengeReqEncoder) Encode(value *ChallengeReq) enc.Wire {
 	return wire
 }
 
-func (context *ChallengeReqParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ChallengeReq, error) {
-	if reader == nil {
+func (context *ChallengeReqParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ChallengeReq, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1727,11 +1727,11 @@ func (context *ChallengeReqParsingContext) Parse(reader enc.ParseReader, ignoreC
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1745,7 +1745,7 @@ func (context *ChallengeReqParsingContext) Parse(reader enc.ParseReader, ignoreC
 					handled_Challenge = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							value.Challenge = builder.String()
 						}
@@ -1767,18 +1767,18 @@ func (context *ChallengeReqParsingContext) Parse(reader enc.ParseReader, ignoreC
 							value := &pseudoValue
 							{
 								var builder strings.Builder
-								_, err = io.CopyN(&builder, reader, int64(l))
+								_, err = reader.CopyN(&builder, int64(l))
 								if err == nil {
 									value.Params_k = builder.String()
 								}
 							}
 							typ := enc.TLNum(0)
 							l := enc.TLNum(0)
-							typ, err = enc.ReadTLNum(reader)
+							typ, err = enc.ReadTLNumFast(reader)
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
-							l, err = enc.ReadTLNum(reader)
+							l, err = enc.ReadTLNumFast(reader)
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
@@ -1786,7 +1786,7 @@ func (context *ChallengeReqParsingContext) Parse(reader enc.ParseReader, ignoreC
 								return nil, enc.ErrFailToParse{TypeNum: 133, Err: enc.ErrUnrecognizedField{TypeNum: typ}}
 							}
 							value.Params_v = make([]byte, l)
-							_, err = io.ReadFull(reader, value.Params_v)
+							_, err = reader.ReadFull(value.Params_v)
 							_ = value
 						}
 						value.Params[pseudoValue.Params_k] = pseudoValue.Params_v
@@ -1835,7 +1835,7 @@ func (value *ChallengeReq) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseChallengeReq(reader enc.ParseReader, ignoreCritical bool) (*ChallengeReq, error) {
+func ParseChallengeReq(reader enc.FastReader, ignoreCritical bool) (*ChallengeReq, error) {
 	context := ChallengeReqParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -2041,8 +2041,8 @@ func (encoder *ChallengeResEncoder) Encode(value *ChallengeRes) enc.Wire {
 	return wire
 }
 
-func (context *ChallengeResParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ChallengeRes, error) {
-	if reader == nil {
+func (context *ChallengeResParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ChallengeRes, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -2067,11 +2067,11 @@ func (context *ChallengeResParsingContext) Parse(reader enc.ParseReader, ignoreC
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -2104,7 +2104,7 @@ func (context *ChallengeResParsingContext) Parse(reader enc.ParseReader, ignoreC
 					handled_ChalStatus = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							tempStr := builder.String()
 							value.ChalStatus = &tempStr
@@ -2185,18 +2185,18 @@ func (context *ChallengeResParsingContext) Parse(reader enc.ParseReader, ignoreC
 							value := &pseudoValue
 							{
 								var builder strings.Builder
-								_, err = io.CopyN(&builder, reader, int64(l))
+								_, err = reader.CopyN(&builder, int64(l))
 								if err == nil {
 									value.Params_k = builder.String()
 								}
 							}
 							typ := enc.TLNum(0)
 							l := enc.TLNum(0)
-							typ, err = enc.ReadTLNum(reader)
+							typ, err = enc.ReadTLNumFast(reader)
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
-							l, err = enc.ReadTLNum(reader)
+							l, err = enc.ReadTLNumFast(reader)
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
@@ -2204,7 +2204,7 @@ func (context *ChallengeResParsingContext) Parse(reader enc.ParseReader, ignoreC
 								return nil, enc.ErrFailToParse{TypeNum: 133, Err: enc.ErrUnrecognizedField{TypeNum: typ}}
 							}
 							value.Params_v = make([]byte, l)
-							_, err = io.ReadFull(reader, value.Params_v)
+							_, err = reader.ReadFull(value.Params_v)
 							_ = value
 						}
 						value.Params[pseudoValue.Params_k] = pseudoValue.Params_v
@@ -2268,7 +2268,7 @@ func (value *ChallengeRes) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseChallengeRes(reader enc.ParseReader, ignoreCritical bool) (*ChallengeRes, error) {
+func ParseChallengeRes(reader enc.FastReader, ignoreCritical bool) (*ChallengeRes, error) {
 	context := ChallengeResParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -2323,8 +2323,8 @@ func (encoder *ErrorResEncoder) Encode(value *ErrorRes) enc.Wire {
 	return wire
 }
 
-func (context *ErrorResParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ErrorRes, error) {
-	if reader == nil {
+func (context *ErrorResParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ErrorRes, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -2344,11 +2344,11 @@ func (context *ErrorResParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -2381,7 +2381,7 @@ func (context *ErrorResParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 					handled_ErrInfo = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							value.ErrInfo = builder.String()
 						}
@@ -2429,7 +2429,7 @@ func (value *ErrorRes) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseErrorRes(reader enc.ParseReader, ignoreCritical bool) (*ErrorRes, error) {
+func ParseErrorRes(reader enc.FastReader, ignoreCritical bool) (*ErrorRes, error) {
 	context := ErrorResParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -2490,8 +2490,8 @@ func (encoder *NameContainerEncoder) Encode(value *NameContainer) enc.Wire {
 	return wire
 }
 
-func (context *NameContainerParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*NameContainer, error) {
-	if reader == nil {
+func (context *NameContainerParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*NameContainer, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -2510,11 +2510,11 @@ func (context *NameContainerParsingContext) Parse(reader enc.ParseReader, ignore
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -2526,7 +2526,7 @@ func (context *NameContainerParsingContext) Parse(reader enc.ParseReader, ignore
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadName(reader.Delegate(int(l)))
+					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -2567,7 +2567,7 @@ func (value *NameContainer) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseNameContainer(reader enc.ParseReader, ignoreCritical bool) (*NameContainer, error) {
+func ParseNameContainer(reader enc.FastReader, ignoreCritical bool) (*NameContainer, error) {
 	context := NameContainerParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)

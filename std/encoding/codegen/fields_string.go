@@ -61,7 +61,7 @@ func (f *StringField) GenReadFrom() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("{")
 	g.printlnf("var builder strings.Builder")
-	g.printlnf("_, err = io.CopyN(&builder, reader, int64(l))")
+	g.printlnf("_, err = reader.CopyN(&builder, int64(l))")
 	g.printlnf("if err == nil {")
 	if f.opt {
 		g.printlnf("tempStr := builder.String()")

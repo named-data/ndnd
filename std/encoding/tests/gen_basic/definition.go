@@ -68,7 +68,7 @@ func ParseMarkers(buf []byte, arg int) *Markers {
 		argument: arg,
 	}
 	cont.Init()
-	ret, err := cont.Parse(enc.NewBufferReader(buf), true)
+	ret, err := cont.Parse(enc.NewFastBufReader(buf), true)
 	if err == nil && cont.startMarker == 0 && cont.endMarker == len(buf) {
 		return ret
 	} else {

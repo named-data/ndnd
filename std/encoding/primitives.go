@@ -95,6 +95,36 @@ func ReadTLNum(r io.ByteReader) (val TLNum, err error) {
 	return
 }
 
+func ReadTLNumFast(r FastReader) (val TLNum, err error) {
+	var x byte
+	if x, err = r.ReadByte(); err != nil {
+		return
+	}
+	l := 1
+	switch {
+	case x <= 0xfc:
+		val = TLNum(x)
+		return
+	case x == 0xfd:
+		l = 2
+	case x == 0xfe:
+		l = 4
+	case x == 0xff:
+		l = 8
+	}
+	val = 0
+	for i := 0; i < l; i++ {
+		if x, err = r.ReadByte(); err != nil {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
+			return
+		}
+		val = TLNum(val<<8) | TLNum(x)
+	}
+	return
+}
+
 func (v Nat) EncodingLength() int {
 	switch x := uint64(v); {
 	case x <= 0xff:

@@ -237,6 +237,28 @@ func ReadComponent(r ParseReader) (Component, error) {
 	}, nil
 }
 
+func ReadComponentFast(r FastReader) (Component, error) {
+	typ, err := ReadTLNumFast(r)
+	if err != nil {
+		return Component{}, err
+	}
+	l, err := ReadTLNumFast(r)
+	if err != nil {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+		return Component{}, err
+	}
+	val, err := r.ReadBuf(int(l))
+	if err != nil {
+		return Component{}, err
+	}
+	return Component{
+		Typ: typ,
+		Val: val,
+	}, nil
+}
+
 func parseCompTypeFromStr(s string) (TLNum, compValFmt, error) {
 	if IsAlphabet(rune(s[0])) {
 		if conv, ok := compConvByStr[s]; ok {

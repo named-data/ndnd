@@ -319,7 +319,7 @@ func (Spec) MakeData(name enc.Name, config *ndn.DataConfig, content enc.Wire, si
 	}, nil
 }
 
-func (Spec) ReadData(reader enc.ParseReader) (ndn.Data, enc.Wire, error) {
+func (Spec) ReadData(reader enc.FastReader) (ndn.Data, enc.Wire, error) {
 	context := PacketParsingContext{}
 	context.Init()
 	ret, err := context.Parse(reader, false)
@@ -500,7 +500,7 @@ func checkInterest(val *Interest, context *InterestParsingContext) error {
 	return nil
 }
 
-func (Spec) ReadInterest(reader enc.ParseReader) (ndn.Interest, enc.Wire, error) {
+func (Spec) ReadInterest(reader enc.FastReader) (ndn.Interest, enc.Wire, error) {
 	context := PacketParsingContext{}
 	context.Init()
 	pkt, err := context.Parse(reader, false)
@@ -525,7 +525,7 @@ func (Spec) ReadInterest(reader enc.ParseReader) (ndn.Interest, enc.Wire, error)
 //	Postcondition: exactly one of Interest, Data, or LpPacket is returned.
 //
 // If precondition is not met, then postcondition is not required to hold. But the call won't crash.
-func ReadPacket(reader enc.ParseReader) (*Packet, *PacketParsingContext, error) {
+func ReadPacket(reader enc.FastReader) (*Packet, *PacketParsingContext, error) {
 	context := &PacketParsingContext{}
 	context.Init()
 	ret, err := context.Parse(reader, false)

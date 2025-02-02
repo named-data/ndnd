@@ -62,8 +62,8 @@ func (encoder *ManifestDigestEncoder) Encode(value *ManifestDigest) enc.Wire {
 	return wire
 }
 
-func (context *ManifestDigestParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ManifestDigest, error) {
-	if reader == nil {
+func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ManifestDigest, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -83,11 +83,11 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.ParseReader, ignor
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -119,7 +119,7 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.ParseReader, ignor
 					handled = true
 					handled_Digest = true
 					value.Digest = make([]byte, l)
-					_, err = io.ReadFull(reader, value.Digest)
+					_, err = reader.ReadFull(value.Digest)
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -163,7 +163,7 @@ func (value *ManifestDigest) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseManifestDigest(reader enc.ParseReader, ignoreCritical bool) (*ManifestDigest, error) {
+func ParseManifestDigest(reader enc.FastReader, ignoreCritical bool) (*ManifestDigest, error) {
 	context := ManifestDigestParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -277,8 +277,8 @@ func (encoder *ManifestDataEncoder) Encode(value *ManifestData) enc.Wire {
 	return wire
 }
 
-func (context *ManifestDataParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ManifestData, error) {
-	if reader == nil {
+func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ManifestData, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -297,11 +297,11 @@ func (context *ManifestDataParsingContext) Parse(reader enc.ParseReader, ignoreC
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -368,7 +368,7 @@ func (value *ManifestData) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseManifestData(reader enc.ParseReader, ignoreCritical bool) (*ManifestData, error) {
+func ParseManifestData(reader enc.FastReader, ignoreCritical bool) (*ManifestData, error) {
 	context := ManifestDataParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -545,8 +545,8 @@ func (encoder *MetaDataEncoder) Encode(value *MetaData) enc.Wire {
 	return wire
 }
 
-func (context *MetaDataParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*MetaData, error) {
-	if reader == nil {
+func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*MetaData, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -574,11 +574,11 @@ func (context *MetaDataParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -590,14 +590,14 @@ func (context *MetaDataParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadName(reader.Delegate(int(l)))
+					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
 				}
 			case 26:
 				if true {
 					handled = true
 					handled_FinalBlockID = true
 					value.FinalBlockID = make([]byte, l)
-					_, err = io.ReadFull(reader, value.FinalBlockID)
+					_, err = reader.ReadFull(value.FinalBlockID)
 				}
 			case 62720:
 				if true {
@@ -766,7 +766,7 @@ func (context *MetaDataParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 					handled_ObjectType = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							tempStr := builder.String()
 							value.ObjectType = &tempStr
@@ -839,7 +839,7 @@ func (value *MetaData) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseMetaData(reader enc.ParseReader, ignoreCritical bool) (*MetaData, error) {
+func ParseMetaData(reader enc.FastReader, ignoreCritical bool) (*MetaData, error) {
 	context := MetaDataParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)

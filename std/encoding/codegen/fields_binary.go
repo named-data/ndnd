@@ -45,7 +45,7 @@ func (f *BinaryField) GenEncodeInto() (string, error) {
 func (f *BinaryField) GenReadFrom() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("value.%s = make([]byte, l)", f.name)
-	g.printlnf("_, err = io.ReadFull(reader, value.%s)", f.name)
+	g.printlnf("_, err = reader.ReadFull(value.%s)", f.name)
 	return g.output()
 }
 

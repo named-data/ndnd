@@ -64,7 +64,7 @@ func (f *NameField) GenEncodeInto() (string, error) {
 }
 
 func (f *NameField) GenReadFrom() (string, error) {
-	const Temp = `value.{{.Name}}, err = enc.ReadName(reader.Delegate(int(l)))`
+	const Temp = `value.{{.Name}}, err = enc.ReadNameFast(reader.Delegate(int(l)))`
 	t := template.Must(template.New("NameEncodeInto").Parse(Temp))
 	var g strErrBuf
 	g.executeTemplate(t, f)

@@ -61,8 +61,8 @@ func (encoder *SvsDataEncoder) Encode(value *SvsData) enc.Wire {
 	return wire
 }
 
-func (context *SvsDataParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*SvsData, error) {
-	if reader == nil {
+func (context *SvsDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*SvsData, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -81,11 +81,11 @@ func (context *SvsDataParsingContext) Parse(reader enc.ParseReader, ignoreCritic
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -138,7 +138,7 @@ func (value *SvsData) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseSvsData(reader enc.ParseReader, ignoreCritical bool) (*SvsData, error) {
+func ParseSvsData(reader enc.FastReader, ignoreCritical bool) (*SvsData, error) {
 	context := SvsDataParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -252,8 +252,8 @@ func (encoder *StateVectorEncoder) Encode(value *StateVector) enc.Wire {
 	return wire
 }
 
-func (context *StateVectorParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*StateVector, error) {
-	if reader == nil {
+func (context *StateVectorParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*StateVector, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -272,11 +272,11 @@ func (context *StateVectorParsingContext) Parse(reader enc.ParseReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -343,7 +343,7 @@ func (value *StateVector) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseStateVector(reader enc.ParseReader, ignoreCritical bool) (*StateVector, error) {
+func ParseStateVector(reader enc.FastReader, ignoreCritical bool) (*StateVector, error) {
 	context := StateVectorParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -411,8 +411,8 @@ func (encoder *StateVectorEntryEncoder) Encode(value *StateVectorEntry) enc.Wire
 	return wire
 }
 
-func (context *StateVectorEntryParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*StateVectorEntry, error) {
-	if reader == nil {
+func (context *StateVectorEntryParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*StateVectorEntry, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -432,11 +432,11 @@ func (context *StateVectorEntryParsingContext) Parse(reader enc.ParseReader, ign
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -448,7 +448,7 @@ func (context *StateVectorEntryParsingContext) Parse(reader enc.ParseReader, ign
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadName(reader.Delegate(int(l)))
+					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
 				}
 			case 204:
 				if true {
@@ -511,7 +511,7 @@ func (value *StateVectorEntry) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseStateVectorEntry(reader enc.ParseReader, ignoreCritical bool) (*StateVectorEntry, error) {
+func ParseStateVectorEntry(reader enc.FastReader, ignoreCritical bool) (*StateVectorEntry, error) {
 	context := StateVectorEntryParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)

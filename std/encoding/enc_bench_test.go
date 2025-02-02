@@ -84,7 +84,7 @@ func decodeDataBench(b *testing.B, payloadSize, nameSize int) {
 
 	b.ResetTimer()
 	for i := 0; i < count; i++ {
-		p, _, err := spec.ReadPacket(enc.NewBufferReader(buffers[i]))
+		p, _, err := spec.ReadPacket(enc.NewFastBufReader(buffers[i]))
 		if err != nil || p.Data == nil {
 			b.Fatal(err)
 		}

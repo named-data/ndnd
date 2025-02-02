@@ -77,8 +77,8 @@ func (encoder *KeyLocatorEncoder) Encode(value *KeyLocator) enc.Wire {
 	return wire
 }
 
-func (context *KeyLocatorParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*KeyLocator, error) {
-	if reader == nil {
+func (context *KeyLocatorParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*KeyLocator, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -98,11 +98,11 @@ func (context *KeyLocatorParsingContext) Parse(reader enc.ParseReader, ignoreCri
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -114,14 +114,14 @@ func (context *KeyLocatorParsingContext) Parse(reader enc.ParseReader, ignoreCri
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadName(reader.Delegate(int(l)))
+					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
 				}
 			case 29:
 				if true {
 					handled = true
 					handled_KeyDigest = true
 					value.KeyDigest = make([]byte, l)
-					_, err = io.ReadFull(reader, value.KeyDigest)
+					_, err = reader.ReadFull(value.KeyDigest)
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -165,7 +165,7 @@ func (value *KeyLocator) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseKeyLocator(reader enc.ParseReader, ignoreCritical bool) (*KeyLocator, error) {
+func ParseKeyLocator(reader enc.FastReader, ignoreCritical bool) (*KeyLocator, error) {
 	context := KeyLocatorParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -280,8 +280,8 @@ func (encoder *LinksEncoder) Encode(value *Links) enc.Wire {
 	return wire
 }
 
-func (context *LinksParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*Links, error) {
-	if reader == nil {
+func (context *LinksParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Links, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -300,11 +300,11 @@ func (context *LinksParsingContext) Parse(reader enc.ParseReader, ignoreCritical
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -325,7 +325,7 @@ func (context *LinksParsingContext) Parse(reader enc.ParseReader, ignoreCritical
 						}{}
 						{
 							value := &pseudoValue
-							value.Names, err = enc.ReadName(reader.Delegate(int(l)))
+							value.Names, err = enc.ReadNameFast(reader.Delegate(int(l)))
 							_ = value
 						}
 						value.Names = append(value.Names, pseudoValue.Names)
@@ -371,7 +371,7 @@ func (value *Links) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLinks(reader enc.ParseReader, ignoreCritical bool) (*Links, error) {
+func ParseLinks(reader enc.FastReader, ignoreCritical bool) (*Links, error) {
 	context := LinksParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -447,8 +447,8 @@ func (encoder *MetaInfoEncoder) Encode(value *MetaInfo) enc.Wire {
 	return wire
 }
 
-func (context *MetaInfoParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*MetaInfo, error) {
-	if reader == nil {
+func (context *MetaInfoParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*MetaInfo, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -469,11 +469,11 @@ func (context *MetaInfoParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -533,7 +533,7 @@ func (context *MetaInfoParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 					handled = true
 					handled_FinalBlockID = true
 					value.FinalBlockID = make([]byte, l)
-					_, err = io.ReadFull(reader, value.FinalBlockID)
+					_, err = reader.ReadFull(value.FinalBlockID)
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -580,7 +580,7 @@ func (value *MetaInfo) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseMetaInfo(reader enc.ParseReader, ignoreCritical bool) (*MetaInfo, error) {
+func ParseMetaInfo(reader enc.FastReader, ignoreCritical bool) (*MetaInfo, error) {
 	context := MetaInfoParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -638,8 +638,8 @@ func (encoder *ValidityPeriodEncoder) Encode(value *ValidityPeriod) enc.Wire {
 	return wire
 }
 
-func (context *ValidityPeriodParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*ValidityPeriod, error) {
-	if reader == nil {
+func (context *ValidityPeriodParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ValidityPeriod, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -659,11 +659,11 @@ func (context *ValidityPeriodParsingContext) Parse(reader enc.ParseReader, ignor
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -677,7 +677,7 @@ func (context *ValidityPeriodParsingContext) Parse(reader enc.ParseReader, ignor
 					handled_NotBefore = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							value.NotBefore = builder.String()
 						}
@@ -689,7 +689,7 @@ func (context *ValidityPeriodParsingContext) Parse(reader enc.ParseReader, ignor
 					handled_NotAfter = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							value.NotAfter = builder.String()
 						}
@@ -737,7 +737,7 @@ func (value *ValidityPeriod) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseValidityPeriod(reader enc.ParseReader, ignoreCritical bool) (*ValidityPeriod, error) {
+func ParseValidityPeriod(reader enc.FastReader, ignoreCritical bool) (*ValidityPeriod, error) {
 	context := ValidityPeriodParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -795,8 +795,8 @@ func (encoder *CertDescriptionEntryEncoder) Encode(value *CertDescriptionEntry) 
 	return wire
 }
 
-func (context *CertDescriptionEntryParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*CertDescriptionEntry, error) {
-	if reader == nil {
+func (context *CertDescriptionEntryParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*CertDescriptionEntry, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -816,11 +816,11 @@ func (context *CertDescriptionEntryParsingContext) Parse(reader enc.ParseReader,
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -834,7 +834,7 @@ func (context *CertDescriptionEntryParsingContext) Parse(reader enc.ParseReader,
 					handled_DescriptionKey = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							value.DescriptionKey = builder.String()
 						}
@@ -846,7 +846,7 @@ func (context *CertDescriptionEntryParsingContext) Parse(reader enc.ParseReader,
 					handled_DescriptionValue = true
 					{
 						var builder strings.Builder
-						_, err = io.CopyN(&builder, reader, int64(l))
+						_, err = reader.CopyN(&builder, int64(l))
 						if err == nil {
 							value.DescriptionValue = builder.String()
 						}
@@ -894,7 +894,7 @@ func (value *CertDescriptionEntry) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseCertDescriptionEntry(reader enc.ParseReader, ignoreCritical bool) (*CertDescriptionEntry, error) {
+func ParseCertDescriptionEntry(reader enc.FastReader, ignoreCritical bool) (*CertDescriptionEntry, error) {
 	context := CertDescriptionEntryParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1009,8 +1009,8 @@ func (encoder *CertAdditionalDescriptionEncoder) Encode(value *CertAdditionalDes
 	return wire
 }
 
-func (context *CertAdditionalDescriptionParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*CertAdditionalDescription, error) {
-	if reader == nil {
+func (context *CertAdditionalDescriptionParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*CertAdditionalDescription, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1029,11 +1029,11 @@ func (context *CertAdditionalDescriptionParsingContext) Parse(reader enc.ParseRe
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1100,7 +1100,7 @@ func (value *CertAdditionalDescription) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseCertAdditionalDescription(reader enc.ParseReader, ignoreCritical bool) (*CertAdditionalDescription, error) {
+func ParseCertAdditionalDescription(reader enc.FastReader, ignoreCritical bool) (*CertAdditionalDescription, error) {
 	context := CertAdditionalDescriptionParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1251,8 +1251,8 @@ func (encoder *SignatureInfoEncoder) Encode(value *SignatureInfo) enc.Wire {
 	return wire
 }
 
-func (context *SignatureInfoParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*SignatureInfo, error) {
-	if reader == nil {
+func (context *SignatureInfoParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*SignatureInfo, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1277,11 +1277,11 @@ func (context *SignatureInfoParsingContext) Parse(reader enc.ParseReader, ignore
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1319,7 +1319,7 @@ func (context *SignatureInfoParsingContext) Parse(reader enc.ParseReader, ignore
 					handled = true
 					handled_SignatureNonce = true
 					value.SignatureNonce = make([]byte, l)
-					_, err = io.ReadFull(reader, value.SignatureNonce)
+					_, err = reader.ReadFull(value.SignatureNonce)
 				}
 			case 40:
 				if true {
@@ -1437,7 +1437,7 @@ func (value *SignatureInfo) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseSignatureInfo(reader enc.ParseReader, ignoreCritical bool) (*SignatureInfo, error) {
+func ParseSignatureInfo(reader enc.FastReader, ignoreCritical bool) (*SignatureInfo, error) {
 	context := SignatureInfoParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1485,8 +1485,8 @@ func (encoder *NetworkNackEncoder) Encode(value *NetworkNack) enc.Wire {
 	return wire
 }
 
-func (context *NetworkNackParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*NetworkNack, error) {
-	if reader == nil {
+func (context *NetworkNackParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*NetworkNack, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1505,11 +1505,11 @@ func (context *NetworkNackParsingContext) Parse(reader enc.ParseReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1575,7 +1575,7 @@ func (value *NetworkNack) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseNetworkNack(reader enc.ParseReader, ignoreCritical bool) (*NetworkNack, error) {
+func ParseNetworkNack(reader enc.FastReader, ignoreCritical bool) (*NetworkNack, error) {
 	context := NetworkNackParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1623,8 +1623,8 @@ func (encoder *CachePolicyEncoder) Encode(value *CachePolicy) enc.Wire {
 	return wire
 }
 
-func (context *CachePolicyParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*CachePolicy, error) {
-	if reader == nil {
+func (context *CachePolicyParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*CachePolicy, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -1643,11 +1643,11 @@ func (context *CachePolicyParsingContext) Parse(reader enc.ParseReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1713,7 +1713,7 @@ func (value *CachePolicy) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseCachePolicy(reader enc.ParseReader, ignoreCritical bool) (*CachePolicy, error) {
+func ParseCachePolicy(reader enc.FastReader, ignoreCritical bool) (*CachePolicy, error) {
 	context := CachePolicyParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -2079,8 +2079,8 @@ func (encoder *LpPacketEncoder) Encode(value *LpPacket) enc.Wire {
 	return wire
 }
 
-func (context *LpPacketParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*LpPacket, error) {
-	if reader == nil {
+func (context *LpPacketParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LpPacket, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -2112,11 +2112,11 @@ func (context *LpPacketParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -2198,7 +2198,7 @@ func (context *LpPacketParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 					handled = true
 					handled_PitToken = true
 					value.PitToken = make([]byte, l)
-					_, err = io.ReadFull(reader, value.PitToken)
+					_, err = reader.ReadFull(value.PitToken)
 				}
 			case 800:
 				if true {
@@ -2775,8 +2775,8 @@ func (encoder *InterestEncoder) Encode(value *Interest) enc.Wire {
 	return wire
 }
 
-func (context *InterestParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*Interest, error) {
-	if reader == nil {
+func (context *InterestParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Interest, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -2809,11 +2809,11 @@ func (context *InterestParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -2838,8 +2838,8 @@ func (context *InterestParsingContext) Parse(reader enc.ParseReader, ignoreCriti
 								value.NameV = value.NameV[:j]
 								break
 							}
-							value.NameV[j].Typ, err1 = enc.ReadTLNum(reader)
-							l, err2 := enc.ReadTLNum(reader)
+							value.NameV[j].Typ, err1 = enc.ReadTLNumFast(reader)
+							l, err2 := enc.ReadTLNumFast(reader)
 							value.NameV[j].Val, err3 = reader.ReadBuf(int(l))
 							if err1 != nil || err2 != nil || err3 != nil {
 								err = io.ErrUnexpectedEOF
@@ -3310,8 +3310,8 @@ func (encoder *DataEncoder) Encode(value *Data) enc.Wire {
 	return wire
 }
 
-func (context *DataParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*Data, error) {
-	if reader == nil {
+func (context *DataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Data, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -3336,11 +3336,11 @@ func (context *DataParsingContext) Parse(reader enc.ParseReader, ignoreCritical 
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -3352,7 +3352,7 @@ func (context *DataParsingContext) Parse(reader enc.ParseReader, ignoreCritical 
 				if progress+1 == 2 {
 					handled = true
 					handled_NameV = true
-					value.NameV, err = enc.ReadName(reader.Delegate(int(l)))
+					value.NameV, err = enc.ReadNameFast(reader.Delegate(int(l)))
 				}
 			case 20:
 				if progress+1 == 3 {
@@ -3683,8 +3683,8 @@ func (encoder *PacketEncoder) Encode(value *Packet) enc.Wire {
 	return wire
 }
 
-func (context *PacketParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*Packet, error) {
-	if reader == nil {
+func (context *PacketParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Packet, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -3705,11 +3705,11 @@ func (context *PacketParsingContext) Parse(reader enc.ParseReader, ignoreCritica
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}

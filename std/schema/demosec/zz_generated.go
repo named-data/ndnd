@@ -144,8 +144,8 @@ func (encoder *EncryptedContentEncoder) Encode(value *EncryptedContent) enc.Wire
 	return wire
 }
 
-func (context *EncryptedContentParsingContext) Parse(reader enc.ParseReader, ignoreCritical bool) (*EncryptedContent, error) {
-	if reader == nil {
+func (context *EncryptedContentParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*EncryptedContent, error) {
+	if !reader.IsValid() {
 		return nil, enc.ErrBufferOverflow
 	}
 
@@ -167,11 +167,11 @@ func (context *EncryptedContentParsingContext) Parse(reader enc.ParseReader, ign
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNum(reader)
+		typ, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNum(reader)
+		l, err = enc.ReadTLNumFast(reader)
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -184,14 +184,14 @@ func (context *EncryptedContentParsingContext) Parse(reader enc.ParseReader, ign
 					handled = true
 					handled_KeyId = true
 					value.KeyId = make([]byte, l)
-					_, err = io.ReadFull(reader, value.KeyId)
+					_, err = reader.ReadFull(value.KeyId)
 				}
 			case 132:
 				if true {
 					handled = true
 					handled_Iv = true
 					value.Iv = make([]byte, l)
-					_, err = io.ReadFull(reader, value.Iv)
+					_, err = reader.ReadFull(value.Iv)
 				}
 			case 134:
 				if true {
@@ -266,7 +266,7 @@ func (value *EncryptedContent) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseEncryptedContent(reader enc.ParseReader, ignoreCritical bool) (*EncryptedContent, error) {
+func ParseEncryptedContent(reader enc.FastReader, ignoreCritical bool) (*EncryptedContent, error) {
 	context := EncryptedContentParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
