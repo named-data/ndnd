@@ -16,7 +16,7 @@ type LvsSchema struct {
 }
 
 func NewLvsSchema(buf []byte) (*LvsSchema, error) {
-	model, err := ParseLvsModel(enc.NewBufferReader(buf), false)
+	model, err := ParseLvsModel(enc.NewFastBufReader(buf), false)
 	if err != nil {
 		return nil, err
 	}

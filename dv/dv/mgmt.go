@@ -102,7 +102,7 @@ func (dv *Router) mgmtOnRib(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	params, err := mgmt.ParseControlParameters(enc.NewBufferReader(advC.Val), false)
+	params, err := mgmt.ParseControlParameters(enc.NewFastBufReader(advC.Val), false)
 	if err != nil || params.Val == nil || params.Val.Name == nil {
 		log.Warn(dv, "Failed to parse readvertised name", "err", err)
 		return

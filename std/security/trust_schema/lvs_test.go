@@ -117,7 +117,7 @@ func sname(n string) enc.Name {
 func TestParseModel(t *testing.T) {
 	tu.SetT(t)
 
-	m, err := trust_schema.ParseLvsModel(enc.NewBufferReader(TEST_MODEL), false)
+	m, err := trust_schema.ParseLvsModel(enc.NewFastBufReader(TEST_MODEL), false)
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(0x00011000), m.Version)

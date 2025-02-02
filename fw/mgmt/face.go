@@ -484,7 +484,7 @@ func (f *FaceModule) query(interest *Interest) {
 		core.Log.Warn(f, "Missing FaceQueryFilter", "name", interest.Name())
 		return
 	}
-	filterV, err := mgmt.ParseFaceQueryFilter(enc.NewBufferReader(interest.Name()[len(LOCAL_PREFIX)+2].Val), true)
+	filterV, err := mgmt.ParseFaceQueryFilter(enc.NewFastBufReader(interest.Name()[len(LOCAL_PREFIX)+2].Val), true)
 	if err != nil || filterV == nil || filterV.Val == nil {
 		return
 	}

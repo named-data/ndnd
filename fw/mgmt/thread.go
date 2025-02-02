@@ -99,7 +99,7 @@ func (m *Thread) Run() {
 			continue
 		}
 
-		pkt, _, err := spec.ReadPacket(enc.NewWireReader(lpPkt.Fragment))
+		pkt, _, err := spec.ReadPacket(enc.NewFastReader(lpPkt.Fragment))
 		if err != nil {
 			core.Log.Warn(m, "Unable to decode internal packet - DROP", "err", err)
 			continue

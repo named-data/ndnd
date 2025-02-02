@@ -33,7 +33,7 @@ type Client struct {
 //	signer: signer for the client
 func NewClient(engine ndn.Engine, caCert []byte) (*Client, error) {
 	// Decode CA certificate
-	cert, _, err := engine.Spec().ReadData(enc.NewBufferReader(caCert))
+	cert, _, err := engine.Spec().ReadData(enc.NewFastBufReader(caCert))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
 	}

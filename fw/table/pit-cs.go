@@ -242,7 +242,7 @@ func (bce *baseCsEntry) Copy() (*spec.Data, []byte, error) {
 	wire := make([]byte, len(bce.wire))
 	copy(wire, bce.wire)
 
-	data, _, err := spec.ReadPacket(enc.NewBufferReader(wire))
+	data, _, err := spec.ReadPacket(enc.NewFastBufReader(wire))
 	if err != nil {
 		return nil, nil, err
 	}

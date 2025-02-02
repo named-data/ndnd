@@ -23,7 +23,7 @@ func testValidateSelfSigned(t *testing.T, certB64 string) {
 
 	// Helper to test the signature validation result
 	test := func(result bool) {
-		certData, sigCov, err := spec.Spec{}.ReadData(enc.NewBufferReader(certWire))
+		certData, sigCov, err := spec.Spec{}.ReadData(enc.NewFastBufReader(certWire))
 		require.NoError(t, err)
 		require.Equal(t, result, tu.NoErr(sig.ValidateData(certData, sigCov, certData)))
 	}
@@ -111,7 +111,7 @@ func testSignSize(t *testing.T, rsaSize int) {
 	require.NoError(t, err)
 
 	// Decode data packet
-	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireReader(encData.Wire))
+	data, sigCov, err := spec.Spec{}.ReadData(enc.NewFastReader(encData.Wire))
 	require.NoError(t, err)
 
 	// Validate the signature
@@ -128,7 +128,7 @@ func testSignSize(t *testing.T, rsaSize int) {
 	require.NoError(t, err)
 
 	// Decode signed interest
-	interest, sigCov, err := spec.Spec{}.ReadInterest(enc.NewWireReader(encInterest.Wire))
+	interest, sigCov, err := spec.Spec{}.ReadInterest(enc.NewFastReader(encInterest.Wire))
 	require.NoError(t, err)
 
 	// Validate the signature

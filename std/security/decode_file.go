@@ -32,7 +32,7 @@ func DecodeFile(content []byte) (signers []ndn.Signer, certs [][]byte, err error
 	}
 
 	for _, wire := range wires {
-		data, _, err := spec.Spec{}.ReadData(enc.NewBufferReader(wire))
+		data, _, err := spec.Spec{}.ReadData(enc.NewFastBufReader(wire))
 		if err != nil {
 			log.Warn(nil, "Failed to read keychain entry", "err", err)
 			continue

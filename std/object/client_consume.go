@@ -225,7 +225,7 @@ func (c *Client) fetchMetadata(
 				}
 
 				// parse metadata
-				metadata, err := rdr.ParseMetaData(enc.NewWireReader(args.Data.Content()), false)
+				metadata, err := rdr.ParseMetaData(enc.NewFastReader(args.Data.Content()), false)
 				if err != nil {
 					callback(nil, fmt.Errorf("consume: failed to parse object metadata (%v)", err))
 					return

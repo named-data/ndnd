@@ -500,7 +500,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	interest1 := makeInterest(name1)
 	interest1.CanBePrefixV = false
 
-	pkt, _, _ := spec.ReadPacket(enc.NewBufferReader(VALID_DATA_1))
+	pkt, _, _ := spec.ReadPacket(enc.NewFastBufReader(VALID_DATA_1))
 	data1 := pkt.Data
 
 	pitCS.InsertData(data1, VALID_DATA_1)
@@ -522,7 +522,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	interest2 := makeInterest(name2)
 	interest2.CanBePrefixV = false
 
-	pkt, _, _ = spec.ReadPacket(enc.NewBufferReader(VALID_DATA_2))
+	pkt, _, _ = spec.ReadPacket(enc.NewFastBufReader(VALID_DATA_2))
 	data2 := pkt.Data
 
 	pitCS.InsertData(data2, VALID_DATA_2)

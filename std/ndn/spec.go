@@ -13,9 +13,9 @@ type Spec interface {
 	// MakeData creates an Interest packet, returns an encoded InterestContainer
 	MakeInterest(name enc.Name, config *InterestConfig, appParam enc.Wire, signer Signer) (*EncodedInterest, error)
 	// ReadData reads and parses a Data from the reader, returns the Data, signature covered parts, and error.
-	ReadData(reader enc.ParseReader) (Data, enc.Wire, error)
+	ReadData(reader enc.FastReader) (Data, enc.Wire, error)
 	// ReadData reads and parses an Interest from the reader, returns the Data, signature covered parts, and error.
-	ReadInterest(reader enc.ParseReader) (Interest, enc.Wire, error)
+	ReadInterest(reader enc.FastReader) (Interest, enc.Wire, error)
 }
 
 // Interest is the abstract of a received Interest packet

@@ -202,7 +202,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	}
 	if len(certBytes) > 0 {
 		// Attempt to parse the certificate
-		args.cert, args.certSigCov, err = spec.Spec{}.ReadData(enc.NewBufferReader(certBytes))
+		args.cert, args.certSigCov, err = spec.Spec{}.ReadData(enc.NewFastBufReader(certBytes))
 		if err != nil {
 			log.Error(nil, "Failed to parse certificate in store", "err", err)
 			args.cert = nil

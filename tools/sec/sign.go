@@ -81,7 +81,7 @@ func (t *ToolSignCert) signCert(_ *cobra.Command, args []string) {
 	}
 	csrDataBytes := csrDatasBytes[0]
 
-	csr, _, err := spec.Spec{}.ReadData(enc.NewBufferReader(csrDataBytes))
+	csr, _, err := spec.Spec{}.ReadData(enc.NewFastBufReader(csrDataBytes))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to read CSR: %s\n", err)
 		os.Exit(1)

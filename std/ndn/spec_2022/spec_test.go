@@ -159,7 +159,7 @@ func TestReadDataBasic(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
 
-	data, covered, err := spec.ReadData(enc.NewBufferReader([]byte(
+	data, covered, err := spec.ReadData(enc.NewFastBufReader([]byte(
 		"\x06\x42\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x14\x03\x18\x01\x00" +
 			"\x16\x03\x1b\x01\x00" +
@@ -180,7 +180,7 @@ func TestReadDataBasic(t *testing.T) {
 	sig := h.Sum(nil)
 	require.Equal(t, sig, data.Signature().SigValue())
 
-	data, covered, err = spec.ReadData(enc.NewBufferReader([]byte(
+	data, covered, err = spec.ReadData(enc.NewFastBufReader([]byte(
 		"\x06L\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x14\x03\x18\x01\x00" +
 			"\x15\x0801020304" +
@@ -202,7 +202,7 @@ func TestReadDataBasic(t *testing.T) {
 	sig = h.Sum(nil)
 	require.Equal(t, sig, data.Signature().SigValue())
 
-	data, _, err = spec.ReadData(enc.NewBufferReader([]byte(
+	data, _, err = spec.ReadData(enc.NewFastBufReader([]byte(
 		"\x06\x1b\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x14\x03\x18\x01\x00"),
 	))
@@ -215,7 +215,7 @@ func TestReadDataBasic(t *testing.T) {
 	require.True(t, data.Content() == nil)
 	require.True(t, data.Signature().SigValue() == nil)
 
-	data, covered, err = spec.ReadData(enc.NewBufferReader(tu.NoErr(hex.DecodeString(
+	data, covered, err = spec.ReadData(enc.NewFastBufReader(tu.NoErr(hex.DecodeString(
 		"06300703080145" +
 			"1400150016031b0100" +
 			"1720f965ee682c6973c3cbaa7b69e4c7063680f83be93a46be2ccc98686134354b66"),
@@ -239,7 +239,7 @@ func TestReadDataMetaInfo(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
 
-	data, covered, err := spec.ReadData(enc.NewBufferReader([]byte(
+	data, covered, err := spec.ReadData(enc.NewFastBufReader([]byte(
 		"\x06\x4e\x07\x17\x08\x05local\x08\x03ndn\x08\x06prefix\x25\x01\x00" +
 			"\x14\x0c\x18\x01\x00\x19\x02\x03\xe8\x1a\x03\x3a\x01\x02" +
 			"\x16\x03\x1b\x01\x00" +
@@ -337,7 +337,7 @@ func TestMakeIntLargeAppParam(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	interest, _, err := spec.ReadInterest(enc.NewWireReader(encoded.Wire))
+	interest, _, err := spec.ReadInterest(enc.NewFastReader(encoded.Wire))
 	require.NoError(t, err)
 	require.Equal(t, appParam, interest.AppParam().Join())
 	require.True(t, interest.Name().Equal(encoded.FinalName))
@@ -421,7 +421,7 @@ func TestReadIntBasic(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
 
-	interest, _, err := spec.ReadInterest(enc.NewBufferReader([]byte(
+	interest, _, err := spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x1a\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix\x0c\x02\x0f\xa0"),
 	))
 	require.NoError(t, err)
@@ -434,7 +434,7 @@ func TestReadIntBasic(t *testing.T) {
 	require.True(t, interest.HopLimit() == nil)
 	require.True(t, interest.Signature().SigType() == ndn.SignatureNone)
 
-	interest, _, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	interest, _, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x26\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x21\x00\x12\x00\x0a\x04\x00\x00\x00\x00\x0c\x01\x0a\x22\x01\x01"),
 	))
@@ -448,7 +448,7 @@ func TestReadIntBasic(t *testing.T) {
 	require.Equal(t, uint(1), *interest.HopLimit())
 	require.True(t, interest.Signature().SigType() == ndn.SignatureNone)
 
-	interest, _, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	interest, _, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x42\x07\x36\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x02 \x47\x75\x6f\x21\xfe\x0e\xe2\x65\x14\x9a\xa2\xbe\x3c\x63\xc5\x38" +
 			"\xa7\x23\x78\xe9\xb0\xa5\x8b\x39\xc5\x91\x63\x67\xd3\x5b\xda\x10" +
@@ -465,7 +465,7 @@ func TestReadIntBasic(t *testing.T) {
 	require.True(t, interest.Signature().SigType() == ndn.SignatureNone)
 
 	// Reject wrong digest
-	_, _, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	_, _, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x42\x07\x36\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x02 \x47\x75\x6f\x21\xfe\x0e\xe2\x65\x14\x9a\xa2\xbe\x3c\x63\xc5\x38" +
 			"\xa7\x23\x78\xe9\xb0\xa5\x8b\x39\xc5\x91\x63\x67\xd3\x5b\x00\x00" +
@@ -474,7 +474,7 @@ func TestReadIntBasic(t *testing.T) {
 	require.Error(t, err)
 
 	var covered enc.Wire
-	interest, covered, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	interest, covered, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x6f\x07\x36\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x02 \x8e\x6e\x36\xd7\xea\xbc\xde\x43\x75\x61\x40\xc9\x0b\xda\x09\xd5" +
 			"\x00\xd2\xa5\x77\xf2\xf5\x33\xb5\x69\xf0\x44\x1d\xf0\xa7\xf9\xe2" +
@@ -498,7 +498,7 @@ func TestReadIntBasic(t *testing.T) {
 	sig := h.Sum(nil)
 	require.Equal(t, sig, interest.Signature().SigValue())
 
-	interest, covered, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	interest, covered, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x6b\x07\x36\x08\x05local\x08\x03ndn\x08\x06prefix" +
 			"\x02 \x40\x77\xa5\x70\x49\xd8\x38\x48\xb5\x25\xa4\x23\xab\x97\x8e\x64" +
 			"\x80\xf9\x6d\x5c\xa3\x8a\x80\xa5\xe2\xd6\xe2\x50\xa6\x17\xbe\x4f" +
@@ -527,22 +527,22 @@ func TestReadIntErrors(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
 
-	_, _, err := spec.ReadInterest(enc.NewBufferReader([]byte(
+	_, _, err := spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x6b\x07\x36\x08\x05local\x08\x03ndn\x08\x06prefix"),
 	))
 	require.Error(t, err)
 
-	_, _, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	_, _, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x05\x6b\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix"),
 	))
 	require.Error(t, err)
 
-	_, _, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	_, _, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x06\x6b\x07\x36\x08\x05local\x08\x03ndn\x08\x06prefix"),
 	))
 	require.Error(t, err)
 
-	_, _, err = spec.ReadInterest(enc.NewBufferReader([]byte(
+	_, _, err = spec.ReadInterest(enc.NewFastBufReader([]byte(
 		"\x01\x00"),
 	))
 	require.Error(t, err)

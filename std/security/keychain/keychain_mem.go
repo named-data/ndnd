@@ -82,7 +82,7 @@ func (kc *KeyChainMem) InsertKey(signer ndn.Signer) error {
 }
 
 func (kc *KeyChainMem) InsertCert(wire []byte) error {
-	data, _, err := spec.Spec{}.ReadData(enc.NewBufferReader(wire))
+	data, _, err := spec.Spec{}.ReadData(enc.NewFastBufReader(wire))
 	if err != nil {
 		return err
 	}

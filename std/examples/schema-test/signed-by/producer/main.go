@@ -128,7 +128,7 @@ func main() {
 		return
 	}
 	spec := spec_2022.Spec{}
-	trustAnchorData, _, _ := spec.ReadData(enc.NewBufferReader(trustAnchorBuf))
+	trustAnchorData, _, _ := spec.ReadData(enc.NewFastBufReader(trustAnchorBuf))
 
 	// Issue producer key (signed by the trust anchor)
 	producerKeyName := enc.Name{

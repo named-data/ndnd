@@ -25,7 +25,7 @@ func (t *Tool) ExecStrategyList(_ *cobra.Command, args []string) {
 		return
 	}
 
-	status, err := mgmt.ParseStrategyChoiceMsg(enc.NewWireReader(data), true)
+	status, err := mgmt.ParseStrategyChoiceMsg(enc.NewFastReader(data), true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing strategy list: %+v\n", err)
 		os.Exit(1)

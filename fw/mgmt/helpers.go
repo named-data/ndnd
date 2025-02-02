@@ -15,7 +15,7 @@ import (
 
 func decodeControlParameters(m Module, interest *Interest) *mgmt.ControlArgs {
 	paramVal := interest.Name()[len(LOCAL_PREFIX)+2].Val
-	params, err := mgmt.ParseControlParameters(enc.NewBufferReader(paramVal), true)
+	params, err := mgmt.ParseControlParameters(enc.NewFastBufReader(paramVal), true)
 	if err != nil {
 		core.Log.Warn(m, "Could not decode ControlParameters", "name", interest.Name(), "err", err)
 		return nil

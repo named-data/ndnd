@@ -360,7 +360,7 @@ func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 	}
 
 	// Decode Sync Data
-	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireReader(interest.AppParam()))
+	data, sigCov, err := spec.Spec{}.ReadData(enc.NewFastReader(interest.AppParam()))
 	if err != nil {
 		log.Warn(s, "onSyncInterest failed to parse SyncData", "err", err)
 		return
@@ -375,7 +375,7 @@ func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 
 		// Decode state vector
 		svWire := data.Content().Join()
-		params, err := spec_svs.ParseSvsData(enc.NewBufferReader(svWire), false)
+		params, err := spec_svs.ParseSvsData(enc.NewFastBufReader(svWire), false)
 		if err != nil || params.StateVector == nil {
 			log.Warn(s, "onSyncInterest failed to parse StateVec", "err", err)
 			return

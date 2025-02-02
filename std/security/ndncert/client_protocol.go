@@ -32,7 +32,7 @@ func (c *Client) FetchProfile() (*tlv.CaProfile, error) {
 		return nil, err
 	}
 
-	return tlv.ParseCaProfile(enc.NewWireReader(state.Content()), false)
+	return tlv.ParseCaProfile(enc.NewFastReader(state.Content()), false)
 }
 
 // FetchProbe sends a PROBE request to the CA (blocking).
@@ -68,7 +68,7 @@ func (c *Client) FetchProbe(params ParamMap) (*tlv.ProbeRes, error) {
 		return nil, err
 	}
 
-	return tlv.ParseProbeRes(enc.NewWireReader(content), false)
+	return tlv.ParseProbeRes(enc.NewFastReader(content), false)
 }
 
 // FetchProbeRedirect sends a PROBE request to the CA (blocking).
@@ -168,7 +168,7 @@ func (c *Client) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error)
 		return nil, fmt.Errorf("failed NEW: %+v", err)
 	}
 
-	newRes, err := tlv.ParseNewRes(enc.NewWireReader(content), false)
+	newRes, err := tlv.ParseNewRes(enc.NewFastReader(content), false)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (c *Client) Challenge(
 		return nil, fmt.Errorf("failed CHALLENGE: %+v", err)
 	}
 
-	chResEnc, err := tlv.ParseCipherMsg(enc.NewWireReader(content), false)
+	chResEnc, err := tlv.ParseCipherMsg(enc.NewFastReader(content), false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CHALLENGE cipher response: %w", err)
 	}
@@ -282,7 +282,7 @@ func (c *Client) Challenge(
 		return nil, fmt.Errorf("failed to decrypt CHALLENGE response: %w", err)
 	}
 
-	chRes, err := tlv.ParseChallengeRes(enc.NewBufferReader(chResBytes), false)
+	chRes, err := tlv.ParseChallengeRes(enc.NewFastBufReader(chResBytes), false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CHALLENGE response: %w", err)
 	}

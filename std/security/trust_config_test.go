@@ -80,7 +80,7 @@ func sname(n string) enc.Name {
 
 // Helper to sign a certificate
 func signCert(signer ndn.Signer, wire enc.Wire) (enc.Wire, ndn.Data) {
-	data, _, _ := spec.Spec{}.ReadData(enc.NewWireReader(wire))
+	data, _, _ := spec.Spec{}.ReadData(enc.NewFastReader(wire))
 	cert, _ := sec.SignCert(sec.SignCertArgs{
 		Signer:    signer,
 		Data:      data,
@@ -88,7 +88,7 @@ func signCert(signer ndn.Signer, wire enc.Wire) (enc.Wire, ndn.Data) {
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour),
 	})
-	certData, _, _ := spec.Spec{}.ReadData(enc.NewWireReader(cert))
+	certData, _, _ := spec.Spec{}.ReadData(enc.NewFastReader(cert))
 	return cert, certData
 }
 
@@ -174,7 +174,7 @@ func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema
 		fetchCount++
 		for certName, certWire := range network {
 			if strings.HasPrefix(certName, name.String()) {
-				data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireReader(certWire))
+				data, sigCov, err := spec.Spec{}.ReadData(enc.NewFastReader(certWire))
 				callback(ndn.ExpressCallbackArgs{
 					Result:     ndn.InterestResultData,
 					Data:       data,
@@ -213,7 +213,7 @@ func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema
 		content := enc.Wire{[]byte{0x01, 0x02, 0x03}}
 		dataW, err := spec.Spec{}.MakeData(sname(name), &ndn.DataConfig{}, content, signer)
 		require.NoError(t, err)
-		data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireReader(dataW.Wire))
+		data, sigCov, err := spec.Spec{}.ReadData(enc.NewFastReader(dataW.Wire))
 		require.NoError(t, err)
 		ch := make(chan bool)
 		go trust.Validate(sec.TrustConfigValidateArgs{

@@ -201,7 +201,7 @@ func (n *ExpressPoint) NeedCallback(
 	if (!ok || signer == nil) && appParam == nil {
 		cachedData := n.SearchCache(event)
 		if cachedData != nil {
-			data, sigCovered, err := spec.ReadData(enc.NewWireReader(cachedData))
+			data, sigCovered, err := spec.ReadData(enc.NewFastReader(cachedData))
 			if err == nil {
 				dataMatch := mNode.Refine(data.Name())
 				cbEvt := &Event{

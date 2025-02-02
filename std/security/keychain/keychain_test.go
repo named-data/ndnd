@@ -42,7 +42,7 @@ var CERT_ROOT_NAME, _ = enc.NameFromStr("/ndn/KEY/%27%C4%B2%2A%9F%7B%81%27/ndn/v
 var KEY_ALICE_NAME, _ = enc.NameFromStr("/ndn/alice/KEY/X%DC%B6%FAg%29%A4%82")
 
 func signCert(t *testing.T, signer ndn.Signer) []byte {
-	certData, _, _ := spec.Spec{}.ReadData(enc.NewWireReader(
+	certData, _, _ := spec.Spec{}.ReadData(enc.NewFastReader(
 		tu.NoErr(sig.MarshalSecret(signer))))
 	cert, err := sec.SignCert(sec.SignCertArgs{
 		Signer:    signer,

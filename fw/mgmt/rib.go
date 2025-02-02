@@ -179,7 +179,7 @@ func (r *RIBModule) announce(interest *Interest) {
 		return
 	}
 
-	data, _, err := spec.Spec{}.ReadData(enc.NewWireReader(appParam))
+	data, _, err := spec.Spec{}.ReadData(enc.NewFastReader(appParam))
 	if err != nil {
 		r.manager.sendCtrlResp(interest, 400, "PrefixAnnouncement is invalid", nil)
 		return

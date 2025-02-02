@@ -27,7 +27,7 @@ func (t *Tool) ExecStatusGeneral(_ *cobra.Command, args []string) {
 		return
 	}
 
-	status, err := mgmt.ParseGeneralStatus(enc.NewWireReader(data), true)
+	status, err := mgmt.ParseGeneralStatus(enc.NewFastReader(data), true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing general status: %+v\n", err)
 		os.Exit(1)

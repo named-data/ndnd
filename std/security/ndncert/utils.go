@@ -15,7 +15,7 @@ import (
 
 // IsError checks if a packet contains an NDNCERT error.
 func IsError(wire enc.Wire) error {
-	msg, _ := tlv.ParseErrorRes(enc.NewWireReader(wire), true)
+	msg, _ := tlv.ParseErrorRes(enc.NewFastReader(wire), true)
 	if msg == nil || msg.ErrCode == 0 {
 		return nil
 	}

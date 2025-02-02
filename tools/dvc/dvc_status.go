@@ -41,7 +41,7 @@ func (t *Tool) DvStatus() (*spec_dv.Status, error) {
 		return nil, fmt.Errorf("interest failed: %s", eargs.Result)
 	}
 
-	status, err := spec_dv.ParseStatus(enc.NewWireReader(eargs.Data.Content()), false)
+	status, err := spec_dv.ParseStatus(enc.NewFastReader(eargs.Data.Content()), false)
 	if err != nil {
 		return nil, err
 	}

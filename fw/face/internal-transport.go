@@ -92,7 +92,7 @@ func (t *InternalTransport) Send(lpPkt *spec.LpPacket) {
 // Receive receives a packet from the perspective of the internal component.
 func (t *InternalTransport) Receive() *spec.LpPacket {
 	for frame := range t.recvQueue {
-		packet, _, err := spec.ReadPacket(enc.NewBufferReader(frame))
+		packet, _, err := spec.ReadPacket(enc.NewFastBufReader(frame))
 		if err != nil {
 			core.Log.Warn(t, "Unable to decode received block", "err", err)
 			continue

@@ -326,7 +326,7 @@ func (n *RdrNode) NeedCallback(mNode schema.MatchedNode, callback schema.Callbac
 				switch lastResult.Status {
 				case ndn.InterestResultData:
 					succeeded = true
-					metadata, err = rtlv.ParseMetaData(enc.NewWireReader(lastResult.Content), true)
+					metadata, err = rtlv.ParseMetaData(enc.NewFastReader(lastResult.Content), true)
 					if err != nil {
 						log.Error(n, "Unable to parse and extract name from the metadata packet", "err", err)
 						lastResult.Status = ndn.InterestResultError
@@ -521,7 +521,7 @@ func (n *GeneralObjNode) NeedCallback(mNode schema.MatchedNode, callback schema.
 			switch lastResult.Status {
 			case ndn.InterestResultData:
 				succeeded = true
-				manifest, err = rtlv.ParseManifestData(enc.NewWireReader(lastResult.Content), true)
+				manifest, err = rtlv.ParseManifestData(enc.NewFastReader(lastResult.Content), true)
 				if err != nil {
 					log.Error(n, "Unable to parse the manifest packet", "err", err)
 					lastResult.Status = ndn.InterestResultError

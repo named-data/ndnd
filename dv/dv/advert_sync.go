@@ -112,7 +112,7 @@ func (a *advertModule) OnSyncInterest(args ndn.InterestHandlerArgs, active bool)
 	}
 
 	// Decode Sync Data
-	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireReader(args.Interest.AppParam()))
+	data, sigCov, err := spec.Spec{}.ReadData(enc.NewFastReader(args.Interest.AppParam()))
 	if err != nil {
 		log.Warn(a, "Failed to parse Sync Data", "err", err)
 		return
@@ -131,7 +131,7 @@ func (a *advertModule) OnSyncInterest(args ndn.InterestHandlerArgs, active bool)
 
 			// Decode state vector
 			svWire := data.Content()
-			params, err := spec_svs.ParseSvsData(enc.NewWireReader(svWire), false)
+			params, err := spec_svs.ParseSvsData(enc.NewFastReader(svWire), false)
 			if err != nil || params.StateVector == nil {
 				log.Warn(a, "Failed to parse StateVec", "err", err)
 				return

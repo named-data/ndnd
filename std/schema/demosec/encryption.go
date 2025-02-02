@@ -109,7 +109,7 @@ func (n *ContentKeyNode) Encrypt(mNode schema.MatchedNode, ck ContentKey, conten
 
 func (n *ContentKeyNode) Decrypt(mNode schema.MatchedNode, encryptedContent enc.Wire) enc.Wire {
 	// Note: In real-world implementation, a callback/channel version should be provided
-	encContent, err := ParseEncryptedContent(enc.NewWireReader(encryptedContent), true)
+	encContent, err := ParseEncryptedContent(enc.NewFastReader(encryptedContent), true)
 	if err != nil {
 		log.Error(n, "Malformed encrypted packet")
 		return nil

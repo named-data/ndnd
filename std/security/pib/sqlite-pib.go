@@ -111,7 +111,7 @@ func (pib *SqlitePib) GetCert(certName enc.Name) Cert {
 		return nil
 	}
 	// Parse the certificate and get the signer
-	data, _, err := spec.Spec{}.ReadData(enc.NewBufferReader(ret.certBits))
+	data, _, err := spec.Spec{}.ReadData(enc.NewFastBufReader(ret.certBits))
 	if err != nil || data.Signature() == nil {
 		return nil
 	}
@@ -241,7 +241,7 @@ func (key *SqliteKey) FindCert(check func(Cert) bool) Cert {
 			continue
 		}
 		// Parse the certificate and get the signer
-		data, _, err := spec.Spec{}.ReadData(enc.NewBufferReader(ret.certBits))
+		data, _, err := spec.Spec{}.ReadData(enc.NewFastBufReader(ret.certBits))
 		if err != nil || data.Signature() == nil {
 			continue
 		}

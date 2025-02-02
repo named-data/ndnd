@@ -26,7 +26,7 @@ func (t *Tool) ExecRouteList(_ *cobra.Command, args []string) {
 		return
 	}
 
-	status, err := mgmt.ParseRibStatus(enc.NewWireReader(data), true)
+	status, err := mgmt.ParseRibStatus(enc.NewFastReader(data), true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing RIB status: %+v\n", err)
 		return
@@ -71,7 +71,7 @@ func (t *Tool) ExecFibList(_ *cobra.Command, args []string) {
 		return
 	}
 
-	status, err := mgmt.ParseFibStatus(enc.NewWireReader(data), true)
+	status, err := mgmt.ParseFibStatus(enc.NewFastReader(data), true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing FIB status: %+v\n", err)
 		os.Exit(1)

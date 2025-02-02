@@ -113,7 +113,7 @@ func findSvsEntry(v *spec_svs.StateVector, name enc.Name) int {
 }
 
 func (n *SvsNode) onSyncInt(event *schema.Event) any {
-	remoteSv, err := spec_svs.ParseStateVector(enc.NewWireReader(event.Content), true)
+	remoteSv, err := spec_svs.ParseStateVector(enc.NewFastReader(event.Content), true)
 	if err != nil {
 		log.Error(n, "Unable to parse state vector - DROP", "err", err)
 	}

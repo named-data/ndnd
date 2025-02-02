@@ -206,7 +206,7 @@ func (pt *PrefixTable) ApplyData(name enc.Name, data enc.Wire, router *PrefixTab
 	}
 
 	// Parse the prefix data
-	ops, err := tlv.ParsePrefixOpList(enc.NewWireReader(data), true)
+	ops, err := tlv.ParsePrefixOpList(enc.NewFastReader(data), true)
 	if err != nil {
 		log.Warn(pt, "Failed to parse PrefixOpList", "err", err)
 		return false
