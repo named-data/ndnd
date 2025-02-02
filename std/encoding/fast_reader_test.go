@@ -23,7 +23,7 @@ func TestFastReaderReadByte(t *testing.T) {
 	tu.SetT(t)
 
 	r := enc.NewFastReader(FrTestWire)
-	require.True(t, !r.IsEOF())
+	require.False(t, r.IsEOF())
 	require.Equal(t, 0, r.Pos())
 	require.Equal(t, 15, r.Length())
 
@@ -31,7 +31,7 @@ func TestFastReaderReadByte(t *testing.T) {
 		require.Equal(t, uint8(i), tu.NoErr(r.ReadByte()))
 		require.Equal(t, i, r.Pos())
 	}
-	require.False(t, !r.IsEOF())
+	require.True(t, r.IsEOF())
 }
 
 func TestFastReaderReadFull(t *testing.T) {
@@ -48,7 +48,7 @@ func TestFastReaderReadFull(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 6, n)
 	require.Equal(t, []byte{0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, buf)
-	require.True(t, !r.IsEOF())
+	require.False(t, r.IsEOF())
 
 	// Read 8 bytes
 	buf = make([]byte, 8)
@@ -56,7 +56,7 @@ func TestFastReaderReadFull(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 8, n)
 	require.Equal(t, []byte{0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}, buf)
-	require.False(t, !r.IsEOF())
+	require.True(t, r.IsEOF())
 
 	// Read 1 byte
 	buf = make([]byte, 1)
@@ -92,7 +92,7 @@ func TestFastReaderSkip(t *testing.T) {
 	// Skip 3 bytes
 	require.NoError(t, r.Skip(3))
 	require.Equal(t, 15, r.Pos())
-	require.False(t, !r.IsEOF())
+	require.True(t, r.IsEOF())
 	require.Error(t, r.Skip(1))
 
 	// Skip 4 bytes on copy
@@ -127,7 +127,7 @@ func TestFastReaderReadWire(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, enc.Wire{[]byte{0x0a}, []byte{0x0b, 0x0c, 0x0d}, []byte{0x0e, 0x0f}}, wire)
 	require.Equal(t, 15, r.Pos())
-	require.False(t, !r.IsEOF())
+	require.True(t, r.IsEOF())
 
 	// Read 1 byte
 	_, err = r.ReadWire(1)
@@ -150,14 +150,14 @@ func TestFastReaderDelegate(t *testing.T) {
 	require.Equal(t, 0, r1.Pos())
 	require.Equal(t, 15, r.Length())
 	require.Equal(t, 5, r1.Length())
-	require.True(t, r1.IsEOF())
+	require.False(t, r1.IsEOF())
 
 	// Read from delegate
 	buf := make([]byte, 5)
 	tu.NoErr(r1.ReadFull(buf))
 	require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04, 0x05}, buf)
 	require.Equal(t, 5, r1.Pos())
-	require.False(t, r1.IsEOF())
+	require.True(t, r1.IsEOF())
 	require.Error(t, r1.Skip(1))
 
 	// Delegate 8 bytes
@@ -166,7 +166,7 @@ func TestFastReaderDelegate(t *testing.T) {
 	require.Equal(t, 0, r2.Pos())
 	require.Equal(t, 15, r.Length())
 	require.Equal(t, 8, r2.Length())
-	require.True(t, !r2.IsEOF())
+	require.False(t, r2.IsEOF())
 
 	// copy r2
 	r2c1, r2c2, r2c3 := r2, r2, r2
@@ -175,18 +175,18 @@ func TestFastReaderDelegate(t *testing.T) {
 	buf = tu.NoErr(r2.ReadBuf(3))
 	require.Equal(t, []byte{0x06, 0x07, 0x08}, buf)
 	require.Equal(t, 3, r2.Pos())
-	require.True(t, !r2.IsEOF())
+	require.False(t, r2.IsEOF())
 
 	// Skip inside delegate
 	require.NoError(t, r2.Skip(1))
 	require.Equal(t, 4, r2.Pos())
-	require.True(t, !r2.IsEOF())
+	require.False(t, r2.IsEOF())
 
 	// Read from delegate after skip
 	buf = tu.NoErr(r2.ReadBuf(4))
 	require.Equal(t, []byte{0x0a, 0x0b, 0x0c, 0x0d}, buf)
 	require.Equal(t, 8, r2.Pos())
-	require.False(t, !r2.IsEOF())
+	require.True(t, r2.IsEOF())
 
 	// Skip outside of bounds
 	require.Error(t, r2.Skip(1))
@@ -202,14 +202,14 @@ func TestFastReaderDelegate(t *testing.T) {
 	r3 := r.Delegate(2)
 	require.Equal(t, 5+8+2, r.Pos())
 	require.Equal(t, 0, r3.Pos())
-	require.False(t, !r.IsEOF())
-	require.True(t, !r3.IsEOF())
+	require.True(t, r.IsEOF())
+	require.False(t, r3.IsEOF())
 
 	// Delegate outside of bounds
 	r4 := rcpy.Delegate(11)
 	require.Equal(t, 5+8, rcpy.Pos()) // rcpy is not affected
-	require.True(t, !rcpy.IsEOF())
-	require.False(t, !r4.IsEOF())
+	require.False(t, rcpy.IsEOF())
+	require.True(t, r4.IsEOF())
 	require.Error(t, r4.Skip(1))
 }
 
@@ -236,7 +236,7 @@ func TestFastReaderCopyN(t *testing.T) {
 	require.Equal(t, 5, n)
 	require.NoError(t, w.Flush())
 	require.Equal(t, []byte{0x0b, 0x0c, 0x0d, 0x0e, 0x0f}, b.Bytes())
-	require.False(t, !r.IsEOF())
+	require.True(t, r.IsEOF())
 
 	// copy 6 bytes
 	b.Reset()
@@ -273,7 +273,7 @@ func TestFastReaderReadBuf(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}, buf)
 	require.Equal(t, 15, r.Pos())
-	require.False(t, !r.IsEOF())
+	require.True(t, r.IsEOF())
 	buf, err = r.ReadBuf(1)
 	require.Equal(t, enc.ErrBufferOverflow, err)
 	require.Nil(t, buf)

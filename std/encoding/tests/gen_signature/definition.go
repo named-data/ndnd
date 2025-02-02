@@ -42,7 +42,7 @@ func (v *T1) Encode(estLen uint, value []byte) (enc.Wire, enc.Wire) {
 	return wire, encoder.sigCovered
 }
 
-func ReadT1(reader enc.ParseReader) (*T1, enc.Wire, error) {
+func ReadT1(reader enc.FastReader) (*T1, enc.Wire, error) {
 	context := T1ParsingContext{}
 	context.Init()
 	ret, err := context.Parse(reader, false)
@@ -124,7 +124,7 @@ func (v *T2) Encode(estLen uint, value []byte, needDigest bool) (enc.Wire, enc.W
 	return wire, encoder.sigCovered
 }
 
-func ReadT2(reader enc.ParseReader, digestRequired bool) (*T2, enc.Wire, error) {
+func ReadT2(reader enc.FastReader, digestRequired bool) (*T2, enc.Wire, error) {
 	context := T2ParsingContext{}
 	context.Init()
 	ret, err := context.Parse(reader, false)

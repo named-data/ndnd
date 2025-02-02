@@ -179,8 +179,8 @@ func (r *FastReader) ReadBuf(size int) ([]byte, error) {
 }
 
 func (r *FastReader) Range(start, end int) Wire {
-	rcopy := *r
-	rcopy.Skip(start)
+	rcopy := FastReader{wire: r.wire, end: r.end}
+	rcopy.Skip(r.start + start)
 	w, err := rcopy.ReadWire(end - start)
 	if err != nil {
 		return Wire{}

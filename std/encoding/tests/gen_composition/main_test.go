@@ -18,7 +18,7 @@ func TestIntArray(t *testing.T) {
 	}
 	buf := f.Bytes()
 	require.Equal(t, []byte{0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x01, 0x01, 0x03}, buf)
-	f2 := tu.NoErr(def.ParseIntArray(enc.NewBufferReader(buf), false))
+	f2 := tu.NoErr(def.ParseIntArray(enc.NewFastBufReader(buf), false))
 	require.Equal(t, f, *f2)
 
 	f = def.IntArray{
@@ -26,7 +26,7 @@ func TestIntArray(t *testing.T) {
 	}
 	buf = f.Bytes()
 	require.Equal(t, []byte{}, buf)
-	f2 = tu.NoErr(def.ParseIntArray(enc.NewBufferReader(buf), false))
+	f2 = tu.NoErr(def.ParseIntArray(enc.NewFastBufReader(buf), false))
 	require.Equal(t, 0, len(f2.Words))
 }
 
@@ -43,7 +43,7 @@ func TestNameArray(t *testing.T) {
 	require.Equal(t, []byte{
 		0x07, 0x06, 0x08, 0x01, 'A', 0x08, 0x01, 'B',
 		0x07, 0x03, 0x08, 0x01, 'C'}, buf)
-	f2 := tu.NoErr(def.ParseNameArray(enc.NewBufferReader(buf), false))
+	f2 := tu.NoErr(def.ParseNameArray(enc.NewFastBufReader(buf), false))
 	require.Equal(t, f, *f2)
 }
 
@@ -57,7 +57,7 @@ func TestNested(t *testing.T) {
 	}
 	buf := f.Bytes()
 	require.Equal(t, []byte{0x02, 0x03, 0x01, 0x01, 0xff}, buf)
-	f2 := tu.NoErr(def.ParseNested(enc.NewBufferReader(buf), false))
+	f2 := tu.NoErr(def.ParseNested(enc.NewFastBufReader(buf), false))
 	require.Equal(t, f.Val.Num, f2.Val.Num)
 
 	f = def.Nested{
@@ -65,7 +65,7 @@ func TestNested(t *testing.T) {
 	}
 	buf = f.Bytes()
 	require.Equal(t, 0, len(buf))
-	f2 = tu.NoErr(def.ParseNested(enc.NewBufferReader(buf), false))
+	f2 = tu.NoErr(def.ParseNested(enc.NewFastBufReader(buf), false))
 	require.True(t, f2.Val == nil)
 }
 
@@ -83,7 +83,7 @@ func TestNestedSeq(t *testing.T) {
 		0x03, 0x03, 0x01, 0x01, 0xff,
 		0x03, 0x04, 0x01, 0x02, 0x01, 0x00,
 	}, buf)
-	f2 := tu.NoErr(def.ParseNestedSeq(enc.NewBufferReader(buf), false))
+	f2 := tu.NoErr(def.ParseNestedSeq(enc.NewFastBufReader(buf), false))
 	require.Equal(t, 2, len(f2.Vals))
 	require.Equal(t, uint64(255), f2.Vals[0].Num)
 	require.Equal(t, uint64(256), f2.Vals[1].Num)
@@ -93,7 +93,7 @@ func TestNestedSeq(t *testing.T) {
 	}
 	buf = f.Bytes()
 	require.Equal(t, 0, len(buf))
-	f2 = tu.NoErr(def.ParseNestedSeq(enc.NewBufferReader(buf), false))
+	f2 = tu.NoErr(def.ParseNestedSeq(enc.NewFastBufReader(buf), false))
 	require.Equal(t, 0, len(f2.Vals))
 }
 
@@ -126,7 +126,7 @@ func TestNestedWire(t *testing.T) {
 		0x06, 0x08,
 		0x03, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
 	}, buf)
-	f2 := tu.NoErr(def.ParseNestedWire(enc.NewWireReader(wire), false))
+	f2 := tu.NoErr(def.ParseNestedWire(enc.NewFastReader(wire), false))
 	require.Equal(t, f.W1.Wire1.Join(), f2.W1.Wire1.Join())
 	require.Equal(t, f.W1.Num, f2.W1.Num)
 	require.Equal(t, f.N, f2.N)
@@ -150,7 +150,7 @@ func TestNestedWire(t *testing.T) {
 		0x06, 0x02,
 		0x03, 0x00,
 	}, buf)
-	f2 = tu.NoErr(def.ParseNestedWire(enc.NewBufferReader(buf), false))
+	f2 = tu.NoErr(def.ParseNestedWire(enc.NewFastBufReader(buf), false))
 	require.Equal(t, 0, len(f2.W1.Wire1.Join()))
 	require.False(t, f2.W1.Wire1 == nil)
 	require.Equal(t, 0, len(f2.W2.Wire2.Join()))
@@ -168,7 +168,7 @@ func TestNestedWire(t *testing.T) {
 	}
 	buf = f.Bytes()
 	require.Equal(t, []byte{0x04, 0x00, 0x05, 0x01, 0, 0x06, 0x00}, buf)
-	f2 = tu.NoErr(def.ParseNestedWire(enc.NewBufferReader(buf), false))
+	f2 = tu.NoErr(def.ParseNestedWire(enc.NewFastBufReader(buf), false))
 	require.Equal(t, enc.Wire(nil), f2.W1.Wire1)
 	require.Equal(t, enc.Wire(nil), f2.W2.Wire2)
 
@@ -179,7 +179,7 @@ func TestNestedWire(t *testing.T) {
 	}
 	buf = f.Bytes()
 	require.Equal(t, []byte{0x05, 0x01, 0}, buf)
-	f2 = tu.NoErr(def.ParseNestedWire(enc.NewBufferReader(buf), false))
+	f2 = tu.NoErr(def.ParseNestedWire(enc.NewFastBufReader(buf), false))
 	require.True(t, f2.W1 == nil)
 	require.True(t, f2.W2 == nil)
 }
