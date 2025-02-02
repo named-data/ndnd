@@ -17,6 +17,10 @@ func NewBinaryField(name string, typeNum uint64, _ string, _ *TlvModel) (TlvFiel
 	}, nil
 }
 
+func (f *BinaryField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s []byte", f.name), nil
+}
+
 func (f *BinaryField) GenEncodingLength() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("if value.%s != nil {", f.name)

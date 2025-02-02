@@ -25,6 +25,10 @@ func (f *MapField) GenEncoderStruct() (string, error) {
 	return g.output()
 }
 
+func (f *MapField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s TODO", f.name), nil
+}
+
 func (f *MapField) GenInitEncoder() (string, error) {
 	// SA Sequence Field
 	// KeyField does not need an encoder

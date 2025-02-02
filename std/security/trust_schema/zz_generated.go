@@ -65,7 +65,7 @@ func (encoder *LvsUserFnArgEncoder) Encode(value *LvsUserFnArg) enc.Wire {
 	return wire
 }
 
-func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsUserFnArg, error) {
+func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsUserFnArg, err error) {
 
 	var handled_Value bool = false
 	var handled_Tag bool = false
@@ -73,8 +73,6 @@ func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCr
 	progress := -1
 	_ = progress
 
-	value := &LvsUserFnArg{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -85,11 +83,13 @@ func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCr
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -127,7 +127,8 @@ func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCr
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -135,7 +136,8 @@ func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCr
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -151,10 +153,10 @@ func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCr
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsUserFnArg) Encode() enc.Wire {
@@ -167,7 +169,7 @@ func (value *LvsUserFnArg) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsUserFnArg(reader enc.FastReader, ignoreCritical bool) (*LvsUserFnArg, error) {
+func ParseLvsUserFnArg(reader enc.FastReader, ignoreCritical bool) (LvsUserFnArg, error) {
 	context := LvsUserFnArgParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -295,7 +297,7 @@ func (encoder *LvsUserFnCallEncoder) Encode(value *LvsUserFnCall) enc.Wire {
 	return wire
 }
 
-func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsUserFnCall, error) {
+func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsUserFnCall, err error) {
 
 	var handled_FnId bool = false
 	var handled_Args bool = false
@@ -303,8 +305,6 @@ func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreC
 	progress := -1
 	_ = progress
 
-	value := &LvsUserFnCall{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -315,11 +315,13 @@ func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreC
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -354,7 +356,8 @@ func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreC
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -362,7 +365,8 @@ func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreC
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -378,10 +382,10 @@ func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreC
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsUserFnCall) Encode() enc.Wire {
@@ -394,7 +398,7 @@ func (value *LvsUserFnCall) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsUserFnCall(reader enc.FastReader, ignoreCritical bool) (*LvsUserFnCall, error) {
+func ParseLvsUserFnCall(reader enc.FastReader, ignoreCritical bool) (LvsUserFnCall, error) {
 	context := LvsUserFnCallParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -480,7 +484,7 @@ func (encoder *LvsConstraintOptionEncoder) Encode(value *LvsConstraintOption) en
 	return wire
 }
 
-func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsConstraintOption, error) {
+func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsConstraintOption, err error) {
 
 	var handled_Value bool = false
 	var handled_Tag bool = false
@@ -489,8 +493,6 @@ func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, i
 	progress := -1
 	_ = progress
 
-	value := &LvsConstraintOption{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -501,11 +503,13 @@ func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, i
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -549,7 +553,8 @@ func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, i
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -557,7 +562,8 @@ func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, i
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -576,10 +582,10 @@ func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, i
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsConstraintOption) Encode() enc.Wire {
@@ -592,7 +598,7 @@ func (value *LvsConstraintOption) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsConstraintOption(reader enc.FastReader, ignoreCritical bool) (*LvsConstraintOption, error) {
+func ParseLvsConstraintOption(reader enc.FastReader, ignoreCritical bool) (LvsConstraintOption, error) {
 	context := LvsConstraintOptionParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -706,15 +712,13 @@ func (encoder *LvsPatternConstraintEncoder) Encode(value *LvsPatternConstraint) 
 	return wire
 }
 
-func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsPatternConstraint, error) {
+func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsPatternConstraint, err error) {
 
 	var handled_ConsOptions bool = false
 
 	progress := -1
 	_ = progress
 
-	value := &LvsPatternConstraint{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -725,11 +729,13 @@ func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, 
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -757,7 +763,8 @@ func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, 
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -765,7 +772,8 @@ func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, 
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -778,10 +786,10 @@ func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, 
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsPatternConstraint) Encode() enc.Wire {
@@ -794,7 +802,7 @@ func (value *LvsPatternConstraint) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsPatternConstraint(reader enc.FastReader, ignoreCritical bool) (*LvsPatternConstraint, error) {
+func ParseLvsPatternConstraint(reader enc.FastReader, ignoreCritical bool) (LvsPatternConstraint, error) {
 	context := LvsPatternConstraintParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -924,7 +932,7 @@ func (encoder *LvsPatternEdgeEncoder) Encode(value *LvsPatternEdge) enc.Wire {
 	return wire
 }
 
-func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsPatternEdge, error) {
+func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsPatternEdge, err error) {
 
 	var handled_Dest bool = false
 	var handled_Tag bool = false
@@ -933,8 +941,6 @@ func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignore
 	progress := -1
 	_ = progress
 
-	value := &LvsPatternEdge{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -945,11 +951,13 @@ func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignore
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -1015,7 +1023,8 @@ func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignore
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -1023,7 +1032,8 @@ func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignore
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -1042,10 +1052,10 @@ func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignore
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsPatternEdge) Encode() enc.Wire {
@@ -1058,7 +1068,7 @@ func (value *LvsPatternEdge) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsPatternEdge(reader enc.FastReader, ignoreCritical bool) (*LvsPatternEdge, error) {
+func ParseLvsPatternEdge(reader enc.FastReader, ignoreCritical bool) (LvsPatternEdge, error) {
 	context := LvsPatternEdgeParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1117,7 +1127,7 @@ func (encoder *LvsValueEdgeEncoder) Encode(value *LvsValueEdge) enc.Wire {
 	return wire
 }
 
-func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsValueEdge, error) {
+func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsValueEdge, err error) {
 
 	var handled_Dest bool = false
 	var handled_Value bool = false
@@ -1125,8 +1135,6 @@ func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCr
 	progress := -1
 	_ = progress
 
-	value := &LvsValueEdge{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -1137,11 +1145,13 @@ func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCr
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -1175,7 +1185,8 @@ func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCr
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -1183,7 +1194,8 @@ func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCr
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -1199,10 +1211,10 @@ func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCr
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsValueEdge) Encode() enc.Wire {
@@ -1215,7 +1227,7 @@ func (value *LvsValueEdge) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsValueEdge(reader enc.FastReader, ignoreCritical bool) (*LvsValueEdge, error) {
+func ParseLvsValueEdge(reader enc.FastReader, ignoreCritical bool) (LvsValueEdge, error) {
 	context := LvsValueEdgeParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1552,7 +1564,7 @@ func (encoder *LvsNodeEncoder) Encode(value *LvsNode) enc.Wire {
 	return wire
 }
 
-func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsNode, error) {
+func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsNode, err error) {
 
 	var handled_Id bool = false
 	var handled_Parent bool = false
@@ -1564,8 +1576,6 @@ func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritica
 	progress := -1
 	_ = progress
 
-	value := &LvsNode{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -1576,11 +1586,13 @@ func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritica
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -1724,7 +1736,8 @@ func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritica
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -1732,7 +1745,8 @@ func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritica
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -1760,10 +1774,10 @@ func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritica
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsNode) Encode() enc.Wire {
@@ -1776,7 +1790,7 @@ func (value *LvsNode) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsNode(reader enc.FastReader, ignoreCritical bool) (*LvsNode, error) {
+func ParseLvsNode(reader enc.FastReader, ignoreCritical bool) (LvsNode, error) {
 	context := LvsNodeParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -1840,7 +1854,7 @@ func (encoder *LvsTagSymbolEncoder) Encode(value *LvsTagSymbol) enc.Wire {
 	return wire
 }
 
-func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsTagSymbol, error) {
+func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsTagSymbol, err error) {
 
 	var handled_Tag bool = false
 	var handled_Ident bool = false
@@ -1848,8 +1862,6 @@ func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCr
 	progress := -1
 	_ = progress
 
-	value := &LvsTagSymbol{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -1860,11 +1872,13 @@ func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCr
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -1902,7 +1916,8 @@ func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCr
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -1910,7 +1925,8 @@ func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCr
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -1926,10 +1942,10 @@ func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCr
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsTagSymbol) Encode() enc.Wire {
@@ -1942,7 +1958,7 @@ func (value *LvsTagSymbol) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsTagSymbol(reader enc.FastReader, ignoreCritical bool) (*LvsTagSymbol, error) {
+func ParseLvsTagSymbol(reader enc.FastReader, ignoreCritical bool) (LvsTagSymbol, error) {
 	context := LvsTagSymbolParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -2153,7 +2169,7 @@ func (encoder *LvsModelEncoder) Encode(value *LvsModel) enc.Wire {
 	return wire
 }
 
-func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsModel, error) {
+func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value LvsModel, err error) {
 
 	var handled_Version bool = false
 	var handled_StartId bool = false
@@ -2164,8 +2180,6 @@ func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritic
 	progress := -1
 	_ = progress
 
-	value := &LvsModel{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -2176,11 +2190,13 @@ func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritic
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -2285,7 +2301,8 @@ func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritic
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -2293,7 +2310,8 @@ func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritic
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -2318,10 +2336,10 @@ func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritic
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *LvsModel) Encode() enc.Wire {
@@ -2334,7 +2352,7 @@ func (value *LvsModel) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseLvsModel(reader enc.FastReader, ignoreCritical bool) (*LvsModel, error) {
+func ParseLvsModel(reader enc.FastReader, ignoreCritical bool) (LvsModel, error) {
 	context := LvsModelParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)

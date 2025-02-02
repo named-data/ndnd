@@ -75,7 +75,8 @@ func GenNaturalNumberEncode(code string, isTlv bool) (string, error) {
 func GenTlvNumberDecode(code string) (string, error) {
 	const Temp = `{{.}}, err = reader.ReadTLNum()
 	if err != nil {
-		return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+		return
 	}`
 	t := template.Must(template.New("TlvNumberDecode").Parse(Temp))
 	b := strings.Builder{}

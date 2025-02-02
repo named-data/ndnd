@@ -1,5 +1,7 @@
 package codegen
 
+import "fmt"
+
 // BoolField represents a boolean field.
 type BoolField struct {
 	BaseTlvField
@@ -12,6 +14,10 @@ func NewBoolField(name string, typeNum uint64, _ string, _ *TlvModel) (TlvField,
 			typeNum: typeNum,
 		},
 	}, nil
+}
+
+func (f *BoolField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s bool", f.name), nil
 }
 
 func (f *BoolField) GenEncodingLength() (string, error) {

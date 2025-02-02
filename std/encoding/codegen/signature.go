@@ -130,6 +130,10 @@ func NewSignatureField(name string, typeNum uint64, annotation string, model *Tl
 	}, nil
 }
 
+func (f *SignatureField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s TODO-sgn", f.name), nil
+}
+
 // InterestNameField represents the Name field in an Interest, which may contain a ParametersSha256DigestComponent.
 // Requires needDigest as input, indicating whether ParametersSha256Digest component is required.
 // It will modify the input Name value and generate a final Name value.
@@ -284,4 +288,8 @@ func NewInterestNameField(name string, typeNum uint64, annotation string, _ *Tlv
 		},
 		sigCovered: annotation,
 	}, nil
+}
+
+func (f *InterestNameField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s TODO-interestname", f.name), nil
 }

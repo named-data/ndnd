@@ -1,6 +1,9 @@
 package codegen
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // ProcedureArgument is a variable used during encoding and decoding procedure.
 type ProcedureArgument struct {
@@ -26,6 +29,10 @@ func NewProcedureArgument(name string, _ uint64, annotation string, _ *TlvModel)
 		},
 		argType: annotation,
 	}, nil
+}
+
+func (f *ProcedureArgument) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s enc.PlaceHolder", f.name), nil
 }
 
 // OffsetMarker is a marker that marks a position in the wire.
@@ -79,6 +86,10 @@ func NewOffsetMarker(name string, _ uint64, _ string, model *TlvModel) (TlvField
 		},
 		noCopy: model.NoCopy,
 	}, nil
+}
+
+func (f *OffsetMarker) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s enc.PlaceHolder", f.name), nil
 }
 
 // RangeMarker is a marker that catches a range in the wire from an OffsetMarker to current position.
@@ -147,4 +158,8 @@ func NewRangeMarker(name string, typeNum uint64, annotation string, model *TlvMo
 		sigCovered: strs[1],
 		noCopy:     model.NoCopy,
 	}, nil
+}
+
+func (f *RangeMarker) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s enc.PlaceHolder", f.name), nil
 }

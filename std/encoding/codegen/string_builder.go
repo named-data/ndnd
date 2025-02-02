@@ -28,6 +28,12 @@ func (m *strErrBuf) printlnf(format string, args ...any) {
 	}
 }
 
+func (m *strErrBuf) printlnf_if(cond bool, format string, args ...any) {
+	if cond {
+		m.printlnf(format, args...)
+	}
+}
+
 func (m *strErrBuf) output() (string, error) {
 	return strings.TrimSpace(m.b.String()), m.err
 }

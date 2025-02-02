@@ -7,7 +7,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
-type FakeMetaInfo struct {
+type _FakeMetaInfo struct {
 	//+field:natural
 	Number uint64 `tlv:"0x18"`
 	//+field:time
@@ -16,7 +16,7 @@ type FakeMetaInfo struct {
 	Binary []byte `tlv:"0x1a"`
 }
 
-type OptField struct {
+type _OptField struct {
 	//+field:natural:optional
 	Number *uint64 `tlv:"0x18"`
 	//+field:time:optional
@@ -27,7 +27,7 @@ type OptField struct {
 	Bool bool `tlv:"0x30"`
 }
 
-type WireNameField struct {
+type _WireNameField struct {
 	//+field:wire
 	Wire enc.Wire `tlv:"0x01"`
 	//+field:name
@@ -35,7 +35,7 @@ type WireNameField struct {
 }
 
 // +tlv-model:private,ordered
-type Markers struct {
+type _Markers struct {
 	//+field:offsetMarker
 	startMarker enc.PlaceHolder
 	//+field:wire
@@ -63,7 +63,7 @@ func (m *Markers) Encode(arg int) []byte {
 	return ret
 }
 
-func ParseMarkers(buf []byte, arg int) *Markers {
+func ParseMarkers(buf []byte, arg int) Markers {
 	cont := MarkersParsingContext{
 		argument: arg,
 	}
@@ -72,12 +72,12 @@ func ParseMarkers(buf []byte, arg int) *Markers {
 	if err == nil && cont.startMarker == 0 && cont.endMarker == len(buf) {
 		return ret
 	} else {
-		return nil
+		return Markers{}
 	}
 }
 
 // +tlv-model:nocopy
-type NoCopyStruct struct {
+type _NoCopyStruct struct {
 	//+field:wire
 	Wire1 enc.Wire `tlv:"0x01"`
 	//+field:natural
@@ -86,14 +86,14 @@ type NoCopyStruct struct {
 	Wire2 enc.Wire `tlv:"0x03"`
 }
 
-type StrField struct {
+type _StrField struct {
 	//+field:string
 	Str1 string `tlv:"0x01"`
 	//+field:string:optional
 	Str2 *string `tlv:"0x02"`
 }
 
-type FixedUintField struct {
+type _FixedUintField struct {
 	//+field:fixedUint:byte
 	Byte byte `tlv:"0x01"`
 	//+field:fixedUint:uint32:optional

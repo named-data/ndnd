@@ -62,7 +62,7 @@ func (encoder *ManifestDigestEncoder) Encode(value *ManifestDigest) enc.Wire {
 	return wire
 }
 
-func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ManifestDigest, error) {
+func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value ManifestDigest, err error) {
 
 	var handled_SegNo bool = false
 	var handled_Digest bool = false
@@ -70,8 +70,6 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignore
 	progress := -1
 	_ = progress
 
-	value := &ManifestDigest{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -82,11 +80,13 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignore
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -120,7 +120,8 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignore
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -128,7 +129,8 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignore
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -144,10 +146,10 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignore
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *ManifestDigest) Encode() enc.Wire {
@@ -160,7 +162,7 @@ func (value *ManifestDigest) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseManifestDigest(reader enc.FastReader, ignoreCritical bool) (*ManifestDigest, error) {
+func ParseManifestDigest(reader enc.FastReader, ignoreCritical bool) (ManifestDigest, error) {
 	context := ManifestDigestParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -274,15 +276,13 @@ func (encoder *ManifestDataEncoder) Encode(value *ManifestData) enc.Wire {
 	return wire
 }
 
-func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ManifestData, error) {
+func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value ManifestData, err error) {
 
 	var handled_Entries bool = false
 
 	progress := -1
 	_ = progress
 
-	value := &ManifestData{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -293,11 +293,13 @@ func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCr
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -325,7 +327,8 @@ func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCr
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -333,7 +336,8 @@ func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCr
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -346,10 +350,10 @@ func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCr
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *ManifestData) Encode() enc.Wire {
@@ -362,7 +366,7 @@ func (value *ManifestData) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseManifestData(reader enc.FastReader, ignoreCritical bool) (*ManifestData, error) {
+func ParseManifestData(reader enc.FastReader, ignoreCritical bool) (ManifestData, error) {
 	context := ManifestDataParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
@@ -539,7 +543,7 @@ func (encoder *MetaDataEncoder) Encode(value *MetaData) enc.Wire {
 	return wire
 }
 
-func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*MetaData, error) {
+func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (value MetaData, err error) {
 
 	var handled_Name bool = false
 	var handled_FinalBlockID bool = false
@@ -555,8 +559,6 @@ func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritic
 	progress := -1
 	_ = progress
 
-	value := &MetaData{}
-	var err error
 	var startPos int
 	for {
 		startPos = reader.Pos()
@@ -567,11 +569,13 @@ func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritic
 		l := enc.TLNum(0)
 		typ, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 		l, err = reader.ReadTLNum()
 		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+			err = enc.ErrFailToParse{TypeNum: 0, Err: err}
+			return
 		}
 
 		err = nil
@@ -767,7 +771,8 @@ func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritic
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+					err = enc.ErrUnrecognizedField{TypeNum: typ}
+					return
 				}
 				handled = true
 				err = reader.Skip(int(l))
@@ -775,7 +780,8 @@ func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritic
 			if err == nil && !handled {
 			}
 			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+				err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+				return
 			}
 		}
 	}
@@ -815,10 +821,10 @@ func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritic
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return value, nil
+	return
 }
 
 func (value *MetaData) Encode() enc.Wire {
@@ -831,7 +837,7 @@ func (value *MetaData) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseMetaData(reader enc.FastReader, ignoreCritical bool) (*MetaData, error) {
+func ParseMetaData(reader enc.FastReader, ignoreCritical bool) (MetaData, error) {
 	context := MetaDataParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)

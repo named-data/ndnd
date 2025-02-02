@@ -29,7 +29,7 @@ func TestFakeMetaInfo(t *testing.T) {
 		buf)
 
 	f2 := tu.NoErr(gen_basic.ParseFakeMetaInfo(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	buf2 := []byte{
 		0x19, 0x02, 0x07, 0xd0,
@@ -51,7 +51,7 @@ func TestFakeMetaInfo(t *testing.T) {
 		0x30, 0x01, 0x00,
 	}
 	f2 = tu.NoErr(gen_basic.ParseFakeMetaInfo(enc.NewFastBufReader(buf2), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	buf2 = []byte{
 		0x18, 0x01, 0x01,
@@ -60,7 +60,7 @@ func TestFakeMetaInfo(t *testing.T) {
 		0x31, 0x01, 0x00,
 	}
 	f2 = tu.NoErr(gen_basic.ParseFakeMetaInfo(enc.NewFastBufReader(buf2), true))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	buf2 = []byte{
 		0x18, 0x01, 0x01,
@@ -90,7 +90,7 @@ func TestOptField(t *testing.T) {
 		},
 		buf)
 	f2 := tu.NoErr(gen_basic.ParseOptField(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	f = gen_basic.OptField{
 		Number: nil,
@@ -103,7 +103,7 @@ func TestOptField(t *testing.T) {
 		[]byte{},
 		buf)
 	f2 = tu.NoErr(gen_basic.ParseOptField(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	f = gen_basic.OptField{
 		Number: utils.IdPtr[uint64](0),
@@ -119,7 +119,7 @@ func TestOptField(t *testing.T) {
 		},
 		buf)
 	f2 = tu.NoErr(gen_basic.ParseOptField(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 }
 
 func TestWireName(t *testing.T) {
@@ -217,7 +217,7 @@ func TestStrField(t *testing.T) {
 	buf := f.Bytes()
 	require.Equal(t, []byte{0x01, 0x05, 'h', 'e', 'l', 'l', 'o', 0x02, 0x05, 'w', 'o', 'r', 'l', 'd'}, buf)
 	f2 := tu.NoErr(gen_basic.ParseStrField(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	f = gen_basic.StrField{
 		Str1: "",
@@ -226,7 +226,7 @@ func TestStrField(t *testing.T) {
 	buf = f.Bytes()
 	require.Equal(t, []byte{0x01, 0x00}, buf)
 	f2 = tu.NoErr(gen_basic.ParseStrField(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	buf = []byte{}
 	tu.Err(gen_basic.ParseStrField(enc.NewFastBufReader(buf), false))
@@ -247,7 +247,7 @@ func TestFixedUintField(t *testing.T) {
 		0x03, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
 	}, buf)
 	f2 := tu.NoErr(gen_basic.ParseFixedUintField(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	f = gen_basic.FixedUintField{
 		Byte: 0,
@@ -259,7 +259,7 @@ func TestFixedUintField(t *testing.T) {
 		0x01, 0x01, 0x00,
 	}, buf)
 	f2 = tu.NoErr(gen_basic.ParseFixedUintField(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	buf = []byte{}
 	tu.Err(gen_basic.ParseFixedUintField(enc.NewFastBufReader(buf), false))

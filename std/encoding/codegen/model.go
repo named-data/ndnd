@@ -46,6 +46,23 @@ func (m *TlvModel) ProcessOption(option string) {
 	}
 }
 
+func (m *TlvModel) GenMainStruct(buf *bytes.Buffer) error {
+	if m.Name[0] != '_' {
+		panic("model name must start with an underscore: " + m.Name)
+	}
+
+	m.Name = m.Name[1:]
+	return template.Must(template.New("MainStruct").Parse(`
+		type {{.Name}} struct {
+			{{- range $f := .Fields}}
+				{{$f.GenMainStruct}}
+			{{- end}}
+
+			_valid bool
+		}
+	`)).Execute(buf, m)
+}
+
 func (m *TlvModel) GenEncoderStruct(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelEncoderStruct").Parse(`
 		type {{.Name}}Encoder struct {
@@ -151,7 +168,7 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 		{{- else -}}
 			func {{if .Model.PrivMethods -}}parse{{else}}Parse{{end}}{{.Model.Name}}
 		{{- end -}}
-		(reader enc.FastReader, ignoreCritical bool) (*{{.Model.Name}}, error) {
+		(reader enc.FastReader, ignoreCritical bool) (value {{.Model.Name}}, err error) {
 			{{ range $i, $f := $.Model.Fields}}
 			var handled_{{$f.Name}} bool = false
 			{{- end}}
@@ -159,8 +176,6 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 			progress := -1
 			_ = progress
 
-			value := &{{.Model.Name}}{}
-			var err error
 			var startPos int
 			for {
 				startPos = reader.Pos()
@@ -196,7 +211,8 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 						{{- end}}
 					default:
 						if !ignoreCritical && {{.IsCritical}} {
-							return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+							err = enc.ErrUnrecognizedField{TypeNum: typ}
+							return
 						}
 						handled = true
 						err = reader.Skip(int(l))
@@ -213,7 +229,8 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 						{{- end}}
 					}
 					if err != nil {
-						return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+						err = enc.ErrFailToParse{TypeNum: typ, Err: err}
+						return
 					}
 				}
 			}
@@ -228,10 +245,10 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 			{{- end}}
 
 			if err != nil {
-				return nil, err
+				return
 			}
 
-			return value, nil
+			return
 		}
 	`)).Execute(buf, struct {
 		Model              *TlvModel
@@ -243,16 +260,6 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 		IsCritical:         `((typ <= 31) || ((typ & 1) == 1))`,
 	})
 }
-
-// func (m *TlvModel) detectParsingContext() {
-// 	m.WithParsingContext = false
-// 	for _, f := range m.Fields {
-// 		str, _ := f.GenParsingContextStruct()
-// 		if str != "" {
-// 			m.WithParsingContext = true
-// 		}
-// 	}
-// }
 
 func (m *TlvModel) genPublicEncode(buf *bytes.Buffer) error {
 	return template.Must(template.New("PublicEncode").Parse(`
@@ -270,7 +277,7 @@ func (m *TlvModel) genPublicEncode(buf *bytes.Buffer) error {
 
 func (m *TlvModel) genPublicParse(buf *bytes.Buffer) error {
 	return template.Must(template.New("PublicParse").Parse(`
-		func Parse{{.Name}}(reader enc.FastReader, ignoreCritical bool) (*{{.Name}}, error) {
+		func Parse{{.Name}}(reader enc.FastReader, ignoreCritical bool) ({{.Name}}, error) {
 			context := {{.Name}}ParsingContext{}
 			context.Init()
 			return context.Parse(reader, ignoreCritical)
@@ -279,9 +286,13 @@ func (m *TlvModel) genPublicParse(buf *bytes.Buffer) error {
 }
 
 func (m *TlvModel) Generate(buf *bytes.Buffer) error {
-	// m.detectParsingContext()
+	err := m.GenMainStruct(buf)
+	if err != nil {
+		return err
+	}
+	buf.WriteRune('\n')
 	m.WithParsingContext = true
-	err := m.GenEncoderStruct(buf)
+	err = m.GenEncoderStruct(buf)
 	if err != nil {
 		return err
 	}

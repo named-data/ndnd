@@ -19,6 +19,10 @@ func NewNameField(name string, typeNum uint64, _ string, _ *TlvModel) (TlvField,
 	}, nil
 }
 
+func (f *NameField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s enc.Name", f.name), nil
+}
+
 func (f *NameField) GenEncoderStruct() (string, error) {
 	return fmt.Sprintf("%s_length uint", f.name), nil
 }

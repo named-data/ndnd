@@ -37,6 +37,10 @@ func NewStructField(name string, typeNum uint64, annotation string, model *TlvMo
 	}, nil
 }
 
+func (f *StructField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s %s", f.name, f.StructType), nil
+}
+
 func (f *StructField) GenEncoderStruct() (string, error) {
 	return fmt.Sprintf("%s_encoder %sEncoder", f.name, f.StructType), nil
 }

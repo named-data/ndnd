@@ -22,6 +22,10 @@ func NewWireField(name string, typeNum uint64, _ string, model *TlvModel) (TlvFi
 	}, nil
 }
 
+func (f *WireField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s enc.Wire", f.name), nil
+}
+
 func (f *WireField) GenEncoderStruct() (string, error) {
 	return fmt.Sprintf("%s_length uint", f.name), nil
 }

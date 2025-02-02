@@ -18,6 +18,8 @@ type TlvField interface {
 	GenEncodingLength() (string, error)
 	GenEncodingWirePlan() (string, error)
 	GenEncodeInto() (string, error)
+	GenMainStruct() (string, error)
+	GenMethods() (string, error)
 	GenEncoderStruct() (string, error)
 	GenInitEncoder() (string, error)
 	GenParsingContextStruct() (string, error)

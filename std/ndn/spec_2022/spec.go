@@ -526,29 +526,29 @@ func (Spec) ReadInterest(reader enc.FastReader) (ndn.Interest, enc.Wire, error) 
 //	Postcondition: exactly one of Interest, Data, or LpPacket is returned.
 //
 // If precondition is not met, then postcondition is not required to hold. But the call won't crash.
-func ReadPacket(reader enc.FastReader) (*Packet, *PacketParsingContext, error) {
-	context := &PacketParsingContext{}
+func ReadPacket(reader enc.FastReader) (*Packet, PacketParsingContext, error) {
+	context := PacketParsingContext{}
 	context.Init()
 	ret, err := context.Parse(reader, false)
 	if err != nil {
-		return nil, nil, err
+		return ret, context, err
 	}
 	if ret.Data != nil {
 		if ret.Data.NameV == nil {
-			return nil, nil, ndn.ErrInvalidValue{Item: "Data.Name", Value: nil}
+			return ret, context, ndn.ErrInvalidValue{Item: "Data.Name", Value: nil}
 		}
 	} else if ret.Interest != nil {
 		err = checkInterest(ret.Interest, &context.Interest_context)
 		if err != nil {
-			return nil, nil, err
+			return ret, context, err
 		}
 	} else if ret.LpPacket != nil {
 		// As a client we shouldn't receive IDLE packets
 		if ret.LpPacket.Fragment == nil {
-			return nil, nil, ndn.ErrInvalidValue{Item: "LpPacket.Fragment", Value: nil}
+			return ret, context, ndn.ErrInvalidValue{Item: "LpPacket.Fragment", Value: nil}
 		}
 	} else {
-		return nil, nil, ndn.ErrWrongType
+		return ret, context, ndn.ErrWrongType
 	}
 	return ret, context, nil
 }

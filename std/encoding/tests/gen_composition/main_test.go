@@ -19,7 +19,7 @@ func TestIntArray(t *testing.T) {
 	buf := f.Bytes()
 	require.Equal(t, []byte{0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x01, 0x01, 0x03}, buf)
 	f2 := tu.NoErr(def.ParseIntArray(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 
 	f = def.IntArray{
 		Words: []uint64{},
@@ -44,7 +44,7 @@ func TestNameArray(t *testing.T) {
 		0x07, 0x06, 0x08, 0x01, 'A', 0x08, 0x01, 'B',
 		0x07, 0x03, 0x08, 0x01, 'C'}, buf)
 	f2 := tu.NoErr(def.ParseNameArray(enc.NewFastBufReader(buf), false))
-	require.Equal(t, f, *f2)
+	require.Equal(t, f, f2)
 }
 
 func TestNested(t *testing.T) {

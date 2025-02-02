@@ -40,6 +40,10 @@ func NewSequenceField(name string, typeNum uint64, annotation string, model *Tlv
 	}, nil
 }
 
+func (f *SequenceField) GenMainStruct() (string, error) {
+	return fmt.Sprintf("%s []%s", f.name, f.FieldType), nil
+}
+
 func (f *SequenceField) GenEncoderStruct() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("%s_subencoder []struct{", f.name)
