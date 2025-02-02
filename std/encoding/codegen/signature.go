@@ -245,8 +245,8 @@ func (f *InterestNameField) GenReadFrom() (string, error) {
 				value.{{.Name}} = value.{{.Name}}[:j]
 				break
 			}
-			value.{{.Name}}[j].Typ, err1 = enc.ReadTLNumFast(reader)
-			l, err2 := enc.ReadTLNumFast(reader)
+			value.{{.Name}}[j].Typ, err1 = reader.ReadTLNum()
+			l, err2 := reader.ReadTLNum()
 			value.{{.Name}}[j].Val, err3 = reader.ReadBuf(int(l))
 			if err1 != nil || err2 != nil || err3 != nil {
 				err = io.ErrUnexpectedEOF

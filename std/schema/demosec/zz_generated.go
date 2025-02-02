@@ -145,9 +145,6 @@ func (encoder *EncryptedContentEncoder) Encode(value *EncryptedContent) enc.Wire
 }
 
 func (context *EncryptedContentParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*EncryptedContent, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_KeyId bool = false
 	var handled_Iv bool = false
@@ -167,11 +164,11 @@ func (context *EncryptedContentParsingContext) Parse(reader enc.FastReader, igno
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}

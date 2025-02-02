@@ -63,9 +63,6 @@ func (encoder *ManifestDigestEncoder) Encode(value *ManifestDigest) enc.Wire {
 }
 
 func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ManifestDigest, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_SegNo bool = false
 	var handled_Digest bool = false
@@ -83,11 +80,11 @@ func (context *ManifestDigestParsingContext) Parse(reader enc.FastReader, ignore
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -278,9 +275,6 @@ func (encoder *ManifestDataEncoder) Encode(value *ManifestData) enc.Wire {
 }
 
 func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*ManifestData, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Entries bool = false
 
@@ -297,11 +291,11 @@ func (context *ManifestDataParsingContext) Parse(reader enc.FastReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -546,9 +540,6 @@ func (encoder *MetaDataEncoder) Encode(value *MetaData) enc.Wire {
 }
 
 func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*MetaData, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Name bool = false
 	var handled_FinalBlockID bool = false
@@ -574,11 +565,11 @@ func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritic
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -590,7 +581,8 @@ func (context *MetaDataParsingContext) Parse(reader enc.FastReader, ignoreCritic
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
 				}
 			case 26:
 				if true {

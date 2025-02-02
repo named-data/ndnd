@@ -124,9 +124,6 @@ func (encoder *StringMapEncoder) Encode(value *StringMap) enc.Wire {
 }
 
 func (context *StringMapParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*StringMap, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Params bool = false
 
@@ -143,11 +140,11 @@ func (context *StringMapParsingContext) Parse(reader enc.FastReader, ignoreCriti
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -178,11 +175,11 @@ func (context *StringMapParsingContext) Parse(reader enc.FastReader, ignoreCriti
 							}
 							typ := enc.TLNum(0)
 							l := enc.TLNum(0)
-							typ, err = enc.ReadTLNumFast(reader)
+							typ, err = reader.ReadTLNum()
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
-							l, err = enc.ReadTLNumFast(reader)
+							l, err = reader.ReadTLNum()
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
@@ -284,9 +281,6 @@ func (encoder *InnerEncoder) Encode(value *Inner) enc.Wire {
 }
 
 func (context *InnerParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Inner, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Num bool = false
 
@@ -303,11 +297,11 @@ func (context *InnerParsingContext) Parse(reader enc.FastReader, ignoreCritical 
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -502,9 +496,6 @@ func (encoder *IntStructMapEncoder) Encode(value *IntStructMap) enc.Wire {
 }
 
 func (context *IntStructMapParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*IntStructMap, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Params bool = false
 
@@ -521,11 +512,11 @@ func (context *IntStructMapParsingContext) Parse(reader enc.FastReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -563,11 +554,11 @@ func (context *IntStructMapParsingContext) Parse(reader enc.FastReader, ignoreCr
 							}
 							typ := enc.TLNum(0)
 							l := enc.TLNum(0)
-							typ, err = enc.ReadTLNumFast(reader)
+							typ, err = reader.ReadTLNum()
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}
-							l, err = enc.ReadTLNumFast(reader)
+							l, err = reader.ReadTLNum()
 							if err != nil {
 								return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 							}

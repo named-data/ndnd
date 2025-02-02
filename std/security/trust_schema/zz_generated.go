@@ -66,9 +66,6 @@ func (encoder *LvsUserFnArgEncoder) Encode(value *LvsUserFnArg) enc.Wire {
 }
 
 func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsUserFnArg, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Value bool = false
 	var handled_Tag bool = false
@@ -86,11 +83,11 @@ func (context *LvsUserFnArgParsingContext) Parse(reader enc.FastReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -299,9 +296,6 @@ func (encoder *LvsUserFnCallEncoder) Encode(value *LvsUserFnCall) enc.Wire {
 }
 
 func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsUserFnCall, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_FnId bool = false
 	var handled_Args bool = false
@@ -319,11 +313,11 @@ func (context *LvsUserFnCallParsingContext) Parse(reader enc.FastReader, ignoreC
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -487,9 +481,6 @@ func (encoder *LvsConstraintOptionEncoder) Encode(value *LvsConstraintOption) en
 }
 
 func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsConstraintOption, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Value bool = false
 	var handled_Tag bool = false
@@ -508,11 +499,11 @@ func (context *LvsConstraintOptionParsingContext) Parse(reader enc.FastReader, i
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -716,9 +707,6 @@ func (encoder *LvsPatternConstraintEncoder) Encode(value *LvsPatternConstraint) 
 }
 
 func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsPatternConstraint, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_ConsOptions bool = false
 
@@ -735,11 +723,11 @@ func (context *LvsPatternConstraintParsingContext) Parse(reader enc.FastReader, 
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -937,9 +925,6 @@ func (encoder *LvsPatternEdgeEncoder) Encode(value *LvsPatternEdge) enc.Wire {
 }
 
 func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsPatternEdge, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Dest bool = false
 	var handled_Tag bool = false
@@ -958,11 +943,11 @@ func (context *LvsPatternEdgeParsingContext) Parse(reader enc.FastReader, ignore
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1133,9 +1118,6 @@ func (encoder *LvsValueEdgeEncoder) Encode(value *LvsValueEdge) enc.Wire {
 }
 
 func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsValueEdge, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Dest bool = false
 	var handled_Value bool = false
@@ -1153,11 +1135,11 @@ func (context *LvsValueEdgeParsingContext) Parse(reader enc.FastReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1571,9 +1553,6 @@ func (encoder *LvsNodeEncoder) Encode(value *LvsNode) enc.Wire {
 }
 
 func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsNode, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Id bool = false
 	var handled_Parent bool = false
@@ -1595,11 +1574,11 @@ func (context *LvsNodeParsingContext) Parse(reader enc.FastReader, ignoreCritica
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1862,9 +1841,6 @@ func (encoder *LvsTagSymbolEncoder) Encode(value *LvsTagSymbol) enc.Wire {
 }
 
 func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsTagSymbol, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Tag bool = false
 	var handled_Ident bool = false
@@ -1882,11 +1858,11 @@ func (context *LvsTagSymbolParsingContext) Parse(reader enc.FastReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -2178,9 +2154,6 @@ func (encoder *LvsModelEncoder) Encode(value *LvsModel) enc.Wire {
 }
 
 func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*LvsModel, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Version bool = false
 	var handled_StartId bool = false
@@ -2201,11 +2174,11 @@ func (context *LvsModelParsingContext) Parse(reader enc.FastReader, ignoreCritic
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}

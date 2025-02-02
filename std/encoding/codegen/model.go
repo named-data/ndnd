@@ -152,10 +152,6 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 			func {{if .Model.PrivMethods -}}parse{{else}}Parse{{end}}{{.Model.Name}}
 		{{- end -}}
 		(reader enc.FastReader, ignoreCritical bool) (*{{.Model.Name}}, error) {
-			if !reader.IsValid() {
-				return nil, enc.ErrBufferOverflow
-			}
-
 			{{ range $i, $f := $.Model.Fields}}
 			var handled_{{$f.Name}} bool = false
 			{{- end}}

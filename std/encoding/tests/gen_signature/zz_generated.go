@@ -193,9 +193,6 @@ func (encoder *T1Encoder) Encode(value *T1) enc.Wire {
 }
 
 func (context *T1ParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*T1, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_H1 bool = false
 	var handled_sigCoverStart bool = false
@@ -217,11 +214,11 @@ func (context *T1ParsingContext) Parse(reader enc.FastReader, ignoreCritical boo
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -580,9 +577,6 @@ func (encoder *T2Encoder) Encode(value *T2) enc.Wire {
 }
 
 func (context *T2ParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*T2, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Name bool = false
 	var handled_sigCoverStart bool = false
@@ -605,11 +599,11 @@ func (context *T2ParsingContext) Parse(reader enc.FastReader, ignoreCritical boo
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -634,8 +628,8 @@ func (context *T2ParsingContext) Parse(reader enc.FastReader, ignoreCritical boo
 								value.Name = value.Name[:j]
 								break
 							}
-							value.Name[j].Typ, err1 = enc.ReadTLNumFast(reader)
-							l, err2 := enc.ReadTLNumFast(reader)
+							value.Name[j].Typ, err1 = reader.ReadTLNum()
+							l, err2 := reader.ReadTLNum()
 							value.Name[j].Val, err3 = reader.ReadBuf(int(l))
 							if err1 != nil || err2 != nil || err3 != nil {
 								err = io.ErrUnexpectedEOF

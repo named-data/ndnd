@@ -73,7 +73,7 @@ func GenNaturalNumberEncode(code string, isTlv bool) (string, error) {
 }
 
 func GenTlvNumberDecode(code string) (string, error) {
-	const Temp = `{{.}}, err = enc.ReadTLNumFast(reader)
+	const Temp = `{{.}}, err = reader.ReadTLNum()
 	if err != nil {
 		return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 	}`

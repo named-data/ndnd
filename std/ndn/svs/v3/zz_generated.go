@@ -62,9 +62,6 @@ func (encoder *SvsDataEncoder) Encode(value *SvsData) enc.Wire {
 }
 
 func (context *SvsDataParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*SvsData, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_StateVector bool = false
 
@@ -81,11 +78,11 @@ func (context *SvsDataParsingContext) Parse(reader enc.FastReader, ignoreCritica
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -253,9 +250,6 @@ func (encoder *StateVectorEncoder) Encode(value *StateVector) enc.Wire {
 }
 
 func (context *StateVectorParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*StateVector, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Entries bool = false
 
@@ -272,11 +266,11 @@ func (context *StateVectorParsingContext) Parse(reader enc.FastReader, ignoreCri
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -479,9 +473,6 @@ func (encoder *StateVectorEntryEncoder) Encode(value *StateVectorEntry) enc.Wire
 }
 
 func (context *StateVectorEntryParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*StateVectorEntry, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Name bool = false
 	var handled_SeqNoEntries bool = false
@@ -499,11 +490,11 @@ func (context *StateVectorEntryParsingContext) Parse(reader enc.FastReader, igno
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -515,7 +506,8 @@ func (context *StateVectorEntryParsingContext) Parse(reader enc.FastReader, igno
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
 				}
 			case 210:
 				if true {
@@ -634,9 +626,6 @@ func (encoder *SeqNoEntryEncoder) Encode(value *SeqNoEntry) enc.Wire {
 }
 
 func (context *SeqNoEntryParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*SeqNoEntry, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_BootstrapTime bool = false
 	var handled_SeqNo bool = false
@@ -654,11 +643,11 @@ func (context *SeqNoEntryParsingContext) Parse(reader enc.FastReader, ignoreCrit
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}

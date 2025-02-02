@@ -25,8 +25,8 @@ func NewFastBufReader(buf Buffer) FastReader {
 	return NewFastReader(Wire{buf})
 }
 
-func (r *FastReader) IsValid() bool {
-	return r.apos < r.end
+func (r *FastReader) IsEOF() bool {
+	return r.apos >= r.end
 }
 
 func (r *FastReader) Pos() int {
@@ -38,8 +38,8 @@ func (r *FastReader) Length() int {
 }
 
 func (r *FastReader) ReadByte() (byte, error) {
-	if !r.IsValid() {
-		return 0, ErrBufferOverflow
+	if r.IsEOF() {
+		return 0, r._eof()
 	}
 	b := r.wire[r.seg][r.rpos]
 	r.apos++
@@ -54,8 +54,8 @@ func (r *FastReader) ReadByte() (byte, error) {
 func (r *FastReader) ReadFull(cpy []byte) (int, error) {
 	cpypos := 0
 	for cpypos < len(cpy) {
-		if !r.IsValid() {
-			return cpypos, ErrBufferOverflow
+		if r.IsEOF() {
+			return cpypos, r._overflow()
 		}
 		n := copy(cpy[cpypos:], r.wire[r.seg][r.rpos:])
 		cpypos += n
@@ -81,8 +81,8 @@ func (r *FastReader) SkipGetSegCount(n int) (int, error) {
 	left := n
 	for left > 0 {
 		segcount++
-		if !r.IsValid() {
-			return segcount, ErrBufferOverflow
+		if r.IsEOF() {
+			return segcount, r._overflow()
 		}
 		segleft := len(r.wire[r.seg]) - r.rpos
 		if left < segleft {
@@ -147,8 +147,8 @@ func (r *FastReader) Delegate(size int) FastReader {
 func (r *FastReader) CopyN(w io.Writer, size int64) (int, error) {
 	written := 0
 	for written < int(size) {
-		if !r.IsValid() {
-			return written, ErrBufferOverflow
+		if r.IsEOF() {
+			return written, r._overflow()
 		}
 		seg := r.readSeg(int(size) - written)
 		written += len(seg)
@@ -165,7 +165,7 @@ func (r *FastReader) CopyN(w io.Writer, size int64) (int, error) {
 
 func (r *FastReader) ReadBuf(size int) ([]byte, error) {
 	if size > r.end-r.apos {
-		return nil, ErrBufferOverflow
+		return nil, r._overflow()
 	}
 
 	ret := make([]byte, size)
@@ -186,4 +186,18 @@ func (r *FastReader) Range(start, end int) Wire {
 		return Wire{}
 	}
 	return w
+}
+
+// Debug prints the remaining bytes in the buffer.
+func (r FastReader) Debug() []byte {
+	b, _ := r.ReadBuf(r.end - r.apos)
+	return b
+}
+
+func (r *FastReader) _eof() error {
+	return io.EOF
+}
+
+func (r *FastReader) _overflow() error {
+	return ErrBufferOverflow
 }

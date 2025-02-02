@@ -129,21 +129,6 @@ func ReadName(r ParseReader) (Name, error) {
 	}
 }
 
-func ReadNameFast(r FastReader) (Name, error) {
-	var err error
-	var c Component
-	ret := make(Name, 0, 8)
-	// Bad design of Go: it does not allow you use := to create a temp var c and write the error to err.
-	for c, err = ReadComponentFast(r); err == nil; c, err = ReadComponentFast(r) {
-		ret = append(ret, c)
-	}
-	if err != io.EOF {
-		return nil, err
-	} else {
-		return ret, nil
-	}
-}
-
 // Bytes returns the encoded bytes of a Name
 func (n Name) Bytes() []byte {
 	l := n.EncodingLength()

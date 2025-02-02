@@ -85,9 +85,6 @@ func (encoder *PacketEncoder) Encode(value *Packet) enc.Wire {
 }
 
 func (context *PacketParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Packet, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Advertisement bool = false
 	var handled_PrefixOpList bool = false
@@ -105,11 +102,11 @@ func (context *PacketParsingContext) Parse(reader enc.FastReader, ignoreCritical
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -286,9 +283,6 @@ func (encoder *AdvertisementEncoder) Encode(value *Advertisement) enc.Wire {
 }
 
 func (context *AdvertisementParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Advertisement, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Entries bool = false
 
@@ -305,11 +299,11 @@ func (context *AdvertisementParsingContext) Parse(reader enc.FastReader, ignoreC
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -472,9 +466,6 @@ func (encoder *AdvEntryEncoder) Encode(value *AdvEntry) enc.Wire {
 }
 
 func (context *AdvEntryParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*AdvEntry, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Destination bool = false
 	var handled_NextHop bool = false
@@ -494,11 +485,11 @@ func (context *AdvEntryParsingContext) Parse(reader enc.FastReader, ignoreCritic
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -666,9 +657,6 @@ func (encoder *DestinationEncoder) Encode(value *Destination) enc.Wire {
 }
 
 func (context *DestinationParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Destination, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Name bool = false
 
@@ -685,11 +673,11 @@ func (context *DestinationParsingContext) Parse(reader enc.FastReader, ignoreCri
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -701,7 +689,8 @@ func (context *DestinationParsingContext) Parse(reader enc.FastReader, ignoreCri
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -968,9 +957,6 @@ func (encoder *PrefixOpListEncoder) Encode(value *PrefixOpList) enc.Wire {
 }
 
 func (context *PrefixOpListParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*PrefixOpList, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_ExitRouter bool = false
 	var handled_PrefixOpReset bool = false
@@ -990,11 +976,11 @@ func (context *PrefixOpListParsingContext) Parse(reader enc.FastReader, ignoreCr
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1171,9 +1157,6 @@ func (encoder *PrefixOpAddEncoder) Encode(value *PrefixOpAdd) enc.Wire {
 }
 
 func (context *PrefixOpAddParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*PrefixOpAdd, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Name bool = false
 	var handled_Cost bool = false
@@ -1191,11 +1174,11 @@ func (context *PrefixOpAddParsingContext) Parse(reader enc.FastReader, ignoreCri
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1207,7 +1190,8 @@ func (context *PrefixOpAddParsingContext) Parse(reader enc.FastReader, ignoreCri
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
 				}
 			case 208:
 				if true {
@@ -1332,9 +1316,6 @@ func (encoder *PrefixOpRemoveEncoder) Encode(value *PrefixOpRemove) enc.Wire {
 }
 
 func (context *PrefixOpRemoveParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*PrefixOpRemove, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Name bool = false
 
@@ -1351,11 +1332,11 @@ func (context *PrefixOpRemoveParsingContext) Parse(reader enc.FastReader, ignore
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
@@ -1367,7 +1348,8 @@ func (context *PrefixOpRemoveParsingContext) Parse(reader enc.FastReader, ignore
 				if true {
 					handled = true
 					handled_Name = true
-					value.Name, err = enc.ReadNameFast(reader.Delegate(int(l)))
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -1527,9 +1509,6 @@ func (encoder *StatusEncoder) Encode(value *Status) enc.Wire {
 }
 
 func (context *StatusParsingContext) Parse(reader enc.FastReader, ignoreCritical bool) (*Status, error) {
-	if !reader.IsValid() {
-		return nil, enc.ErrBufferOverflow
-	}
 
 	var handled_Version bool = false
 	var handled_NetworkName bool = false
@@ -1551,11 +1530,11 @@ func (context *StatusParsingContext) Parse(reader enc.FastReader, ignoreCritical
 		}
 		typ := enc.TLNum(0)
 		l := enc.TLNum(0)
-		typ, err = enc.ReadTLNumFast(reader)
+		typ, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
-		l, err = enc.ReadTLNumFast(reader)
+		l, err = reader.ReadTLNum()
 		if err != nil {
 			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
 		}
