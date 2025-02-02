@@ -1,6 +1,8 @@
 package encoding_test
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -436,4 +438,82 @@ func TestNamePrefix(t *testing.T) {
 	require.Equal(t, "/a", n.Prefix(-3).String())
 	require.Equal(t, "/", n.Prefix(-4).String())
 	require.Equal(t, "/", n.Prefix(-5).String())
+}
+
+func TestNameFStr(t *testing.T) {
+	tu.SetT(t)
+	for _, name := range randomNames(1000) {
+		name2 := tu.NoErr(enc.NameFromFStr(name.FStr()))
+		require.Equal(t, name, name2)
+	}
+}
+
+func BenchmarkNameHash(b *testing.B) {
+	names := randomNames(b.N)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = names[i].Hash()
+	}
+}
+
+func BenchmarkNameStringEncode(b *testing.B) {
+	names := randomNames(b.N)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = names[i].String()
+	}
+}
+
+func BenchmarkNameStringDecode(b *testing.B) {
+	names := randomNames(b.N)
+	nameStrs := make([]string, b.N)
+	for i := 0; i < b.N; i++ {
+		nameStrs[i] = names[i].String()
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := enc.NameFromStr(nameStrs[i])
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkNameFStrEncode(b *testing.B) {
+	names := randomNames(b.N)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = names[i].FStr()
+	}
+}
+
+func BenchmarkNameFStrDecode(b *testing.B) {
+	names := randomNames(b.N)
+	nameStrs := make([]string, b.N)
+	for i := 0; i < b.N; i++ {
+		nameStrs[i] = names[i].FStr()
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := enc.NameFromFStr(nameStrs[i])
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+// randomNames generates random names for benchmarking.
+func randomNames(count int) []enc.Name {
+	names := make([]enc.Name, count)
+	for i := 0; i < count; i++ {
+		for j := 0; j < 20; j++ {
+			bytes := make([]byte, 8+j)
+			rand.Read(bytes)
+			typ := max(enc.TLNum(uint16(binary.BigEndian.Uint16(bytes[:4])-1024)), 1024)
+			names[i] = append(names[i], enc.NewBytesComponent(typ, bytes[4:]))
+		}
+	}
+	return names
 }

@@ -5,6 +5,7 @@ import (
 	"hash"
 	"io"
 	"strings"
+	"unsafe"
 )
 
 type Name []Component
@@ -12,6 +13,9 @@ type Name []Component
 type NamePattern []ComponentPattern
 
 const TypeName TLNum = 0x07
+
+const sizeTLNum = int(unsafe.Sizeof(TLNum(0)))
+const sizeLen = int(unsafe.Sizeof(len([]byte{})))
 
 func (n Name) String() string {
 	sb := strings.Builder{}
@@ -362,4 +366,69 @@ func (n Name) ToFullName(rawData Wire) Name {
 		Typ: TypeImplicitSha256DigestComponent,
 		Val: digest,
 	})
+}
+
+// FStr returns a fast reversible string representation of a Name.
+// [WARNING] The output must never leave this application's memory.
+func (n Name) FStr() string {
+	sb := strings.Builder{}
+	size := sizeLen // # of components
+	for i := range n {
+		size += sizeTLNum + sizeLen + len(n[i].Val)
+	}
+	sb.Grow(size)
+
+	length := len(n)
+	sb.Write(unsafe.Slice((*byte)(unsafe.Pointer(&length)), sizeLen))
+	for _, c := range n {
+		length = len(c.Val)
+		sb.Write(unsafe.Slice((*byte)(unsafe.Pointer(&c.Typ)), sizeTLNum))
+		sb.Write(unsafe.Slice((*byte)(unsafe.Pointer(&length)), sizeLen))
+		sb.Write(c.Val)
+	}
+	return sb.String()
+}
+
+// NameFromFStr parses the output of FStr into a Name.
+func NameFromFStr(s string) (Name, error) {
+	byts := unsafe.Slice(unsafe.StringData(s), len(s))
+	if len(byts) < sizeLen {
+		return nil, ErrFormat{"encoding.NameFromFStr (1)"}
+	}
+	length := *(*int)(unsafe.Pointer(&byts[0]))
+	if length < 0 || length > 8192 {
+		return nil, ErrFormat{"encoding.NameFromFStr (2)"}
+	}
+	byts = byts[sizeLen:]
+
+	// outer slice for name
+	name := make(Name, length)
+	cvalLen := len(byts) - (sizeTLNum+sizeLen)*length
+	if cvalLen < 0 {
+		return nil, ErrFormat{"encoding.NameFromFStr (3)"}
+	}
+
+	// single underlying array for all components
+	comps := make([]byte, cvalLen)
+
+	for i := range name {
+		if len(byts) < sizeTLNum+sizeLen {
+			return nil, ErrFormat{"encoding.NameFromFStr (3)"}
+		}
+		name[i].Typ = *(*TLNum)(unsafe.Pointer(&byts[0]))
+		compLen := *(*int)(unsafe.Pointer(&byts[sizeTLNum]))
+		byts = byts[sizeTLNum+sizeLen:]
+		if len(byts) < compLen {
+			return nil, ErrFormat{"encoding.NameFromFStr: (4)"}
+		}
+		if len(comps) < compLen {
+			return nil, ErrFormat{"encoding.NameFromFStr: (5)"}
+		}
+		copy(comps, byts[:compLen])
+		byts = byts[compLen:]
+		name[i].Val = comps[:compLen]
+		comps = comps[compLen:]
+	}
+
+	return name, nil
 }
