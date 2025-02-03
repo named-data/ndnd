@@ -137,10 +137,10 @@ func (t *UnicastUDPTransport) sendFrame(frame []byte) {
 func (t *UnicastUDPTransport) runReceive() {
 	defer t.Close()
 
-	err := ndn_io.ReadTlvStream(t.conn, func(b []byte) bool {
-		t.nInBytes += uint64(len(b))
+	err := ndn_io.ReadTlvStream(t.conn, func(b ndn_io.BufT) bool {
+		t.nInBytes += uint64(len(b.Buf))
 		*t.expirationTime = time.Now().Add(CfgUDPLifetime())
-		t.linkService.handleIncomingFrame(b)
+		t.linkService.handleIncomingFrame(b.Buf)
 		return true
 	}, func(err error) bool {
 		// Ignore since UDP is a connectionless protocol

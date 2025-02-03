@@ -1,7 +1,9 @@
 // Arc is an atomically reference counted generic type.
 package arc
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // Arc is an atomically reference counted generic type.
 // It is specifically designed to be used in a pool.
@@ -30,6 +32,7 @@ func (a *Arc[T]) Inc() {
 func (a *Arc[T]) Dec() int32 {
 	c := a.c.Add(-1)
 	if c == 0 && a.p != nil {
+		// fmt.Println("Arc: returning to pool")
 		a.p.Put(a)
 	}
 	return c

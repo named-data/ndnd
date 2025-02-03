@@ -1,28 +1,48 @@
 package io
 
 import (
+	"bytes"
 	"errors"
 	"io"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
+	"github.com/named-data/ndnd/std/types/arc"
 )
 
+// BufT is a temporary buffer with an associated Arc.
+// A receiver must either manage lifetime of the buffer or copy it.
+type BufT struct {
+	Buf []byte
+	*arc.Arc[*bytes.Buffer]
+}
+
+// ReadTlvStream reads a stream of TLV-encoded packets from the given reader.
 func ReadTlvStream(
 	reader io.Reader,
-	onFrame func([]byte) bool,
+	onFrame func(BufT) bool,
 	ignoreError func(error) bool,
 ) error {
-	recvBuf := make([]byte, ndn.MaxNDNPacketSize*8)
+	bufArc, recvBuf := streamBuffer()
+	defer func() { bufArc.Dec() }()
+
 	recvOff := 0
 	tlvOff := 0
 
 	for {
 		// If less than one packet space remains in buffer, shift to beginning
 		if len(recvBuf)-recvOff < ndn.MaxNDNPacketSize {
-			copy(recvBuf, recvBuf[tlvOff:recvOff])
+			// Get a new buffer
+			oldBufArc, oldRecvBuf := bufArc, recvBuf
+			bufArc, recvBuf = streamBuffer()
+
+			// Copy unparsed data to new buffer
+			copy(recvBuf, oldRecvBuf[tlvOff:recvOff])
 			recvOff -= tlvOff
 			tlvOff = 0
+
+			// Release old buffer
+			oldBufArc.Dec()
 		}
 
 		// Read multiple packets at once
@@ -58,7 +78,7 @@ func ReadTlvStream(
 
 			if recvOff-tlvOff >= tlvSize {
 				// Packet was successfully received, send up to link service
-				shouldContinue := onFrame(recvBuf[tlvOff : tlvOff+tlvSize])
+				shouldContinue := onFrame(BufT{recvBuf[tlvOff : tlvOff+tlvSize], bufArc})
 				if !shouldContinue {
 					return nil
 				}

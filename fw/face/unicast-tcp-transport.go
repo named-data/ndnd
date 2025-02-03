@@ -238,10 +238,10 @@ func (t *UnicastTCPTransport) runReceive() {
 		// The connection can be nil if the initial connection attempt
 		// failed for a persistent face. In that case we will reconnect.
 		if t.conn != nil {
-			err := ndn_io.ReadTlvStream(t.conn, func(b []byte) bool {
-				t.nInBytes += uint64(len(b))
+			err := ndn_io.ReadTlvStream(t.conn, func(b ndn_io.BufT) bool {
+				t.nInBytes += uint64(len(b.Buf))
 				*t.expirationTime = time.Now().Add(CfgTCPLifetime())
-				t.linkService.handleIncomingFrame(b)
+				t.linkService.handleIncomingFrame(b.Buf)
 				return true
 			}, nil)
 			if err == nil && t.Persistency() != spec_mgmt.PersistencyPermanent {

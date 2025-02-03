@@ -161,9 +161,9 @@ func (t *MulticastUDPTransport) runReceive() {
 	defer t.Close()
 
 	for t.running.Load() {
-		err := ndn_io.ReadTlvStream(t.recvConn, func(b []byte) bool {
-			t.nInBytes += uint64(len(b))
-			t.linkService.handleIncomingFrame(b)
+		err := ndn_io.ReadTlvStream(t.recvConn, func(b ndn_io.BufT) bool {
+			t.nInBytes += uint64(len(b.Buf))
+			t.linkService.handleIncomingFrame(b.Buf)
 			return true
 		}, func(err error) bool {
 			// Same as unicast UDP transport

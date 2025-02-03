@@ -90,8 +90,8 @@ func (f *StreamFace) Send(pkt enc.Wire) error {
 func (f *StreamFace) receive() {
 	defer f.setStateDown()
 
-	err := ndn_io.ReadTlvStream(f.conn, func(b []byte) bool {
-		if err := f.onPkt(b); err != nil {
+	err := ndn_io.ReadTlvStream(f.conn, func(b ndn_io.BufT) bool {
+		if err := f.onPkt(b.Buf); err != nil {
 			f.Close()    // engine error
 			return false // break
 		}

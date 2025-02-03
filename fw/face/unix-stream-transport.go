@@ -91,9 +91,9 @@ func (t *UnixStreamTransport) sendFrame(frame []byte) {
 func (t *UnixStreamTransport) runReceive() {
 	defer t.Close()
 
-	err := ndn_io.ReadTlvStream(t.conn, func(b []byte) bool {
-		t.nInBytes += uint64(len(b))
-		t.linkService.handleIncomingFrame(b)
+	err := ndn_io.ReadTlvStream(t.conn, func(b ndn_io.BufT) bool {
+		t.nInBytes += uint64(len(b.Buf))
+		t.linkService.handleIncomingFrame(b.Buf)
 		return true
 	}, nil)
 	if err != nil && t.running.Load() {
