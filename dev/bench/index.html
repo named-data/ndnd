@@ -80,7 +80,7 @@
         width: 100%;
       }
       .benchmark-chart {
-        max-width: 1000px;
+        max-width: 450px;
       }
     </style>
     <title>Benchmarks</title>
@@ -126,12 +126,23 @@
           _: '#333333'
         };
 
+        const unitColors = {
+          "ns/op": "#3572a5",
+          "B/op": "#a270ba",
+          "allocs/op": "#178600",
+        }
+        for (const unit in unitColors) {
+          toolColors[unit] = unitColors[unit];
+        }
+
         function init() {
           function collectBenchesPerTestCase(entries) {
             const map = new Map();
             for (const entry of entries) {
               const {commit, date, tool, benches} = entry;
               for (const bench of benches) {
+                if (!bench.name.includes('-')) continue; // golang
+
                 const result = { commit, date, tool, bench };
                 const arr = map.get(bench.name);
                 if (arr === undefined) {
@@ -160,6 +171,18 @@
             a.download = 'benchmark_data.json';
             a.click();
           };
+
+          // Separate out entries for each unit type
+          for (const unit in unitColors) {
+            const dataCopy = structuredClone(data);
+            const entry = dataCopy.entries["Go Benchmark"];
+            for (const subentry of entry) {
+              subentry.tool = unit
+              subentry.benches = subentry.benches?.filter(bench => bench.unit === unit);
+            }
+            data.entries[unit] = dataCopy.entries["Go Benchmark"];
+          }
+          delete data.entries["Go Benchmark"];
 
           // Prepare data points for charts
           return Object.keys(data.entries).map(name => ({
