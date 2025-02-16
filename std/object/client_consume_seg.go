@@ -8,6 +8,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
+	"github.com/named-data/ndnd/std/object/congestion"
 )
 
 // round-robin based segment fetcher
@@ -25,7 +26,7 @@ type rrSegFetcher struct {
 	// number of outstanding interests
 	outstanding int
 	// window size
-	window int
+	window congestion.CongestionWindow
 }
 
 func newRrSegFetcher(client *Client) rrSegFetcher {
@@ -33,7 +34,7 @@ func newRrSegFetcher(client *Client) rrSegFetcher {
 		mutex:       sync.RWMutex{},
 		client:      client,
 		streams:     make([]*ConsumeState, 0),
-		window:      100,
+		window:      congestion.NewFixedCongestionWindow(100),	// fixed window trial
 		outstanding: 0,
 	}
 }
@@ -47,7 +48,7 @@ func (s *rrSegFetcher) String() string {
 func (s *rrSegFetcher) IsCongested() bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.outstanding >= s.window
+	return s.outstanding >= s.window.Size()
 }
 
 // add a stream to the fetch queue
@@ -71,7 +72,7 @@ func (s *rrSegFetcher) findWork() *ConsumeState {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.outstanding >= s.window {
+	if s.outstanding >= s.window.Size() {
 		return nil
 	}
 
