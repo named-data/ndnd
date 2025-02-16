@@ -2,13 +2,13 @@ package congestion
 
 import "time"
 
-// Congestion control signals
+// CongestionSignal represents signals to adjust the congestion window.
 type CongestionSignal int
+
 const (
-	// TODO: signals
-	SigRecv = iota	// segment received
-	SigLoss			// loss detected
-	SigCongest		// congestion detected
+	SigData = iota	// data is fetched
+	SigLoss			// data loss detected
+	SigCongest		// congestion detected (e.g. NACK with a reason of congestion)
 )
 
 // Congestion window change event
@@ -17,7 +17,7 @@ type WindowEvent struct {
 	cwnd 	int			// new window size
 }
 
-// CongestionWindow provides an interface for congestion control that manages a window size
+// CongestionWindow provides an interface for congestion control that manages a window
 type CongestionWindow interface {
 	String() string
 

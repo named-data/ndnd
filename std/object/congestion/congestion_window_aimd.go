@@ -76,10 +76,9 @@ func (cw *AIMDCongestionWindow) EventChannel() <-chan WindowEvent {
 
 func (cw *AIMDCongestionWindow) HandleSignal(signal CongestionSignal) {
 	switch signal {
-	case SigRecv:
+	case SigData:
 		cw.IncreaseWindow()
-	case SigLoss:
-	case SigCongest:
+	case SigLoss, SigCongest:
 		cw.DecreaseWindow()
 	default:
 		// no-op
