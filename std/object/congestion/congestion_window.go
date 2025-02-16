@@ -6,6 +6,9 @@ import "time"
 type CongestionSignal int
 const (
 	// TODO: signals
+	SigRecv = iota	// segment received
+	SigLoss			// loss detected
+	SigCongest		// congestion detected
 )
 
 // Congestion window change event
@@ -21,6 +24,7 @@ type CongestionWindow interface {
 	EventChannel() <-chan WindowEvent		// where window events are emitted
 	HandleSignal(signal CongestionSignal)	// signal handler
 
+	Size() int
 	IncreaseWindow()
 	DecreaseWindow()
 }
