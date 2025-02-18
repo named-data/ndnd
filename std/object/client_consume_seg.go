@@ -9,6 +9,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object/congestion"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 // round-robin based segment fetcher
@@ -154,8 +155,9 @@ func (s *rrSegFetcher) check() {
 				case ndn.InterestResultTimeout:
 					s.window.HandleSignal(congestion.SigLoss)
 				case ndn.InterestResultNack:
-					s.window.HandleSignal(congestion.SigCongest)
-				default:	// no-op
+					if args.NackReason == spec.NackReasonCongestion {
+						s.window.HandleSignal(congestion.SigCongest)
+					}
 				}
 			},
 			Callback: func(args ndn.ExpressCallbackArgs) {
