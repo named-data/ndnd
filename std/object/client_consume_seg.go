@@ -143,13 +143,21 @@ func (s *rrSegFetcher) check() {
 		s.outstanding++
 		state.wnd[2]++
 
-		// queue outgoing interest for the next segment
 		s.client.ExpressR(ndn.ExpressRArgs{
 			Name: state.fetchName.Append(enc.NewSegmentComponent(seg)),
 			Config: &ndn.InterestConfig{
 				MustBeFresh: false,
 			},
 			Retries: 3,
+			RetryCallback: func(args ndn.ExpressCallbackArgs) {
+				switch args.Result {
+				case ndn.InterestResultTimeout:
+					s.window.HandleSignal(congestion.SigLoss)
+				case ndn.InterestResultNack:
+					s.window.HandleSignal(congestion.SigCongest)
+				default:	// no-op
+				}
+			},
 			Callback: func(args ndn.ExpressCallbackArgs) {
 				s.handleData(args, state)
 			},

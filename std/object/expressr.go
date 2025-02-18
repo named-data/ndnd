@@ -44,6 +44,10 @@ func ExpressR(engine ndn.Engine, args ndn.ExpressRArgs) {
 
 			// retry on timeout
 			args.Retries--
+			if args.RetryCallback != nil {
+				args.RetryCallback(res)
+			}
+
 			ExpressR(engine, args)
 		} else {
 			// all other results / errors are final
