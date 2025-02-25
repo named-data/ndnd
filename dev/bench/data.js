@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740444232851,
+  "lastUpdate": 1740463938014,
   "repoUrl": "https://github.com/named-data/ndnd",
   "entries": {
     "Go Benchmark": [
@@ -16690,6 +16690,510 @@ window.BENCHMARK_DATA = {
           {
             "name": "BenchmarkNameComponentTlvStrDecode - ns/op",
             "value": 61.28,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrDecode - B/op",
+            "value": 16,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrDecode - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "varunpatil@ucla.edu",
+            "name": "Varun Patil",
+            "username": "pulsejet"
+          },
+          "committer": {
+            "email": "varunpatil@ucla.edu",
+            "name": "Varun Patil",
+            "username": "pulsejet"
+          },
+          "distinct": true,
+          "id": "03351034b0f02d74f8e1d309f88b94bf6d191570",
+          "message": "svs: return instance state as binary",
+          "timestamp": "2025-02-25T06:10:17Z",
+          "tree_id": "03d556f10851543ce3cc5af50af75779cfa2254f",
+          "url": "https://github.com/named-data/ndnd/commit/03351034b0f02d74f8e1d309f88b94bf6d191570"
+        },
+        "date": 1740463937548,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkDataEncodeSmall",
+            "value": 669.7,
+            "unit": "ns/op\t     648 B/op\t       9 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeSmall - ns/op",
+            "value": 669.7,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeSmall - B/op",
+            "value": 648,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeSmall - allocs/op",
+            "value": 9,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMedium",
+            "value": 663.4,
+            "unit": "ns/op\t     744 B/op\t       9 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMedium - ns/op",
+            "value": 663.4,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMedium - B/op",
+            "value": 744,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMedium - allocs/op",
+            "value": 9,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMediumLongName",
+            "value": 829.4,
+            "unit": "ns/op\t    1032 B/op\t       9 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMediumLongName - ns/op",
+            "value": 829.4,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMediumLongName - B/op",
+            "value": 1032,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeMediumLongName - allocs/op",
+            "value": 9,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeLarge",
+            "value": 966.6,
+            "unit": "ns/op\t     744 B/op\t       9 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeLarge - ns/op",
+            "value": 966.6,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeLarge - B/op",
+            "value": 744,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataEncodeLarge - allocs/op",
+            "value": 9,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeSmall",
+            "value": 922.1,
+            "unit": "ns/op\t     936 B/op\t      11 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeSmall - ns/op",
+            "value": 922.1,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeSmall - B/op",
+            "value": 936,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeSmall - allocs/op",
+            "value": 11,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMedium",
+            "value": 1481,
+            "unit": "ns/op\t    1448 B/op\t      12 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMedium - ns/op",
+            "value": 1481,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMedium - B/op",
+            "value": 1448,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMedium - allocs/op",
+            "value": 12,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMediumLongName",
+            "value": 1635,
+            "unit": "ns/op\t    2600 B/op\t      13 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMediumLongName - ns/op",
+            "value": 1635,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMediumLongName - B/op",
+            "value": 2600,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeMediumLongName - allocs/op",
+            "value": 13,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeLarge",
+            "value": 1306,
+            "unit": "ns/op\t    1448 B/op\t      12 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeLarge - ns/op",
+            "value": 1306,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeLarge - B/op",
+            "value": 1448,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkDataDecodeLarge - allocs/op",
+            "value": 12,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHash",
+            "value": 279.8,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHash - ns/op",
+            "value": 279.8,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHash - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHash - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHashPrefix",
+            "value": 1029,
+            "unit": "ns/op\t     176 B/op\t       1 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHashPrefix - ns/op",
+            "value": 1029,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHashPrefix - B/op",
+            "value": 176,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameHashPrefix - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringEncode",
+            "value": 8031,
+            "unit": "ns/op\t    3467 B/op\t      30 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringEncode - ns/op",
+            "value": 8031,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringEncode - B/op",
+            "value": 3467,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringEncode - allocs/op",
+            "value": 30,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrEncode",
+            "value": 368.7,
+            "unit": "ns/op\t     448 B/op\t       1 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrEncode - ns/op",
+            "value": 368.7,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrEncode - B/op",
+            "value": 448,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrEncode - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameBytesEncode",
+            "value": 455.4,
+            "unit": "ns/op\t     448 B/op\t       1 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameBytesEncode - ns/op",
+            "value": 455.4,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameBytesEncode - B/op",
+            "value": 448,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameBytesEncode - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringEncode",
+            "value": 319.9,
+            "unit": "ns/op\t      95 B/op\t       4 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringEncode - ns/op",
+            "value": 319.9,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringEncode - B/op",
+            "value": 95,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringEncode - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrEncode",
+            "value": 30.16,
+            "unit": "ns/op\t      16 B/op\t       1 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrEncode - ns/op",
+            "value": 30.16,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrEncode - B/op",
+            "value": 16,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrEncode - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameClone",
+            "value": 354.1,
+            "unit": "ns/op\t    1056 B/op\t       2 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameClone - ns/op",
+            "value": 354.1,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameClone - B/op",
+            "value": 1056,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameClone - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringDecode",
+            "value": 9116,
+            "unit": "ns/op\t    2059 B/op\t      22 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringDecode - ns/op",
+            "value": 9116,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringDecode - B/op",
+            "value": 2059,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameStringDecode - allocs/op",
+            "value": 22,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrDecode",
+            "value": 976.2,
+            "unit": "ns/op\t    2368 B/op\t       4 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrDecode - ns/op",
+            "value": 976.2,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrDecode - B/op",
+            "value": 2368,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameTlvStrDecode - allocs/op",
+            "value": 4,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringDecode",
+            "value": 240.8,
+            "unit": "ns/op\t      22 B/op\t       1 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringDecode - ns/op",
+            "value": 240.8,
+            "unit": "ns/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringDecode - B/op",
+            "value": 22,
+            "unit": "B/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentStringDecode - allocs/op",
+            "value": 1,
+            "unit": "allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrDecode",
+            "value": 57.36,
+            "unit": "ns/op\t      16 B/op\t       1 allocs/op",
+            "extra": "300000 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkNameComponentTlvStrDecode - ns/op",
+            "value": 57.36,
             "unit": "ns/op",
             "extra": "300000 times\n4 procs"
           },
