@@ -235,6 +235,17 @@ func (dv *Router) register() (err error) {
 		return err
 	}
 
+	injectPrefix := enc.NewKeywordComponent("routing").
+		Append(enc.NewKeywordComponent("inject"))
+
+	err = dv.engine.AttachHandler(injectPrefix,
+		func(args ndn.InterestHandlerArgs) {
+			go dv.onInjection(args)
+		})
+	if err != nil {
+		return err
+	}
+
 	// Register routes to forwarder
 	pfxs := []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
@@ -242,6 +253,7 @@ func (dv *Router) register() (err error) {
 		dv.config.PrefixTableSyncPrefix(),
 		dv.config.RouterDataPrefix(),
 		dv.config.MgmtPrefix(),
+		injectPrefix,
 	}
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{

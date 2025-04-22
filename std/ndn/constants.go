@@ -14,6 +14,7 @@ const (
 	ContentTypeManifest           ContentType = 4
 	ContentTypePrefixAnnouncement ContentType = 5
 	ContentTypeEncapsulatedData   ContentType = 6
+	ContentTypePrefixInjection    ContentType = 7
 	ContentTypeSigningKey         ContentType = 9
 )
 
