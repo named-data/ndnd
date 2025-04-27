@@ -2,11 +2,13 @@ package dv
 
 import (
 	"github.com/named-data/ndnd/dv/config"
+	"github.com/named-data/ndnd/dv/nfdc"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	"github.com/named-data/ndnd/std/types/optional"
 )
 
 func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
@@ -42,7 +44,6 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 				return
 			}
 
-			// TODO: need to add into FIB? Otherwise what to do with the incoming FaceId?
 			dv.onPrefixInjectionObject(data, args.IncomingFaceId.Unwrap())
 		},
 	})
@@ -95,6 +96,18 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) {
 			return
 		}
 	}
+
+	dv.nfdc.Exec(nfdc.NfdMgmtCmd{
+		Module: "rib",
+		Cmd:    "register",
+		Args: &mgmt.ControlArgs{
+			Name:   prefix,
+			FaceId: optional.Some(faceId),
+			Origin: optional.Some(config.PrefixInjOrigin),
+			Cost:   optional.Some(cost),
+		},
+		Retries: 3,
+	})
 
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()

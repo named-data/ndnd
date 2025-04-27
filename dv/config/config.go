@@ -11,6 +11,7 @@ import (
 
 const CostInfinity = uint64(16)
 const NlsrOrigin = uint64(mgmt.RouteOriginNLSR)
+const PrefixInjOrigin = uint64(mgmt.RouteOriginPrefixInj)
 
 var MulticastStrategy = enc.LOCALHOST.
 	Append(enc.NewGenericComponent("nfd")).
