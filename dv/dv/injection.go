@@ -1,9 +1,11 @@
 package dv
 
 import (
+	"github.com/named-data/ndnd/dv/config"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
+	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
@@ -22,24 +24,28 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 
 	// Decode Prefix Injection Object
 	// note: ReadData() will skip over any non-critical TLV arguments (StapledCertificate)
-	data, _ /*sigCov*/, err := spec.Spec{}.ReadData(enc.NewWireView(args.Interest.AppParam()))
+	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(args.Interest.AppParam()))
 	if err != nil {
 		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
 		return
 	}
 
-	// TODO: perform signature validation
-	if true {
-		// validation would be here
-		/*
+	// Validate signature
+	// TODO: use stapled certificates
+	dv.prefixInjectionClient.ValidateExt(ndn.ValidateExtArgs{
+		Data:        data,
+		SigCovered:  sigCov,
+		CertNextHop: args.IncomingFaceId, /* is this sensible? */
+		Callback: func(valid bool, err error) {
 			if !valid || err != nil {
 				log.Warn(dv, "Failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
 				return
 			}
-		*/
 
-		dv.onPrefixInjectionObject(data, args.IncomingFaceId.Unwrap())
-	}
+			// TODO: need to add into FIB? Otherwise what to do with the incoming FaceId?
+			dv.onPrefixInjectionObject(data, args.IncomingFaceId.Unwrap())
+		},
+	})
 }
 
 func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) {
@@ -66,10 +72,34 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) {
 		return
 	}
 
-	// TODO: parse content, get cost
-	cost := uint64(0)
-	dirty := dv.rib.Set(prefix, dv.config.RouterName(), cost)
+	piWire := object.Content()
+	params, err := mgmt.ParsePrefixInjection(enc.NewWireView(piWire), true)
+	if err != nil {
+		log.Warn(dv, "Failed to parse prefix injection object", "err", err)
+		return
+	}
 
+	var cost uint64
+	if params.ExpirationPeriod < 0 {
+		log.Warn(dv, "Invalid ExpirationPeriod value", "ExpirationPeriod", params.ExpirationPeriod)
+		return
+	} else if params.ExpirationPeriod == 0 {
+		// Remove the RIB entry
+		// TODO: do it the proper way
+		cost = config.CostInfinity
+	} else {
+		// Add or update RIB entry
+		cost = params.Cost.GetOr(0)
+		if cost < 0 {
+			log.Warn(dv, "Invalid Cost value", "Cost", cost)
+			return
+		}
+	}
+
+	dv.mutex.Lock()
+	defer dv.mutex.Unlock()
+
+	dirty := dv.rib.Set(prefix, dv.config.RouterName(), cost)
 	if dirty {
 		go dv.postUpdateRib()
 	}

@@ -337,3 +337,19 @@ type CsQuery struct {
 	PacketSize      uint64
 	FreshnessPeriod uint64
 }
+
+type ValidityPeriod struct {
+	//+field:string
+	NotBefore string `tlv:"0xfe"`
+	//+field:string
+	NotAfter string `tlv:"0xff"`
+}
+
+type PrefixInjection struct {
+	//+field:natural
+	ExpirationPeriod uint64 `tlv:"0x6d"`
+	//+field:struct:ValidityPeriod
+	ValidityPeriod *ValidityPeriod `tlv:"0xfd"`
+	//+field:natural:optional
+	Cost optional.Optional[uint64] `tlv:"0x6a"`
+}

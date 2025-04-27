@@ -2,6 +2,7 @@
 package mgmt_2022
 
 import (
+	"encoding/binary"
 	"io"
 	"strings"
 	"time"
@@ -6457,6 +6458,367 @@ func (value *CsInfoMsg) Bytes() []byte {
 
 func ParseCsInfoMsg(reader enc.WireView, ignoreCritical bool) (*CsInfoMsg, error) {
 	context := CsInfoMsgParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type ValidityPeriodEncoder struct {
+	length uint
+}
+
+type ValidityPeriodParsingContext struct {
+}
+
+func (encoder *ValidityPeriodEncoder) Init(value *ValidityPeriod) {
+
+	l := uint(0)
+	l += 3
+	l += uint(enc.TLNum(len(value.NotBefore)).EncodingLength())
+	l += uint(len(value.NotBefore))
+	l += 3
+	l += uint(enc.TLNum(len(value.NotAfter)).EncodingLength())
+	l += uint(len(value.NotAfter))
+	encoder.length = l
+
+}
+
+func (context *ValidityPeriodParsingContext) Init() {
+
+}
+
+func (encoder *ValidityPeriodEncoder) EncodeInto(value *ValidityPeriod, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = 253
+	binary.BigEndian.PutUint16(buf[pos+1:], uint16(254))
+	pos += 3
+	pos += uint(enc.TLNum(len(value.NotBefore)).EncodeInto(buf[pos:]))
+	copy(buf[pos:], value.NotBefore)
+	pos += uint(len(value.NotBefore))
+	buf[pos] = 253
+	binary.BigEndian.PutUint16(buf[pos+1:], uint16(255))
+	pos += 3
+	pos += uint(enc.TLNum(len(value.NotAfter)).EncodeInto(buf[pos:]))
+	copy(buf[pos:], value.NotAfter)
+	pos += uint(len(value.NotAfter))
+}
+
+func (encoder *ValidityPeriodEncoder) Encode(value *ValidityPeriod) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *ValidityPeriodParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*ValidityPeriod, error) {
+
+	var handled_NotBefore bool = false
+	var handled_NotAfter bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &ValidityPeriod{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 254:
+				if true {
+					handled = true
+					handled_NotBefore = true
+					{
+						var builder strings.Builder
+						_, err = reader.CopyN(&builder, int(l))
+						if err == nil {
+							value.NotBefore = builder.String()
+						}
+					}
+				}
+			case 255:
+				if true {
+					handled = true
+					handled_NotAfter = true
+					{
+						var builder strings.Builder
+						_, err = reader.CopyN(&builder, int(l))
+						if err == nil {
+							value.NotAfter = builder.String()
+						}
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_NotBefore && err == nil {
+		err = enc.ErrSkipRequired{Name: "NotBefore", TypeNum: 254}
+	}
+	if !handled_NotAfter && err == nil {
+		err = enc.ErrSkipRequired{Name: "NotAfter", TypeNum: 255}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *ValidityPeriod) Encode() enc.Wire {
+	encoder := ValidityPeriodEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *ValidityPeriod) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseValidityPeriod(reader enc.WireView, ignoreCritical bool) (*ValidityPeriod, error) {
+	context := ValidityPeriodParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PrefixInjectionEncoder struct {
+	length uint
+
+	ValidityPeriod_encoder ValidityPeriodEncoder
+}
+
+type PrefixInjectionParsingContext struct {
+	ValidityPeriod_context ValidityPeriodParsingContext
+}
+
+func (encoder *PrefixInjectionEncoder) Init(value *PrefixInjection) {
+
+	if value.ValidityPeriod != nil {
+		encoder.ValidityPeriod_encoder.Init(value.ValidityPeriod)
+	}
+
+	l := uint(0)
+	l += 1
+	l += uint(1 + enc.Nat(value.ExpirationPeriod).EncodingLength())
+	if value.ValidityPeriod != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.ValidityPeriod_encoder.length).EncodingLength())
+		l += encoder.ValidityPeriod_encoder.length
+	}
+	if optval, ok := value.Cost.Get(); ok {
+		l += 1
+		l += uint(1 + enc.Nat(optval).EncodingLength())
+	}
+	encoder.length = l
+
+}
+
+func (context *PrefixInjectionParsingContext) Init() {
+
+	context.ValidityPeriod_context.Init()
+
+}
+
+func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = byte(109)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.ExpirationPeriod).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	if value.ValidityPeriod != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(253))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.ValidityPeriod_encoder.length).EncodeInto(buf[pos:]))
+		if encoder.ValidityPeriod_encoder.length > 0 {
+			encoder.ValidityPeriod_encoder.EncodeInto(value.ValidityPeriod, buf[pos:])
+			pos += encoder.ValidityPeriod_encoder.length
+		}
+	}
+	if optval, ok := value.Cost.Get(); ok {
+		buf[pos] = byte(106)
+		pos += 1
+
+		buf[pos] = byte(enc.Nat(optval).EncodeInto(buf[pos+1:]))
+		pos += uint(1 + buf[pos])
+
+	}
+}
+
+func (encoder *PrefixInjectionEncoder) Encode(value *PrefixInjection) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
+
+	var handled_ExpirationPeriod bool = false
+	var handled_ValidityPeriod bool = false
+	var handled_Cost bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PrefixInjection{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 109:
+				if true {
+					handled = true
+					handled_ExpirationPeriod = true
+					value.ExpirationPeriod = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.ExpirationPeriod = uint64(value.ExpirationPeriod<<8) | uint64(x)
+						}
+					}
+				}
+			case 253:
+				if true {
+					handled = true
+					handled_ValidityPeriod = true
+					value.ValidityPeriod, err = context.ValidityPeriod_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 106:
+				if true {
+					handled = true
+					handled_Cost = true
+					{
+						optval := uint64(0)
+						optval = uint64(0)
+						{
+							for i := 0; i < int(l); i++ {
+								x := byte(0)
+								x, err = reader.ReadByte()
+								if err != nil {
+									if err == io.EOF {
+										err = io.ErrUnexpectedEOF
+									}
+									break
+								}
+								optval = uint64(optval<<8) | uint64(x)
+							}
+						}
+						value.Cost.Set(optval)
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_ExpirationPeriod && err == nil {
+		err = enc.ErrSkipRequired{Name: "ExpirationPeriod", TypeNum: 109}
+	}
+	if !handled_ValidityPeriod && err == nil {
+		value.ValidityPeriod = nil
+	}
+	if !handled_Cost && err == nil {
+		value.Cost.Unset()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PrefixInjection) Encode() enc.Wire {
+	encoder := PrefixInjectionEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PrefixInjection) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePrefixInjection(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
+	context := PrefixInjectionParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
