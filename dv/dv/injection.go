@@ -33,11 +33,20 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 	}
 
 	// Validate signature
-	// TODO: use stapled certificates
 	dv.prefixInjectionClient.ValidateExt(ndn.ValidateExtArgs{
-		Data:        data,
-		SigCovered:  sigCov,
-		CertNextHop: args.IncomingFaceId, /* is this sensible? */
+		Data:       data,
+		SigCovered: sigCov,
+		Fetch: optional.Some(func(name enc.Name, config *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
+			// TODO: use stapled certificates
+			config.NextHopId = optional.None[uint64]()
+			dv.prefixInjectionClient.ExpressR(ndn.ExpressRArgs{
+				Name:     name,
+				Config:   config,
+				Retries:  3,
+				Callback: callback,
+				TryStore: dv.prefixInjectionClient.Store(),
+			})
+		}),
 		Callback: func(valid bool, err error) {
 			if !valid || err != nil {
 				log.Warn(dv, "Failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
