@@ -53,6 +53,23 @@ type Client interface {
 	Validate(data Data, sigCov enc.Wire, callback func(bool, error))
 	// ValidateExt validates a single data packet (advanced API).
 	ValidateExt(args ValidateExtArgs)
+
+	// AnnouncePrefix announces a prefix to the network.
+	AnnouncePrefix(args Announcement)
+	// WithdrawPrefix withdraws a prefix from the network.
+	WithdrawPrefix(name enc.Name, onError func(error))
+
+	// [EXPERIMENTAL] AttachCommandHandler creates a signed command handler.
+	// Currently signed commands bundle a signed data packet with a command
+	// inside an Interest's AppParam. The command cannot be bigger than
+	// the NDN MTU size since it must fit within a single packet.
+	//
+	// These methods are considered as experimental and work-in-progress.
+	AttachCommandHandler(name enc.Name, handler func(name enc.Name, content enc.Wire, reply func(enc.Wire) error)) error
+	// [EXPERIMENTAL] DetachCommandHandler removes a signed command handler.
+	DetachCommandHandler(name enc.Name) error
+	// [EXPERIMENTAL] ExpressCommand sends a signed command to a given name.
+	ExpressCommand(dest enc.Name, name enc.Name, cmd enc.Wire, callback func(enc.Wire, error))
 }
 
 // ProduceArgs are the arguments for the produce API.
@@ -142,4 +159,19 @@ type ValidateExtArgs struct {
 	OverrideName enc.Name
 	// Next Hop ID to use for fetching certificates.
 	CertNextHop optional.Optional[uint64]
+	// UseDataNameFwHint overrides trust config option.
+	UseDataNameFwHint optional.Optional[bool]
+}
+
+// Announcement are the arguments for the announce prefix API.
+type Announcement struct {
+	// Name of the prefix to announce.
+	Name enc.Name
+	// Cost of the prefix.
+	Cost uint64
+	// Expose the prefix to the global network.
+	Expose bool
+	// OnError is called when an error occurs.
+	// It may be called multiple times, e.g. if the face is reopened.
+	OnError func(error)
 }

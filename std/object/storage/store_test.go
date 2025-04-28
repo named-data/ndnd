@@ -1,11 +1,11 @@
-package object_test
+package storage_test
 
 import (
 	"testing"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
-	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	tu "github.com/named-data/ndnd/std/utils/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +33,7 @@ func testStoreBasic(t *testing.T, store ndn.Store) {
 	require.Equal(t, []byte(nil), data)
 
 	// put data
-	require.NoError(t, store.Put(name1, 1, wire1))
+	require.NoError(t, store.Put(name1, wire1))
 
 	// exact match with full name
 	data, err = store.Get(name1, false)
@@ -57,7 +57,7 @@ func testStoreBasic(t *testing.T, store ndn.Store) {
 	require.Equal(t, wire1, data)
 
 	// insert second data under the same prefix
-	require.NoError(t, store.Put(name2, 5, wire2))
+	require.NoError(t, store.Put(name2, wire2))
 
 	// get data2 with exact match
 	data, err = store.Get(name2, false)
@@ -70,7 +70,7 @@ func testStoreBasic(t *testing.T, store ndn.Store) {
 	require.Equal(t, wire2, data)
 
 	// put data3 under the same prefix (newest)
-	require.NoError(t, store.Put(name3, 9, wire3))
+	require.NoError(t, store.Put(name3, wire3))
 	data, err = store.Get(name1pfx, true)
 	require.NoError(t, err)
 	require.Equal(t, wire3, data)
@@ -81,7 +81,7 @@ func testStoreBasic(t *testing.T, store ndn.Store) {
 	require.Equal(t, wire1, data)
 
 	// put data4 under the same prefix
-	require.NoError(t, store.Put(name4, 2, wire4))
+	require.NoError(t, store.Put(name4, wire4))
 
 	// check prefix still returns data 3
 	data, err = store.Get(name1pfx, true)
@@ -89,7 +89,7 @@ func testStoreBasic(t *testing.T, store ndn.Store) {
 	require.Equal(t, wire3, data)
 
 	// put data5 under a different prefix
-	require.NoError(t, store.Put(name5, 2, wire5))
+	require.NoError(t, store.Put(name5, wire5))
 	data, err = store.Get(name5, false)
 	require.NoError(t, err)
 	require.Equal(t, wire5, data)
@@ -139,13 +139,13 @@ func testStoreRemoveRange(t *testing.T, store ndn.Store) {
 	wire7 := []byte{0x13, 0x14, 0x15}
 
 	// put data
-	require.NoError(t, store.Put(seq1, 1, wire1))
-	require.NoError(t, store.Put(seq2, 2, wire2))
-	require.NoError(t, store.Put(seq3, 3, wire3))
-	require.NoError(t, store.Put(seq4, 4, wire4))
-	require.NoError(t, store.Put(seq5, 5, wire5))
-	require.NoError(t, store.Put(seq6, 6, wire6))
-	require.NoError(t, store.Put(seq7, 7, wire7))
+	require.NoError(t, store.Put(seq1, wire1))
+	require.NoError(t, store.Put(seq2, wire2))
+	require.NoError(t, store.Put(seq3, wire3))
+	require.NoError(t, store.Put(seq4, wire4))
+	require.NoError(t, store.Put(seq5, wire5))
+	require.NoError(t, store.Put(seq6, wire6))
+	require.NoError(t, store.Put(seq7, wire7))
 
 	// make sure we can get
 	data, _ := store.Get(seq2, false)
@@ -229,12 +229,12 @@ func testStoreTxn(t *testing.T, store ndn.Store) {
 	// verify that neither can be seen
 	tx, err := store.Begin()
 	require.NoError(t, err)
-	require.NoError(t, tx.Put(txname1, 1, wire1))
+	require.NoError(t, tx.Put(txname1, wire1))
 	data, err := store.Get(txname1, false)
 	require.NoError(t, err)
 	require.Equal(t, []byte(nil), data)
 
-	require.NoError(t, tx.Put(txname2, 5, wire2))
+	require.NoError(t, tx.Put(txname2, wire2))
 	data, err = store.Get(txname2, false)
 	require.NoError(t, err)
 	require.Equal(t, []byte(nil), data)
@@ -253,7 +253,7 @@ func testStoreTxn(t *testing.T, store ndn.Store) {
 	// add data3 under transaction and rollback
 	tx, err = store.Begin()
 	require.NoError(t, err)
-	require.NoError(t, tx.Put(txname3, 9, wire3))
+	require.NoError(t, tx.Put(txname3, wire3))
 	data, err = store.Get(txname3, false)
 	require.NoError(t, err)
 	require.Equal(t, []byte(nil), data)
@@ -263,7 +263,7 @@ func testStoreTxn(t *testing.T, store ndn.Store) {
 	require.Equal(t, []byte(nil), data)
 
 	// insert data3 now without transaction
-	require.NoError(t, store.Put(txname3, 9, wire3))
+	require.NoError(t, store.Put(txname3, wire3))
 	data, err = store.Get(txname3, false)
 	require.NoError(t, err)
 	require.Equal(t, wire3, data)
@@ -271,7 +271,7 @@ func testStoreTxn(t *testing.T, store ndn.Store) {
 
 func TestMemoryStore(t *testing.T) {
 	tu.SetT(t)
-	store := object.NewMemoryStore()
+	store := storage.NewMemoryStore()
 	testStoreBasic(t, store)
 	testStoreRemoveRange(t, store)
 	testStoreTxn(t, store)

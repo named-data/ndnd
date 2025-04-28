@@ -4,13 +4,14 @@ package defn
 import (
 	"encoding/binary"
 	"io"
+
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
 type FwPacketEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -39,27 +40,27 @@ func (encoder *FwPacketEncoder) Init(value *FwPacket) {
 	l := uint(0)
 	if value.Interest != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Interest_encoder.length).EncodingLength())
-		l += encoder.Interest_encoder.length
+		l += uint(enc.TLNum(encoder.Interest_encoder.Length).EncodingLength())
+		l += encoder.Interest_encoder.Length
 	}
 	if value.Data != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Data_encoder.length).EncodingLength())
-		l += encoder.Data_encoder.length
+		l += uint(enc.TLNum(encoder.Data_encoder.Length).EncodingLength())
+		l += encoder.Data_encoder.Length
 	}
 	if value.LpPacket != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.LpPacket_encoder.length).EncodingLength())
-		l += encoder.LpPacket_encoder.length
+		l += uint(enc.TLNum(encoder.LpPacket_encoder.Length).EncodingLength())
+		l += encoder.LpPacket_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
 	if value.Interest != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Interest_encoder.length).EncodingLength())
-		if encoder.Interest_encoder.length > 0 {
+		l += uint(enc.TLNum(encoder.Interest_encoder.Length).EncodingLength())
+		if encoder.Interest_encoder.Length > 0 {
 			l += encoder.Interest_encoder.wirePlan[0]
 			for i := 1; i < len(encoder.Interest_encoder.wirePlan); i++ {
 				wirePlan = append(wirePlan, l)
@@ -74,8 +75,8 @@ func (encoder *FwPacketEncoder) Init(value *FwPacket) {
 	}
 	if value.Data != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Data_encoder.length).EncodingLength())
-		if encoder.Data_encoder.length > 0 {
+		l += uint(enc.TLNum(encoder.Data_encoder.Length).EncodingLength())
+		if encoder.Data_encoder.Length > 0 {
 			l += encoder.Data_encoder.wirePlan[0]
 			for i := 1; i < len(encoder.Data_encoder.wirePlan); i++ {
 				wirePlan = append(wirePlan, l)
@@ -90,8 +91,8 @@ func (encoder *FwPacketEncoder) Init(value *FwPacket) {
 	}
 	if value.LpPacket != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.LpPacket_encoder.length).EncodingLength())
-		if encoder.LpPacket_encoder.length > 0 {
+		l += uint(enc.TLNum(encoder.LpPacket_encoder.Length).EncodingLength())
+		if encoder.LpPacket_encoder.Length > 0 {
 			l += encoder.LpPacket_encoder.wirePlan[0]
 			for i := 1; i < len(encoder.LpPacket_encoder.wirePlan); i++ {
 				wirePlan = append(wirePlan, l)
@@ -126,8 +127,8 @@ func (encoder *FwPacketEncoder) EncodeInto(value *FwPacket, wire enc.Wire) {
 	if value.Interest != nil {
 		buf[pos] = byte(5)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Interest_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Interest_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Interest_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Interest_encoder.Length > 0 {
 			{
 				subWire := make(enc.Wire, len(encoder.Interest_encoder.wirePlan))
 				subWire[0] = buf[pos:]
@@ -160,8 +161,8 @@ func (encoder *FwPacketEncoder) EncodeInto(value *FwPacket, wire enc.Wire) {
 	if value.Data != nil {
 		buf[pos] = byte(6)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Data_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Data_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Data_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Data_encoder.Length > 0 {
 			{
 				subWire := make(enc.Wire, len(encoder.Data_encoder.wirePlan))
 				subWire[0] = buf[pos:]
@@ -194,8 +195,8 @@ func (encoder *FwPacketEncoder) EncodeInto(value *FwPacket, wire enc.Wire) {
 	if value.LpPacket != nil {
 		buf[pos] = byte(100)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.LpPacket_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.LpPacket_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.LpPacket_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.LpPacket_encoder.Length > 0 {
 			{
 				subWire := make(enc.Wire, len(encoder.LpPacket_encoder.wirePlan))
 				subWire[0] = buf[pos:]
@@ -347,7 +348,7 @@ func ParseFwPacket(reader enc.WireView, ignoreCritical bool) (*FwPacket, error) 
 }
 
 type FwInterestEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -388,8 +389,8 @@ func (encoder *FwInterestEncoder) Init(value *FwInterest) {
 	}
 	if value.ForwardingHintV != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.ForwardingHintV_encoder.length).EncodingLength())
-		l += encoder.ForwardingHintV_encoder.length
+		l += uint(enc.TLNum(encoder.ForwardingHintV_encoder.Length).EncodingLength())
+		l += encoder.ForwardingHintV_encoder.Length
 	}
 	if value.NonceV.IsSet() {
 		l += 1
@@ -415,7 +416,7 @@ func (encoder *FwInterestEncoder) Init(value *FwInterest) {
 		l += 1
 		l += 1
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -434,8 +435,8 @@ func (encoder *FwInterestEncoder) Init(value *FwInterest) {
 	}
 	if value.ForwardingHintV != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.ForwardingHintV_encoder.length).EncodingLength())
-		l += encoder.ForwardingHintV_encoder.length
+		l += uint(enc.TLNum(encoder.ForwardingHintV_encoder.Length).EncodingLength())
+		l += encoder.ForwardingHintV_encoder.Length
 	}
 	if value.NonceV.IsSet() {
 		l += 1
@@ -503,10 +504,10 @@ func (encoder *FwInterestEncoder) EncodeInto(value *FwInterest, wire enc.Wire) {
 	if value.ForwardingHintV != nil {
 		buf[pos] = byte(30)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.ForwardingHintV_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.ForwardingHintV_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.ForwardingHintV_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.ForwardingHintV_encoder.Length > 0 {
 			encoder.ForwardingHintV_encoder.EncodeInto(value.ForwardingHintV, buf[pos:])
-			pos += encoder.ForwardingHintV_encoder.length
+			pos += encoder.ForwardingHintV_encoder.Length
 		}
 	}
 	if optval, ok := value.NonceV.Get(); ok {
@@ -788,7 +789,7 @@ func ParseFwInterest(reader enc.WireView, ignoreCritical bool) (*FwInterest, err
 }
 
 type FwLinksEncoder struct {
-	length uint
+	Length uint
 
 	Names_subencoder []struct {
 		Names_length uint
@@ -848,7 +849,7 @@ func (encoder *FwLinksEncoder) Init(value *FwLinks) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -889,7 +890,7 @@ func (encoder *FwLinksEncoder) EncodeInto(value *FwLinks, buf []byte) {
 func (encoder *FwLinksEncoder) Encode(value *FwLinks) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -992,7 +993,7 @@ func ParseFwLinks(reader enc.WireView, ignoreCritical bool) (*FwLinks, error) {
 }
 
 type FwDataEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -1023,8 +1024,8 @@ func (encoder *FwDataEncoder) Init(value *FwData) {
 	}
 	if value.MetaInfo != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.MetaInfo_encoder.length).EncodingLength())
-		l += encoder.MetaInfo_encoder.length
+		l += uint(enc.TLNum(encoder.MetaInfo_encoder.Length).EncodingLength())
+		l += encoder.MetaInfo_encoder.Length
 	}
 	if value.ContentV {
 		l += 1
@@ -1038,7 +1039,7 @@ func (encoder *FwDataEncoder) Init(value *FwData) {
 		l += 1
 		l += 1
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -1049,8 +1050,8 @@ func (encoder *FwDataEncoder) Init(value *FwData) {
 	}
 	if value.MetaInfo != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.MetaInfo_encoder.length).EncodingLength())
-		l += encoder.MetaInfo_encoder.length
+		l += uint(enc.TLNum(encoder.MetaInfo_encoder.Length).EncodingLength())
+		l += encoder.MetaInfo_encoder.Length
 	}
 	if value.ContentV {
 		l += 1
@@ -1094,10 +1095,10 @@ func (encoder *FwDataEncoder) EncodeInto(value *FwData, wire enc.Wire) {
 	if value.MetaInfo != nil {
 		buf[pos] = byte(20)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.MetaInfo_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.MetaInfo_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.MetaInfo_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.MetaInfo_encoder.Length > 0 {
 			encoder.MetaInfo_encoder.EncodeInto(value.MetaInfo, buf[pos:])
-			pos += encoder.MetaInfo_encoder.length
+			pos += encoder.MetaInfo_encoder.Length
 		}
 	}
 	if value.ContentV {
@@ -1264,7 +1265,7 @@ func ParseFwData(reader enc.WireView, ignoreCritical bool) (*FwData, error) {
 }
 
 type FwMetaInfoEncoder struct {
-	length uint
+	Length uint
 }
 
 type FwMetaInfoParsingContext struct {
@@ -1285,7 +1286,7 @@ func (encoder *FwMetaInfoEncoder) Init(value *FwMetaInfo) {
 		l += 1
 		l += 1
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1324,7 +1325,7 @@ func (encoder *FwMetaInfoEncoder) EncodeInto(value *FwMetaInfo, buf []byte) {
 func (encoder *FwMetaInfoEncoder) Encode(value *FwMetaInfo) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1468,7 +1469,7 @@ func ParseFwMetaInfo(reader enc.WireView, ignoreCritical bool) (*FwMetaInfo, err
 }
 
 type FwLpPacketEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -1522,8 +1523,8 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 	}
 	if value.Nack != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.Nack_encoder.length).EncodingLength())
-		l += encoder.Nack_encoder.length
+		l += uint(enc.TLNum(encoder.Nack_encoder.Length).EncodingLength())
+		l += encoder.Nack_encoder.Length
 	}
 	if optval, ok := value.IncomingFaceId.Get(); ok {
 		l += 3
@@ -1535,8 +1536,8 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 	}
 	if value.CachePolicy != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.CachePolicy_encoder.length).EncodingLength())
-		l += encoder.CachePolicy_encoder.length
+		l += uint(enc.TLNum(encoder.CachePolicy_encoder.Length).EncodingLength())
+		l += encoder.CachePolicy_encoder.Length
 	}
 	if optval, ok := value.CongestionMark.Get(); ok {
 		l += 3
@@ -1547,7 +1548,7 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 		l += uint(enc.TLNum(encoder.Fragment_length).EncodingLength())
 		l += encoder.Fragment_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -1570,8 +1571,8 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 	}
 	if value.Nack != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.Nack_encoder.length).EncodingLength())
-		l += encoder.Nack_encoder.length
+		l += uint(enc.TLNum(encoder.Nack_encoder.Length).EncodingLength())
+		l += encoder.Nack_encoder.Length
 	}
 	if optval, ok := value.IncomingFaceId.Get(); ok {
 		l += 3
@@ -1583,8 +1584,8 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 	}
 	if value.CachePolicy != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.CachePolicy_encoder.length).EncodingLength())
-		l += encoder.CachePolicy_encoder.length
+		l += uint(enc.TLNum(encoder.CachePolicy_encoder.Length).EncodingLength())
+		l += encoder.CachePolicy_encoder.Length
 	}
 	if optval, ok := value.CongestionMark.Get(); ok {
 		l += 3
@@ -1655,10 +1656,10 @@ func (encoder *FwLpPacketEncoder) EncodeInto(value *FwLpPacket, wire enc.Wire) {
 		buf[pos] = 253
 		binary.BigEndian.PutUint16(buf[pos+1:], uint16(800))
 		pos += 3
-		pos += uint(enc.TLNum(encoder.Nack_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Nack_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Nack_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Nack_encoder.Length > 0 {
 			encoder.Nack_encoder.EncodeInto(value.Nack, buf[pos:])
-			pos += encoder.Nack_encoder.length
+			pos += encoder.Nack_encoder.Length
 		}
 	}
 	if optval, ok := value.IncomingFaceId.Get(); ok {
@@ -1683,10 +1684,10 @@ func (encoder *FwLpPacketEncoder) EncodeInto(value *FwLpPacket, wire enc.Wire) {
 		buf[pos] = 253
 		binary.BigEndian.PutUint16(buf[pos+1:], uint16(820))
 		pos += 3
-		pos += uint(enc.TLNum(encoder.CachePolicy_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.CachePolicy_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.CachePolicy_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.CachePolicy_encoder.Length > 0 {
 			encoder.CachePolicy_encoder.EncodeInto(value.CachePolicy, buf[pos:])
-			pos += encoder.CachePolicy_encoder.length
+			pos += encoder.CachePolicy_encoder.Length
 		}
 	}
 	if optval, ok := value.CongestionMark.Get(); ok {
@@ -2015,7 +2016,7 @@ func ParseFwLpPacket(reader enc.WireView, ignoreCritical bool) (*FwLpPacket, err
 }
 
 type FwNetworkNackEncoder struct {
-	length uint
+	Length uint
 }
 
 type FwNetworkNackParsingContext struct {
@@ -2026,7 +2027,7 @@ func (encoder *FwNetworkNackEncoder) Init(value *FwNetworkNack) {
 	l := uint(0)
 	l += 3
 	l += uint(1 + enc.Nat(value.Reason).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -2049,7 +2050,7 @@ func (encoder *FwNetworkNackEncoder) EncodeInto(value *FwNetworkNack, buf []byte
 func (encoder *FwNetworkNackEncoder) Encode(value *FwNetworkNack) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -2150,7 +2151,7 @@ func ParseFwNetworkNack(reader enc.WireView, ignoreCritical bool) (*FwNetworkNac
 }
 
 type FwCachePolicyEncoder struct {
-	length uint
+	Length uint
 }
 
 type FwCachePolicyParsingContext struct {
@@ -2161,7 +2162,7 @@ func (encoder *FwCachePolicyEncoder) Init(value *FwCachePolicy) {
 	l := uint(0)
 	l += 3
 	l += uint(1 + enc.Nat(value.CachePolicyType).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -2184,7 +2185,7 @@ func (encoder *FwCachePolicyEncoder) EncodeInto(value *FwCachePolicy, buf []byte
 func (encoder *FwCachePolicyEncoder) Encode(value *FwCachePolicy) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 

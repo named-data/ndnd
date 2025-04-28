@@ -10,7 +10,7 @@ func (s *SnapshotNull) Snapshot() Snapshot {
 	return s
 }
 
-func (s *SnapshotNull) initialize(snapPsState) {
+func (s *SnapshotNull) initialize(snapPsState, SvMap[svsDataState]) {
 }
 
 func (s *SnapshotNull) onUpdate(SvMap[svsDataState], enc.Name) {

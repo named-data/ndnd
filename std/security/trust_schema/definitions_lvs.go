@@ -1,4 +1,3 @@
-//go:generate gondn_tlv_gen
 package trust_schema
 
 import "github.com/named-data/ndnd/std/types/optional"

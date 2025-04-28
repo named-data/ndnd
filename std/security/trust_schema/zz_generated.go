@@ -2,13 +2,619 @@
 package trust_schema
 
 import (
+	"encoding/binary"
 	"io"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
+type CrossSchemaContentEncoder struct {
+	Length uint
+
+	SimpleSchemaRules_subencoder []struct {
+		SimpleSchemaRules_encoder SimpleSchemaRuleEncoder
+	}
+	PrefixSchemaRules_subencoder []struct {
+		PrefixSchemaRules_encoder PrefixSchemaRuleEncoder
+	}
+}
+
+type CrossSchemaContentParsingContext struct {
+	SimpleSchemaRules_context SimpleSchemaRuleParsingContext
+	PrefixSchemaRules_context PrefixSchemaRuleParsingContext
+}
+
+func (encoder *CrossSchemaContentEncoder) Init(value *CrossSchemaContent) {
+	{
+		SimpleSchemaRules_l := len(value.SimpleSchemaRules)
+		encoder.SimpleSchemaRules_subencoder = make([]struct {
+			SimpleSchemaRules_encoder SimpleSchemaRuleEncoder
+		}, SimpleSchemaRules_l)
+		for i := 0; i < SimpleSchemaRules_l; i++ {
+			pseudoEncoder := &encoder.SimpleSchemaRules_subencoder[i]
+			pseudoValue := struct {
+				SimpleSchemaRules *SimpleSchemaRule
+			}{
+				SimpleSchemaRules: value.SimpleSchemaRules[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.SimpleSchemaRules != nil {
+					encoder.SimpleSchemaRules_encoder.Init(value.SimpleSchemaRules)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	{
+		PrefixSchemaRules_l := len(value.PrefixSchemaRules)
+		encoder.PrefixSchemaRules_subencoder = make([]struct {
+			PrefixSchemaRules_encoder PrefixSchemaRuleEncoder
+		}, PrefixSchemaRules_l)
+		for i := 0; i < PrefixSchemaRules_l; i++ {
+			pseudoEncoder := &encoder.PrefixSchemaRules_subencoder[i]
+			pseudoValue := struct {
+				PrefixSchemaRules *PrefixSchemaRule
+			}{
+				PrefixSchemaRules: value.PrefixSchemaRules[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.PrefixSchemaRules != nil {
+					encoder.PrefixSchemaRules_encoder.Init(value.PrefixSchemaRules)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.SimpleSchemaRules != nil {
+		for seq_i, seq_v := range value.SimpleSchemaRules {
+			pseudoEncoder := &encoder.SimpleSchemaRules_subencoder[seq_i]
+			pseudoValue := struct {
+				SimpleSchemaRules *SimpleSchemaRule
+			}{
+				SimpleSchemaRules: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.SimpleSchemaRules != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.SimpleSchemaRules_encoder.Length).EncodingLength())
+					l += encoder.SimpleSchemaRules_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.PrefixSchemaRules != nil {
+		for seq_i, seq_v := range value.PrefixSchemaRules {
+			pseudoEncoder := &encoder.PrefixSchemaRules_subencoder[seq_i]
+			pseudoValue := struct {
+				PrefixSchemaRules *PrefixSchemaRule
+			}{
+				PrefixSchemaRules: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.PrefixSchemaRules != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.PrefixSchemaRules_encoder.Length).EncodingLength())
+					l += encoder.PrefixSchemaRules_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *CrossSchemaContentParsingContext) Init() {
+	context.SimpleSchemaRules_context.Init()
+	context.PrefixSchemaRules_context.Init()
+}
+
+func (encoder *CrossSchemaContentEncoder) EncodeInto(value *CrossSchemaContent, buf []byte) {
+
+	pos := uint(0)
+
+	if value.SimpleSchemaRules != nil {
+		for seq_i, seq_v := range value.SimpleSchemaRules {
+			pseudoEncoder := &encoder.SimpleSchemaRules_subencoder[seq_i]
+			pseudoValue := struct {
+				SimpleSchemaRules *SimpleSchemaRule
+			}{
+				SimpleSchemaRules: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.SimpleSchemaRules != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(620))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.SimpleSchemaRules_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.SimpleSchemaRules_encoder.Length > 0 {
+						encoder.SimpleSchemaRules_encoder.EncodeInto(value.SimpleSchemaRules, buf[pos:])
+						pos += encoder.SimpleSchemaRules_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.PrefixSchemaRules != nil {
+		for seq_i, seq_v := range value.PrefixSchemaRules {
+			pseudoEncoder := &encoder.PrefixSchemaRules_subencoder[seq_i]
+			pseudoValue := struct {
+				PrefixSchemaRules *PrefixSchemaRule
+			}{
+				PrefixSchemaRules: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.PrefixSchemaRules != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(622))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.PrefixSchemaRules_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.PrefixSchemaRules_encoder.Length > 0 {
+						encoder.PrefixSchemaRules_encoder.EncodeInto(value.PrefixSchemaRules, buf[pos:])
+						pos += encoder.PrefixSchemaRules_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *CrossSchemaContentEncoder) Encode(value *CrossSchemaContent) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *CrossSchemaContentParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*CrossSchemaContent, error) {
+
+	var handled_SimpleSchemaRules bool = false
+	var handled_PrefixSchemaRules bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &CrossSchemaContent{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 620:
+				if true {
+					handled = true
+					handled_SimpleSchemaRules = true
+					if value.SimpleSchemaRules == nil {
+						value.SimpleSchemaRules = make([]*SimpleSchemaRule, 0)
+					}
+					{
+						pseudoValue := struct {
+							SimpleSchemaRules *SimpleSchemaRule
+						}{}
+						{
+							value := &pseudoValue
+							value.SimpleSchemaRules, err = context.SimpleSchemaRules_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.SimpleSchemaRules = append(value.SimpleSchemaRules, pseudoValue.SimpleSchemaRules)
+					}
+					progress--
+				}
+			case 622:
+				if true {
+					handled = true
+					handled_PrefixSchemaRules = true
+					if value.PrefixSchemaRules == nil {
+						value.PrefixSchemaRules = make([]*PrefixSchemaRule, 0)
+					}
+					{
+						pseudoValue := struct {
+							PrefixSchemaRules *PrefixSchemaRule
+						}{}
+						{
+							value := &pseudoValue
+							value.PrefixSchemaRules, err = context.PrefixSchemaRules_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.PrefixSchemaRules = append(value.PrefixSchemaRules, pseudoValue.PrefixSchemaRules)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_SimpleSchemaRules && err == nil {
+		// sequence - skip
+	}
+	if !handled_PrefixSchemaRules && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *CrossSchemaContent) Encode() enc.Wire {
+	encoder := CrossSchemaContentEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *CrossSchemaContent) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseCrossSchemaContent(reader enc.WireView, ignoreCritical bool) (*CrossSchemaContent, error) {
+	context := CrossSchemaContentParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type SimpleSchemaRuleEncoder struct {
+	Length uint
+
+	NamePrefix_length  uint
+	KeyLocator_encoder spec_2022.KeyLocatorEncoder
+}
+
+type SimpleSchemaRuleParsingContext struct {
+	KeyLocator_context spec_2022.KeyLocatorParsingContext
+}
+
+func (encoder *SimpleSchemaRuleEncoder) Init(value *SimpleSchemaRule) {
+	if value.NamePrefix != nil {
+		encoder.NamePrefix_length = 0
+		for _, c := range value.NamePrefix {
+			encoder.NamePrefix_length += uint(c.EncodingLength())
+		}
+	}
+	if value.KeyLocator != nil {
+		encoder.KeyLocator_encoder.Init(value.KeyLocator)
+	}
+
+	l := uint(0)
+	if value.NamePrefix != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.NamePrefix_length).EncodingLength())
+		l += encoder.NamePrefix_length
+	}
+	if value.KeyLocator != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.KeyLocator_encoder.Length).EncodingLength())
+		l += encoder.KeyLocator_encoder.Length
+	}
+	encoder.Length = l
+
+}
+
+func (context *SimpleSchemaRuleParsingContext) Init() {
+
+	context.KeyLocator_context.Init()
+}
+
+func (encoder *SimpleSchemaRuleEncoder) EncodeInto(value *SimpleSchemaRule, buf []byte) {
+
+	pos := uint(0)
+
+	if value.NamePrefix != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.NamePrefix_length).EncodeInto(buf[pos:]))
+		for _, c := range value.NamePrefix {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.KeyLocator != nil {
+		buf[pos] = byte(28)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.KeyLocator_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.KeyLocator_encoder.Length > 0 {
+			encoder.KeyLocator_encoder.EncodeInto(value.KeyLocator, buf[pos:])
+			pos += encoder.KeyLocator_encoder.Length
+		}
+	}
+}
+
+func (encoder *SimpleSchemaRuleEncoder) Encode(value *SimpleSchemaRule) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *SimpleSchemaRuleParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*SimpleSchemaRule, error) {
+
+	var handled_NamePrefix bool = false
+	var handled_KeyLocator bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &SimpleSchemaRule{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_NamePrefix = true
+					delegate := reader.Delegate(int(l))
+					value.NamePrefix, err = delegate.ReadName()
+				}
+			case 28:
+				if true {
+					handled = true
+					handled_KeyLocator = true
+					value.KeyLocator, err = context.KeyLocator_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_NamePrefix && err == nil {
+		value.NamePrefix = nil
+	}
+	if !handled_KeyLocator && err == nil {
+		value.KeyLocator = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *SimpleSchemaRule) Encode() enc.Wire {
+	encoder := SimpleSchemaRuleEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *SimpleSchemaRule) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseSimpleSchemaRule(reader enc.WireView, ignoreCritical bool) (*SimpleSchemaRule, error) {
+	context := SimpleSchemaRuleParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PrefixSchemaRuleEncoder struct {
+	Length uint
+
+	NamePrefix_length uint
+}
+
+type PrefixSchemaRuleParsingContext struct {
+}
+
+func (encoder *PrefixSchemaRuleEncoder) Init(value *PrefixSchemaRule) {
+	if value.NamePrefix != nil {
+		encoder.NamePrefix_length = 0
+		for _, c := range value.NamePrefix {
+			encoder.NamePrefix_length += uint(c.EncodingLength())
+		}
+	}
+
+	l := uint(0)
+	if value.NamePrefix != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.NamePrefix_length).EncodingLength())
+		l += encoder.NamePrefix_length
+	}
+	encoder.Length = l
+
+}
+
+func (context *PrefixSchemaRuleParsingContext) Init() {
+
+}
+
+func (encoder *PrefixSchemaRuleEncoder) EncodeInto(value *PrefixSchemaRule, buf []byte) {
+
+	pos := uint(0)
+
+	if value.NamePrefix != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.NamePrefix_length).EncodeInto(buf[pos:]))
+		for _, c := range value.NamePrefix {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+}
+
+func (encoder *PrefixSchemaRuleEncoder) Encode(value *PrefixSchemaRule) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PrefixSchemaRuleParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixSchemaRule, error) {
+
+	var handled_NamePrefix bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PrefixSchemaRule{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_NamePrefix = true
+					delegate := reader.Delegate(int(l))
+					value.NamePrefix, err = delegate.ReadName()
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_NamePrefix && err == nil {
+		value.NamePrefix = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PrefixSchemaRule) Encode() enc.Wire {
+	encoder := PrefixSchemaRuleEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PrefixSchemaRule) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePrefixSchemaRule(reader enc.WireView, ignoreCritical bool) (*PrefixSchemaRule, error) {
+	context := PrefixSchemaRuleParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
 type LvsUserFnArgEncoder struct {
-	length uint
+	Length uint
 }
 
 type LvsUserFnArgParsingContext struct {
@@ -26,7 +632,7 @@ func (encoder *LvsUserFnArgEncoder) Init(value *LvsUserFnArg) {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -58,7 +664,7 @@ func (encoder *LvsUserFnArgEncoder) EncodeInto(value *LvsUserFnArg, buf []byte) 
 func (encoder *LvsUserFnArgEncoder) Encode(value *LvsUserFnArg) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -174,7 +780,7 @@ func ParseLvsUserFnArg(reader enc.WireView, ignoreCritical bool) (*LvsUserFnArg,
 }
 
 type LvsUserFnCallEncoder struct {
-	length uint
+	Length uint
 
 	Args_subencoder []struct {
 		Args_encoder LvsUserFnArgEncoder
@@ -230,15 +836,15 @@ func (encoder *LvsUserFnCallEncoder) Init(value *LvsUserFnCall) {
 				value := &pseudoValue
 				if value.Args != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Args_encoder.length).EncodingLength())
-					l += encoder.Args_encoder.length
+					l += uint(enc.TLNum(encoder.Args_encoder.Length).EncodingLength())
+					l += encoder.Args_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -272,10 +878,10 @@ func (encoder *LvsUserFnCallEncoder) EncodeInto(value *LvsUserFnCall, buf []byte
 				if value.Args != nil {
 					buf[pos] = byte(51)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Args_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Args_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Args_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Args_encoder.Length > 0 {
 						encoder.Args_encoder.EncodeInto(value.Args, buf[pos:])
-						pos += encoder.Args_encoder.length
+						pos += encoder.Args_encoder.Length
 					}
 				}
 				_ = encoder
@@ -288,7 +894,7 @@ func (encoder *LvsUserFnCallEncoder) EncodeInto(value *LvsUserFnCall, buf []byte
 func (encoder *LvsUserFnCallEncoder) Encode(value *LvsUserFnCall) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -401,7 +1007,7 @@ func ParseLvsUserFnCall(reader enc.WireView, ignoreCritical bool) (*LvsUserFnCal
 }
 
 type LvsConstraintOptionEncoder struct {
-	length uint
+	Length uint
 
 	Fn_encoder LvsUserFnCallEncoder
 }
@@ -428,10 +1034,10 @@ func (encoder *LvsConstraintOptionEncoder) Init(value *LvsConstraintOption) {
 	}
 	if value.Fn != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Fn_encoder.length).EncodingLength())
-		l += encoder.Fn_encoder.length
+		l += uint(enc.TLNum(encoder.Fn_encoder.Length).EncodingLength())
+		l += encoder.Fn_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -462,10 +1068,10 @@ func (encoder *LvsConstraintOptionEncoder) EncodeInto(value *LvsConstraintOption
 	if value.Fn != nil {
 		buf[pos] = byte(49)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Fn_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Fn_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Fn_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Fn_encoder.Length > 0 {
 			encoder.Fn_encoder.EncodeInto(value.Fn, buf[pos:])
-			pos += encoder.Fn_encoder.length
+			pos += encoder.Fn_encoder.Length
 		}
 	}
 }
@@ -473,7 +1079,7 @@ func (encoder *LvsConstraintOptionEncoder) EncodeInto(value *LvsConstraintOption
 func (encoder *LvsConstraintOptionEncoder) Encode(value *LvsConstraintOption) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -599,7 +1205,7 @@ func ParseLvsConstraintOption(reader enc.WireView, ignoreCritical bool) (*LvsCon
 }
 
 type LvsPatternConstraintEncoder struct {
-	length uint
+	Length uint
 
 	ConsOptions_subencoder []struct {
 		ConsOptions_encoder LvsConstraintOptionEncoder
@@ -649,15 +1255,15 @@ func (encoder *LvsPatternConstraintEncoder) Init(value *LvsPatternConstraint) {
 				value := &pseudoValue
 				if value.ConsOptions != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.ConsOptions_encoder.length).EncodingLength())
-					l += encoder.ConsOptions_encoder.length
+					l += uint(enc.TLNum(encoder.ConsOptions_encoder.Length).EncodingLength())
+					l += encoder.ConsOptions_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -683,10 +1289,10 @@ func (encoder *LvsPatternConstraintEncoder) EncodeInto(value *LvsPatternConstrai
 				if value.ConsOptions != nil {
 					buf[pos] = byte(65)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.ConsOptions_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.ConsOptions_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.ConsOptions_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.ConsOptions_encoder.Length > 0 {
 						encoder.ConsOptions_encoder.EncodeInto(value.ConsOptions, buf[pos:])
-						pos += encoder.ConsOptions_encoder.length
+						pos += encoder.ConsOptions_encoder.Length
 					}
 				}
 				_ = encoder
@@ -699,7 +1305,7 @@ func (encoder *LvsPatternConstraintEncoder) EncodeInto(value *LvsPatternConstrai
 func (encoder *LvsPatternConstraintEncoder) Encode(value *LvsPatternConstraint) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -801,7 +1407,7 @@ func ParseLvsPatternConstraint(reader enc.WireView, ignoreCritical bool) (*LvsPa
 }
 
 type LvsPatternEdgeEncoder struct {
-	length uint
+	Length uint
 
 	ConsSets_subencoder []struct {
 		ConsSets_encoder LvsPatternConstraintEncoder
@@ -856,15 +1462,15 @@ func (encoder *LvsPatternEdgeEncoder) Init(value *LvsPatternEdge) {
 				value := &pseudoValue
 				if value.ConsSets != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.ConsSets_encoder.length).EncodingLength())
-					l += encoder.ConsSets_encoder.length
+					l += uint(enc.TLNum(encoder.ConsSets_encoder.Length).EncodingLength())
+					l += encoder.ConsSets_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -901,10 +1507,10 @@ func (encoder *LvsPatternEdgeEncoder) EncodeInto(value *LvsPatternEdge, buf []by
 				if value.ConsSets != nil {
 					buf[pos] = byte(67)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.ConsSets_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.ConsSets_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.ConsSets_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.ConsSets_encoder.Length > 0 {
 						encoder.ConsSets_encoder.EncodeInto(value.ConsSets, buf[pos:])
-						pos += encoder.ConsSets_encoder.length
+						pos += encoder.ConsSets_encoder.Length
 					}
 				}
 				_ = encoder
@@ -917,7 +1523,7 @@ func (encoder *LvsPatternEdgeEncoder) EncodeInto(value *LvsPatternEdge, buf []by
 func (encoder *LvsPatternEdgeEncoder) Encode(value *LvsPatternEdge) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1065,7 +1671,7 @@ func ParseLvsPatternEdge(reader enc.WireView, ignoreCritical bool) (*LvsPatternE
 }
 
 type LvsValueEdgeEncoder struct {
-	length uint
+	Length uint
 }
 
 type LvsValueEdgeParsingContext struct {
@@ -1081,7 +1687,7 @@ func (encoder *LvsValueEdgeEncoder) Init(value *LvsValueEdge) {
 		l += uint(enc.TLNum(len(value.Value)).EncodingLength())
 		l += uint(len(value.Value))
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1110,7 +1716,7 @@ func (encoder *LvsValueEdgeEncoder) EncodeInto(value *LvsValueEdge, buf []byte) 
 func (encoder *LvsValueEdgeEncoder) Encode(value *LvsValueEdge) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1222,7 +1828,7 @@ func ParseLvsValueEdge(reader enc.WireView, ignoreCritical bool) (*LvsValueEdge,
 }
 
 type LvsNodeEncoder struct {
-	length uint
+	Length uint
 
 	RuleName_subencoder []struct {
 	}
@@ -1371,8 +1977,8 @@ func (encoder *LvsNodeEncoder) Init(value *LvsNode) {
 				value := &pseudoValue
 				if value.Edges != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Edges_encoder.length).EncodingLength())
-					l += encoder.Edges_encoder.length
+					l += uint(enc.TLNum(encoder.Edges_encoder.Length).EncodingLength())
+					l += encoder.Edges_encoder.Length
 				}
 				_ = encoder
 				_ = value
@@ -1392,8 +1998,8 @@ func (encoder *LvsNodeEncoder) Init(value *LvsNode) {
 				value := &pseudoValue
 				if value.PatternEdges != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.PatternEdges_encoder.length).EncodingLength())
-					l += encoder.PatternEdges_encoder.length
+					l += uint(enc.TLNum(encoder.PatternEdges_encoder.Length).EncodingLength())
+					l += encoder.PatternEdges_encoder.Length
 				}
 				_ = encoder
 				_ = value
@@ -1418,7 +2024,7 @@ func (encoder *LvsNodeEncoder) Init(value *LvsNode) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1483,10 +2089,10 @@ func (encoder *LvsNodeEncoder) EncodeInto(value *LvsNode, buf []byte) {
 				if value.Edges != nil {
 					buf[pos] = byte(81)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Edges_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Edges_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Edges_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Edges_encoder.Length > 0 {
 						encoder.Edges_encoder.EncodeInto(value.Edges, buf[pos:])
-						pos += encoder.Edges_encoder.length
+						pos += encoder.Edges_encoder.Length
 					}
 				}
 				_ = encoder
@@ -1508,10 +2114,10 @@ func (encoder *LvsNodeEncoder) EncodeInto(value *LvsNode, buf []byte) {
 				if value.PatternEdges != nil {
 					buf[pos] = byte(83)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.PatternEdges_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.PatternEdges_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.PatternEdges_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.PatternEdges_encoder.Length > 0 {
 						encoder.PatternEdges_encoder.EncodeInto(value.PatternEdges, buf[pos:])
-						pos += encoder.PatternEdges_encoder.length
+						pos += encoder.PatternEdges_encoder.Length
 					}
 				}
 				_ = encoder
@@ -1545,7 +2151,7 @@ func (encoder *LvsNodeEncoder) EncodeInto(value *LvsNode, buf []byte) {
 func (encoder *LvsNodeEncoder) Encode(value *LvsNode) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1783,7 +2389,7 @@ func ParseLvsNode(reader enc.WireView, ignoreCritical bool) (*LvsNode, error) {
 }
 
 type LvsTagSymbolEncoder struct {
-	length uint
+	Length uint
 }
 
 type LvsTagSymbolParsingContext struct {
@@ -1801,7 +2407,7 @@ func (encoder *LvsTagSymbolEncoder) Init(value *LvsTagSymbol) {
 		l += uint(enc.TLNum(len(value.Ident)).EncodingLength())
 		l += uint(len(value.Ident))
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1833,7 +2439,7 @@ func (encoder *LvsTagSymbolEncoder) EncodeInto(value *LvsTagSymbol, buf []byte) 
 func (encoder *LvsTagSymbolEncoder) Encode(value *LvsTagSymbol) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1949,7 +2555,7 @@ func ParseLvsTagSymbol(reader enc.WireView, ignoreCritical bool) (*LvsTagSymbol,
 }
 
 type LvsModelEncoder struct {
-	length uint
+	Length uint
 
 	Nodes_subencoder []struct {
 		Nodes_encoder LvsNodeEncoder
@@ -2033,8 +2639,8 @@ func (encoder *LvsModelEncoder) Init(value *LvsModel) {
 				value := &pseudoValue
 				if value.Nodes != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Nodes_encoder.length).EncodingLength())
-					l += encoder.Nodes_encoder.length
+					l += uint(enc.TLNum(encoder.Nodes_encoder.Length).EncodingLength())
+					l += encoder.Nodes_encoder.Length
 				}
 				_ = encoder
 				_ = value
@@ -2054,15 +2660,15 @@ func (encoder *LvsModelEncoder) Init(value *LvsModel) {
 				value := &pseudoValue
 				if value.Symbols != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Symbols_encoder.length).EncodingLength())
-					l += encoder.Symbols_encoder.length
+					l += uint(enc.TLNum(encoder.Symbols_encoder.Length).EncodingLength())
+					l += encoder.Symbols_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -2105,10 +2711,10 @@ func (encoder *LvsModelEncoder) EncodeInto(value *LvsModel, buf []byte) {
 				if value.Nodes != nil {
 					buf[pos] = byte(99)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Nodes_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Nodes_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Nodes_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Nodes_encoder.Length > 0 {
 						encoder.Nodes_encoder.EncodeInto(value.Nodes, buf[pos:])
-						pos += encoder.Nodes_encoder.length
+						pos += encoder.Nodes_encoder.Length
 					}
 				}
 				_ = encoder
@@ -2130,10 +2736,10 @@ func (encoder *LvsModelEncoder) EncodeInto(value *LvsModel, buf []byte) {
 				if value.Symbols != nil {
 					buf[pos] = byte(103)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Symbols_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Symbols_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Symbols_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Symbols_encoder.Length > 0 {
 						encoder.Symbols_encoder.EncodeInto(value.Symbols, buf[pos:])
-						pos += encoder.Symbols_encoder.length
+						pos += encoder.Symbols_encoder.Length
 					}
 				}
 				_ = encoder
@@ -2146,7 +2752,7 @@ func (encoder *LvsModelEncoder) EncodeInto(value *LvsModel, buf []byte) {
 func (encoder *LvsModelEncoder) Encode(value *LvsModel) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 

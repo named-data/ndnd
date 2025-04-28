@@ -8,15 +8,17 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
+	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/sync"
 )
 
 func main() {
 	// Before running this example, make sure the strategy is correctly setup
-	// to multicast for the /ndn/svs prefix. For example, using the following:
+	// to multicast for the sync prefix. For example, using the following:
 	//
-	//   ndnd fw strategy-set prefix=/ndn/svs strategy=/localhost/nfd/strategy/multicast
+	//   ndnd fw strategy-set prefix=/ndn/svs/32=svs strategy=/localhost/nfd/strategy/multicast
 	//
 
 	if len(os.Args) < 2 {
@@ -41,7 +43,7 @@ func main() {
 	defer app.Stop()
 
 	// Create object client
-	store := object.NewMemoryStore()
+	store := storage.NewMemoryStore()
 	client := object.NewClient(app, store, nil)
 	err = client.Start()
 	if err != nil {
@@ -60,13 +62,9 @@ func main() {
 		},
 	})
 
-	// Register group prefix route
-	err = app.RegisterRoute(group)
-	if err != nil {
-		log.Error(nil, "Unable to register route", "err", err)
-		return
-	}
-	defer app.UnregisterRoute(group)
+	// Announce group prefix route
+	client.AnnouncePrefix(ndn.Announcement{Name: group})
+	defer client.WithdrawPrefix(group, nil)
 
 	err = svsync.Start()
 	if err != nil {

@@ -17,7 +17,7 @@ import (
 )
 
 // BestRouteSuppressionTime is the time to suppress retransmissions of the same Interest.
-const BestRouteSuppressionTime = 500 * time.Millisecond
+const BestRouteSuppressionTime = 400 * time.Millisecond
 
 // BestRoute is a forwarding strategy that forwards Interests
 // to the nexthop with the lowest cost.
@@ -66,22 +66,34 @@ func (s *BestRoute) AfterReceiveInterest(
 		return
 	}
 
-	// If there is an out record less than suppression interval ago, drop the
-	// retransmission to suppress it (only if the nonce is different)
-	for _, outRecord := range pitEntry.OutRecords() {
-		if outRecord.LatestNonce != packet.L3.Interest.NonceV.Unwrap() &&
-			outRecord.LatestTimestamp.Add(BestRouteSuppressionTime).After(time.Now()) {
-			core.Log.Debug(s, "Suppressed Interest - DROP", "name", packet.Name)
-			return
-		}
-	}
-
 	// Sort nexthops by cost and send to best-possible nexthop
 	sort.Slice(nexthops, func(i, j int) bool { return nexthops[i].Cost < nexthops[j].Cost })
-	for _, nh := range nexthops {
-		core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nh.Nexthop)
-		if sent := s.SendInterest(packet, pitEntry, nh.Nexthop, inFace); sent {
-			return
+
+	now := time.Now()
+	for pass := range 2 {
+		for _, nh := range nexthops {
+			// In the first pass, skip hops that already have a out record
+			if pass == 0 {
+				if oR := pitEntry.OutRecords()[nh.Nexthop]; oR != nil {
+					// Suppress retransmissions of the same Interest within suppression time
+					if oR.LatestTimestamp.Add(BestRouteSuppressionTime).After(now) {
+						core.Log.Debug(s, "Suppressed Interest - DROP", "name", packet.Name)
+						return
+					}
+
+					// If an out record exists, skip this hop
+					continue
+				}
+			}
+
+			// For the second pass, we should ideally use the least recently tried hop.
+			// But then we need to resort the list - this is just faster for now.
+			// In densely connected networks, this is not a big deal.
+
+			core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nh.Nexthop)
+			if sent := s.SendInterest(packet, pitEntry, nh.Nexthop, inFace); sent {
+				return
+			}
 		}
 	}
 

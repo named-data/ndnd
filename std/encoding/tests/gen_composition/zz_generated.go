@@ -8,7 +8,7 @@ import (
 )
 
 type IntArrayEncoder struct {
-	length uint
+	Length uint
 
 	Words_subencoder []struct {
 	}
@@ -58,7 +58,7 @@ func (encoder *IntArrayEncoder) Init(value *IntArray) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -96,7 +96,7 @@ func (encoder *IntArrayEncoder) EncodeInto(value *IntArray, buf []byte) {
 func (encoder *IntArrayEncoder) Encode(value *IntArray) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -211,7 +211,7 @@ func ParseIntArray(reader enc.WireView, ignoreCritical bool) (*IntArray, error) 
 }
 
 type NameArrayEncoder struct {
-	length uint
+	Length uint
 
 	Names_subencoder []struct {
 		Names_length uint
@@ -271,7 +271,7 @@ func (encoder *NameArrayEncoder) Init(value *NameArray) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -312,7 +312,7 @@ func (encoder *NameArrayEncoder) EncodeInto(value *NameArray, buf []byte) {
 func (encoder *NameArrayEncoder) Encode(value *NameArray) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -415,7 +415,7 @@ func ParseNameArray(reader enc.WireView, ignoreCritical bool) (*NameArray, error
 }
 
 type InnerEncoder struct {
-	length uint
+	Length uint
 }
 
 type InnerParsingContext struct {
@@ -426,7 +426,7 @@ func (encoder *InnerEncoder) Init(value *Inner) {
 	l := uint(0)
 	l += 1
 	l += uint(1 + enc.Nat(value.Num).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -448,7 +448,7 @@ func (encoder *InnerEncoder) EncodeInto(value *Inner, buf []byte) {
 func (encoder *InnerEncoder) Encode(value *Inner) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -549,7 +549,7 @@ func ParseInner(reader enc.WireView, ignoreCritical bool) (*Inner, error) {
 }
 
 type NestedEncoder struct {
-	length uint
+	Length uint
 
 	Val_encoder InnerEncoder
 }
@@ -566,10 +566,10 @@ func (encoder *NestedEncoder) Init(value *Nested) {
 	l := uint(0)
 	if value.Val != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Val_encoder.length).EncodingLength())
-		l += encoder.Val_encoder.length
+		l += uint(enc.TLNum(encoder.Val_encoder.Length).EncodingLength())
+		l += encoder.Val_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -584,10 +584,10 @@ func (encoder *NestedEncoder) EncodeInto(value *Nested, buf []byte) {
 	if value.Val != nil {
 		buf[pos] = byte(2)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Val_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Val_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Val_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Val_encoder.Length > 0 {
 			encoder.Val_encoder.EncodeInto(value.Val, buf[pos:])
-			pos += encoder.Val_encoder.length
+			pos += encoder.Val_encoder.Length
 		}
 	}
 }
@@ -595,7 +595,7 @@ func (encoder *NestedEncoder) EncodeInto(value *Nested, buf []byte) {
 func (encoder *NestedEncoder) Encode(value *Nested) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -683,7 +683,7 @@ func ParseNested(reader enc.WireView, ignoreCritical bool) (*Nested, error) {
 }
 
 type NestedSeqEncoder struct {
-	length uint
+	Length uint
 
 	Vals_subencoder []struct {
 		Vals_encoder InnerEncoder
@@ -733,15 +733,15 @@ func (encoder *NestedSeqEncoder) Init(value *NestedSeq) {
 				value := &pseudoValue
 				if value.Vals != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Vals_encoder.length).EncodingLength())
-					l += encoder.Vals_encoder.length
+					l += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodingLength())
+					l += encoder.Vals_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -767,10 +767,10 @@ func (encoder *NestedSeqEncoder) EncodeInto(value *NestedSeq, buf []byte) {
 				if value.Vals != nil {
 					buf[pos] = byte(3)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Vals_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Vals_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Vals_encoder.Length > 0 {
 						encoder.Vals_encoder.EncodeInto(value.Vals, buf[pos:])
-						pos += encoder.Vals_encoder.length
+						pos += encoder.Vals_encoder.Length
 					}
 				}
 				_ = encoder
@@ -783,7 +783,7 @@ func (encoder *NestedSeqEncoder) EncodeInto(value *NestedSeq, buf []byte) {
 func (encoder *NestedSeqEncoder) Encode(value *NestedSeq) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -885,7 +885,7 @@ func ParseNestedSeq(reader enc.WireView, ignoreCritical bool) (*NestedSeq, error
 }
 
 type InnerWire1Encoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -913,7 +913,7 @@ func (encoder *InnerWire1Encoder) Init(value *InnerWire1) {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -1091,7 +1091,7 @@ func (context *InnerWire1ParsingContext) Parse(reader enc.WireView, ignoreCritic
 }
 
 type InnerWire2Encoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -1115,7 +1115,7 @@ func (encoder *InnerWire2Encoder) Init(value *InnerWire2) {
 		l += uint(enc.TLNum(encoder.Wire2_length).EncodingLength())
 		l += encoder.Wire2_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -1254,7 +1254,7 @@ func (context *InnerWire2ParsingContext) Parse(reader enc.WireView, ignoreCritic
 }
 
 type NestedWireEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -1281,24 +1281,24 @@ func (encoder *NestedWireEncoder) Init(value *NestedWire) {
 	l := uint(0)
 	if value.W1 != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.W1_encoder.length).EncodingLength())
-		l += encoder.W1_encoder.length
+		l += uint(enc.TLNum(encoder.W1_encoder.Length).EncodingLength())
+		l += encoder.W1_encoder.Length
 	}
 	l += 1
 	l += uint(1 + enc.Nat(value.N).EncodingLength())
 	if value.W2 != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.W2_encoder.length).EncodingLength())
-		l += encoder.W2_encoder.length
+		l += uint(enc.TLNum(encoder.W2_encoder.Length).EncodingLength())
+		l += encoder.W2_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
 	if value.W1 != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.W1_encoder.length).EncodingLength())
-		if encoder.W1_encoder.length > 0 {
+		l += uint(enc.TLNum(encoder.W1_encoder.Length).EncodingLength())
+		if encoder.W1_encoder.Length > 0 {
 			l += encoder.W1_encoder.wirePlan[0]
 			for i := 1; i < len(encoder.W1_encoder.wirePlan); i++ {
 				wirePlan = append(wirePlan, l)
@@ -1315,8 +1315,8 @@ func (encoder *NestedWireEncoder) Init(value *NestedWire) {
 	l += uint(1 + enc.Nat(value.N).EncodingLength())
 	if value.W2 != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.W2_encoder.length).EncodingLength())
-		if encoder.W2_encoder.length > 0 {
+		l += uint(enc.TLNum(encoder.W2_encoder.Length).EncodingLength())
+		if encoder.W2_encoder.Length > 0 {
 			l += encoder.W2_encoder.wirePlan[0]
 			for i := 1; i < len(encoder.W2_encoder.wirePlan); i++ {
 				wirePlan = append(wirePlan, l)
@@ -1351,8 +1351,8 @@ func (encoder *NestedWireEncoder) EncodeInto(value *NestedWire, wire enc.Wire) {
 	if value.W1 != nil {
 		buf[pos] = byte(4)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.W1_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.W1_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.W1_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.W1_encoder.Length > 0 {
 			{
 				subWire := make(enc.Wire, len(encoder.W1_encoder.wirePlan))
 				subWire[0] = buf[pos:]
@@ -1390,8 +1390,8 @@ func (encoder *NestedWireEncoder) EncodeInto(value *NestedWire, wire enc.Wire) {
 	if value.W2 != nil {
 		buf[pos] = byte(6)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.W2_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.W2_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.W2_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.W2_encoder.Length > 0 {
 			{
 				subWire := make(enc.Wire, len(encoder.W2_encoder.wirePlan))
 				subWire[0] = buf[pos:]

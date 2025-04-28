@@ -12,7 +12,6 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
-	"github.com/named-data/ndnd/std/engine/face"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
@@ -40,7 +39,7 @@ type pendInt struct {
 type pitEntry = []*pendInt
 
 type Engine struct {
-	face  face.Face
+	face  ndn.Face
 	timer ndn.Timer
 
 	// fib contains the registered Interest handlers.
@@ -66,9 +65,12 @@ type Engine struct {
 	close chan struct{}
 	// running is the flag to indicate if the engine is running.
 	running atomic.Bool
+
+	// (advanced usage) global hook on receiving data packets
+	OnDataHook func(data ndn.Data, raw enc.Wire, sigCov enc.Wire) error
 }
 
-func NewEngine(face face.Face, timer ndn.Timer) *Engine {
+func NewEngine(face ndn.Face, timer ndn.Timer) *Engine {
 	if face == nil || timer == nil {
 		return nil
 	}
@@ -107,6 +109,10 @@ func (*Engine) Spec() ndn.Spec {
 
 func (e *Engine) Timer() ndn.Timer {
 	return e.timer
+}
+
+func (e *Engine) Face() ndn.Face {
+	return e.face
 }
 
 func (e *Engine) AttachHandler(prefix enc.Name, handler ndn.InterestHandler) error {
@@ -344,10 +350,23 @@ func (e *Engine) onDataMatch(pkt *spec.Data, raw enc.Wire) pitEntry {
 }
 
 func (e *Engine) onData(pkt *spec.Data, sigCovered enc.Wire, raw enc.Wire, pitToken []byte) {
+	var hookErr error = nil
+	if e.OnDataHook != nil {
+		hookErr = e.OnDataHook(pkt, raw, sigCovered)
+	}
+
 	for _, entry := range e.onDataMatch(pkt, raw) {
 		entry.timeoutCancel()
 		if entry.callback == nil {
 			panic("[BUG] PIT has empty entry")
+		}
+
+		if hookErr != nil {
+			entry.callback(ndn.ExpressCallbackArgs{
+				Result: ndn.InterestResultError,
+				Error:  hookErr,
+			})
+			continue
 		}
 
 		entry.callback(ndn.ExpressCallbackArgs{

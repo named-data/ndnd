@@ -3,6 +3,7 @@
 /gondn_tlv_gen
 /gondn_tlv_gen.exe
 coverage.out
+/db-*/
 
 # Go wasm files
 wasm_exec.js

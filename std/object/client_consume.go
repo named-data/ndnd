@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"slices"
+
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
@@ -141,7 +143,7 @@ func (c *Client) fetchMetadata(
 
 				// clone fields for lifetime
 				metadata.Name = metadata.Name.Clone()
-				metadata.FinalBlockID = append([]byte{}, metadata.FinalBlockID...)
+				metadata.FinalBlockID = slices.Clone(metadata.FinalBlockID)
 				callback(metadata, nil)
 			})
 		},

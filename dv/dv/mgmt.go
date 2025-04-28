@@ -90,7 +90,7 @@ func (dv *Router) mgmtOnRib(args ndn.InterestHandlerArgs) {
 	}()
 
 	// /localhost/nlsr/rib/register/h%0C%07%07%08%05cathyo%01A/params-sha256=a971bb4753691b756cb58239e2585362a154ec6551985133990c8bd2401c466a
-	// readvertise:  /localhost/nlsr/rib/unregister/h%0C%07%07%08%05cathyo%01A/params-sha256=026dd595c75032c5101b321fbc11eeb96277661c66bc0564ac7ea1a281ae8210
+	// /localhost/nlsr/rib/unregister/h%0C%07%07%08%05cathyo%01A/params-sha256=026dd595c75032c5101b321fbc11eeb96277661c66bc0564ac7ea1a281ae8210
 	iname := args.Interest.Name()
 	if len(iname) != 6 {
 		log.Warn(dv, "Invalid readvertise Interest", "name", iname)
@@ -109,15 +109,19 @@ func (dv *Router) mgmtOnRib(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	log.Debug(dv, "Received readvertise request", "cmd", cmd, "name", params.Val.Name)
+	name := params.Val.Name
+	face := params.Val.FaceId.GetOr(0)
+	cost := params.Val.Cost.GetOr(0)
+
+	log.Debug(dv, "Received readvertise request", "cmd", cmd, "name", name)
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
 	switch cmd.String() {
 	case "register":
-		dv.pfx.Announce(params.Val.Name)
+		dv.pfx.Announce(name, face, cost)
 	case "unregister":
-		dv.pfx.Withdraw(params.Val.Name)
+		dv.pfx.Withdraw(name, face)
 	default:
 		log.Warn(dv, "Unknown readvertise cmd", "cmd", cmd)
 		return
@@ -129,7 +133,5 @@ func (dv *Router) mgmtOnRib(args ndn.InterestHandlerArgs) {
 		Name:   params.Val.Name,
 		FaceId: optional.Some(uint64(1)), // NFD compatibility
 		Origin: optional.Some(uint64(65)),
-		Cost:   optional.Some(uint64(0)),
-		Flags:  optional.Some(uint64(0)),
 	}
 }

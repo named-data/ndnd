@@ -1,4 +1,4 @@
-package face
+package ndn
 
 import enc "github.com/named-data/ndnd/std/encoding"
 
@@ -26,9 +26,9 @@ type Face interface {
 
 	// OnUp sets the callback for the face going up.
 	// The callback may be called multiple times.
-	OnUp(onUp func())
+	OnUp(onUp func()) (cancel func())
 	// OnDown sets the callback for the face going down.
 	// The callback may be called multiple times.
 	// The callback will not be called when the face is closed.
-	OnDown(onDown func())
+	OnDown(onDown func()) (cancel func())
 }

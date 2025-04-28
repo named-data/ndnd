@@ -10,7 +10,7 @@ import (
 )
 
 type ManifestDigestEncoder struct {
-	length uint
+	Length uint
 }
 
 type ManifestDigestParsingContext struct {
@@ -26,7 +26,7 @@ func (encoder *ManifestDigestEncoder) Init(value *ManifestDigest) {
 		l += uint(enc.TLNum(len(value.Digest)).EncodingLength())
 		l += uint(len(value.Digest))
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -55,7 +55,7 @@ func (encoder *ManifestDigestEncoder) EncodeInto(value *ManifestDigest, buf []by
 func (encoder *ManifestDigestEncoder) Encode(value *ManifestDigest) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -167,7 +167,7 @@ func ParseManifestDigest(reader enc.WireView, ignoreCritical bool) (*ManifestDig
 }
 
 type ManifestDataEncoder struct {
-	length uint
+	Length uint
 
 	Entries_subencoder []struct {
 		Entries_encoder ManifestDigestEncoder
@@ -217,15 +217,15 @@ func (encoder *ManifestDataEncoder) Init(value *ManifestData) {
 				value := &pseudoValue
 				if value.Entries != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Entries_encoder.length).EncodingLength())
-					l += encoder.Entries_encoder.length
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -251,10 +251,10 @@ func (encoder *ManifestDataEncoder) EncodeInto(value *ManifestData, buf []byte) 
 				if value.Entries != nil {
 					buf[pos] = byte(202)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Entries_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Entries_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
 						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
-						pos += encoder.Entries_encoder.length
+						pos += encoder.Entries_encoder.Length
 					}
 				}
 				_ = encoder
@@ -267,7 +267,7 @@ func (encoder *ManifestDataEncoder) EncodeInto(value *ManifestData, buf []byte) 
 func (encoder *ManifestDataEncoder) Encode(value *ManifestData) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -369,7 +369,7 @@ func ParseManifestData(reader enc.WireView, ignoreCritical bool) (*ManifestData,
 }
 
 type MetaDataEncoder struct {
-	length uint
+	Length uint
 
 	Name_length uint
 }
@@ -429,7 +429,7 @@ func (encoder *MetaDataEncoder) Init(value *MetaData) {
 		l += uint(enc.TLNum(len(optval)).EncodingLength())
 		l += uint(len(optval))
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -532,7 +532,7 @@ func (encoder *MetaDataEncoder) EncodeInto(value *MetaData, buf []byte) {
 func (encoder *MetaDataEncoder) Encode(value *MetaData) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 

@@ -100,7 +100,6 @@ func (kc *KeyChainMem) InsertCert(wire []byte) error {
 	if !name.At(-1).IsVersion() {
 		return ndn.ErrInvalidValue{Item: "version component"}
 	}
-	version := name.At(-1).NumberVal()
 
 	// Check if certificate already exists
 	for _, existing := range kc.certNames {
@@ -111,7 +110,7 @@ func (kc *KeyChainMem) InsertCert(wire []byte) error {
 	kc.certNames = append(kc.certNames, name)
 
 	// Insert certificate to public store
-	if err := kc.pubStore.Put(name, version, wire); err != nil {
+	if err := kc.pubStore.Put(name, wire); err != nil {
 		return err
 	}
 

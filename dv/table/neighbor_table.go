@@ -142,12 +142,6 @@ func (ns *NeighborState) localRoute() enc.Name {
 		Append(enc.NewKeywordComponent("DV"))
 }
 
-func (ns *NeighborState) certRoute() enc.Name {
-	return ns.Name.
-		Append(enc.NewKeywordComponent("DV")).
-		Append(enc.NewGenericComponent("KEY"))
-}
-
 // Register route to this neighbor
 func (ns *NeighborState) routeRegister(faceId uint64) {
 	ns.faceId = faceId
@@ -168,12 +162,11 @@ func (ns *NeighborState) routeRegister(faceId uint64) {
 
 	// For fetching advertisements from neighbor
 	register(ns.localRoute())
-	// For fetching certificates from neighbor
-	register(ns.certRoute())
 	// Passive advertisement sync to neighbor
 	register(ns.nt.config.AdvertisementSyncPassivePrefix())
 	// For prefix table sync group
-	register(ns.nt.config.PrefixTableSyncPrefix())
+	register(ns.nt.config.PrefixTableGroupPrefix().
+		Append(enc.NewKeywordComponent("svs")))
 }
 
 // Single attempt to unregister the route
@@ -197,7 +190,6 @@ func (ns *NeighborState) routeUnregister() {
 
 	// Always remove local data routes to neighbor
 	unregister(ns.localRoute())
-	unregister(ns.certRoute())
 
 	// If there are multiple neighbors on this face, we do not
 	// want to unregister the global routes to the face.
@@ -208,5 +200,6 @@ func (ns *NeighborState) routeUnregister() {
 	}
 
 	unregister(ns.nt.config.AdvertisementSyncPassivePrefix())
-	unregister(ns.nt.config.PrefixTableSyncPrefix())
+	unregister(ns.nt.config.PrefixTableGroupPrefix().
+		Append(enc.NewKeywordComponent("svs")))
 }

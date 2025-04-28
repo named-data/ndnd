@@ -9,6 +9,8 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/security/signer"
+	"github.com/named-data/ndnd/std/security/trust_schema"
+	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
 )
 
@@ -26,6 +28,14 @@ type TrustConfig struct {
 	// certCache is the certificate memcache.
 	// Everything in here is validated, fresh and passes the schema.
 	certCache *CertCache
+
+	// UseDataNameFwHint enables using the data name as the forwarding hint.
+	// This flag is useful depending on application naming structure.
+	//
+	// When a Data is being verified, every certificate in the chain
+	// will be fetched by attaching the original Data name as the
+	// forwarding hint to the Interest.
+	UseDataNameFwHint bool
 }
 
 // NewTrustConfig creates a new TrustConfig.
@@ -88,10 +98,15 @@ type TrustConfigValidateArgs struct {
 	// Fetch is the fetch function to use for fetching certificates.
 	// The fetcher MUST check the store for the certificate before fetching.
 	Fetch func(enc.Name, *ndn.InterestConfig, ndn.ExpressCallbackFunc)
+	// UseDataNameFwHint overrides trust config option.
+	UseDataNameFwHint optional.Optional[bool]
 	// Callback is the callback to call when validation is done.
 	Callback func(bool, error)
 	// OverrideName is an override for the data name (advanced usage).
 	OverrideName enc.Name
+
+	// origDataName is the original data name being verified.
+	origDataName enc.Name
 
 	// cert is the certificate to use for validation.
 	// The caller is responsible for checking the expiry of the cert.
@@ -102,6 +117,9 @@ type TrustConfigValidateArgs struct {
 	certRaw enc.Wire
 	// certIsValid indicates if the certificate has been already validated.
 	certIsValid bool
+
+	// crossSchemaIsValid indicates if the cross schema validation has been already done.
+	crossSchemaIsValid bool
 
 	// depth is the maximum depth of the validation chain.
 	depth int
@@ -117,6 +135,11 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	if len(args.DataSigCov) == 0 {
 		args.Callback(false, fmt.Errorf("data sig covered is nil"))
 		return
+	}
+
+	if args.origDataName == nil {
+		// Always use original name here, not the override name
+		args.origDataName = args.Data.Name()
 	}
 
 	// Prevent infinite recursion for signer loops
@@ -165,7 +188,31 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		}
 
 		// Check schema if the key is allowed
-		if !tc.schema.Check(dataName, certName) {
+		if args.crossSchemaIsValid {
+			// continue
+		} else if tc.schema.Check(dataName, certName) {
+			// continue
+		} else if args.Data.CrossSchema() != nil {
+			tc.validateCrossSchema(TrustConfigValidateArgs{
+				Data:       args.Data,
+				DataSigCov: args.DataSigCov,
+
+				Fetch: args.Fetch,
+				Callback: func(valid bool, err error) {
+					if valid && err == nil {
+						// Continue validation with cross schema
+						args.crossSchemaIsValid = true
+						tc.Validate(args)
+					} else {
+						args.Callback(valid, fmt.Errorf("cross schema: %w", err))
+					}
+				},
+				OverrideName: args.OverrideName,
+				cert:         args.cert,
+				depth:        args.depth,
+			})
+			return
+		} else {
 			args.Callback(false, fmt.Errorf("trust schema mismatch: %s signed by %s", dataName, certName))
 			return
 		}
@@ -226,11 +273,14 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			Fetch:        args.Fetch,
 			Callback:     args.Callback,
 			OverrideName: nil,
+			origDataName: args.origDataName,
 
 			cert:        nil,
 			certSigCov:  nil,
 			certRaw:     nil,
 			certIsValid: false,
+
+			crossSchemaIsValid: false,
 
 			depth: args.depth,
 		})
@@ -243,6 +293,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	args.certSigCov = nil
 	args.certRaw = nil
 	args.certIsValid = false
+	args.crossSchemaIsValid = false
 
 	// Check the validated memcache for the certificate
 	if cachedCert, ok := tc.certCache.Get(keyLocator); ok {
@@ -255,10 +306,17 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		return
 	}
 
+	// Attach forwarding hint if needed
+	var fwHint []enc.Name = nil
+	if args.UseDataNameFwHint.GetOr(tc.UseDataNameFwHint) {
+		fwHint = []enc.Name{args.origDataName}
+	}
+
 	// Cert not found, attempt to fetch from network
 	args.Fetch(keyLocator, &ndn.InterestConfig{
-		CanBePrefix: true,
-		MustBeFresh: true,
+		CanBePrefix:    true,
+		MustBeFresh:    true,
+		ForwardingHint: fwHint,
 	}, func(res ndn.ExpressCallbackArgs) {
 		if res.Error == nil && res.Result != ndn.InterestResultData {
 			res.Error = fmt.Errorf("failed to fetch certificate (%s) with result: %s", keyLocator, res.Result)
@@ -292,5 +350,55 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 		// Continue validation with fetched cert
 		tc.Validate(args)
+	})
+}
+
+func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
+	crossWire := args.Data.CrossSchema()
+	if crossWire == nil {
+		panic("cross schema is nil")
+	}
+
+	// Parse the cross schema data
+	crossData, crossDataSigCov, err := spec.Spec{}.ReadData(enc.NewWireView(crossWire))
+	if err != nil {
+		args.Callback(false, fmt.Errorf("failed to parse cross schema wire: %w", err))
+		return
+	}
+
+	// Check validity period of the cross schema
+	if CertIsExpired(crossData) {
+		args.Callback(false, fmt.Errorf("cross schema is expired: %s", crossData.Name()))
+		return
+	}
+
+	// Parse the cross schema content
+	cross, err := trust_schema.ParseCrossSchemaContent(enc.NewWireView(crossData.Content()), false)
+	if err != nil {
+		args.Callback(false, fmt.Errorf("failed to parse cross schema: %w", err))
+		return
+	}
+
+	// Check if cross schema authorizes the certificate
+	certName := args.cert.Name()
+	dataName := args.Data.Name()
+	if len(args.OverrideName) > 0 {
+		dataName = args.OverrideName
+	}
+	if !cross.Match(dataName, certName) {
+		args.Callback(false, fmt.Errorf("cross schema mismatch: %s signed by %s", dataName, certName))
+		return
+	}
+
+	// Validate the cross schema signer to sign the original data
+	tc.Validate(TrustConfigValidateArgs{
+		Data:       crossData,
+		DataSigCov: crossDataSigCov,
+
+		Fetch:        args.Fetch,
+		Callback:     args.Callback,
+		OverrideName: dataName, // original data
+
+		depth: args.depth,
 	})
 }

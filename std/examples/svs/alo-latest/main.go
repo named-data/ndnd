@@ -9,7 +9,9 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
+	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	ndn_sync "github.com/named-data/ndnd/std/sync"
 )
 
@@ -22,9 +24,9 @@ func main() {
 	// nodes, so that the publication history can be pruned
 	//
 	// Before running this example, make sure the strategy is correctly setup
-	// to multicast for the /ndn/svs prefix. For example, using the following:
+	// to multicast for the sync prefix. For example, using the following:
 	//
-	//   ndnd fw strategy-set prefix=/ndn/svs strategy=/localhost/nfd/strategy/multicast
+	//   ndnd fw strategy-set prefix=/ndn/svs/32=svs strategy=/localhost/nfd/strategy/multicast
 	//
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <name>", os.Args[0])
@@ -49,22 +51,12 @@ func main() {
 	defer app.Stop()
 
 	// Create object client
-	client := object.NewClient(app, object.NewMemoryStore(), nil)
+	client := object.NewClient(app, storage.NewMemoryStore(), nil)
 	if err = client.Start(); err != nil {
 		log.Error(nil, "Unable to start object client", "err", err)
 		return
 	}
 	defer client.Stop()
-
-	// Register routes to the local forwarder
-	for _, route := range []enc.Name{group, name} {
-		err = app.RegisterRoute(route)
-		if err != nil {
-			log.Error(nil, "Unable to register route", "err", err)
-			return
-		}
-		defer app.UnregisterRoute(route)
-	}
 
 	// Total number and size of messages
 	msgCount := 0
@@ -169,6 +161,15 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "*** %v\n", err)
 	})
+
+	// Announce routes to the local forwarder
+	for _, route := range []enc.Name{
+		svsalo.SyncPrefix(),
+		svsalo.DataPrefix(),
+	} {
+		client.AnnouncePrefix(ndn.Announcement{Name: route})
+		defer client.WithdrawPrefix(route, nil)
+	}
 
 	if err = svsalo.Start(); err != nil {
 		log.Error(nil, "Unable to start SVS ALO", "err", err)

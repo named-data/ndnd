@@ -63,6 +63,18 @@ faces:
     # TLS private key (relative to the config file)
     tls_key: ""
 
+  http3:
+    # Whether to enable HTTP/3 WebTransport listener
+    enabled: false
+    # Bind address for HTTP/3 WebTransport listener
+    bind: ""
+    # Port for HTTP/3 WebTransport listener
+    port: 443
+    # TLS certificate path (relative to the config file)
+    tls_cert: ""
+    # TLS private key (relative to the config file)
+    tls_key: ""
+
 fw:
   # Number of forwarding threads
   threads: 8

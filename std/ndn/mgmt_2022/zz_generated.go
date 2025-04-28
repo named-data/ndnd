@@ -5,13 +5,14 @@ import (
 	"encoding/binary"
 	"io"
 	"strings"
+
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
 type StrategyEncoder struct {
-	length uint
+	Length uint
 
 	Name_length uint
 }
@@ -33,7 +34,7 @@ func (encoder *StrategyEncoder) Init(value *Strategy) {
 		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
 		l += encoder.Name_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -58,7 +59,7 @@ func (encoder *StrategyEncoder) EncodeInto(value *Strategy, buf []byte) {
 func (encoder *StrategyEncoder) Encode(value *Strategy) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -173,7 +174,7 @@ func DictToStrategy(dict map[string]any) (*Strategy, error) {
 }
 
 type ControlArgsEncoder struct {
-	length uint
+	Length uint
 
 	Name_length uint
 
@@ -242,8 +243,8 @@ func (encoder *ControlArgsEncoder) Init(value *ControlArgs) {
 	}
 	if value.Strategy != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Strategy_encoder.length).EncodingLength())
-		l += encoder.Strategy_encoder.length
+		l += uint(enc.TLNum(encoder.Strategy_encoder.Length).EncodingLength())
+		l += encoder.Strategy_encoder.Length
 	}
 	if optval, ok := value.ExpirationPeriod.Get(); ok {
 		l += 1
@@ -265,7 +266,7 @@ func (encoder *ControlArgsEncoder) Init(value *ControlArgs) {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -360,10 +361,10 @@ func (encoder *ControlArgsEncoder) EncodeInto(value *ControlArgs, buf []byte) {
 	if value.Strategy != nil {
 		buf[pos] = byte(107)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Strategy_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Strategy_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Strategy_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Strategy_encoder.Length > 0 {
 			encoder.Strategy_encoder.EncodeInto(value.Strategy, buf[pos:])
-			pos += encoder.Strategy_encoder.length
+			pos += encoder.Strategy_encoder.Length
 		}
 	}
 	if optval, ok := value.ExpirationPeriod.Get(); ok {
@@ -411,7 +412,7 @@ func (encoder *ControlArgsEncoder) EncodeInto(value *ControlArgs, buf []byte) {
 func (encoder *ControlArgsEncoder) Encode(value *ControlArgs) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1117,7 +1118,7 @@ func DictToControlArgs(dict map[string]any) (*ControlArgs, error) {
 }
 
 type ControlResponseValEncoder struct {
-	length uint
+	Length uint
 
 	Params_encoder ControlArgsEncoder
 }
@@ -1140,10 +1141,10 @@ func (encoder *ControlResponseValEncoder) Init(value *ControlResponseVal) {
 	l += uint(len(value.StatusText))
 	if value.Params != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Params_encoder.length).EncodingLength())
-		l += encoder.Params_encoder.length
+		l += uint(enc.TLNum(encoder.Params_encoder.Length).EncodingLength())
+		l += encoder.Params_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1169,10 +1170,10 @@ func (encoder *ControlResponseValEncoder) EncodeInto(value *ControlResponseVal, 
 	if value.Params != nil {
 		buf[pos] = byte(104)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Params_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Params_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Params_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Params_encoder.Length > 0 {
 			encoder.Params_encoder.EncodeInto(value.Params, buf[pos:])
-			pos += encoder.Params_encoder.length
+			pos += encoder.Params_encoder.Length
 		}
 	}
 }
@@ -1180,7 +1181,7 @@ func (encoder *ControlResponseValEncoder) EncodeInto(value *ControlResponseVal, 
 func (encoder *ControlResponseValEncoder) Encode(value *ControlResponseVal) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1359,7 +1360,7 @@ func DictToControlResponseVal(dict map[string]any) (*ControlResponseVal, error) 
 }
 
 type ControlParametersEncoder struct {
-	length uint
+	Length uint
 
 	Val_encoder ControlArgsEncoder
 }
@@ -1376,10 +1377,10 @@ func (encoder *ControlParametersEncoder) Init(value *ControlParameters) {
 	l := uint(0)
 	if value.Val != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Val_encoder.length).EncodingLength())
-		l += encoder.Val_encoder.length
+		l += uint(enc.TLNum(encoder.Val_encoder.Length).EncodingLength())
+		l += encoder.Val_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1394,10 +1395,10 @@ func (encoder *ControlParametersEncoder) EncodeInto(value *ControlParameters, bu
 	if value.Val != nil {
 		buf[pos] = byte(104)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Val_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Val_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Val_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Val_encoder.Length > 0 {
 			encoder.Val_encoder.EncodeInto(value.Val, buf[pos:])
-			pos += encoder.Val_encoder.length
+			pos += encoder.Val_encoder.Length
 		}
 	}
 }
@@ -1405,7 +1406,7 @@ func (encoder *ControlParametersEncoder) EncodeInto(value *ControlParameters, bu
 func (encoder *ControlParametersEncoder) Encode(value *ControlParameters) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1493,7 +1494,7 @@ func ParseControlParameters(reader enc.WireView, ignoreCritical bool) (*ControlP
 }
 
 type ControlResponseEncoder struct {
-	length uint
+	Length uint
 
 	Val_encoder ControlResponseValEncoder
 }
@@ -1510,10 +1511,10 @@ func (encoder *ControlResponseEncoder) Init(value *ControlResponse) {
 	l := uint(0)
 	if value.Val != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Val_encoder.length).EncodingLength())
-		l += encoder.Val_encoder.length
+		l += uint(enc.TLNum(encoder.Val_encoder.Length).EncodingLength())
+		l += encoder.Val_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1528,10 +1529,10 @@ func (encoder *ControlResponseEncoder) EncodeInto(value *ControlResponse, buf []
 	if value.Val != nil {
 		buf[pos] = byte(101)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Val_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Val_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Val_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Val_encoder.Length > 0 {
 			encoder.Val_encoder.EncodeInto(value.Val, buf[pos:])
-			pos += encoder.Val_encoder.length
+			pos += encoder.Val_encoder.Length
 		}
 	}
 }
@@ -1539,7 +1540,7 @@ func (encoder *ControlResponseEncoder) EncodeInto(value *ControlResponse, buf []
 func (encoder *ControlResponseEncoder) Encode(value *ControlResponse) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1627,7 +1628,7 @@ func ParseControlResponse(reader enc.WireView, ignoreCritical bool) (*ControlRes
 }
 
 type FaceEventNotificationValueEncoder struct {
-	length uint
+	Length uint
 }
 
 type FaceEventNotificationValueParsingContext struct {
@@ -1654,7 +1655,7 @@ func (encoder *FaceEventNotificationValueEncoder) Init(value *FaceEventNotificat
 	l += uint(1 + enc.Nat(value.LinkType).EncodingLength())
 	l += 1
 	l += uint(1 + enc.Nat(value.Flags).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1711,7 +1712,7 @@ func (encoder *FaceEventNotificationValueEncoder) EncodeInto(value *FaceEventNot
 func (encoder *FaceEventNotificationValueEncoder) Encode(value *FaceEventNotificationValue) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1959,7 +1960,7 @@ func ParseFaceEventNotificationValue(reader enc.WireView, ignoreCritical bool) (
 }
 
 type FaceEventNotificationEncoder struct {
-	length uint
+	Length uint
 
 	Val_encoder FaceEventNotificationValueEncoder
 }
@@ -1976,10 +1977,10 @@ func (encoder *FaceEventNotificationEncoder) Init(value *FaceEventNotification) 
 	l := uint(0)
 	if value.Val != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Val_encoder.length).EncodingLength())
-		l += encoder.Val_encoder.length
+		l += uint(enc.TLNum(encoder.Val_encoder.Length).EncodingLength())
+		l += encoder.Val_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1994,10 +1995,10 @@ func (encoder *FaceEventNotificationEncoder) EncodeInto(value *FaceEventNotifica
 	if value.Val != nil {
 		buf[pos] = byte(192)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Val_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Val_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Val_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Val_encoder.Length > 0 {
 			encoder.Val_encoder.EncodeInto(value.Val, buf[pos:])
-			pos += encoder.Val_encoder.length
+			pos += encoder.Val_encoder.Length
 		}
 	}
 }
@@ -2005,7 +2006,7 @@ func (encoder *FaceEventNotificationEncoder) EncodeInto(value *FaceEventNotifica
 func (encoder *FaceEventNotificationEncoder) Encode(value *FaceEventNotification) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -2093,7 +2094,7 @@ func ParseFaceEventNotification(reader enc.WireView, ignoreCritical bool) (*Face
 }
 
 type GeneralStatusEncoder struct {
-	length uint
+	Length uint
 }
 
 type GeneralStatusParsingContext struct {
@@ -2171,7 +2172,7 @@ func (encoder *GeneralStatusEncoder) Init(value *GeneralStatus) {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -2340,7 +2341,7 @@ func (encoder *GeneralStatusEncoder) EncodeInto(value *GeneralStatus, buf []byte
 func (encoder *GeneralStatusEncoder) Encode(value *GeneralStatus) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -3030,7 +3031,7 @@ func ParseGeneralStatus(reader enc.WireView, ignoreCritical bool) (*GeneralStatu
 }
 
 type FaceStatusEncoder struct {
-	length uint
+	Length uint
 }
 
 type FaceStatusParsingContext struct {
@@ -3087,7 +3088,7 @@ func (encoder *FaceStatusEncoder) Init(value *FaceStatus) {
 	l += uint(1 + enc.Nat(value.NOutBytes).EncodingLength())
 	l += 1
 	l += uint(1 + enc.Nat(value.Flags).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -3211,7 +3212,7 @@ func (encoder *FaceStatusEncoder) EncodeInto(value *FaceStatus, buf []byte) {
 func (encoder *FaceStatusEncoder) Encode(value *FaceStatus) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -3728,7 +3729,7 @@ func ParseFaceStatus(reader enc.WireView, ignoreCritical bool) (*FaceStatus, err
 }
 
 type FaceStatusMsgEncoder struct {
-	length uint
+	Length uint
 
 	Vals_subencoder []struct {
 		Vals_encoder FaceStatusEncoder
@@ -3778,15 +3779,15 @@ func (encoder *FaceStatusMsgEncoder) Init(value *FaceStatusMsg) {
 				value := &pseudoValue
 				if value.Vals != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Vals_encoder.length).EncodingLength())
-					l += encoder.Vals_encoder.length
+					l += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodingLength())
+					l += encoder.Vals_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -3812,10 +3813,10 @@ func (encoder *FaceStatusMsgEncoder) EncodeInto(value *FaceStatusMsg, buf []byte
 				if value.Vals != nil {
 					buf[pos] = byte(128)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Vals_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Vals_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Vals_encoder.Length > 0 {
 						encoder.Vals_encoder.EncodeInto(value.Vals, buf[pos:])
-						pos += encoder.Vals_encoder.length
+						pos += encoder.Vals_encoder.Length
 					}
 				}
 				_ = encoder
@@ -3828,7 +3829,7 @@ func (encoder *FaceStatusMsgEncoder) EncodeInto(value *FaceStatusMsg, buf []byte
 func (encoder *FaceStatusMsgEncoder) Encode(value *FaceStatusMsg) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -3930,7 +3931,7 @@ func ParseFaceStatusMsg(reader enc.WireView, ignoreCritical bool) (*FaceStatusMs
 }
 
 type FaceQueryFilterValueEncoder struct {
-	length uint
+	Length uint
 }
 
 type FaceQueryFilterValueParsingContext struct {
@@ -3970,7 +3971,7 @@ func (encoder *FaceQueryFilterValueEncoder) Init(value *FaceQueryFilterValue) {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -4040,7 +4041,7 @@ func (encoder *FaceQueryFilterValueEncoder) EncodeInto(value *FaceQueryFilterVal
 func (encoder *FaceQueryFilterValueEncoder) Encode(value *FaceQueryFilterValue) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -4274,7 +4275,7 @@ func ParseFaceQueryFilterValue(reader enc.WireView, ignoreCritical bool) (*FaceQ
 }
 
 type FaceQueryFilterEncoder struct {
-	length uint
+	Length uint
 
 	Val_encoder FaceQueryFilterValueEncoder
 }
@@ -4291,10 +4292,10 @@ func (encoder *FaceQueryFilterEncoder) Init(value *FaceQueryFilter) {
 	l := uint(0)
 	if value.Val != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Val_encoder.length).EncodingLength())
-		l += encoder.Val_encoder.length
+		l += uint(enc.TLNum(encoder.Val_encoder.Length).EncodingLength())
+		l += encoder.Val_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -4309,10 +4310,10 @@ func (encoder *FaceQueryFilterEncoder) EncodeInto(value *FaceQueryFilter, buf []
 	if value.Val != nil {
 		buf[pos] = byte(150)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Val_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Val_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Val_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Val_encoder.Length > 0 {
 			encoder.Val_encoder.EncodeInto(value.Val, buf[pos:])
-			pos += encoder.Val_encoder.length
+			pos += encoder.Val_encoder.Length
 		}
 	}
 }
@@ -4320,7 +4321,7 @@ func (encoder *FaceQueryFilterEncoder) EncodeInto(value *FaceQueryFilter, buf []
 func (encoder *FaceQueryFilterEncoder) Encode(value *FaceQueryFilter) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -4408,7 +4409,7 @@ func ParseFaceQueryFilter(reader enc.WireView, ignoreCritical bool) (*FaceQueryF
 }
 
 type RouteEncoder struct {
-	length uint
+	Length uint
 }
 
 type RouteParsingContext struct {
@@ -4429,7 +4430,7 @@ func (encoder *RouteEncoder) Init(value *Route) {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -4474,7 +4475,7 @@ func (encoder *RouteEncoder) EncodeInto(value *Route, buf []byte) {
 func (encoder *RouteEncoder) Encode(value *Route) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -4671,7 +4672,7 @@ func ParseRoute(reader enc.WireView, ignoreCritical bool) (*Route, error) {
 }
 
 type RibEntryEncoder struct {
-	length uint
+	Length uint
 
 	Name_length       uint
 	Routes_subencoder []struct {
@@ -4733,15 +4734,15 @@ func (encoder *RibEntryEncoder) Init(value *RibEntry) {
 				value := &pseudoValue
 				if value.Routes != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Routes_encoder.length).EncodingLength())
-					l += encoder.Routes_encoder.length
+					l += uint(enc.TLNum(encoder.Routes_encoder.Length).EncodingLength())
+					l += encoder.Routes_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -4776,10 +4777,10 @@ func (encoder *RibEntryEncoder) EncodeInto(value *RibEntry, buf []byte) {
 				if value.Routes != nil {
 					buf[pos] = byte(129)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Routes_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Routes_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Routes_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Routes_encoder.Length > 0 {
 						encoder.Routes_encoder.EncodeInto(value.Routes, buf[pos:])
-						pos += encoder.Routes_encoder.length
+						pos += encoder.Routes_encoder.Length
 					}
 				}
 				_ = encoder
@@ -4792,7 +4793,7 @@ func (encoder *RibEntryEncoder) EncodeInto(value *RibEntry, buf []byte) {
 func (encoder *RibEntryEncoder) Encode(value *RibEntry) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -4905,7 +4906,7 @@ func ParseRibEntry(reader enc.WireView, ignoreCritical bool) (*RibEntry, error) 
 }
 
 type RibStatusEncoder struct {
-	length uint
+	Length uint
 
 	Entries_subencoder []struct {
 		Entries_encoder RibEntryEncoder
@@ -4955,15 +4956,15 @@ func (encoder *RibStatusEncoder) Init(value *RibStatus) {
 				value := &pseudoValue
 				if value.Entries != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Entries_encoder.length).EncodingLength())
-					l += encoder.Entries_encoder.length
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -4989,10 +4990,10 @@ func (encoder *RibStatusEncoder) EncodeInto(value *RibStatus, buf []byte) {
 				if value.Entries != nil {
 					buf[pos] = byte(128)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Entries_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Entries_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
 						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
-						pos += encoder.Entries_encoder.length
+						pos += encoder.Entries_encoder.Length
 					}
 				}
 				_ = encoder
@@ -5005,7 +5006,7 @@ func (encoder *RibStatusEncoder) EncodeInto(value *RibStatus, buf []byte) {
 func (encoder *RibStatusEncoder) Encode(value *RibStatus) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -5107,7 +5108,7 @@ func ParseRibStatus(reader enc.WireView, ignoreCritical bool) (*RibStatus, error
 }
 
 type NextHopRecordEncoder struct {
-	length uint
+	Length uint
 }
 
 type NextHopRecordParsingContext struct {
@@ -5120,7 +5121,7 @@ func (encoder *NextHopRecordEncoder) Init(value *NextHopRecord) {
 	l += uint(1 + enc.Nat(value.FaceId).EncodingLength())
 	l += 1
 	l += uint(1 + enc.Nat(value.Cost).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -5147,7 +5148,7 @@ func (encoder *NextHopRecordEncoder) EncodeInto(value *NextHopRecord, buf []byte
 func (encoder *NextHopRecordEncoder) Encode(value *NextHopRecord) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -5271,7 +5272,7 @@ func ParseNextHopRecord(reader enc.WireView, ignoreCritical bool) (*NextHopRecor
 }
 
 type FibEntryEncoder struct {
-	length uint
+	Length uint
 
 	Name_length               uint
 	NextHopRecords_subencoder []struct {
@@ -5333,15 +5334,15 @@ func (encoder *FibEntryEncoder) Init(value *FibEntry) {
 				value := &pseudoValue
 				if value.NextHopRecords != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.NextHopRecords_encoder.length).EncodingLength())
-					l += encoder.NextHopRecords_encoder.length
+					l += uint(enc.TLNum(encoder.NextHopRecords_encoder.Length).EncodingLength())
+					l += encoder.NextHopRecords_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -5376,10 +5377,10 @@ func (encoder *FibEntryEncoder) EncodeInto(value *FibEntry, buf []byte) {
 				if value.NextHopRecords != nil {
 					buf[pos] = byte(129)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.NextHopRecords_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.NextHopRecords_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.NextHopRecords_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.NextHopRecords_encoder.Length > 0 {
 						encoder.NextHopRecords_encoder.EncodeInto(value.NextHopRecords, buf[pos:])
-						pos += encoder.NextHopRecords_encoder.length
+						pos += encoder.NextHopRecords_encoder.Length
 					}
 				}
 				_ = encoder
@@ -5392,7 +5393,7 @@ func (encoder *FibEntryEncoder) EncodeInto(value *FibEntry, buf []byte) {
 func (encoder *FibEntryEncoder) Encode(value *FibEntry) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -5505,7 +5506,7 @@ func ParseFibEntry(reader enc.WireView, ignoreCritical bool) (*FibEntry, error) 
 }
 
 type FibStatusEncoder struct {
-	length uint
+	Length uint
 
 	Entries_subencoder []struct {
 		Entries_encoder FibEntryEncoder
@@ -5555,15 +5556,15 @@ func (encoder *FibStatusEncoder) Init(value *FibStatus) {
 				value := &pseudoValue
 				if value.Entries != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Entries_encoder.length).EncodingLength())
-					l += encoder.Entries_encoder.length
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -5589,10 +5590,10 @@ func (encoder *FibStatusEncoder) EncodeInto(value *FibStatus, buf []byte) {
 				if value.Entries != nil {
 					buf[pos] = byte(128)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Entries_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Entries_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
 						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
-						pos += encoder.Entries_encoder.length
+						pos += encoder.Entries_encoder.Length
 					}
 				}
 				_ = encoder
@@ -5605,7 +5606,7 @@ func (encoder *FibStatusEncoder) EncodeInto(value *FibStatus, buf []byte) {
 func (encoder *FibStatusEncoder) Encode(value *FibStatus) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -5707,7 +5708,7 @@ func ParseFibStatus(reader enc.WireView, ignoreCritical bool) (*FibStatus, error
 }
 
 type StrategyChoiceEncoder struct {
-	length uint
+	Length uint
 
 	Name_length      uint
 	Strategy_encoder StrategyEncoder
@@ -5736,10 +5737,10 @@ func (encoder *StrategyChoiceEncoder) Init(value *StrategyChoice) {
 	}
 	if value.Strategy != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Strategy_encoder.length).EncodingLength())
-		l += encoder.Strategy_encoder.length
+		l += uint(enc.TLNum(encoder.Strategy_encoder.Length).EncodingLength())
+		l += encoder.Strategy_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -5763,10 +5764,10 @@ func (encoder *StrategyChoiceEncoder) EncodeInto(value *StrategyChoice, buf []by
 	if value.Strategy != nil {
 		buf[pos] = byte(107)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Strategy_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Strategy_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Strategy_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Strategy_encoder.Length > 0 {
 			encoder.Strategy_encoder.EncodeInto(value.Strategy, buf[pos:])
-			pos += encoder.Strategy_encoder.length
+			pos += encoder.Strategy_encoder.Length
 		}
 	}
 }
@@ -5774,7 +5775,7 @@ func (encoder *StrategyChoiceEncoder) EncodeInto(value *StrategyChoice, buf []by
 func (encoder *StrategyChoiceEncoder) Encode(value *StrategyChoice) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -5873,7 +5874,7 @@ func ParseStrategyChoice(reader enc.WireView, ignoreCritical bool) (*StrategyCho
 }
 
 type StrategyChoiceMsgEncoder struct {
-	length uint
+	Length uint
 
 	StrategyChoices_subencoder []struct {
 		StrategyChoices_encoder StrategyChoiceEncoder
@@ -5923,15 +5924,15 @@ func (encoder *StrategyChoiceMsgEncoder) Init(value *StrategyChoiceMsg) {
 				value := &pseudoValue
 				if value.StrategyChoices != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.StrategyChoices_encoder.length).EncodingLength())
-					l += encoder.StrategyChoices_encoder.length
+					l += uint(enc.TLNum(encoder.StrategyChoices_encoder.Length).EncodingLength())
+					l += encoder.StrategyChoices_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -5957,10 +5958,10 @@ func (encoder *StrategyChoiceMsgEncoder) EncodeInto(value *StrategyChoiceMsg, bu
 				if value.StrategyChoices != nil {
 					buf[pos] = byte(128)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.StrategyChoices_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.StrategyChoices_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.StrategyChoices_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.StrategyChoices_encoder.Length > 0 {
 						encoder.StrategyChoices_encoder.EncodeInto(value.StrategyChoices, buf[pos:])
-						pos += encoder.StrategyChoices_encoder.length
+						pos += encoder.StrategyChoices_encoder.Length
 					}
 				}
 				_ = encoder
@@ -5973,7 +5974,7 @@ func (encoder *StrategyChoiceMsgEncoder) EncodeInto(value *StrategyChoiceMsg, bu
 func (encoder *StrategyChoiceMsgEncoder) Encode(value *StrategyChoiceMsg) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -6075,7 +6076,7 @@ func ParseStrategyChoiceMsg(reader enc.WireView, ignoreCritical bool) (*Strategy
 }
 
 type CsInfoEncoder struct {
-	length uint
+	Length uint
 }
 
 type CsInfoParsingContext struct {
@@ -6094,7 +6095,7 @@ func (encoder *CsInfoEncoder) Init(value *CsInfo) {
 	l += uint(1 + enc.Nat(value.NHits).EncodingLength())
 	l += 1
 	l += uint(1 + enc.Nat(value.NMisses).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -6136,7 +6137,7 @@ func (encoder *CsInfoEncoder) EncodeInto(value *CsInfo, buf []byte) {
 func (encoder *CsInfoEncoder) Encode(value *CsInfo) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -6329,7 +6330,7 @@ func ParseCsInfo(reader enc.WireView, ignoreCritical bool) (*CsInfo, error) {
 }
 
 type CsInfoMsgEncoder struct {
-	length uint
+	Length uint
 
 	CsInfo_encoder CsInfoEncoder
 }
@@ -6346,10 +6347,10 @@ func (encoder *CsInfoMsgEncoder) Init(value *CsInfoMsg) {
 	l := uint(0)
 	if value.CsInfo != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.CsInfo_encoder.length).EncodingLength())
-		l += encoder.CsInfo_encoder.length
+		l += uint(enc.TLNum(encoder.CsInfo_encoder.Length).EncodingLength())
+		l += encoder.CsInfo_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -6364,10 +6365,10 @@ func (encoder *CsInfoMsgEncoder) EncodeInto(value *CsInfoMsg, buf []byte) {
 	if value.CsInfo != nil {
 		buf[pos] = byte(128)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.CsInfo_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.CsInfo_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.CsInfo_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.CsInfo_encoder.Length > 0 {
 			encoder.CsInfo_encoder.EncodeInto(value.CsInfo, buf[pos:])
-			pos += encoder.CsInfo_encoder.length
+			pos += encoder.CsInfo_encoder.Length
 		}
 	}
 }
@@ -6375,7 +6376,7 @@ func (encoder *CsInfoMsgEncoder) EncodeInto(value *CsInfoMsg, buf []byte) {
 func (encoder *CsInfoMsgEncoder) Encode(value *CsInfoMsg) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 

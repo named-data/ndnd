@@ -1,6 +1,8 @@
 package table
 
 import (
+	"slices"
+
 	"github.com/named-data/ndnd/dv/config"
 	"github.com/named-data/ndnd/dv/tlv"
 	enc "github.com/named-data/ndnd/std/encoding"
@@ -10,7 +12,7 @@ import (
 type PrefixTable struct {
 	config  *config.Config
 	publish func(enc.Wire)
-	routers map[string]*PrefixTableRouter
+	routers map[uint64]*PrefixTableRouter
 	me      *PrefixTableRouter
 }
 
@@ -20,13 +22,22 @@ type PrefixTableRouter struct {
 
 type PrefixEntry struct {
 	Name enc.Name
+	Cost uint64
+
+	// Only known for the local router
+	NextHops []PrefixNextHop
+}
+
+type PrefixNextHop struct {
+	Face uint64
+	Cost uint64
 }
 
 func NewPrefixTable(config *config.Config, publish func(enc.Wire)) *PrefixTable {
 	pt := &PrefixTable{
 		config:  config,
 		publish: publish,
-		routers: make(map[string]*PrefixTableRouter),
+		routers: make(map[uint64]*PrefixTableRouter),
 		me:      nil,
 	}
 	pt.me = pt.GetRouter(config.RouterName())
@@ -38,7 +49,7 @@ func (pt *PrefixTable) String() string {
 }
 
 func (pt *PrefixTable) GetRouter(name enc.Name) *PrefixTableRouter {
-	hash := name.TlvStr()
+	hash := name.Hash()
 	router := pt.routers[hash]
 	if router == nil {
 		router = &PrefixTableRouter{
@@ -60,46 +71,95 @@ func (pt *PrefixTable) Reset() {
 	pt.publish(op.Encode())
 }
 
-func (pt *PrefixTable) Announce(name enc.Name) {
-	log.Info(pt, "Announce prefix", "name", name)
+func (pt *PrefixTable) Announce(name enc.Name, face uint64, cost uint64) {
+	log.Info(pt, "Local announce", "name", name, "face", face, "cost", cost)
 	hash := name.TlvStr()
 
-	// Skip if matching entry already exists
-	// This will also need to check that all params are equal
-	if entry := pt.me.Prefixes[hash]; entry != nil {
-		return
+	// Create nexthop to store
+	nexthop := PrefixNextHop{
+		Face: face,
+		Cost: cost,
 	}
 
-	// Create new entry and announce globally
-	pt.me.Prefixes[hash] = &PrefixEntry{Name: name}
-
-	op := tlv.PrefixOpList{
-		ExitRouter: &tlv.Destination{Name: pt.config.RouterName()},
-		PrefixOpAdds: []*tlv.PrefixOpAdd{{
+	// Check if matching entry already exists
+	entry := pt.me.Prefixes[hash]
+	if entry == nil {
+		entry = &PrefixEntry{
 			Name: name,
-			Cost: 1,
-		}},
+			Cost: config.CostPfxInfinity,
+		}
+		pt.me.Prefixes[hash] = entry
 	}
-	pt.publish(op.Encode())
+
+	// Update entry with nexthop
+	found := false
+	for i, nh := range entry.NextHops {
+		if nh.Face == face {
+			found = true
+			entry.NextHops[i] = nexthop
+			break
+		}
+	}
+	if !found {
+		entry.NextHops = append(entry.NextHops, nexthop)
+	}
+
+	// Compute cost and publish if dirty
+	if entry.computeCost() {
+		pt.publishEntry(hash)
+	}
 }
 
-func (pt *PrefixTable) Withdraw(name enc.Name) {
-	log.Info(pt, "Withdraw prefix", "name", name)
+func (pt *PrefixTable) Withdraw(name enc.Name, face uint64) {
+	log.Info(pt, "Local withdraw", "name", name, "face", face)
 	hash := name.TlvStr()
 
 	// Check if entry does not exist
-	if entry := pt.me.Prefixes[hash]; entry == nil {
+	entry := pt.me.Prefixes[hash]
+	if entry == nil {
 		return
 	}
 
-	// Delete the existing entry and announce globally
-	delete(pt.me.Prefixes, hash)
-
-	op := tlv.PrefixOpList{
-		ExitRouter:      &tlv.Destination{Name: pt.config.RouterName()},
-		PrefixOpRemoves: []*tlv.PrefixOpRemove{{Name: name}},
+	// Remove nexthop from entry
+	for i, nh := range entry.NextHops {
+		if nh.Face == face {
+			entry.NextHops = slices.Delete(entry.NextHops, i, i+1)
+			break
+		}
 	}
-	pt.publish(op.Encode())
+
+	// Compute cost and publish if dirty
+	if entry.computeCost() {
+		pt.publishEntry(hash)
+	}
+}
+
+// Publishes the update to the network.
+func (pt *PrefixTable) publishEntry(hash string) {
+	entry := pt.me.Prefixes[hash]
+	if entry == nil {
+		return // never
+	}
+
+	if entry.Cost < config.CostPfxInfinity {
+		log.Info(pt, "Global announce", "name", entry.Name, "cost", entry.Cost)
+		op := tlv.PrefixOpList{
+			ExitRouter: &tlv.Destination{Name: pt.config.RouterName()},
+			PrefixOpAdds: []*tlv.PrefixOpAdd{{
+				Name: entry.Name,
+				Cost: entry.Cost,
+			}},
+		}
+		pt.publish(op.Encode())
+	} else {
+		log.Info(pt, "Global withdraw", "name", entry.Name)
+		op := tlv.PrefixOpList{
+			ExitRouter:      &tlv.Destination{Name: pt.config.RouterName()},
+			PrefixOpRemoves: []*tlv.PrefixOpRemove{{Name: entry.Name}},
+		}
+		pt.publish(op.Encode())
+		delete(pt.me.Prefixes, hash) // dead
+	}
 }
 
 // Applies ops from a list. Returns if dirty.
@@ -124,8 +184,11 @@ func (pt *PrefixTable) Apply(wire enc.Wire) (dirty bool) {
 	}
 
 	for _, add := range ops.PrefixOpAdds {
-		log.Info(pt, "Add remote prefix", "router", ops.ExitRouter.Name, "name", add.Name)
-		router.Prefixes[add.Name.TlvStr()] = &PrefixEntry{Name: add.Name}
+		log.Info(pt, "Add remote prefix", "router", ops.ExitRouter.Name, "name", add.Name, "cost", add.Cost)
+		router.Prefixes[add.Name.TlvStr()] = &PrefixEntry{
+			Name: add.Name.Clone(),
+			Cost: add.Cost,
+		}
 		dirty = true
 	}
 
@@ -148,9 +211,23 @@ func (pt *PrefixTable) Snap() enc.Wire {
 	for _, entry := range pt.me.Prefixes {
 		snap.PrefixOpAdds = append(snap.PrefixOpAdds, &tlv.PrefixOpAdd{
 			Name: entry.Name,
-			Cost: 1,
+			Cost: entry.Cost,
 		})
 	}
 
 	return snap.Encode()
+}
+
+func (e *PrefixEntry) computeCost() (dirty bool) {
+	cost := ^uint64(0)
+	for _, nh := range e.NextHops {
+		if nh.Cost < cost {
+			cost = nh.Cost
+		}
+	}
+	if cost == e.Cost {
+		return false
+	}
+	e.Cost = cost
+	return true
 }

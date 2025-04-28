@@ -19,25 +19,24 @@ type FibEntry struct {
 
 // Get the FIB entry for a name prefix.
 // router should be hash of the router name.
-func (rib *Rib) GetFibEntries(nt *NeighborTable, router uint64) []FibEntry {
+func (rib *Rib) GetFibEntries(nt *NeighborTable, router uint64) (entries []FibEntry) {
 	ribEntry := rib.entries[router]
+	entries = make([]FibEntry, 0, 2)
 
-	var face1 uint64 = 0
-	var face2 uint64 = 0
-	if ns := nt.GetH(ribEntry.nextHop1); ns != nil {
-		face1 = ns.faceId
+	if ns := nt.GetH(ribEntry.nextHop1); ns != nil && ribEntry.lowest1 < config.CostInfinity {
+		entries = append(entries, FibEntry{
+			FaceId: ns.faceId,
+			Cost:   ribEntry.lowest1,
+		})
 	}
-	if ns := nt.GetH(ribEntry.nextHop2); ns != nil {
-		face2 = ns.faceId
+	if ns := nt.GetH(ribEntry.nextHop2); ns != nil && ribEntry.lowest2 < config.CostInfinity {
+		entries = append(entries, FibEntry{
+			FaceId: ns.faceId,
+			Cost:   ribEntry.lowest2,
+		})
 	}
 
-	return []FibEntry{{
-		FaceId: face1,
-		Cost:   ribEntry.lowest1,
-	}, {
-		FaceId: face2,
-		Cost:   ribEntry.lowest2,
-	}}
+	return entries
 }
 
 type Fib struct {
@@ -75,13 +74,13 @@ func (fib *Fib) UpdateH(nameH uint64, name enc.Name, newEntries []FibEntry) bool
 	oldEntries := fib.prefixes[nameH]
 	for oi := range oldEntries {
 		oldEntries[oi].prevCost = oldEntries[oi].Cost
-		oldEntries[oi].Cost = config.CostInfinity
+		oldEntries[oi].Cost = config.CostPfxInfinity
 	}
 
 	// Merge new entries into old entries
 	for _, newEntry := range newEntries {
 		// Likely from RIB computation
-		if newEntry.Cost >= config.CostInfinity {
+		if newEntry.Cost >= config.CostPfxInfinity {
 			continue
 		}
 
@@ -102,7 +101,7 @@ func (fib *Fib) UpdateH(nameH uint64, name enc.Name, newEntries []FibEntry) bool
 
 		// If a matching face entry was not found, add the new one
 		if !found {
-			newEntry.prevCost = config.CostInfinity
+			newEntry.prevCost = config.CostPfxInfinity
 			oldEntries = append(oldEntries, newEntry)
 		}
 	}
@@ -110,7 +109,7 @@ func (fib *Fib) UpdateH(nameH uint64, name enc.Name, newEntries []FibEntry) bool
 	// Unregister entries that are not reachable
 	finalEntries := make([]FibEntry, 0, len(oldEntries))
 	for _, oldEntry := range oldEntries {
-		if oldEntry.Cost >= config.CostInfinity {
+		if oldEntry.Cost >= config.CostPfxInfinity {
 			fib.nfdc.Exec(nfdc.NfdMgmtCmd{
 				Module: "rib",
 				Cmd:    "unregister",

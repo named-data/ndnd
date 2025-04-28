@@ -27,10 +27,6 @@ func (f *WasmSimFace) String() string {
 	return "wasm-sim-face"
 }
 
-func (f *WasmSimFace) Trait() Face {
-	return f
-}
-
 func (f *WasmSimFace) Open() error {
 	if f.onError == nil || f.onPkt == nil {
 		return fmt.Errorf("face callbacks are not set")

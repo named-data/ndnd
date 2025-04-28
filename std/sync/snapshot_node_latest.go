@@ -48,7 +48,7 @@ func (s *SnapshotNodeLatest) Snapshot() Snapshot {
 }
 
 // initialize the snapshot strategy.
-func (s *SnapshotNodeLatest) initialize(pss snapPsState) {
+func (s *SnapshotNodeLatest) initialize(pss snapPsState, _ SvMap[svsDataState]) {
 	if s.Client == nil || s.SnapMe == nil || s.Threshold == 0 {
 		panic("SnapshotNodeLatest: not initialized")
 	}
@@ -104,8 +104,8 @@ func (s *SnapshotNodeLatest) onPublication(state SvMap[svsDataState], pub enc.Na
 
 // snapName is the naming convention for snapshots.
 func (s *SnapshotNodeLatest) snapName(node enc.Name, boot uint64) enc.Name {
-	return node.
-		Append(s.pss.groupPrefix...).
+	return s.pss.groupPrefix.
+		Append(node...).
 		Append(enc.NewTimestampComponent(boot)).
 		Append(enc.NewKeywordComponent("SNAP"))
 }
@@ -213,8 +213,8 @@ func (s *SnapshotNodeLatest) takeSnap(seqNo uint64) {
 	if seqNo >= 4*s.Threshold {
 		// No version specified - this will remove metadata too
 		if err := s.Client.Store().RemoveFlatRange(
-			s.pss.nodePrefix.
-				Append(s.pss.groupPrefix...).
+			s.pss.groupPrefix.
+				Append(s.pss.nodePrefix...).
 				Append(enc.NewTimestampComponent(s.pss.bootTime)),
 			enc.NewSequenceNumComponent(0),
 			enc.NewSequenceNumComponent(seqNo-3*s.Threshold),

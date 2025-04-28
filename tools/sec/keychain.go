@@ -7,7 +7,7 @@ import (
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
-	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/keychain"
 	sig "github.com/named-data/ndnd/std/security/signer"
@@ -58,7 +58,7 @@ and the default key of the identity will be exported.`,
 }
 
 func (*ToolKeychain) List(_ *cobra.Command, args []string) {
-	kc, err := keychain.NewKeyChain(args[0], object.NewMemoryStore())
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
 		os.Exit(1)
@@ -74,7 +74,7 @@ func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 }
 
 func (*ToolKeychain) Import(_ *cobra.Command, args []string) {
-	kc, err := keychain.NewKeyChain(args[0], object.NewMemoryStore())
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
 		os.Exit(1)
@@ -104,7 +104,7 @@ func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 		return
 	}
 
-	kc, err := keychain.NewKeyChain(args[0], object.NewMemoryStore())
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
 		os.Exit(1)

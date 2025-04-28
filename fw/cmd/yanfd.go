@@ -24,6 +24,7 @@ type YaNFD struct {
 
 	unixListener *face.UnixStreamListener
 	wsListener   *face.WebSocketListener
+	h3Listener   *face.HTTP3Listener
 	tcpListeners []*face.TCPListener
 	udpListeners []*face.UDPListener
 }
@@ -208,6 +209,26 @@ func (y *YaNFD) Start() {
 			go wsListener.Run()
 			y.wsListener = wsListener
 			core.Log.Info(y, "Created WebSocket listener", "uri", cfg.URL().String())
+		}
+	}
+
+	// Set up HTTP/3 WebTransport listener
+	if c := core.C.Faces.HTTP3; c.Enabled {
+		cfg := face.HTTP3ListenerConfig{
+			Bind:    c.Bind,
+			Port:    c.Port,
+			TLSCert: c.TlsCert,
+			TLSKey:  c.TlsKey,
+		}
+
+		h3Listener, err := face.NewHTTP3Listener(cfg)
+		if err != nil {
+			core.Log.Error(y, "Unable to create HTTP/3 WebTransport Listener", "cfg", cfg, "err", err)
+		} else {
+			listenerCount++
+			go h3Listener.Run()
+			y.h3Listener = h3Listener
+			core.Log.Info(y, "Created HTTP/3 WebTransport listener", "uri", cfg.URL().String())
 		}
 	}
 

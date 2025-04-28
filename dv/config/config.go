@@ -9,7 +9,13 @@ import (
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
+// CostInfinity is the maximum cost to a router.
 const CostInfinity = uint64(16)
+
+// CostPfxInfinity is the maximum cost to a name prefix.
+const CostPfxInfinity = uint64(0xFFFFFFFF)
+
+// NlsrOrigin is the origin to use for local registration.
 const NlsrOrigin = uint64(mgmt.RouteOriginNLSR)
 const PrefixInjOrigin = uint64(mgmt.RouteOriginPrefixInj)
 
@@ -55,12 +61,8 @@ type Config struct {
 	advSyncPassivePfxN enc.Name
 	// Advertisement Data Prefix
 	advDataPfxN enc.Name
-	// Universal router data prefix
-	routerDataPfxN enc.Name
 	// Prefix Table Sync Prefix
-	pfxSyncPfxN enc.Name
-	// Prefix Table Data Prefix
-	pfxDataPfxN enc.Name
+	pfxSyncGroupPfxN enc.Name
 	// NLSR readvertise prefix
 	mgmtPrefix enc.Name
 	// Trust anchor names
@@ -169,16 +171,9 @@ func (c *Config) Parse() (err error) {
 		Append(enc.NewKeywordComponent("ADV"))
 
 	// Prefix table sync prefix
-	c.pfxSyncPfxN = c.networkNameN.
+	c.pfxSyncGroupPfxN = c.networkNameN.
 		Append(enc.NewKeywordComponent("DV")).
 		Append(enc.NewKeywordComponent("PFS"))
-
-	// Router data prefix including prefix data and certificates
-	c.routerDataPfxN = c.routerNameN.
-		Append(enc.NewKeywordComponent("DV"))
-	c.pfxDataPfxN = c.routerNameN.
-		Append(enc.NewKeywordComponent("DV")).
-		Append(enc.NewKeywordComponent("PFX"))
 
 	// Local prefixes to NFD
 	c.mgmtPrefix = enc.LOCALHOST.
@@ -211,16 +206,8 @@ func (c *Config) AdvertisementDataPrefix() enc.Name {
 	return c.advDataPfxN
 }
 
-func (c *Config) RouterDataPrefix() enc.Name {
-	return c.routerDataPfxN
-}
-
-func (c *Config) PrefixTableSyncPrefix() enc.Name {
-	return c.pfxSyncPfxN
-}
-
-func (c *Config) PrefixTableDataPrefix() enc.Name {
-	return c.pfxDataPfxN
+func (c *Config) PrefixTableGroupPrefix() enc.Name {
+	return c.pfxSyncGroupPfxN
 }
 
 func (c *Config) MgmtPrefix() enc.Name {

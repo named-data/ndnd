@@ -10,15 +10,15 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 )
 
-func NewBasicEngine(face face.Face) ndn.Engine {
+func NewBasicEngine(face ndn.Face) ndn.Engine {
 	return basic.NewEngine(face, basic.NewTimer())
 }
 
-func NewUnixFace(addr string) face.Face {
+func NewUnixFace(addr string) ndn.Face {
 	return face.NewStreamFace("unix", addr, true)
 }
 
-func NewDefaultFace() face.Face {
+func NewDefaultFace() ndn.Face {
 	config := GetClientConfig()
 
 	// Parse transport URI

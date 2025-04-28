@@ -10,7 +10,7 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
-	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
 )
@@ -23,7 +23,7 @@ type advertModule struct {
 	// advertisement sequence number for self
 	seq uint64
 	// object directory for advertisement data
-	objDir *object.MemoryFifoDir
+	objDir *storage.MemoryFifoDir
 }
 
 func (a *advertModule) String() string {
@@ -46,10 +46,7 @@ func (a *advertModule) sendSyncInterest() (err error) {
 	return err
 }
 
-func (a *advertModule) sendSyncInterestImpl(prefix enc.Name) (err error) {
-	// SVS v3 Sync Data
-	syncName := prefix.Append(enc.NewVersionComponent(3))
-
+func (a *advertModule) sendSyncInterestImpl(syncName enc.Name) (err error) {
 	// State Vector for our group
 	sv := &spec_svs.SvsData{
 		StateVector: &spec_svs.StateVector{
@@ -64,16 +61,18 @@ func (a *advertModule) sendSyncInterestImpl(prefix enc.Name) (err error) {
 	}
 
 	// Sign the Sync Data
-	signer := a.dv.client.SuggestSigner(syncName)
+	dataName := a.dv.config.AdvertisementDataPrefix().
+		Append(enc.NewKeywordComponent("SYNC"))
+	signer := a.dv.client.SuggestSigner(dataName)
 	if signer == nil {
-		return fmt.Errorf("no signer found for %s", syncName)
+		return fmt.Errorf("no signer found for %s", dataName)
 	}
 
 	// Make Data packet
 	dataCfg := &ndn.DataConfig{
 		ContentType: optional.Some(ndn.ContentTypeBlob),
 	}
-	data, err := a.dv.engine.Spec().MakeData(syncName, dataCfg, sv.Encode(), signer)
+	data, err := a.dv.engine.Spec().MakeData(dataName, dataCfg, sv.Encode(), signer)
 	if err != nil {
 		log.Error(nil, "Failed make data", "err", err)
 		return
@@ -126,7 +125,8 @@ func (a *advertModule) OnSyncInterest(args ndn.InterestHandlerArgs, active bool)
 		CertNextHop: args.IncomingFaceId,
 		Callback: func(valid bool, err error) {
 			if !valid || err != nil {
-				log.Warn(a, "Failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
+				log.Warn(a, "Failed to validate advert broadcast",
+					"name", data.Name(), "valid", valid, "err", err)
 				return
 			}
 

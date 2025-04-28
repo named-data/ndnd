@@ -2,6 +2,7 @@ package sync
 
 import (
 	gosync "sync"
+	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
@@ -16,6 +17,8 @@ type SvsALO struct {
 	svs *SvSync
 	// client is the object client.
 	client ndn.Client
+	// group is the group prefix.
+	group enc.Name
 
 	// mutex protects the instance.
 	mutex gosync.Mutex
@@ -53,6 +56,9 @@ type SvsAloOpts struct {
 	// MaxPipelineSize is the number of objects to fetch
 	// concurrently for a single publisher (default 10)
 	MaxPipelineSize uint64
+
+	// MulticastPrefix is a prefix to prepend to Sync Interests
+	MulticastPrefix enc.Name
 }
 
 // NewSvsALO creates a new SvsALO instance.
@@ -65,6 +71,7 @@ func NewSvsALO(opts SvsAloOpts) (*SvsALO, error) {
 		opts:   opts,
 		svs:    nil,
 		client: opts.Svs.Client,
+		group:  opts.Svs.GroupPrefix,
 
 		mutex: gosync.Mutex{},
 
@@ -93,6 +100,22 @@ func NewSvsALO(opts SvsAloOpts) (*SvsALO, error) {
 		}
 	}
 
+	// Configure SVS options
+	if s.opts.Svs.BootTime == 0 {
+		// This is actually done by the SVS instance itself, but we need
+		// it to tell the SyncDataName to SVS ...
+		s.opts.Svs.BootTime = uint64(time.Now().Unix())
+	}
+
+	// Svs.GroupPrefix is actually the Sync prefix
+	s.opts.Svs.GroupPrefix = s.GroupPrefix().Append(enc.NewKeywordComponent("svs"))
+	if s.opts.MulticastPrefix != nil {
+		s.opts.Svs.GroupPrefix = s.opts.MulticastPrefix.Append(s.opts.Svs.GroupPrefix...)
+	}
+
+	// SyncDataName is the name of the SVS data (for security)
+	s.opts.Svs.SyncDataName = s.DataPrefix().Append(enc.NewKeywordComponent("svs"))
+
 	// Initialize the underlying SVS instance
 	s.svs = NewSvSync(s.opts.Svs)
 
@@ -111,10 +134,10 @@ func NewSvsALO(opts SvsAloOpts) (*SvsALO, error) {
 	} else {
 		s.opts.Snapshot.initialize(snapPsState{
 			nodePrefix:  s.opts.Name,
-			groupPrefix: s.SyncPrefix(),
+			groupPrefix: s.GroupPrefix(),
 			bootTime:    s.BootTime(),
 			onSnap:      s.snapRecvCallback,
-		})
+		}, s.state)
 	}
 
 	return s, nil
@@ -125,9 +148,9 @@ func (s *SvsALO) String() string {
 	return "svs-alo"
 }
 
-// BootTime returns the boot time of the instance.
-func (s *SvsALO) BootTime() uint64 {
-	return s.svs.GetBootTime()
+// GroupPrefix is the group prefix for this instance.
+func (s *SvsALO) GroupPrefix() enc.Name {
+	return s.group
 }
 
 // SyncPrefix is the sync route prefix for this instance.
@@ -137,9 +160,19 @@ func (s *SvsALO) SyncPrefix() enc.Name {
 
 // DataPrefix is the data route prefix for this instance.
 func (s *SvsALO) DataPrefix() enc.Name {
-	return s.opts.Name.
-		Append(s.SyncPrefix()...).
+	return s.GroupPrefix().
+		Append(s.opts.Name...).
 		Append(enc.NewTimestampComponent(s.BootTime()))
+}
+
+// BootTime returns the boot time of the instance.
+func (s *SvsALO) BootTime() uint64 {
+	return s.opts.Svs.BootTime
+}
+
+// SeqNo returns the current sequence number of the instance.
+func (s *SvsALO) SeqNo() uint64 {
+	return s.svs.GetSeqNo(s.opts.Name)
 }
 
 // Start starts the SvsALO instance.
@@ -156,6 +189,7 @@ func (s *SvsALO) Start() error {
 // Stop stops the SvsALO instance.
 func (s *SvsALO) Stop() error {
 	s.stop <- struct{}{}
+	s.svs.Stop()
 	return nil
 }
 
@@ -222,7 +256,6 @@ func (s *SvsALO) UnsubscribePublisher(prefix enc.Name) {
 // run is the main loop for the SvsALO instance.
 // Only this thread has interaction with the application.
 func (s *SvsALO) run() {
-	defer s.svs.Stop()
 	for {
 		select {
 		case <-s.stop:

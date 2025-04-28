@@ -8,7 +8,7 @@ import (
 )
 
 type T1Encoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -57,7 +57,11 @@ func (encoder *T1Encoder) Init(value *T1) {
 		l += encoder.Sig_estLen
 	}
 
-	encoder.length = l
+	if optval, ok := value.H3.Get(); ok {
+		l += 1
+		l += uint(1 + enc.Nat(optval).EncodingLength())
+	}
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -88,6 +92,10 @@ func (encoder *T1Encoder) Init(value *T1) {
 		l = 0
 	}
 
+	if optval, ok := value.H3.Get(); ok {
+		l += 1
+		l += uint(1 + enc.Nat(optval).EncodingLength())
+	}
 	if l > 0 {
 		wirePlan = append(wirePlan, l)
 	}
@@ -177,6 +185,14 @@ func (encoder *T1Encoder) EncodeInto(value *T1, wire enc.Wire) {
 		}
 	}
 
+	if optval, ok := value.H3.Get(); ok {
+		buf[pos] = byte(6)
+		pos += 1
+
+		buf[pos] = byte(enc.Nat(optval).EncodeInto(buf[pos+1:]))
+		pos += uint(1 + buf[pos])
+
+	}
 }
 
 func (encoder *T1Encoder) Encode(value *T1) enc.Wire {
@@ -206,6 +222,7 @@ func (context *T1ParsingContext) Parse(reader enc.WireView, ignoreCritical bool)
 	var handled_C bool = false
 	var handled_Sig bool = false
 	var handled_sigCovered bool = false
+	var handled_H3 bool = false
 
 	progress := -1
 	_ = progress
@@ -230,7 +247,7 @@ func (context *T1ParsingContext) Parse(reader enc.WireView, ignoreCritical bool)
 		}
 
 		err = nil
-		for handled := false; !handled && progress < 6; progress++ {
+		for handled := false; !handled && progress < 7; progress++ {
 			switch typ {
 			case 1:
 				if progress+1 == 0 {
@@ -290,6 +307,29 @@ func (context *T1ParsingContext) Parse(reader enc.WireView, ignoreCritical bool)
 						context.sigCovered = append(context.sigCovered, coveredPart...)
 					}
 				}
+			case 6:
+				if progress+1 == 6 {
+					handled = true
+					handled_H3 = true
+					{
+						optval := uint64(0)
+						optval = uint64(0)
+						{
+							for i := 0; i < int(l); i++ {
+								x := byte(0)
+								x, err = reader.ReadByte()
+								if err != nil {
+									if err == io.EOF {
+										err = io.ErrUnexpectedEOF
+									}
+									break
+								}
+								optval = uint64(optval<<8) | uint64(x)
+							}
+						}
+						value.H3.Set(optval)
+					}
+				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
 					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
@@ -317,6 +357,9 @@ func (context *T1ParsingContext) Parse(reader enc.WireView, ignoreCritical bool)
 				case 5 - 1:
 					handled_sigCovered = true
 					// base - skip
+				case 6 - 1:
+					handled_H3 = true
+					value.H3.Unset()
 				}
 			}
 			if err != nil {
@@ -346,6 +389,9 @@ func (context *T1ParsingContext) Parse(reader enc.WireView, ignoreCritical bool)
 	if !handled_sigCovered && err == nil {
 		// base - skip
 	}
+	if !handled_H3 && err == nil {
+		value.H3.Unset()
+	}
 
 	if err != nil {
 		return nil, err
@@ -355,7 +401,7 @@ func (context *T1ParsingContext) Parse(reader enc.WireView, ignoreCritical bool)
 }
 
 type T2Encoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -434,7 +480,7 @@ func (encoder *T2Encoder) Init(value *T2) {
 	}
 	encoder.digestCoverEnd = int(l)
 
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)

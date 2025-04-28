@@ -2,6 +2,7 @@ package security_test
 
 import (
 	"crypto/elliptic"
+	_ "embed"
 	"strings"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/keychain"
 	"github.com/named-data/ndnd/std/security/signer"
@@ -23,55 +24,16 @@ import (
 #packet: #site/username/_ <= #user
 #adminpacket: #site/admin/username/_ <= #admin
 
+#invitee_packet: #site/username/app/#site/invitee/_ <= #user
+
 #root: #site/#KEY
 #user: #site/username/#KEY <= #root
 #admin: #site/admin/username/#KEY <= #root
 
 #KEY: "KEY"/_/_/_
 */
-var TRUST_CONFIG_TEST_LVS = []byte{
-	0x61, 0x04, 0x00, 0x01, 0x10, 0x00, 0x25, 0x01, 0x00, 0x69, 0x01, 0x02,
-	0x63, 0x1c, 0x25, 0x01, 0x00, 0x51, 0x0a, 0x25, 0x01, 0x01, 0x21, 0x05,
-	0x08, 0x03, 0x4b, 0x45, 0x59, 0x51, 0x0b, 0x25, 0x01, 0x05, 0x21, 0x06,
-	0x08, 0x04, 0x74, 0x65, 0x73, 0x74, 0x63, 0x0e, 0x25, 0x01, 0x01, 0x57,
-	0x01, 0x00, 0x53, 0x06, 0x25, 0x01, 0x02, 0x23, 0x01, 0x03, 0x63, 0x0e,
-	0x25, 0x01, 0x02, 0x57, 0x01, 0x01, 0x53, 0x06, 0x25, 0x01, 0x03, 0x23,
-	0x01, 0x04, 0x63, 0x0e, 0x25, 0x01, 0x03, 0x57, 0x01, 0x02, 0x53, 0x06,
-	0x25, 0x01, 0x04, 0x23, 0x01, 0x05, 0x63, 0x0c, 0x25, 0x01, 0x04, 0x57,
-	0x01, 0x03, 0x29, 0x04, 0x23, 0x4b, 0x45, 0x59, 0x63, 0x29, 0x25, 0x01,
-	0x05, 0x57, 0x01, 0x00, 0x29, 0x05, 0x23, 0x73, 0x69, 0x74, 0x65, 0x51,
-	0x0a, 0x25, 0x01, 0x06, 0x21, 0x05, 0x08, 0x03, 0x4b, 0x45, 0x59, 0x53,
-	0x06, 0x25, 0x01, 0x0a, 0x23, 0x01, 0x01, 0x53, 0x06, 0x25, 0x01, 0x10,
-	0x23, 0x01, 0x02, 0x63, 0x0e, 0x25, 0x01, 0x06, 0x57, 0x01, 0x05, 0x53,
-	0x06, 0x25, 0x01, 0x07, 0x23, 0x01, 0x06, 0x63, 0x0e, 0x25, 0x01, 0x07,
-	0x57, 0x01, 0x06, 0x53, 0x06, 0x25, 0x01, 0x08, 0x23, 0x01, 0x07, 0x63,
-	0x0e, 0x25, 0x01, 0x08, 0x57, 0x01, 0x07, 0x53, 0x06, 0x25, 0x01, 0x09,
-	0x23, 0x01, 0x08, 0x63, 0x0d, 0x25, 0x01, 0x09, 0x57, 0x01, 0x08, 0x29,
-	0x05, 0x23, 0x72, 0x6f, 0x6f, 0x74, 0x63, 0x1a, 0x25, 0x01, 0x0a, 0x57,
-	0x01, 0x05, 0x51, 0x0a, 0x25, 0x01, 0x0b, 0x21, 0x05, 0x08, 0x03, 0x4b,
-	0x45, 0x59, 0x53, 0x06, 0x25, 0x01, 0x0f, 0x23, 0x01, 0x0c, 0x63, 0x0e,
-	0x25, 0x01, 0x0b, 0x57, 0x01, 0x0a, 0x53, 0x06, 0x25, 0x01, 0x0c, 0x23,
-	0x01, 0x09, 0x63, 0x0e, 0x25, 0x01, 0x0c, 0x57, 0x01, 0x0b, 0x53, 0x06,
-	0x25, 0x01, 0x0d, 0x23, 0x01, 0x0a, 0x63, 0x0e, 0x25, 0x01, 0x0d, 0x57,
-	0x01, 0x0c, 0x53, 0x06, 0x25, 0x01, 0x0e, 0x23, 0x01, 0x0b, 0x63, 0x10,
-	0x25, 0x01, 0x0e, 0x57, 0x01, 0x0d, 0x29, 0x05, 0x23, 0x75, 0x73, 0x65,
-	0x72, 0x55, 0x01, 0x09, 0x63, 0x12, 0x25, 0x01, 0x0f, 0x57, 0x01, 0x0a,
-	0x29, 0x07, 0x23, 0x70, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x55, 0x01, 0x0e,
-	0x63, 0x0e, 0x25, 0x01, 0x10, 0x57, 0x01, 0x05, 0x53, 0x06, 0x25, 0x01,
-	0x11, 0x23, 0x01, 0x01, 0x63, 0x1a, 0x25, 0x01, 0x11, 0x57, 0x01, 0x10,
-	0x51, 0x0a, 0x25, 0x01, 0x12, 0x21, 0x05, 0x08, 0x03, 0x4b, 0x45, 0x59,
-	0x53, 0x06, 0x25, 0x01, 0x16, 0x23, 0x01, 0x10, 0x63, 0x0e, 0x25, 0x01,
-	0x12, 0x57, 0x01, 0x11, 0x53, 0x06, 0x25, 0x01, 0x13, 0x23, 0x01, 0x0d,
-	0x63, 0x0e, 0x25, 0x01, 0x13, 0x57, 0x01, 0x12, 0x53, 0x06, 0x25, 0x01,
-	0x14, 0x23, 0x01, 0x0e, 0x63, 0x0e, 0x25, 0x01, 0x14, 0x57, 0x01, 0x13,
-	0x53, 0x06, 0x25, 0x01, 0x15, 0x23, 0x01, 0x0f, 0x63, 0x11, 0x25, 0x01,
-	0x15, 0x57, 0x01, 0x14, 0x29, 0x06, 0x23, 0x61, 0x64, 0x6d, 0x69, 0x6e,
-	0x55, 0x01, 0x09, 0x63, 0x17, 0x25, 0x01, 0x16, 0x57, 0x01, 0x11, 0x29,
-	0x0c, 0x23, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x70, 0x61, 0x63, 0x6b, 0x65,
-	0x74, 0x55, 0x01, 0x15, 0x67, 0x0d, 0x23, 0x01, 0x01, 0x29, 0x08, 0x75,
-	0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x67, 0x0a, 0x23, 0x01, 0x02,
-	0x29, 0x05, 0x61, 0x64, 0x6d, 0x69, 0x6e,
-}
+//go:embed trust_config_test_lvs.tlv
+var TRUST_CONFIG_TEST_LVS []byte
 
 // Helper to create a name
 func sname(n string) enc.Name {
@@ -92,9 +54,84 @@ func signCert(signer ndn.Signer, wire enc.Wire) (enc.Wire, ndn.Data) {
 	return cert, certData
 }
 
+// Current test items
+var tcTestT *testing.T = nil
+var tcTestTrustConfig *sec.TrustConfig = nil
+var tcTestNetwork map[string]enc.Wire = make(map[string]enc.Wire)
+var tcTestKeyChain ndn.KeyChain = nil
+var tcTestFetchCount int = 0
+
+// Helper to validate a packet synchronously
+func validateSync(name string, signer ndn.Signer) bool {
+	return validateSyncWithCross(name, signer, nil)
+}
+
+// Helper to validate with cross schema
+func validateSyncWithCross(name string, signer ndn.Signer, crossSchema enc.Wire) bool {
+	content := enc.Wire{[]byte{0x01, 0x02, 0x03}}
+	dataW, err := spec.Spec{}.MakeData(sname(name), &ndn.DataConfig{
+		CrossSchema: crossSchema,
+	}, content, signer)
+	require.NoError(tcTestT, err)
+	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(dataW.Wire))
+	require.NoError(tcTestT, err)
+	ch := make(chan bool)
+	go tcTestTrustConfig.Validate(sec.TrustConfigValidateArgs{
+		Data:       data,
+		DataSigCov: sigCov,
+		Fetch:      fetchFun,
+		Callback: func(valid bool, err error) {
+			tcTestT.Log("Validation", name, valid, err)
+			ch <- valid
+			close(ch)
+		},
+	})
+	return <-ch
+}
+
+// Mock network fetch function
+func fetchFun(name enc.Name, _ *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
+	var certWire enc.Wire = nil
+	var isLocal bool = false
+
+	// Fetch functions are required to check the store first
+	if buf, _ := tcTestKeyChain.Store().Get(name, true); buf != nil {
+		certWire = enc.Wire{buf}
+		isLocal = true
+	} else {
+		// Simulate fetch from network
+		tcTestFetchCount++
+		for netName, netWire := range tcTestNetwork {
+			if strings.HasPrefix(netName, name.String()) {
+				certWire = netWire
+				break
+			}
+		}
+	}
+
+	if certWire != nil {
+		data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(certWire))
+		callback(ndn.ExpressCallbackArgs{
+			Result:     ndn.InterestResultData,
+			Data:       data,
+			RawData:    certWire,
+			SigCovered: sigCov,
+			Error:      err,
+			IsLocal:    isLocal,
+		})
+	} else {
+		callback(ndn.ExpressCallbackArgs{
+			Result: ndn.InterestResultNack,
+		})
+	}
+}
+
 // This is intended as the ultimate trust config test.
-func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema) {
-	network := make(map[string]enc.Wire)
+func testTrustConfig(t *testing.T, schema ndn.TrustSchema) {
+	clear(tcTestNetwork)
+	tcTestT = t
+	network := tcTestNetwork
+	keychain := tcTestKeyChain
 
 	// ------------- Keys and certs -------------
 	// Root key
@@ -183,44 +220,6 @@ func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema
 	network[mAlice2CertData.Name().String()] = mAlice2CertWire
 	// -----------------------------------
 
-	// Simulate fetch from network using engine
-	fetchCount := 0
-	fetch := func(name enc.Name, _ *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
-		var certWire enc.Wire = nil
-		var isLocal bool = false
-
-		// Fetch functions are required to check the store first
-		if buf, _ := keychain.Store().Get(name, true); buf != nil {
-			certWire = enc.Wire{buf}
-			isLocal = true
-		} else {
-			// Simulate fetch from network
-			fetchCount++
-			for netName, netWire := range network {
-				if strings.HasPrefix(netName, name.String()) {
-					certWire = netWire
-					break
-				}
-			}
-		}
-
-		if certWire != nil {
-			data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(certWire))
-			callback(ndn.ExpressCallbackArgs{
-				Result:     ndn.InterestResultData,
-				Data:       data,
-				RawData:    certWire,
-				SigCovered: sigCov,
-				Error:      err,
-				IsLocal:    isLocal,
-			})
-		} else {
-			callback(ndn.ExpressCallbackArgs{
-				Result: ndn.InterestResultNack,
-			})
-		}
-	}
-
 	// Create trust config
 	trust, err := sec.NewTrustConfig(
 		keychain,
@@ -230,6 +229,7 @@ func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema
 			root2CertData.Name(),
 		})
 	require.NoError(t, err)
+	tcTestTrustConfig = trust
 
 	// Test key suggestion
 	require.Equal(t, aliceSigner.KeyName(), trust.Suggest(sname("/test/alice/data1")).KeyName())
@@ -239,33 +239,16 @@ func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema
 	require.Equal(t, cathySigner.KeyName(), trust.Suggest(sname("/test/cathy/data")).KeyName())
 	require.Equal(t, nil, trust.Suggest(sname("/test/root/data")))
 
-	// Sign data with alice key matching schema
-	validateSync := func(name string, signer ndn.Signer) bool {
-		content := enc.Wire{[]byte{0x01, 0x02, 0x03}}
-		dataW, err := spec.Spec{}.MakeData(sname(name), &ndn.DataConfig{}, content, signer)
-		require.NoError(t, err)
-		data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(dataW.Wire))
-		require.NoError(t, err)
-		ch := make(chan bool)
-		go trust.Validate(sec.TrustConfigValidateArgs{
-			Data:       data,
-			DataSigCov: sigCov,
-			Fetch:      fetch,
-			Callback:   func(valid bool, err error) { ch <- valid },
-		})
-		return <-ch
-	}
-
 	// Signing with correct keys
-	fetchCount = 0
+	tcTestFetchCount = 0
 	require.True(t, validateSync("/test/alice/data1", aliceSigner))
-	require.Equal(t, 0, fetchCount) // have all certificates
+	require.Equal(t, 0, tcTestFetchCount) // have all certificates
 	require.True(t, validateSync("/test/bob/data1", bobSigner))
-	require.Equal(t, 1, fetchCount) // fetch bob's certificate
+	require.Equal(t, 1, tcTestFetchCount) // fetch bob's certificate
 	require.True(t, validateSync("/test/bob/data2", bobSigner))
-	require.Equal(t, 1, fetchCount) // cert in cache
+	require.Equal(t, 1, tcTestFetchCount) // cert in cache
 	require.True(t, validateSync("/test/cathy/data1", cathySigner))
-	require.Equal(t, 1, fetchCount) // have all certificates
+	require.Equal(t, 1, tcTestFetchCount) // have all certificates
 
 	// Make sure that bob's cert was inserted into the store
 	if buf, _ := keychain.Store().Get(bobCertData.Name(), false); buf == nil {
@@ -279,14 +262,14 @@ func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema
 	require.False(t, validateSync("/test/alice/data1", aliceInvalidSigner))
 
 	// Sign with cert that cannot be fetched
-	fetchCount = 0
+	tcTestFetchCount = 0
 	require.False(t, validateSync("/test/david/data1", davidSigner))
-	require.Equal(t, 1, fetchCount) // fetch david's certificate
+	require.Equal(t, 1, tcTestFetchCount) // fetch david's certificate
 
 	// Test multiple root certificates
-	fetchCount = 0
+	tcTestFetchCount = 0
 	require.True(t, validateSync("/test/fred/data1", fredSigner))
-	require.Equal(t, 1, fetchCount) // fetch fred's certificate
+	require.Equal(t, 1, tcTestFetchCount) // fetch fred's certificate
 
 	// Sign with incorrect key
 	require.False(t, validateSync("/test/alice/data1", bobSigner))
@@ -304,40 +287,168 @@ func testTrustConfig(t *testing.T, keychain ndn.KeyChain, schema ndn.TrustSchema
 	require.False(t, validateSync("/test/alice/data1", rootSigner))
 
 	// Sign with mallory's malicious keys (root 1)
-	fetchCount = 0
+	tcTestFetchCount = 0
 	require.False(t, validateSync("/test/alice/data3", mAliceSigner))
-	require.Equal(t, 2, fetchCount) // fetch 2x mallory certs
+	require.Equal(t, 2, tcTestFetchCount) // fetch 2x mallory certs
 	require.False(t, validateSync("/test/alice/data4", mAliceSigner))
-	require.Equal(t, 4, fetchCount) // invalid cert not in store
+	require.Equal(t, 4, tcTestFetchCount) // invalid cert not in store
 	require.False(t, validateSync("/test/alice/data3", malloryRootSigner))
-	require.Equal(t, 5, fetchCount) // fetch 1x mallory cert
+	require.Equal(t, 5, tcTestFetchCount) // fetch 1x mallory cert
 	require.False(t, validateSync("/test/alice/data/extra", mallorySigner))
-	require.Equal(t, 6, fetchCount) // don't bother fetching mallory root because of schema miss
+	require.Equal(t, 6, tcTestFetchCount) // don't bother fetching mallory root because of schema miss
 	require.False(t, validateSync("/test/mallory/data4", mallorySigner))
-	require.Equal(t, 8, fetchCount) // schema hit, fetch 2x mallory certs
+	require.Equal(t, 8, tcTestFetchCount) // schema hit, fetch 2x mallory certs
 
 	// Sign with mallory's malicious keys (root 2)
 	// In this case the root certificate name is the same, so that cert should not be fetched
-	fetchCount = 0
+	tcTestFetchCount = 0
 	require.False(t, validateSync("/test/alice/data3", mAlice2Signer))
-	require.Equal(t, 1, fetchCount) // fetch mallory's alice cert
+	require.Equal(t, 1, tcTestFetchCount) // fetch mallory's alice cert
 	require.False(t, validateSync("/test/alice/data4", mAlice2Signer))
-	require.Equal(t, 2, fetchCount) // invalid cert not in store
+	require.Equal(t, 2, tcTestFetchCount) // invalid cert not in store
 	require.False(t, validateSync("/test/alice/data3", malloryRoot2Signer))
-	require.Equal(t, 2, fetchCount) // nothing fetched, root cert is in store
+	require.Equal(t, 2, tcTestFetchCount) // nothing fetched, root cert is in store
 	require.False(t, validateSync("/test/alice/data/extra", mallory2Signer))
-	require.Equal(t, 3, fetchCount) // (same as root 1)
+	require.Equal(t, 3, tcTestFetchCount) // (same as root 1)
 	require.False(t, validateSync("/test/mallory/data4", mallory2Signer))
-	require.Equal(t, 4, fetchCount) // (same as root 1, except no mallory root fetch)
+	require.Equal(t, 4, tcTestFetchCount) // (same as root 1, except no mallory root fetch)
+
+	// ========================================================================
+
+	// Test with cross schema validation
+	// Alice signs a cross schema for bob to allow bob to publish in alice's namespace
+	abInvite, err := trust_schema.SignCrossSchema(trust_schema.SignCrossSchemaArgs{
+		Name:   sname("/test/alice/32=INVITE/test/bob/v=1"),
+		Signer: aliceSigner,
+		Content: trust_schema.CrossSchemaContent{
+			SimpleSchemaRules: []*trust_schema.SimpleSchemaRule{{
+				NamePrefix: sname("/test/alice/app/test/bob"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/bob/KEY")}, // any key from bob
+			}},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	// Bob signs a data under alice namespace
+	require.False(t, validateSyncWithCross("/test/alice/app/test/bob/data1", bobSigner, nil))
+	require.True(t, validateSyncWithCross("/test/alice/app/test/bob/data1", bobSigner, abInvite))
+	require.True(t, validateSyncWithCross("/test/alice/app/test/bob/data2", bobSigner, abInvite))
+
+	require.False(t, validateSyncWithCross("/test/alice/app/test/alice/data1", bobSigner, abInvite))
+	require.False(t, validateSyncWithCross("/test/alice/ndn/test/bob/data1", bobSigner, abInvite))
+	require.False(t, validateSyncWithCross("/test/alice/app/test/bob/data1/extra", bobSigner, abInvite))
+	require.False(t, validateSyncWithCross("/test/alice/data1", bobSigner, abInvite))
+
+	// Ignore the cross schema if already in the namespace
+	require.True(t, validateSyncWithCross("/test/bob/data1", bobSigner, abInvite))
+
+	// More complex cross schema
+	acInvite, err := trust_schema.SignCrossSchema(trust_schema.SignCrossSchemaArgs{
+		Name:   sname("/test/alice/32=INVITE/test/cathy/v=1"),
+		Signer: aliceSigner,
+		Content: trust_schema.CrossSchemaContent{
+			SimpleSchemaRules: []*trust_schema.SimpleSchemaRule{{
+				NamePrefix: sname("/test/alice/app/test/cathy"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/cathy/KEY")},
+			}, {
+				NamePrefix: sname("/test/alice/app/test/cathy-2"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/cathy/KEY")},
+			}, {
+				NamePrefix: sname("/test/alice/app/test/bob/data-5"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/cathy/KEY")},
+			}, {
+				NamePrefix: sname("/test/alice/app/test/bob/data-7"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/bob/KEY")},
+			}, {
+				NamePrefix: sname("/test/david/app/test/cathy"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/cathy/KEY")},
+			}, {
+				NamePrefix: sname("/hello"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/cathy/KEY")},
+			}},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	// Cathy signs a data under alice namespace
+	require.True(t, validateSyncWithCross("/test/alice/app/test/cathy/data1", cathySigner, acInvite))
+	require.False(t, validateSyncWithCross("/test/alice/app/test/cathy/data1", cathySigner, abInvite))
+	require.False(t, validateSyncWithCross("/test/alice/app/test/cathy/data1", bobSigner, abInvite))
+	require.False(t, validateSyncWithCross("/test/alice/app/test/cathy/data1", bobSigner, acInvite))
+
+	// Cathy is allowed a second namespace
+	require.True(t, validateSyncWithCross("/test/alice/app/test/cathy-2/data1", cathySigner, acInvite))
+	require.False(t, validateSyncWithCross("/test/alice/app/test/cathy-3/data1", cathySigner, acInvite))
+
+	// Cathy is allowed to publish in alice-bob namespace for a specific data
+	require.True(t, validateSyncWithCross("/test/alice/app/test/bob/data-5", cathySigner, acInvite))
+	require.False(t, validateSyncWithCross("/test/alice/app/test/bob/data-6", cathySigner, acInvite))
+
+	// Rules can have different key locators
+	require.False(t, validateSyncWithCross("/test/alice/app/test/bob/data-7", cathySigner, acInvite))
+	require.True(t, validateSyncWithCross("/test/alice/app/test/bob/data-7", bobSigner, acInvite))
+
+	// Alice allowed cathy to publish in david's namespace
+	// But Alice is not allowed to publish in david's namespace
+	require.False(t, validateSyncWithCross("/test/david/app/test/cathy/data1", cathySigner, acInvite))
+
+	// Impossible namespaces
+	require.False(t, validateSyncWithCross("/hello", cathySigner, acInvite))
+	require.False(t, validateSyncWithCross("/hello/data1", cathySigner, acInvite))
+
+	// Schema with a blanket prefix rule
+	apInvite, err := trust_schema.SignCrossSchema(trust_schema.SignCrossSchemaArgs{
+		Name:   sname("/test/alice/32=INVITE/test/bob/v=1"),
+		Signer: aliceSigner,
+		Content: trust_schema.CrossSchemaContent{
+			PrefixSchemaRules: []*trust_schema.PrefixSchemaRule{{
+				NamePrefix: sname("/test/alice/app"),
+			}},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	// Anyone can form their own sub-namespace within alice's app namespace
+	require.True(t, validateSyncWithCross("/test/alice/app/test/bob/data1", bobSigner, apInvite))
+	require.True(t, validateSyncWithCross("/test/alice/app/test/cathy/data1", cathySigner, apInvite))
+	require.False(t, validateSyncWithCross("/test/alice/app/test/cathy/data1", bobSigner, apInvite))
+	require.False(t, validateSyncWithCross("/test/david/app/test/bob/data1", bobSigner, apInvite))
+
+	require.True(t, validateSyncWithCross("/test/alice/data1", aliceSigner, apInvite))
+	require.False(t, validateSyncWithCross("/test/alice/data1", bobSigner, apInvite))
+
+	// Malicious cross schema created by bob for bob
+	bobMCross, err := trust_schema.SignCrossSchema(trust_schema.SignCrossSchemaArgs{
+		Name:   sname("/test/alice/32=INVITE/test/bob/v=1"),
+		Signer: bobSigner,
+		Content: trust_schema.CrossSchemaContent{
+			SimpleSchemaRules: []*trust_schema.SimpleSchemaRule{{
+				NamePrefix: sname("/test/alice/app/test/bob"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/test/bob/KEY")}, // any key from bob
+			}},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	// This cross schema should not be accepted
+	require.False(t, validateSyncWithCross("/test/alice/app/test/bob/data1", bobSigner, bobMCross))
 }
 
 func TestTrustConfigLvs(t *testing.T) {
 	tu.SetT(t)
 
-	store := object.NewMemoryStore()
-	keychain := keychain.NewKeyChainMem(store)
+	store := storage.NewMemoryStore()
+	tcTestKeyChain = keychain.NewKeyChainMem(store)
 	schema, err := trust_schema.NewLvsSchema(TRUST_CONFIG_TEST_LVS)
 	require.NoError(t, err)
 
-	testTrustConfig(t, keychain, schema)
+	testTrustConfig(t, schema)
 }

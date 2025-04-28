@@ -9,7 +9,9 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
+	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/sync"
 )
 
@@ -35,7 +37,7 @@ func main() {
 	defer app.Stop()
 
 	// Create object client
-	store, err := object.NewBoltStore("passive-svs.db")
+	store, err := storage.NewBadgerStore("db-passive-svs")
 	if err != nil {
 		log.Error(nil, "Unable to create object store", "err", err)
 		return
@@ -62,13 +64,9 @@ func main() {
 		Passive: true,
 	})
 
-	// Register group prefix route
-	err = app.RegisterRoute(group)
-	if err != nil {
-		log.Error(nil, "Unable to register route", "err", err)
-		return
-	}
-	defer app.UnregisterRoute(group)
+	// Announce group prefix route
+	client.AnnouncePrefix(ndn.Announcement{Name: group})
+	defer client.WithdrawPrefix(group, nil)
 
 	err = svsync.Start()
 	if err != nil {

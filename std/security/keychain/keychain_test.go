@@ -9,7 +9,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/keychain"
 	sig "github.com/named-data/ndnd/std/security/signer"
@@ -58,7 +58,7 @@ func signCert(t *testing.T, signer ndn.Signer) []byte {
 func TestKeyChainMem(t *testing.T) {
 	tu.SetT(t)
 
-	store := object.NewMemoryStore()
+	store := storage.NewMemoryStore()
 	kc := keychain.NewKeyChainMem(store)
 
 	// Insert a key
@@ -137,7 +137,7 @@ func TestKeyChainMem(t *testing.T) {
 func TestKeyChainDir(t *testing.T) {
 	tu.SetT(t)
 
-	store := object.NewMemoryStore()
+	store := storage.NewMemoryStore()
 
 	// Create a temporary directory
 	dirname := "./ndn-test-keychain"

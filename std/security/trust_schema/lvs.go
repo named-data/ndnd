@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
+	"slices"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
@@ -121,9 +123,7 @@ func (s *LvsSchema) Match(name enc.Name, startCtx LvsCtx) iter.Seq2[*LvsNode, Lv
 
 		// Tag -> name component mapping
 		context := make(LvsCtx, len(name))
-		for k, v := range startCtx {
-			context[k] = v
-		}
+		maps.Copy(context, startCtx)
 
 		// Depth-first search
 		for cur != nil {
@@ -221,7 +221,7 @@ func (s *LvsSchema) Suggest(pkt enc.Name, keychain ndn.KeyChain) ndn.Signer {
 		for _, id := range keychain.Identities() {
 			for _, key := range id.Keys() {
 				for _, cert := range key.UniqueCerts() {
-					for keyNode := range s.Match(enc.Name(cert), pktCtx) {
+					for keyNode := range s.Match(cert, pktCtx) {
 						if s.checkSigner(pktNode, keyNode) {
 							return &sig.ContextSigner{
 								Signer:         key.Signer(),
@@ -269,10 +269,5 @@ func (s *LvsSchema) checkCons(
 }
 
 func (s *LvsSchema) checkSigner(pktNode *LvsNode, keyNode *LvsNode) bool {
-	for _, sc := range pktNode.SignCons {
-		if keyNode.Id == sc {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(pktNode.SignCons, keyNode.Id)
 }

@@ -126,6 +126,10 @@ func (d *Data) Content() enc.Wire {
 	return d.ContentV
 }
 
+func (d *Data) CrossSchema() enc.Wire {
+	return d.CrossSchemaV
+}
+
 func (t *Interest) SigType() ndn.SigType {
 	if t.SignatureInfo == nil {
 		return ndn.SignatureNone
@@ -239,6 +243,7 @@ func (Spec) MakeData(name enc.Name, config *ndn.DataConfig, content enc.Wire, si
 		ContentV:       content,
 		SignatureInfo:  nil,
 		SignatureValue: nil,
+		CrossSchemaV:   config.CrossSchema,
 	}
 	packet := &Packet{
 		Data: data,

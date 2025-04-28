@@ -11,16 +11,19 @@ type baseFace struct {
 	local   bool
 	onPkt   func(frame []byte)
 	onError func(err error)
-	onUp    func()
-	onDown  func()
 	sendMut sync.Mutex
+
+	onUp     sync.Map
+	onDown   sync.Map
+	onUpHndl int
+	onDnHndl int
 }
 
 func newBaseFace(local bool) baseFace {
 	return baseFace{
 		local:  local,
-		onUp:   func() {},
-		onDown: func() {},
+		onUp:   sync.Map{},
+		onDown: sync.Map{},
 	}
 }
 
@@ -40,21 +43,28 @@ func (f *baseFace) OnError(onError func(err error)) {
 	f.onError = onError
 }
 
-func (f *baseFace) OnUp(onUp func()) {
-	f.onUp = onUp
+func (f *baseFace) OnUp(onUp func()) (cancel func()) {
+	hndl := f.onUpHndl
+	f.onUp.Store(hndl, onUp)
+	f.onUpHndl++
+	return func() { f.onUp.Delete(hndl) }
 }
 
-func (f *baseFace) OnDown(onDown func()) {
-	f.onDown = onDown
+func (f *baseFace) OnDown(onDown func()) (cancel func()) {
+	hndl := f.onDnHndl
+	f.onDown.Store(hndl, onDown)
+	f.onDnHndl++
+	return func() { f.onDown.Delete(hndl) }
 }
 
 // setStateDown sets the face to down state, and makes the down
 // callback if the face was previously up.
 func (f *baseFace) setStateDown() {
 	if f.running.Swap(false) {
-		if f.onDown != nil {
-			f.onDown()
-		}
+		f.onDown.Range(func(_, cb any) bool {
+			cb.(func())()
+			return true
+		})
 	}
 }
 
@@ -62,9 +72,10 @@ func (f *baseFace) setStateDown() {
 // callback if the face was previously down.
 func (f *baseFace) setStateUp() {
 	if !f.running.Swap(true) {
-		if f.onUp != nil {
-			f.onUp()
-		}
+		f.onUp.Range(func(_, cb any) bool {
+			cb.(func())()
+			return true
+		})
 	}
 }
 

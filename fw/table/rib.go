@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	enc "github.com/named-data/ndnd/std/encoding"
 	spec_mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
@@ -100,33 +102,38 @@ func (r *RibEntry) pruneIfEmpty() {
 func (r *RibEntry) updateNexthopsEnc() {
 	FibStrategyTable.ClearNextHopsEnc(r.Name)
 
-	// All routes including parents if needed
-	routes := append([]*Route{}, r.routes...)
+	if len(r.routes) > 0 {
+		// All routes including parents if needed
+		routes := slices.Clone(r.routes)
 
-	// Get all possible nexthops for parents that are inherited,
-	// unless we have the capture flag set
-	if !r.HasCaptureRoute() {
-		for entry := r; entry != nil; entry = entry.parent {
-			for _, route := range entry.routes {
-				if route.HasChildInheritFlag() {
-					routes = append(routes, route)
+		// Get all possible nexthops for parents that are inherited,
+		// unless we have the capture flag set
+		if !r.HasCaptureRoute() {
+			for entry := r; entry != nil; entry = entry.parent {
+				for _, route := range entry.routes {
+					if route.HasChildInheritFlag() {
+						routes = append(routes, route)
+					}
+					if route.HasCaptureFlag() {
+						break
+					}
 				}
 			}
 		}
-	}
 
-	// Find minimum cost route per nexthop
-	minCostRoutes := make(map[uint64]uint64) // FaceID -> Cost
-	for _, route := range routes {
-		cost, ok := minCostRoutes[route.FaceID]
-		if !ok || route.Cost < cost {
-			minCostRoutes[route.FaceID] = route.Cost
+		// Find minimum cost route per nexthop
+		minCostRoutes := make(map[uint64]uint64) // FaceID -> Cost
+		for _, route := range routes {
+			cost, ok := minCostRoutes[route.FaceID]
+			if !ok || route.Cost < cost {
+				minCostRoutes[route.FaceID] = route.Cost
+			}
 		}
-	}
 
-	// Add "flattened" set of nexthops
-	for nexthop, cost := range minCostRoutes {
-		FibStrategyTable.InsertNextHopEnc(r.Name, nexthop, cost)
+		// Add "flattened" set of nexthops
+		for nexthop, cost := range minCostRoutes {
+			FibStrategyTable.InsertNextHopEnc(r.Name, nexthop, cost)
+		}
 	}
 
 	// Trigger update for all children for inheritance
@@ -143,6 +150,7 @@ func (r *RibTable) AddEncRoute(name enc.Name, route *Route) {
 	node := r.root.fillTreeToPrefixEnc(name)
 
 	defer node.updateNexthopsEnc()
+	defer readvertiseAnnounce(name, route)
 
 	for _, existingRoute := range node.routes {
 		if existingRoute.FaceID == route.FaceID && existingRoute.Origin == route.Origin {
@@ -154,7 +162,6 @@ func (r *RibTable) AddEncRoute(name enc.Name, route *Route) {
 	}
 
 	node.routes = append(node.routes, route)
-	readvertiseAnnounce(name, route)
 }
 
 // GetAllEntries returns all routes in the RIB.

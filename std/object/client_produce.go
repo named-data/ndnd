@@ -77,7 +77,7 @@ func Produce(args ndn.ProduceArgs, store ndn.Store, signer ndn.Signer) (enc.Name
 			return nil, err
 		}
 
-		err = tx.Put(name, version, data.Wire.Join())
+		err = tx.Put(name, data.Wire.Join())
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +104,7 @@ func Produce(args ndn.ProduceArgs, store ndn.Store, signer ndn.Signer) (enc.Name
 			return nil, err
 		}
 
-		err = tx.Put(name, version, data.Wire.Join())
+		err = tx.Put(name, data.Wire.Join())
 		if err != nil {
 			return nil, err
 		}
