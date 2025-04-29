@@ -9,6 +9,7 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 type StrategyEncoder struct {
@@ -6463,67 +6464,146 @@ func ParseCsInfoMsg(reader enc.WireView, ignoreCritical bool) (*CsInfoMsg, error
 	return context.Parse(reader, ignoreCritical)
 }
 
-type ValidityPeriodEncoder struct {
-	length uint
+type PrefixInjectionEncoder struct {
+	Length uint
+
+	StapledCertificates_subencoder []struct {
+		StapledCertificates_length uint
+	}
+	ObjectWire_length uint
 }
 
-type ValidityPeriodParsingContext struct {
+type PrefixInjectionParsingContext struct {
 }
 
-func (encoder *ValidityPeriodEncoder) Init(value *ValidityPeriod) {
+func (encoder *PrefixInjectionEncoder) Init(value *PrefixInjection) {
+	{
+		StapledCertificates_l := len(value.StapledCertificates)
+		encoder.StapledCertificates_subencoder = make([]struct {
+			StapledCertificates_length uint
+		}, StapledCertificates_l)
+		for i := 0; i < StapledCertificates_l; i++ {
+			pseudoEncoder := &encoder.StapledCertificates_subencoder[i]
+			pseudoValue := struct {
+				StapledCertificates enc.Wire
+			}{
+				StapledCertificates: value.StapledCertificates[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.StapledCertificates != nil {
+					encoder.StapledCertificates_length = 0
+					for _, c := range value.StapledCertificates {
+						encoder.StapledCertificates_length += uint(len(c))
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.ObjectWire != nil {
+		encoder.ObjectWire_length = 0
+		for _, c := range value.ObjectWire {
+			encoder.ObjectWire_length += uint(len(c))
+		}
+	}
 
 	l := uint(0)
-	l += 3
-	l += uint(enc.TLNum(len(value.NotBefore)).EncodingLength())
-	l += uint(len(value.NotBefore))
-	l += 3
-	l += uint(enc.TLNum(len(value.NotAfter)).EncodingLength())
-	l += uint(len(value.NotAfter))
-	encoder.length = l
+	if value.StapledCertificates != nil {
+		for seq_i, seq_v := range value.StapledCertificates {
+			pseudoEncoder := &encoder.StapledCertificates_subencoder[seq_i]
+			pseudoValue := struct {
+				StapledCertificates enc.Wire
+			}{
+				StapledCertificates: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.StapledCertificates != nil {
+					l += 1
+					l += uint(enc.TLNum(encoder.StapledCertificates_length).EncodingLength())
+					l += encoder.StapledCertificates_length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.ObjectWire != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.ObjectWire_length).EncodingLength())
+		l += encoder.ObjectWire_length
+	}
+	encoder.Length = l
 
 }
 
-func (context *ValidityPeriodParsingContext) Init() {
+func (context *PrefixInjectionParsingContext) Init() {
 
 }
 
-func (encoder *ValidityPeriodEncoder) EncodeInto(value *ValidityPeriod, buf []byte) {
+func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []byte) {
 
 	pos := uint(0)
 
-	buf[pos] = 253
-	binary.BigEndian.PutUint16(buf[pos+1:], uint16(254))
-	pos += 3
-	pos += uint(enc.TLNum(len(value.NotBefore)).EncodeInto(buf[pos:]))
-	copy(buf[pos:], value.NotBefore)
-	pos += uint(len(value.NotBefore))
-	buf[pos] = 253
-	binary.BigEndian.PutUint16(buf[pos+1:], uint16(255))
-	pos += 3
-	pos += uint(enc.TLNum(len(value.NotAfter)).EncodeInto(buf[pos:]))
-	copy(buf[pos:], value.NotAfter)
-	pos += uint(len(value.NotAfter))
+	if value.StapledCertificates != nil {
+		for seq_i, seq_v := range value.StapledCertificates {
+			pseudoEncoder := &encoder.StapledCertificates_subencoder[seq_i]
+			pseudoValue := struct {
+				StapledCertificates enc.Wire
+			}{
+				StapledCertificates: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.StapledCertificates != nil {
+					buf[pos] = byte(45)
+					pos += 1
+					pos += uint(enc.TLNum(encoder.StapledCertificates_length).EncodeInto(buf[pos:]))
+					for _, w := range value.StapledCertificates {
+						copy(buf[pos:], w)
+						pos += uint(len(w))
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.ObjectWire != nil {
+		buf[pos] = byte(6)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.ObjectWire_length).EncodeInto(buf[pos:]))
+		for _, w := range value.ObjectWire {
+			copy(buf[pos:], w)
+			pos += uint(len(w))
+		}
+	}
 }
 
-func (encoder *ValidityPeriodEncoder) Encode(value *ValidityPeriod) enc.Wire {
+func (encoder *PrefixInjectionEncoder) Encode(value *PrefixInjection) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
 	return wire
 }
 
-func (context *ValidityPeriodParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*ValidityPeriod, error) {
+func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
 
-	var handled_NotBefore bool = false
-	var handled_NotAfter bool = false
+	var handled_StapledCertificates bool = false
+	var handled_ObjectWire bool = false
 
 	progress := -1
 	_ = progress
 
-	value := &ValidityPeriod{}
+	value := &PrefixInjection{}
 	var err error
 	var startPos int
 	for {
@@ -6545,29 +6625,31 @@ func (context *ValidityPeriodParsingContext) Parse(reader enc.WireView, ignoreCr
 		err = nil
 		if handled := false; true {
 			switch typ {
-			case 254:
+			case 45:
 				if true {
 					handled = true
-					handled_NotBefore = true
-					{
-						var builder strings.Builder
-						_, err = reader.CopyN(&builder, int(l))
-						if err == nil {
-							value.NotBefore = builder.String()
-						}
+					handled_StapledCertificates = true
+					if value.StapledCertificates == nil {
+						value.StapledCertificates = make([]enc.Wire, 0)
 					}
+					{
+						pseudoValue := struct {
+							StapledCertificates enc.Wire
+						}{}
+						{
+							value := &pseudoValue
+							value.StapledCertificates, err = reader.ReadWire(int(l))
+							_ = value
+						}
+						value.StapledCertificates = append(value.StapledCertificates, pseudoValue.StapledCertificates)
+					}
+					progress--
 				}
-			case 255:
+			case 6:
 				if true {
 					handled = true
-					handled_NotAfter = true
-					{
-						var builder strings.Builder
-						_, err = reader.CopyN(&builder, int(l))
-						if err == nil {
-							value.NotAfter = builder.String()
-						}
-					}
+					handled_ObjectWire = true
+					value.ObjectWire, err = reader.ReadWire(int(l))
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -6587,11 +6669,11 @@ func (context *ValidityPeriodParsingContext) Parse(reader enc.WireView, ignoreCr
 	startPos = reader.Pos()
 	err = nil
 
-	if !handled_NotBefore && err == nil {
-		err = enc.ErrSkipRequired{Name: "NotBefore", TypeNum: 254}
+	if !handled_StapledCertificates && err == nil {
+		// sequence - skip
 	}
-	if !handled_NotAfter && err == nil {
-		err = enc.ErrSkipRequired{Name: "NotAfter", TypeNum: 255}
+	if !handled_ObjectWire && err == nil {
+		value.ObjectWire = nil
 	}
 
 	if err != nil {
@@ -6601,33 +6683,33 @@ func (context *ValidityPeriodParsingContext) Parse(reader enc.WireView, ignoreCr
 	return value, nil
 }
 
-func (value *ValidityPeriod) Encode() enc.Wire {
-	encoder := ValidityPeriodEncoder{}
+func (value *PrefixInjection) Encode() enc.Wire {
+	encoder := PrefixInjectionEncoder{}
 	encoder.Init(value)
 	return encoder.Encode(value)
 }
 
-func (value *ValidityPeriod) Bytes() []byte {
+func (value *PrefixInjection) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParseValidityPeriod(reader enc.WireView, ignoreCritical bool) (*ValidityPeriod, error) {
-	context := ValidityPeriodParsingContext{}
+func ParsePrefixInjection(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
+	context := PrefixInjectionParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
 
-type PrefixInjectionEncoder struct {
-	length uint
+type PrefixInjectionInnerContentEncoder struct {
+	Length uint
 
-	ValidityPeriod_encoder ValidityPeriodEncoder
+	ValidityPeriod_encoder spec_2022.ValidityPeriodEncoder
 }
 
-type PrefixInjectionParsingContext struct {
-	ValidityPeriod_context ValidityPeriodParsingContext
+type PrefixInjectionInnerContentParsingContext struct {
+	ValidityPeriod_context spec_2022.ValidityPeriodParsingContext
 }
 
-func (encoder *PrefixInjectionEncoder) Init(value *PrefixInjection) {
+func (encoder *PrefixInjectionInnerContentEncoder) Init(value *PrefixInjectionInnerContent) {
 
 	if value.ValidityPeriod != nil {
 		encoder.ValidityPeriod_encoder.Init(value.ValidityPeriod)
@@ -6638,24 +6720,24 @@ func (encoder *PrefixInjectionEncoder) Init(value *PrefixInjection) {
 	l += uint(1 + enc.Nat(value.ExpirationPeriod).EncodingLength())
 	if value.ValidityPeriod != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.ValidityPeriod_encoder.length).EncodingLength())
-		l += encoder.ValidityPeriod_encoder.length
+		l += uint(enc.TLNum(encoder.ValidityPeriod_encoder.Length).EncodingLength())
+		l += encoder.ValidityPeriod_encoder.Length
 	}
 	if optval, ok := value.Cost.Get(); ok {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
-func (context *PrefixInjectionParsingContext) Init() {
+func (context *PrefixInjectionInnerContentParsingContext) Init() {
 
 	context.ValidityPeriod_context.Init()
 
 }
 
-func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []byte) {
+func (encoder *PrefixInjectionInnerContentEncoder) EncodeInto(value *PrefixInjectionInnerContent, buf []byte) {
 
 	pos := uint(0)
 
@@ -6668,10 +6750,10 @@ func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []
 		buf[pos] = 253
 		binary.BigEndian.PutUint16(buf[pos+1:], uint16(253))
 		pos += 3
-		pos += uint(enc.TLNum(encoder.ValidityPeriod_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.ValidityPeriod_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.ValidityPeriod_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.ValidityPeriod_encoder.Length > 0 {
 			encoder.ValidityPeriod_encoder.EncodeInto(value.ValidityPeriod, buf[pos:])
-			pos += encoder.ValidityPeriod_encoder.length
+			pos += encoder.ValidityPeriod_encoder.Length
 		}
 	}
 	if optval, ok := value.Cost.Get(); ok {
@@ -6684,17 +6766,17 @@ func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []
 	}
 }
 
-func (encoder *PrefixInjectionEncoder) Encode(value *PrefixInjection) enc.Wire {
+func (encoder *PrefixInjectionInnerContentEncoder) Encode(value *PrefixInjectionInnerContent) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
 	return wire
 }
 
-func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
+func (context *PrefixInjectionInnerContentParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInjectionInnerContent, error) {
 
 	var handled_ExpirationPeriod bool = false
 	var handled_ValidityPeriod bool = false
@@ -6703,7 +6785,7 @@ func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreC
 	progress := -1
 	_ = progress
 
-	value := &PrefixInjection{}
+	value := &PrefixInjectionInnerContent{}
 	var err error
 	var startPos int
 	for {
@@ -6808,18 +6890,18 @@ func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreC
 	return value, nil
 }
 
-func (value *PrefixInjection) Encode() enc.Wire {
-	encoder := PrefixInjectionEncoder{}
+func (value *PrefixInjectionInnerContent) Encode() enc.Wire {
+	encoder := PrefixInjectionInnerContentEncoder{}
 	encoder.Init(value)
 	return encoder.Encode(value)
 }
 
-func (value *PrefixInjection) Bytes() []byte {
+func (value *PrefixInjectionInnerContent) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParsePrefixInjection(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
-	context := PrefixInjectionParsingContext{}
+func ParsePrefixInjectionInnerContent(reader enc.WireView, ignoreCritical bool) (*PrefixInjectionInnerContent, error) {
+	context := PrefixInjectionInnerContentParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }

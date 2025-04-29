@@ -5,6 +5,7 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/types/optional"
 )
 
@@ -338,18 +339,18 @@ type CsQuery struct {
 	FreshnessPeriod uint64
 }
 
-type ValidityPeriod struct {
-	//+field:string
-	NotBefore string `tlv:"0xfe"`
-	//+field:string
-	NotAfter string `tlv:"0xff"`
+type PrefixInjection struct {
+	//+field:sequence:enc.Wire:wire
+	StapledCertificates []enc.Wire `tlv:"0x2d"`
+	//+field:wire
+	ObjectWire enc.Wire `tlv:"0x06"`
 }
 
-type PrefixInjection struct {
+type PrefixInjectionInnerContent struct {
 	//+field:natural
 	ExpirationPeriod uint64 `tlv:"0x6d"`
-	//+field:struct:ValidityPeriod
-	ValidityPeriod *ValidityPeriod `tlv:"0xfd"`
+	//+field:struct:spec_2022.ValidityPeriod
+	ValidityPeriod *spec_2022.ValidityPeriod `tlv:"0xfd"`
 	//+field:natural:optional
 	Cost optional.Optional[uint64] `tlv:"0x6a"`
 }

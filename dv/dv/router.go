@@ -102,7 +102,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 	}
 
 	enablePrefixInjection := config.PrefixInjectionSchemaPath != "deny"
-	prefixInjectionStore := object.NewMemoryStore()
+	prefixInjectionStore := storage.NewMemoryStore()
 	var prefixInjectionTrust *sec.TrustConfig = nil
 	if !enablePrefixInjection {
 		log.Warn(nil, "Prefix injection is disabled")
@@ -297,7 +297,7 @@ func (dv *Router) register() (err error) {
 	if dv.enablePrefixInjection {
 		pfxs = append(pfxs, injectPrefix)
 	}
-	
+
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
 			Module: "rib",

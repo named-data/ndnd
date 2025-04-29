@@ -32,12 +32,44 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 		return
 	}
 
+	paParams, err := mgmt.ParsePrefixInjection(enc.NewWireView(args.Interest.AppParam()), true)
+	if err != nil {
+		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
+		return
+	}
+
+	var stapledCertCallbacks []ndn.ExpressCallbackArgs
+	for _, certWire := range paParams.StapledCertificates {
+		data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(certWire))
+		if err != nil {
+			log.Warn(dv, "Stapled malformed certificate", "err", err)
+			return
+		}
+
+		stapledCertCallbacks = append(stapledCertCallbacks,
+			ndn.ExpressCallbackArgs{
+				Result:     ndn.InterestResultData,
+				Data:       data,
+				RawData:    certWire,
+				SigCovered: sigCov,
+				IsLocal:    true,
+			})
+	}
+
 	// Validate signature
 	dv.prefixInjectionClient.ValidateExt(ndn.ValidateExtArgs{
 		Data:       data,
 		SigCovered: sigCov,
 		Fetch: optional.Some(func(name enc.Name, config *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
-			// TODO: use stapled certificates
+			for _, certCallback := range stapledCertCallbacks {
+				if certCallback.Data.Name().Equal(name) {
+					dv.prefixInjectionClient.Engine().Post(func() {
+						callback(certCallback)
+					})
+					return
+				}
+			}
+
 			config.NextHopId = optional.None[uint64]()
 			dv.prefixInjectionClient.ExpressR(ndn.ExpressRArgs{
 				Name:     name,
@@ -83,7 +115,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) {
 	}
 
 	piWire := object.Content()
-	params, err := mgmt.ParsePrefixInjection(enc.NewWireView(piWire), true)
+	params, err := mgmt.ParsePrefixInjectionInnerContent(enc.NewWireView(piWire), true)
 	if err != nil {
 		log.Warn(dv, "Failed to parse prefix injection object", "err", err)
 		return
