@@ -41,8 +41,8 @@ type rrSegFetcher struct {
 // retxEntry represents an entry in the retransmission queue
 // it contains the consumer state, segment number and the number of retries left for the segment
 type retxEntry struct {
-	state *ConsumeState
-	seg uint64
+	state   *ConsumeState
+	seg     uint64
 	retries int
 }
 
@@ -53,8 +53,8 @@ func newRrSegFetcher(client *Client) rrSegFetcher {
 		streams:     make([]*ConsumeState, 0),
 		window:      cong.NewFixedCongestionWindow(100),
 		outstanding: 0,
-		retxQueue: 	 list.New(),
-		txCounter: 	 make(map[*ConsumeState]int),
+		retxQueue:   list.New(),
+		txCounter:   make(map[*ConsumeState]int),
 		maxRetries:  3,
 	}
 }
@@ -154,7 +154,7 @@ func (s *rrSegFetcher) check() {
 		// check if the window is full
 		if s.IsCongested() {
 			log.Debug(nil, "Window full", "size", s.window.Size())
-			return	// no need to generate new interests
+			return // no need to generate new interests
 		}
 
 		var (
@@ -198,14 +198,14 @@ func (s *rrSegFetcher) check() {
 		name := state.fetchName.Append(enc.NewSegmentComponent(seg))
 		config := &ndn.InterestConfig{
 			MustBeFresh: false,
-			Nonce: utils.ConvertNonce(s.client.engine.Timer().Nonce()),	// new nonce for each call
+			Nonce:       utils.ConvertNonce(s.client.engine.Timer().Nonce()), // new nonce for each call
 		}
 		log.Debug(nil, "Building interest", "name", name, "config", config)
 		interest, err := s.client.Engine().Spec().MakeInterest(name, config, nil, nil)
 		if err != nil {
 			s.handleResult(ndn.ExpressCallbackArgs{
 				Result: ndn.InterestResultError,
-				Error: err,
+				Error:  err,
 			}, state, seg, retries)
 			return
 		}
@@ -221,7 +221,7 @@ func (s *rrSegFetcher) check() {
 		if err != nil {
 			s.handleResult(ndn.ExpressCallbackArgs{
 				Result: ndn.InterestResultError,
-				Error: err,
+				Error:  err,
 			}, state, seg, retries)
 			return
 		}
@@ -251,7 +251,7 @@ func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *Consume
 		log.Debug(nil, "Interest timeout", "name", interestName)
 
 		s.window.HandleSignal(cong.SigLoss)
-		s.enqueueForRetransmission(state, seg, retries - 1)
+		s.enqueueForRetransmission(state, seg, retries-1)
 
 	case ndn.InterestResultNack:
 		log.Debug(nil, "Interest nack'd", "name", interestName)
@@ -262,21 +262,21 @@ func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *Consume
 		case spec.NackReasonCongestion:
 			// congestion signal
 			s.window.HandleSignal(cong.SigCongest)
-			s.enqueueForRetransmission(state, seg, retries - 1)
+			s.enqueueForRetransmission(state, seg, retries-1)
 		default:
 			// treat as irrecoverable error for now
 			state.finalizeError(fmt.Errorf("%w: fetch seg failed with result: %s", ndn.ErrNetwork, args.Result))
 		}
 
-	case ndn.InterestResultData:	// data is successfully retrieved
+	case ndn.InterestResultData: // data is successfully retrieved
 		s.handleData(args, state)
 		s.window.HandleSignal(cong.SigData)
 
-	default:	// treat as irrecoverable error for now
+	default: // treat as irrecoverable error for now
 		state.finalizeError(fmt.Errorf("%w: fetch seg failed with result: %s", ndn.ErrNetwork, args.Result))
 	}
 
-	s.check()	// check for more work
+	s.check() // check for more work
 }
 
 // handleData is called when the interest result is processed and the data is ready to be validated.
@@ -307,7 +307,7 @@ func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *
 		}
 
 		state.segCnt = int(fbId.NumberVal()) + 1
-		s.txCounter[state] = state.segCnt			// number of segments to be transmitted for this state
+		s.txCounter[state] = state.segCnt // number of segments to be transmitted for this state
 		if state.segCnt > maxObjectSeg || state.segCnt <= 0 {
 			state.finalizeError(fmt.Errorf("%w: invalid FinalBlockId=%d", ndn.ErrProtocol, state.segCnt))
 			return
@@ -378,7 +378,7 @@ func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *
 // enqueueForRetransmission enqueues a segment for retransmission
 // it registers retries and treats exhausted retries as irrecoverable errors
 func (s *rrSegFetcher) enqueueForRetransmission(state *ConsumeState, seg uint64, retries int) {
-	if (retries == 0) {	// retransmission exhausted
+	if retries == 0 { // retransmission exhausted
 		state.finalizeError(fmt.Errorf("%w: retries exhausted, segment number=%d", ndn.ErrNetwork, seg))
 		return
 	}
