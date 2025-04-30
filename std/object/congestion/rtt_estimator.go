@@ -8,8 +8,8 @@ import (
 type RTTEstimator interface {
 	String() string
 
-	EstimatedRTT() time.Duration	// get the estimated RTT
-	DeviationRTT() time.Duration	// get the deviation of RTT
+	EstimatedRTT() time.Duration // get the estimated RTT
+	DeviationRTT() time.Duration // get the deviation of RTT
 
-	AddMeasurement(sample time.Duration, retransmitted bool)	// add a new RTT measurement
+	AddMeasurement(sample time.Duration, retransmitted bool) // add a new RTT measurement
 }
