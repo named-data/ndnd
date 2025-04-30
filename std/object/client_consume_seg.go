@@ -200,11 +200,8 @@ func (s *rrSegFetcher) check() {
 			MustBeFresh: false,
 			Nonce: utils.ConvertNonce(s.client.engine.Timer().Nonce()),	// new nonce for each call
 		}
-		var appParam enc.Wire = nil
-		var signer ndn.Signer = nil
-
 		log.Debug(nil, "Building interest", "name", name, "config", config)
-		interest, err := s.client.Engine().Spec().MakeInterest(name, config, appParam, signer)
+		interest, err := s.client.Engine().Spec().MakeInterest(name, config, nil, nil)
 		if err != nil {
 			s.handleResult(ndn.ExpressCallbackArgs{
 				Result: ndn.InterestResultError,
@@ -230,9 +227,7 @@ func (s *rrSegFetcher) check() {
 		}
 
 		// increment outstanding interest count
-		s.mutex.Lock()
-		s.outstanding++
-		s.mutex.Unlock()
+		s.incrementOutstanding()
 	}
 }
 
@@ -244,9 +239,7 @@ func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *Consume
 	log.Debug(nil, "Parsing interest result", "name", interestName)
 
 	// decrement outstanding interest count
-	s.mutex.Lock()
-	s.outstanding--
-	s.mutex.Unlock()
+	s.decrementOutstanding()
 
 	if state.IsComplete() {
 		return
@@ -347,10 +340,8 @@ func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *
 		panic("[BUG] consume: nil data segment")
 	}
 
-	// decrease transmission counter
-	s.mutex.Lock()
-	s.txCounter[state]--
-	s.mutex.Unlock()
+	// decrement transmission counter
+	s.decrementTxCounter(state)
 
 	// if this is the first outstanding segment, move windows
 	if state.wnd.GetFetching() == segNum {
@@ -396,4 +387,22 @@ func (s *rrSegFetcher) enqueueForRetransmission(state *ConsumeState, seg uint64,
 	defer s.mutex.Unlock()
 
 	s.retxQueue.PushBack(&retxEntry{state, seg, retries})
+}
+
+func (s *rrSegFetcher) incrementOutstanding() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.outstanding++
+}
+
+func (s *rrSegFetcher) decrementOutstanding() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.outstanding--
+}
+
+func (s *rrSegFetcher) decrementTxCounter(state *ConsumeState) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.txCounter[state]--
 }
