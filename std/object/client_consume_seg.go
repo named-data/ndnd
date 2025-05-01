@@ -129,13 +129,13 @@ func (s *rrSegFetcher) findWork() *ConsumeState {
 		}
 
 		// if we don't know the segment count, wait for the first segment
-		if check.segCnt == -1 && check.wnd.GetPending() > 0 {
+		if check.segCnt == -1 && check.wnd.Pending > 0 {
 			// log.Infof("seg-fetcher: state wnd full for %s", check.fetchName)
 			continue
 		}
 
 		// all interests are out
-		if check.segCnt > 0 && check.wnd.GetPending() >= check.segCnt {
+		if check.segCnt > 0 && check.wnd.Pending >= check.segCnt {
 			// log.Infof("seg-fetcher: all interests are out for %s", check.fetchName)
 			continue
 		}
@@ -190,8 +190,8 @@ func (s *rrSegFetcher) check() {
 			}
 
 			// update window parameters
-			seg = uint64(state.wnd.GetPending())
-			state.wnd.AdvancePending()
+			seg = uint64(state.wnd.Pending)
+			state.wnd.Pending++
 		}
 
 		// build interest
@@ -344,12 +344,12 @@ func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *
 	s.decrementTxCounter(state)
 
 	// if this is the first outstanding segment, move windows
-	if state.wnd.GetFetching() == segNum {
-		for state.wnd.GetFetching() < state.segCnt && state.content[state.wnd.GetFetching()] != nil {
-			state.wnd.AdvanceFetching()
+	if state.wnd.Fetching == segNum {
+		for state.wnd.Fetching < state.segCnt && state.content[state.wnd.Fetching] != nil {
+			state.wnd.Fetching++
 		}
 
-		if state.wnd.GetFetching() == state.segCnt && s.txCounter[state] == 0 {
+		if state.wnd.Fetching == state.segCnt && s.txCounter[state] == 0 {
 			log.Debug(s, "Stream completed successfully", "name", state.fetchName)
 
 			s.mutex.Lock()

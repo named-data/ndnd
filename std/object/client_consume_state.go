@@ -23,11 +23,6 @@ type ConsumeState struct {
 	// versioned object name
 	fetchName enc.Name
 
-	// fetching window
-	// Valid is the position from which the data is available
-	// Fetching is the position from which the data are currently being fetched (window start)
-	// Pending is the position from which the data will be fetched in the future
-	//
 	// content[0:Valid] is invalid (already used and freed)
 	// content[Valid:Fetching] is fetched and valid (not used yet)
 	// content[Fetching:Pending] is currently being fetched
@@ -39,10 +34,11 @@ type ConsumeState struct {
 }
 
 // FetchWindow holds the state of the fetching window
+// It tracks the progress of data fetching and availability
 type FetchWindow struct {
-	Valid    atomic.Int64
-	Fetching atomic.Int64
-	Pending  atomic.Int64
+	Valid    int // the position from which the data has been fetched and is valid
+	Fetching int // the position from which the data is being fetched (window start)
+	Pending  int // the position from which the data is pending to be fetched (end of the current fetching window)
 }
 
 // returns the name of the object being consumed
@@ -72,21 +68,21 @@ func (a *ConsumeState) IsComplete() bool {
 // any subsequent calls to Content() will return data after the previous call
 func (a *ConsumeState) Content() enc.Wire {
 	// return valid range of buffer (can be empty)
-	wire := make(enc.Wire, a.wnd.GetFetching()-a.wnd.GetValid())
+	wire := make(enc.Wire, a.wnd.Fetching-a.wnd.Valid)
 
 	// free buffers
-	for i := a.wnd.GetValid(); i < a.wnd.GetFetching(); i++ {
-		wire[i-a.wnd.GetValid()] = a.content[i] // retain
-		a.content[i] = nil                      // gc
+	for i := a.wnd.Valid; i < a.wnd.Fetching; i++ {
+		wire[i-a.wnd.Valid] = a.content[i] // retain
+		a.content[i] = nil                 // gc
 	}
 
-	a.wnd.SetValid(a.wnd.GetFetching())
+	a.wnd.Valid = a.wnd.Fetching
 	return wire
 }
 
 // get the progress counter
 func (a *ConsumeState) Progress() int {
-	return int(a.wnd.GetFetching())
+	return a.wnd.Fetching
 }
 
 // get the max value for the progress counter (-1 for unknown)
@@ -107,69 +103,4 @@ func (a *ConsumeState) finalizeError(err error) {
 		a.err = err
 		a.args.Callback(a)
 	}
-}
-
-// sets the start position in the buffer where data is valid and not yet used
-func (wnd *FetchWindow) SetValid(val int) {
-	wnd.Valid.Store(int64(val))
-}
-
-// sets the start position in the buffer where data is currently being fetched
-func (wnd *FetchWindow) SetFetching(val int) {
-	wnd.Fetching.Store(int64(val))
-}
-
-// sets the start position in the buffer where data is pending to be fetched
-func (wnd *FetchWindow) SetPending(val int) {
-	wnd.Pending.Store(int64(val))
-}
-
-// returns the start position in the buffer where data is valid and not yet used
-func (wnd *FetchWindow) GetValid() int {
-	return int(wnd.Valid.Load())
-}
-
-// returns the start position in the buffer where data is currently being fetched
-func (wnd *FetchWindow) GetFetching() int {
-	return int(wnd.Fetching.Load())
-}
-
-// returns the start position in the buffer where data is pending to be fetched
-func (wnd *FetchWindow) GetPending() int {
-	return int(wnd.Pending.Load())
-}
-
-// returns if the buffer position is already used and freed
-func (wnd *FetchWindow) IsInvalid(index int) bool {
-	return index < wnd.GetValid()
-}
-
-// returns if the buffer position holds valid data that is not yet used
-func (wnd *FetchWindow) IsValid(index int) bool {
-	return index >= wnd.GetValid() && index < wnd.GetFetching()
-}
-
-// returns if the buffer position holds data that is currently being fetched
-func (wnd *FetchWindow) IsFetching(index int) bool {
-	return index >= wnd.GetFetching() && index < wnd.GetPending()
-}
-
-// returns if the position holds data to be fetched
-func (wnd *FetchWindow) IsPending(index int) bool {
-	return index >= wnd.GetPending()
-}
-
-// advances the start position in the buffer where data is valid and not yet used by 1
-func (wnd *FetchWindow) AdvanceValid() {
-	wnd.Valid.Add(1)
-}
-
-// advances the start position in the buffer where data is currently being fetched by 1
-func (wnd *FetchWindow) AdvanceFetching() {
-	wnd.Fetching.Add(1)
-}
-
-// advances the start position in the buffer where data is pending to be fetched by 1
-func (wnd *FetchWindow) AdvancePending() {
-	wnd.Pending.Add(1)
 }
