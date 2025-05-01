@@ -2,14 +2,12 @@ package congestion
 
 // FixedCongestionControl is an implementation of CongestionWindow with a fixed window size that does not change in response to signals or events.
 type FixedCongestionWindow struct {
-	window  int              // window size
-	eventCh chan WindowEvent // channel for emitting window change event
+	window int // window size
 }
 
 func NewFixedCongestionWindow(cwnd int) *FixedCongestionWindow {
 	return &FixedCongestionWindow{
-		window:  cwnd,
-		eventCh: make(chan WindowEvent),
+		window: cwnd,
 	}
 }
 
@@ -28,10 +26,6 @@ func (cw *FixedCongestionWindow) IncreaseWindow() {
 
 func (cw *FixedCongestionWindow) DecreaseWindow() {
 	// intentionally left blank: window size is fixed
-}
-
-func (cw *FixedCongestionWindow) EventChannel() <-chan WindowEvent {
-	return cw.eventCh
 }
 
 func (cw *FixedCongestionWindow) HandleSignal(signal CongestionSignal) {

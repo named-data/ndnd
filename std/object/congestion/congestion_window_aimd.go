@@ -3,7 +3,6 @@ package congestion
 import (
 	"math"
 	"sync"
-	"time"
 
 	"github.com/named-data/ndnd/std/log"
 )
@@ -12,8 +11,7 @@ import (
 type AIMDCongestionWindow struct {
 	mutex sync.RWMutex
 
-	window  float64          // window size - float64 to allow percentage growth in congestion avoidance phase
-	eventCh chan WindowEvent // channel for emitting window change event
+	window float64 // window size - float64 to allow percentage growth in congestion avoidance phase
 
 	initCwnd    float64 // initial window size
 	ssthresh    float64 // slow start threshold
@@ -27,8 +25,7 @@ type AIMDCongestionWindow struct {
 
 func NewAIMDCongestionWindow(cwnd int) *AIMDCongestionWindow {
 	return &AIMDCongestionWindow{
-		window:  float64(cwnd),
-		eventCh: make(chan WindowEvent),
+		window: float64(cwnd),
 
 		initCwnd:    float64(cwnd),
 		ssthresh:    math.MaxFloat64,
@@ -62,7 +59,7 @@ func (cw *AIMDCongestionWindow) IncreaseWindow() {
 
 	cw.mutex.Unlock()
 
-	cw.EmitWindowEvent(time.Now(), cw.Size()) // window change signal
+	log.Debug(cw, "Window size changes", "window", cw.window)
 }
 
 func (cw *AIMDCongestionWindow) DecreaseWindow() {
@@ -78,11 +75,7 @@ func (cw *AIMDCongestionWindow) DecreaseWindow() {
 
 	cw.mutex.Unlock()
 
-	cw.EmitWindowEvent(time.Now(), cw.Size()) // window change signal
-}
-
-func (cw *AIMDCongestionWindow) EventChannel() <-chan WindowEvent {
-	return cw.eventCh
+	log.Debug(cw, "Window size changes", "window", cw.window)
 }
 
 func (cw *AIMDCongestionWindow) HandleSignal(signal CongestionSignal) {
@@ -93,15 +86,5 @@ func (cw *AIMDCongestionWindow) HandleSignal(signal CongestionSignal) {
 		cw.DecreaseWindow()
 	default:
 		// no-op
-	}
-}
-
-func (cw *AIMDCongestionWindow) EmitWindowEvent(age time.Time, cwnd int) {
-	// non-blocking send to the channel
-	select {
-	case cw.eventCh <- WindowEvent{age: age, cwnd: cwnd}:
-	default:
-		// if the channel is full, we log the change event
-		log.Debug(cw, "Window size changes", "window", cw.window)
 	}
 }

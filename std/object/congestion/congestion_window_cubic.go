@@ -13,8 +13,7 @@ import (
 type CUBICCongestionWindow struct {
 	mutex sync.RWMutex
 
-	window  float64          // window size
-	eventCh chan WindowEvent // channel for emitting window change event
+	window float64 // window size
 
 	rttEstimator *RTTEstimator // RTT estimator
 
@@ -34,8 +33,7 @@ type CUBICCongestionWindow struct {
 // rttEstimator is the RTT estimator to use, or nil if not available.
 func NewCUBICCongestionWindow(cwnd int, rttEstimator *RTTEstimator) *CUBICCongestionWindow {
 	return &CUBICCongestionWindow{
-		window:  float64(cwnd),
-		eventCh: make(chan WindowEvent),
+		window: float64(cwnd),
 
 		rttEstimator: rttEstimator,
 
@@ -109,7 +107,7 @@ func (cw *CUBICCongestionWindow) IncreaseWindow() {
 
 	cw.mutex.Unlock()
 
-	cw.EmitWindowEvent(time.Now(), cw.Size()) // window change signal
+	log.Debug(cw, "Window size changes", "window", cw.window)
 }
 
 func (cw *CUBICCongestionWindow) DecreaseWindow() {
@@ -133,11 +131,7 @@ func (cw *CUBICCongestionWindow) DecreaseWindow() {
 
 	cw.mutex.Unlock()
 
-	cw.EmitWindowEvent(time.Now(), cw.Size()) // window change signal
-}
-
-func (cw *CUBICCongestionWindow) EventChannel() <-chan WindowEvent {
-	return cw.eventCh
+	log.Debug(cw, "Window size changes", "window", cw.window)
 }
 
 func (cw *CUBICCongestionWindow) HandleSignal(signal CongestionSignal) {
@@ -148,15 +142,5 @@ func (cw *CUBICCongestionWindow) HandleSignal(signal CongestionSignal) {
 		cw.DecreaseWindow()
 	default:
 		// no-op
-	}
-}
-
-func (cw *CUBICCongestionWindow) EmitWindowEvent(age time.Time, cwnd int) {
-	// non-blocking send to the channel
-	select {
-	case cw.eventCh <- WindowEvent{age: age, cwnd: cwnd}:
-	default:
-		// if the channel is full, we log the change event
-		log.Debug(cw, "Window size changes", "window", cw.window)
 	}
 }
