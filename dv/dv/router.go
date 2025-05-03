@@ -273,8 +273,8 @@ func (dv *Router) register() (err error) {
 		return err
 	}
 
-	injectPrefix := enc.NewKeywordComponent("routing").
-		Append(enc.NewKeywordComponent("inject"))
+	injectPrefix := enc.NewGenericComponent("routing").
+		Append(enc.NewGenericComponent("inject"))
 
 	if dv.enablePrefixInjection {
 		err = dv.engine.AttachHandler(injectPrefix,
