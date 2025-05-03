@@ -180,10 +180,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64, res *m
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
-	dirty := dv.rib.Set(prefix, dv.config.RouterName(), cost)
-	if dirty {
-		go dv.postUpdateRib()
-	}
+	dv.pfx.Announce(prefix, faceId, cost)
 
 	res.Val.StatusCode = 200
 	res.Val.StatusText = "Prefix Injection command successful"
