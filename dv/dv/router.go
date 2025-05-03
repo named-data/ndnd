@@ -121,7 +121,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		if err != nil {
 			return nil, err
 		}
-		anchors := config.TrustAnchorNames()
+		anchors := config.PrefixInjectionTrustAnchorNames()
 		prefixInjectionTrust, err = sec.NewTrustConfig(kc, schema, anchors)
 		if err != nil {
 			return nil, err
