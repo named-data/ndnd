@@ -8,10 +8,37 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	sig "github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
+	"time"
 )
 
 func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
+	res := &mgmt.ControlResponse{
+		Val: &mgmt.ControlResponseVal{
+			StatusCode: 400,
+			StatusText: "Failed to execute prefix injection",
+			Params:     nil,
+		},
+	}
+
+	defer func() {
+		signer := sig.NewSha256Signer()
+		data, err := dv.engine.Spec().MakeData(
+			args.Interest.Name(),
+			&ndn.DataConfig{
+				ContentType: optional.Some(ndn.ContentTypeBlob),
+				Freshness:   optional.Some(1 * time.Second),
+			},
+			res.Encode(),
+			signer)
+		if err != nil {
+			log.Warn(dv, "Failed to make inject response Data", "err", err)
+			return
+		}
+		args.Reply(data.Wire)
+	}()
+
 	// If there is no incoming face ID, we can't use this
 	if !args.IncomingFaceId.IsSet() {
 		log.Warn(dv, "Received Prefix Injection with no incoming face ID, ignoring")
@@ -85,12 +112,12 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 				return
 			}
 
-			dv.onPrefixInjectionObject(data, args.IncomingFaceId.Unwrap())
+			dv.onPrefixInjectionObject(data, args.IncomingFaceId.Unwrap(), res)
 		},
 	})
 }
 
-func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) {
+func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64, res *mgmt.ControlResponse) {
 	if contentType, set := object.ContentType().Get(); !set || contentType != ndn.ContentTypePrefixInjection {
 		log.Warn(dv, "Prefix Injection Object does not have the correct content type",
 			"contentType", object.ContentType())
@@ -156,5 +183,14 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) {
 	dirty := dv.rib.Set(prefix, dv.config.RouterName(), cost)
 	if dirty {
 		go dv.postUpdateRib()
+	}
+
+	res.Val.StatusCode = 200
+	res.Val.StatusText = "Prefix Injection command successful"
+	res.Val.Params = &mgmt.ControlArgs{
+		Name:   prefix,
+		FaceId: optional.Some(faceId),
+		Origin: optional.Some(config.PrefixInjOrigin),
+		Cost:   optional.Some(cost),
 	}
 }
