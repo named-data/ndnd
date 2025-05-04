@@ -53,21 +53,23 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	// Decode Prefix Injection Object
-	// note: ReadData() will skip over any non-critical TLV arguments (StapledCertificate)
-	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(args.Interest.AppParam()))
-	if err != nil {
-		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
-		reply()
-		return
-	}
-
 	paParams, err := mgmt.ParsePrefixInjection(enc.NewWireView(args.Interest.AppParam()), true)
 	if err != nil {
 		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
 		reply()
 		return
 	}
+
+	// Decode Prefix Injection Object
+	dCtx := spec.DataParsingContext{}
+	dCtx.Init()
+	data, err := dCtx.Parse(enc.NewWireView(paParams.ObjectWire), true)
+	if err != nil {
+		log.Warn(dv, "Failed to parse Prefix Injection inner data", "err", err)
+		reply()
+		return
+	}
+	sigCov := dCtx.SigCovered()
 
 	var stapledCertCallbacks []ndn.ExpressCallbackArgs
 	for _, certWire := range paParams.StapledCertificates {
