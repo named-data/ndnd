@@ -90,8 +90,8 @@ func DefaultConfig() *Config {
 		AdvertisementSyncInterval_ms: 5000,
 		RouterDeadInterval_ms:        30000,
 		KeyChainUri:                  "undefined",
-		PrefixInjectionSchemaPath:    "insecure",
-		PrefixInjectionKeychainUri:   "insecure",
+		PrefixInjectionSchemaPath:    "deny",
+		PrefixInjectionKeychainUri:   "undefined",
 	}
 }
 
