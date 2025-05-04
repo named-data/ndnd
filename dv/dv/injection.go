@@ -22,7 +22,7 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 		},
 	}
 
-	defer func() {
+	reply := func() {
 		signer := sig.NewSha256Signer()
 		data, err := dv.engine.Spec().MakeData(
 			args.Interest.Name(),
@@ -37,17 +37,19 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 			return
 		}
 		args.Reply(data.Wire)
-	}()
+	}
 
 	// If there is no incoming face ID, we can't use this
 	if !args.IncomingFaceId.IsSet() {
 		log.Warn(dv, "Received Prefix Injection with no incoming face ID, ignoring")
+		reply()
 		return
 	}
 
 	// Check if app param is present
 	if args.Interest.AppParam() == nil {
 		log.Warn(dv, "Received Prefix Injection with no AppParam, ignoring")
+		reply()
 		return
 	}
 
@@ -56,12 +58,14 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(args.Interest.AppParam()))
 	if err != nil {
 		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
+		reply()
 		return
 	}
 
 	paParams, err := mgmt.ParsePrefixInjection(enc.NewWireView(args.Interest.AppParam()), true)
 	if err != nil {
 		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
+		reply()
 		return
 	}
 
@@ -70,6 +74,7 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 		data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(certWire))
 		if err != nil {
 			log.Warn(dv, "Stapled malformed certificate", "err", err)
+			reply()
 			return
 		}
 
@@ -109,10 +114,12 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 		Callback: func(valid bool, err error) {
 			if !valid || err != nil {
 				log.Warn(dv, "Failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
+				reply()
 				return
 			}
 
 			dv.onPrefixInjectionObject(data, args.IncomingFaceId.Unwrap(), res)
+			reply()
 		},
 	})
 }
