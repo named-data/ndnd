@@ -341,7 +341,7 @@ type CsQuery struct {
 
 type PrefixInjection struct {
 	//+field:sequence:enc.Wire:wire
-	StapledCertificates []enc.Wire `tlv:"0x2d"`
+	StapledCertificates []enc.Wire `tlv:"0x2e"`
 	//+field:wire
 	ObjectWire enc.Wire `tlv:"0x06"`
 }
