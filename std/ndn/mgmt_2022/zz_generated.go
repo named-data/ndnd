@@ -6561,7 +6561,7 @@ func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []
 				encoder := pseudoEncoder
 				value := &pseudoValue
 				if value.StapledCertificates != nil {
-					buf[pos] = byte(45)
+					buf[pos] = byte(46)
 					pos += 1
 					pos += uint(enc.TLNum(encoder.StapledCertificates_length).EncodeInto(buf[pos:]))
 					for _, w := range value.StapledCertificates {
@@ -6625,7 +6625,7 @@ func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreC
 		err = nil
 		if handled := false; true {
 			switch typ {
-			case 45:
+			case 46:
 				if true {
 					handled = true
 					handled_StapledCertificates = true
