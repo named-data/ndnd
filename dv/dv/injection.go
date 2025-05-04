@@ -1,6 +1,8 @@
 package dv
 
 import (
+	"time"
+
 	"github.com/named-data/ndnd/dv/config"
 	"github.com/named-data/ndnd/dv/nfdc"
 	enc "github.com/named-data/ndnd/std/encoding"
@@ -10,7 +12,6 @@ import (
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	sig "github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
-	"time"
 )
 
 func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
