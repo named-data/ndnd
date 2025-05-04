@@ -37,7 +37,7 @@ func (c *Client) ConsumeExt(args ndn.ConsumeExtArgs) {
 		complete:  atomic.Bool{},
 		meta:      nil,
 		fetchName: args.Name,
-		wnd:       [3]int{0, 0},
+		wnd:       FetchWindow{},
 		segCnt:    -1,
 	})
 }

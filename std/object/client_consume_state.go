@@ -23,19 +23,22 @@ type ConsumeState struct {
 	// versioned object name
 	fetchName enc.Name
 
-	// fetching window
-	// - [0] is the position till which the user has already consumed the fetched buffer
-	// - [1] is the position till which the buffer is valid (window start)
-	// - [2] is the end of the current fetching window
-	//
-	// content[0:wnd[0]] is invalid (already used and freed)
-	// content[wnd[0]:wnd[1]] is valid (not used yet)
-	// content[wnd[1]:wnd[2]] is currently being fetched
-	// content[wnd[2]:] will be fetched in the future
-	wnd [3]int
+	// content[0:Valid] is invalid (already used and freed)
+	// content[Valid:Fetching] is fetched and valid (not used yet)
+	// content[Fetching:Pending] is currently being fetched
+	// content[Pending:] will be fetched in the future
+	wnd FetchWindow
 
 	// segment count from final block id (-1 if unknown)
 	segCnt int
+}
+
+// FetchWindow holds the state of the fetching window
+// It tracks the progress of data fetching and availability
+type FetchWindow struct {
+	Valid    int // the position from which the data has been fetched and is valid
+	Fetching int // the position from which the data is being fetched (window start)
+	Pending  int // the position from which the data is pending to be fetched (end of the current fetching window)
 }
 
 // returns the name of the object being consumed
@@ -65,21 +68,21 @@ func (a *ConsumeState) IsComplete() bool {
 // any subsequent calls to Content() will return data after the previous call
 func (a *ConsumeState) Content() enc.Wire {
 	// return valid range of buffer (can be empty)
-	wire := make(enc.Wire, a.wnd[1]-a.wnd[0])
+	wire := make(enc.Wire, a.wnd.Fetching-a.wnd.Valid)
 
 	// free buffers
-	for i := a.wnd[0]; i < a.wnd[1]; i++ {
-		wire[i-a.wnd[0]] = a.content[i] // retain
-		a.content[i] = nil              // gc
+	for i := a.wnd.Valid; i < a.wnd.Fetching; i++ {
+		wire[i-a.wnd.Valid] = a.content[i] // retain
+		a.content[i] = nil                 // gc
 	}
 
-	a.wnd[0] = a.wnd[1]
+	a.wnd.Valid = a.wnd.Fetching
 	return wire
 }
 
 // get the progress counter
 func (a *ConsumeState) Progress() int {
-	return a.wnd[1]
+	return a.wnd.Fetching
 }
 
 // get the max value for the progress counter (-1 for unknown)

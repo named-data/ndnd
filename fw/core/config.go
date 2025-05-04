@@ -9,6 +9,7 @@ package core
 
 import (
 	"path/filepath"
+	"runtime"
 )
 
 // Global initial configuration of the forwarder.
@@ -194,6 +195,9 @@ func DefaultConfig() *Config {
 
 	c.Faces.Unix.Enabled = true
 	c.Faces.Unix.SocketPath = "/run/nfd/nfd.sock"
+	if runtime.GOOS == "darwin" {
+		c.Faces.Unix.SocketPath = "/var/run/nfd/nfd.sock"
+	}
 
 	c.Faces.WebSocket.Enabled = true
 	c.Faces.WebSocket.Bind = ""

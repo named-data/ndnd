@@ -88,6 +88,7 @@ func (l *UDPListener) Run() {
 		// Check if frame received here is for an existing face.
 		// This is probably because it was received too fast.
 		// For now just drop the frame, ideally we should pass it to face.
+		// If you call handleIncomingFrame() here, it will cause a race condition.
 		if face := FaceTable.GetByURI(remoteURI); face != nil {
 			core.Log.Trace(l, "Received frame for existing", "face", face)
 			continue

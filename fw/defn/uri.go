@@ -22,8 +22,9 @@ import (
 // URIType represents the type of the URI.
 type URIType int
 
-// Regex to extract zone from URI
-var zoneRegex, _ = regexp.Compile(`:\/\/\[?(?:[0-9A-Za-z\:\.\-]+)(?:%(?P<zone>[A-Za-z0-9\-]+))?\]?`)
+// Regex to extract zone from URI.
+// Windows zones can have spaces in them.
+var zoneRegex, _ = regexp.Compile(`:\/\/\[?(?:[0-9A-Za-z\:\.\-]+)(?:%(?P<zone>[A-Za-z0-9 \-]+))?\]?`)
 
 // URL not canonical error
 var ErrNotCanonical = errors.New("URI could not be canonized")

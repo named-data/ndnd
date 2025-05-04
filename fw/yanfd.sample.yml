@@ -47,7 +47,10 @@ faces:
     # Whether to enable Unix stream transports
     enabled: true
     # Location of the socket file
-    socket_path: /run/nfd/nfd.sock
+    # On Windows, uses ${TEMP}\\nfd\\nfd.sock
+    # On Mac, uses /var/run/nfd/nfd.sock
+    # Uncomment the line below to manually set socket path
+    # socket_path: /run/nfd/nfd.sock
 
   websocket:
     # Whether to enable WebSocket listener
