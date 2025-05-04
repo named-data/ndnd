@@ -159,10 +159,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64, res *m
 
 	var shouldRemove bool
 	var cost uint64
-	if params.ExpirationPeriod < 0 {
-		log.Warn(dv, "Invalid ExpirationPeriod value", "ExpirationPeriod", params.ExpirationPeriod)
-		return
-	} else if params.ExpirationPeriod == 0 {
+	if params.ExpirationPeriod == 0 {
 		// Remove the RIB entry
 		shouldRemove = true
 		cost = config.CostInfinity
@@ -170,7 +167,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64, res *m
 		// Add or update RIB entry
 		shouldRemove = false
 		cost = params.Cost.GetOr(0)
-		if cost < 0 {
+		if cost > config.CostInfinity {
 			log.Warn(dv, "Invalid Cost value", "Cost", cost)
 			return
 		}
