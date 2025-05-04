@@ -51,14 +51,15 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	paParams, err := mgmt.ParsePrefixInjection(enc.NewWireView(args.Interest.AppParam()), true)
+	// Decode Prefix Injection Object
+	// note: ReadData() will skip over any non-critical TLV arguments (StapledCertificate)
+	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(args.Interest.AppParam()))
 	if err != nil {
 		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
 		return
 	}
 
-	// Decode Prefix Injection Object
-	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(paParams.ObjectWire))
+	paParams, err := mgmt.ParsePrefixInjection(enc.NewWireView(args.Interest.AppParam()), true)
 	if err != nil {
 		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
 		return
