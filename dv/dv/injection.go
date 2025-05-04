@@ -155,16 +155,18 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64, res *m
 		return
 	}
 
+	var shouldRemove bool
 	var cost uint64
 	if params.ExpirationPeriod < 0 {
 		log.Warn(dv, "Invalid ExpirationPeriod value", "ExpirationPeriod", params.ExpirationPeriod)
 		return
 	} else if params.ExpirationPeriod == 0 {
 		// Remove the RIB entry
-		// TODO: do it the proper way
+		shouldRemove = true
 		cost = config.CostInfinity
 	} else {
 		// Add or update RIB entry
+		shouldRemove = false
 		cost = params.Cost.GetOr(0)
 		if cost < 0 {
 			log.Warn(dv, "Invalid Cost value", "Cost", cost)
@@ -172,22 +174,38 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64, res *m
 		}
 	}
 
-	dv.nfdc.Exec(nfdc.NfdMgmtCmd{
-		Module: "rib",
-		Cmd:    "register",
-		Args: &mgmt.ControlArgs{
-			Name:   prefix,
-			FaceId: optional.Some(faceId),
-			Origin: optional.Some(config.PrefixInjOrigin),
-			Cost:   optional.Some(cost),
-		},
-		Retries: 3,
-	})
+	if shouldRemove {
+		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
+			Module: "rib",
+			Cmd:    "unregister",
+			Args: &mgmt.ControlArgs{
+				Name:   prefix,
+				FaceId: optional.Some(faceId),
+			},
+			Retries: 3,
+		})
+	} else {
+		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
+			Module: "rib",
+			Cmd:    "register",
+			Args: &mgmt.ControlArgs{
+				Name:   prefix,
+				FaceId: optional.Some(faceId),
+				Origin: optional.Some(config.PrefixInjOrigin),
+				Cost:   optional.Some(cost),
+			},
+			Retries: 3,
+		})
+	}
 
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
-	dv.pfx.Announce(prefix, faceId, cost)
+	if shouldRemove {
+		dv.pfx.Withdraw(prefix, faceId)
+	} else {
+		dv.pfx.Announce(prefix, faceId, cost)
+	}
 
 	res.Val.StatusCode = 200
 	res.Val.StatusText = "Prefix Injection command successful"
