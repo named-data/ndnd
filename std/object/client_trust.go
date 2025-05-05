@@ -40,22 +40,25 @@ func (c *Client) ValidateExt(args ndn.ValidateExtArgs) {
 		overrideName = args.OverrideName
 	}
 
+	// Default fetch function
+	fetch := args.Fetch.GetOr(func(name enc.Name, config *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
+		config.NextHopId = args.CertNextHop
+		c.ExpressR(ndn.ExpressRArgs{
+			Name:     name,
+			Config:   config,
+			Retries:  3,
+			Callback: callback,
+			TryStore: c.store,
+		})
+	})
+
 	c.trust.Validate(sec.TrustConfigValidateArgs{
 		Data:              args.Data,
 		DataSigCov:        args.SigCovered,
 		Callback:          args.Callback,
 		OverrideName:      overrideName,
 		UseDataNameFwHint: args.UseDataNameFwHint,
-		Fetch: func(name enc.Name, config *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
-			config.NextHopId = args.CertNextHop
-			c.ExpressR(ndn.ExpressRArgs{
-				Name:     name,
-				Config:   config,
-				Retries:  3,
-				Callback: callback,
-				TryStore: c.store,
-			})
-		},
+		Fetch:             fetch,
 	})
 }
 

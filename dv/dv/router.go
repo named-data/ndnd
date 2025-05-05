@@ -1,6 +1,7 @@
 package dv
 
 import (
+	"os"
 	"sync"
 	"time"
 
@@ -32,6 +33,10 @@ type Router struct {
 	trust *sec.TrustConfig
 	// object client
 	client ndn.Client
+	// whether to do prefix injection
+	enablePrefixInjection bool
+	// prefix injection client
+	prefixInjectionClient ndn.Client
 	// nfd management thread
 	nfdc *nfdc.NfdMgmtThread
 	// single mutex for all operations
@@ -96,14 +101,43 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		trust.UseDataNameFwHint = true
 	}
 
+	enablePrefixInjection := config.PrefixInjectionSchemaPath != "deny"
+	prefixInjectionStore := storage.NewMemoryStore()
+	var prefixInjectionTrust *sec.TrustConfig = nil
+	if !enablePrefixInjection {
+		log.Warn(nil, "Prefix injection is disabled")
+	} else if config.PrefixInjectionSchemaPath == "insecure" || config.PrefixInjectionKeychainUri == "insecure" {
+		log.Warn(nil, "Prefix injection module is in allow-all mode")
+	} else {
+		kc, err := keychain.NewKeyChain(config.PrefixInjectionKeychainUri, prefixInjectionStore)
+		if err != nil {
+			return nil, err
+		}
+		schemaData, err := os.ReadFile(config.PrefixInjectionSchemaPath)
+		if err != nil {
+			return nil, err
+		}
+		schema, err := trust_schema.NewLvsSchema(schemaData)
+		if err != nil {
+			return nil, err
+		}
+		anchors := config.PrefixInjectionTrustAnchorNames()
+		prefixInjectionTrust, err = sec.NewTrustConfig(kc, schema, anchors)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Create the DV router
 	dv := &Router{
-		engine: engine,
-		config: config,
-		trust:  trust,
-		client: object.NewClient(engine, store, trust),
-		nfdc:   nfdc.NewNfdMgmtThread(engine),
-		mutex:  sync.Mutex{},
+		engine:                engine,
+		config:                config,
+		trust:                 trust,
+		client:                object.NewClient(engine, store, trust),
+		enablePrefixInjection: enablePrefixInjection,
+		prefixInjectionClient: object.NewClient(engine, prefixInjectionStore, prefixInjectionTrust),
+		nfdc:                  nfdc.NewNfdMgmtThread(engine),
+		mutex:                 sync.Mutex{},
 	}
 
 	// Initialize advertisement module
@@ -239,6 +273,19 @@ func (dv *Router) register() (err error) {
 		return err
 	}
 
+	injectPrefix := enc.NewGenericComponent("routing").
+		Append(enc.NewGenericComponent("inject"))
+
+	if dv.enablePrefixInjection {
+		err = dv.engine.AttachHandler(injectPrefix,
+			func(args ndn.InterestHandlerArgs) {
+				go dv.onInjection(args)
+			})
+		if err != nil {
+			return err
+		}
+	}
+
 	// Register routes to forwarder
 	pfxs := []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
@@ -247,6 +294,10 @@ func (dv *Router) register() (err error) {
 		dv.pfxSvs.DataPrefix(),
 		dv.config.MgmtPrefix(),
 	}
+	if dv.enablePrefixInjection {
+		pfxs = append(pfxs, injectPrefix)
+	}
+
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
 			Module: "rib",
