@@ -268,6 +268,18 @@ func (s *SvSync) GetBootTime() uint64 {
 	return s.o.BootTime
 }
 
+func (s *SvSync) GetNames() []enc.Name {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	names := make([]enc.Name, 0, len(s.state))
+	for name := range s.state.Iter() {
+		names = append(names, name)
+	}
+
+	return names
+}
+
 func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	// Deliver the updates after this call is done
 	// This ensures the mutex is not held during the callback

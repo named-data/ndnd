@@ -175,6 +175,11 @@ func (s *SvsALO) SeqNo() uint64 {
 	return s.svs.GetSeqNo(s.opts.Name)
 }
 
+// SVS returns the underlying SVS instance.
+func (s *SvsALO) SVS() *SvSync {
+	return s.svs
+}
+
 // Start starts the SvsALO instance.
 func (s *SvsALO) Start() error {
 	if err := s.svs.Start(); err != nil {
