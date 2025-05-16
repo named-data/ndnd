@@ -149,9 +149,10 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 
 	for i, c := range object.Name() {
 		if c.IsKeyword("PA") {
-			if len(object.Name()) != i+2 ||
-				!object.Name().At(i+1).IsSegment() ||
-				object.Name().At(i+1).NumberVal() != 0 {
+			if len(object.Name()) != i+3 ||
+				!object.Name().At(i+1).IsVersion() ||
+				!object.Name().At(i+2).IsSegment() ||
+				object.Name().At(i+2).NumberVal() != 0 {
 				found = false
 				break
 			}
