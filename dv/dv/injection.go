@@ -62,7 +62,7 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	// Decode Prefix Injection Object
+	// Decode Prefix Announcement Object
 	dCtx := spec.DataParsingContext{}
 	dCtx.Init()
 	data, err := dCtx.Parse(enc.NewBufferView(paParams.ObjectWire), true)
@@ -137,8 +137,8 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 		},
 	}
 
-	if contentType, set := object.ContentType().Get(); !set || contentType != ndn.ContentTypePrefixInjection {
-		log.Warn(dv, "Prefix Injection Object does not have the correct content type",
+	if contentType, set := object.ContentType().Get(); !set || contentType != ndn.ContentTypePrefixAnnouncement {
+		log.Warn(dv, "Prefix Announcement Object does not have the correct content type",
 			"contentType", object.ContentType())
 		return resError
 	}
@@ -148,7 +148,14 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 	found := false
 
 	for i, c := range object.Name() {
-		if c.IsKeyword("inject") {
+		if c.IsKeyword("PA") {
+			if len(object.Name()) != i+2 ||
+				!object.Name().At(i+1).IsSegment() ||
+				object.Name().At(i+1).NumberVal() != 0 {
+				found = false
+				break
+			}
+
 			prefix = object.Name().Prefix(i)
 			found = true
 			break
@@ -156,14 +163,14 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 	}
 
 	if !found {
-		log.Warn(dv, "Prefix Injection Object name not in correct format", "name", object.Name())
+		log.Warn(dv, "Prefix Announcement Object name not in correct format", "name", object.Name())
 		return resError
 	}
 
 	piWire := object.Content()
 	params, err := tlv.ParsePrefixInjectionInnerContent(enc.NewWireView(piWire), true)
 	if err != nil {
-		log.Warn(dv, "Failed to parse prefix injection object", "err", err)
+		log.Warn(dv, "Failed to parse prefix announcement object", "err", err)
 		return resError
 	}
 
