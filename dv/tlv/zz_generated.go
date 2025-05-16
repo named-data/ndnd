@@ -1730,7 +1730,7 @@ func (encoder *PrefixInjectionEncoder) Init(value *PrefixInjection) {
 				encoder := pseudoEncoder
 				value := &pseudoValue
 				if value.StapledCertificates != nil {
-					l += 1
+					l += 3
 					l += uint(enc.TLNum(len(value.StapledCertificates)).EncodingLength())
 					l += uint(len(value.StapledCertificates))
 				}
@@ -1768,8 +1768,9 @@ func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []
 				encoder := pseudoEncoder
 				value := &pseudoValue
 				if value.StapledCertificates != nil {
-					buf[pos] = byte(46)
-					pos += 1
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(534))
+					pos += 3
 					pos += uint(enc.TLNum(len(value.StapledCertificates)).EncodeInto(buf[pos:]))
 					copy(buf[pos:], value.StapledCertificates)
 					pos += uint(len(value.StapledCertificates))
@@ -1828,7 +1829,7 @@ func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreC
 		err = nil
 		if handled := false; true {
 			switch typ {
-			case 46:
+			case 534:
 				if true {
 					handled = true
 					handled_StapledCertificates = true
