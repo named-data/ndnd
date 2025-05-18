@@ -194,9 +194,52 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 		return resError
 	}
 
+	// Check validity period if it exists
+	expirationPeriod := params.ExpirationPeriod
+	if params.ValidityPeriod != nil {
+		const timeFormat = "20060102T150405" // Format for YYYYMMDDThhmmss
+		notBefore, err := time.Parse(timeFormat, params.ValidityPeriod.NotBefore)
+		if err != nil {
+			log.Warn(dv, "Failed to parse NotBefore time", "err", err, "value", params.ValidityPeriod.NotBefore)
+			return resError
+		}
+		notAfter, err := time.Parse(timeFormat, params.ValidityPeriod.NotAfter)
+		if err != nil {
+			log.Warn(dv, "Failed to parse NotAfter time", "err", err, "value", params.ValidityPeriod.NotAfter)
+			return resError
+		}
+
+		now := time.Now().UTC()
+		if now.Before(notBefore) || now.After(notAfter) {
+			log.Info(dv, "Prefix injection outside validity period",
+				"prefix", prefix,
+				"notBefore", notBefore,
+				"notAfter", notAfter,
+				"now", now)
+			return &mgmt.ControlResponse{
+				Val: &mgmt.ControlResponseVal{
+					StatusCode: 403,
+					StatusText: "Prefix injection outside validity period",
+					Params:     nil,
+				},
+			}
+		}
+
+		// Adjust expiration to be the minimum of the current expiration and notAfter - now
+		if expirationPeriod > 0 {
+			timeUntilExpiry := notAfter.Sub(now)
+			if timeUntilExpiry < time.Duration(expirationPeriod)*time.Millisecond {
+				expirationPeriod = uint64(timeUntilExpiry.Milliseconds())
+				log.Debug(dv, "Adjusted expiration period based on validity period",
+					"prefix", prefix,
+					"newExpiration", expirationPeriod)
+			}
+		}
+	}
+
 	var shouldRemove bool
 	var cost uint64
-	if params.ExpirationPeriod == 0 {
+	if expirationPeriod == 0 {
 		// Remove the RIB entry
 		shouldRemove = true
 		cost = config.CostInfinity
@@ -209,6 +252,9 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 			return resError
 		}
 	}
+
+	// TODO: use the expiration period to set the lifetime of the RIB and prefix table entry
+	// (Currently the prefix table does not have a lifetime)
 
 	if shouldRemove {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
