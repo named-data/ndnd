@@ -65,6 +65,9 @@ type Router struct {
 	rib *table.Rib
 	// forwarding table
 	fib *table.Fib
+
+	// map to track seen prefix injection versions (prefix hash -> version)
+	seenPrefixVersions map[uint64]uint64
 }
 
 // Create a new DV router.
@@ -138,6 +141,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		prefixInjectionClient: object.NewClient(engine, prefixInjectionStore, prefixInjectionTrust),
 		nfdc:                  nfdc.NewNfdMgmtThread(engine),
 		mutex:                 sync.Mutex{},
+		seenPrefixVersions:    make(map[uint64]uint64),
 	}
 
 	// Initialize advertisement module

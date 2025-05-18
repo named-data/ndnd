@@ -143,9 +143,9 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 		return resError
 	}
 
-	// TODO: reject already seen injections (using version)
 	var prefix enc.Name
 	found := false
+	var version uint64
 
 	for i, c := range object.Name() {
 		if c.IsKeyword("PA") {
@@ -158,6 +158,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 			}
 
 			prefix = object.Name().Prefix(i)
+			version = object.Name().At(i + 1).NumberVal()
 			found = true
 			break
 		}
@@ -167,6 +168,24 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 		log.Warn(dv, "Prefix Announcement Object name not in correct format", "name", object.Name())
 		return resError
 	}
+
+	// Check if we've seen a newer version of this prefix injection
+	prefixHash := prefix.Hash()
+	if lastVersion, exists := dv.seenPrefixVersions[prefixHash]; exists && lastVersion >= version {
+		log.Info(dv, "Rejecting older or duplicate prefix injection",
+			"prefix", prefix,
+			"version", version,
+			"lastVersion", lastVersion)
+		return &mgmt.ControlResponse{
+			Val: &mgmt.ControlResponseVal{
+				StatusCode: 409,
+				StatusText: "Older or duplicate prefix injection version",
+				Params:     nil,
+			},
+		}
+	}
+
+	dv.seenPrefixVersions[prefixHash] = version
 
 	piWire := object.Content()
 	params, err := tlv.ParsePrefixInjectionInnerContent(enc.NewWireView(piWire), true)
