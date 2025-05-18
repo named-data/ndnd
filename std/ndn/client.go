@@ -161,6 +161,9 @@ type ValidateExtArgs struct {
 	CertNextHop optional.Optional[uint64]
 	// UseDataNameFwHint overrides trust config option.
 	UseDataNameFwHint optional.Optional[bool]
+	// Fetch function to use for fetching certificates.
+	// The fetcher MUST check the store for the certificate before fetching.
+	Fetch optional.Optional[func(enc.Name, *InterestConfig, ExpressCallbackFunc)]
 }
 
 // Announcement are the arguments for the announce prefix API.
