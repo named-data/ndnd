@@ -197,13 +197,12 @@ func (dv *Router) onPrefixInsertionObject(object ndn.Data, faceId uint64) *mgmt.
 	// Check validity period if it exists
 	expirationPeriod := params.ExpirationPeriod
 	if params.ValidityPeriod != nil {
-		const timeFormat = "20060102T150405" // Format for YYYYMMDDThhmmss
-		notBefore, err := time.Parse(timeFormat, params.ValidityPeriod.NotBefore)
+		notBefore, err := time.Parse(spec.TimeFmt, params.ValidityPeriod.NotBefore)
 		if err != nil {
 			log.Warn(dv, "Failed to parse NotBefore time", "err", err, "value", params.ValidityPeriod.NotBefore)
 			return resError
 		}
-		notAfter, err := time.Parse(timeFormat, params.ValidityPeriod.NotAfter)
+		notAfter, err := time.Parse(spec.TimeFmt, params.ValidityPeriod.NotAfter)
 		if err != nil {
 			log.Warn(dv, "Failed to parse NotAfter time", "err", err, "value", params.ValidityPeriod.NotAfter)
 			return resError
