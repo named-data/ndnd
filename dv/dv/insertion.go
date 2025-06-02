@@ -15,11 +15,11 @@ import (
 	"github.com/named-data/ndnd/std/types/optional"
 )
 
-func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
+func (dv *Router) onInsertion(args ndn.InterestHandlerArgs) {
 	resError := &mgmt.ControlResponse{
 		Val: &mgmt.ControlResponseVal{
 			StatusCode: 400,
-			StatusText: "Failed to execute prefix injection",
+			StatusText: "Failed to execute prefix insertion",
 			Params:     nil,
 		},
 	}
@@ -35,7 +35,7 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 			res.Encode(),
 			signer)
 		if err != nil {
-			log.Warn(dv, "Failed to make inject response Data", "err", err)
+			log.Warn(dv, "Failed to make Prefix Insertion response Data", "err", err)
 			return
 		}
 		args.Reply(data.Wire)
@@ -43,21 +43,21 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 
 	// If there is no incoming face ID, we can't use this
 	if !args.IncomingFaceId.IsSet() {
-		log.Warn(dv, "Received Prefix Injection with no incoming face ID, ignoring")
+		log.Warn(dv, "Received Prefix Insertion with no incoming face ID, ignoring")
 		reply(resError)
 		return
 	}
 
 	// Check if app param is present
 	if args.Interest.AppParam() == nil {
-		log.Warn(dv, "Received Prefix Injection with no AppParam, ignoring")
+		log.Warn(dv, "Received Prefix Insertion with no AppParam, ignoring")
 		reply(resError)
 		return
 	}
 
-	paParams, err := tlv.ParsePrefixInjection(enc.NewWireView(args.Interest.AppParam()), true)
+	paParams, err := tlv.ParsePrefixInsertion(enc.NewWireView(args.Interest.AppParam()), true)
 	if err != nil {
-		log.Warn(dv, "Failed to parse Prefix Injection AppParam", "err", err)
+		log.Warn(dv, "Failed to parse Prefix Insertion AppParam", "err", err)
 		reply(resError)
 		return
 	}
@@ -67,7 +67,7 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 	dCtx.Init()
 	data, err := dCtx.Parse(enc.NewBufferView(paParams.ObjectWire), true)
 	if err != nil {
-		log.Warn(dv, "Failed to parse Prefix Injection inner data", "err", err)
+		log.Warn(dv, "Failed to parse Prefix Insertion inner data", "err", err)
 		reply(resError)
 		return
 	}
@@ -93,13 +93,13 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 	}
 
 	// Validate signature
-	dv.prefixInjectionClient.ValidateExt(ndn.ValidateExtArgs{
+	dv.prefixInsertionClient.ValidateExt(ndn.ValidateExtArgs{
 		Data:       data,
 		SigCovered: sigCov,
 		Fetch: optional.Some(func(name enc.Name, config *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
 			for _, certCallback := range stapledCertCallbacks {
 				if certCallback.Data.Name().Equal(name) {
-					dv.prefixInjectionClient.Engine().Post(func() {
+					dv.prefixInsertionClient.Engine().Post(func() {
 						callback(certCallback)
 					})
 					return
@@ -107,12 +107,12 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 			}
 
 			config.NextHopId = optional.None[uint64]()
-			dv.prefixInjectionClient.ExpressR(ndn.ExpressRArgs{
+			dv.prefixInsertionClient.ExpressR(ndn.ExpressRArgs{
 				Name:     name,
 				Config:   config,
 				Retries:  3,
 				Callback: callback,
-				TryStore: dv.prefixInjectionClient.Store(),
+				TryStore: dv.prefixInsertionClient.Store(),
 			})
 		}),
 		Callback: func(valid bool, err error) {
@@ -122,17 +122,17 @@ func (dv *Router) onInjection(args ndn.InterestHandlerArgs) {
 				return
 			}
 
-			res := dv.onPrefixInjectionObject(data, args.IncomingFaceId.Unwrap())
+			res := dv.onPrefixInsertionObject(data, args.IncomingFaceId.Unwrap())
 			reply(res)
 		},
 	})
 }
 
-func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.ControlResponse {
+func (dv *Router) onPrefixInsertionObject(object ndn.Data, faceId uint64) *mgmt.ControlResponse {
 	resError := &mgmt.ControlResponse{
 		Val: &mgmt.ControlResponseVal{
 			StatusCode: 400,
-			StatusText: "Failed to execute prefix injection",
+			StatusText: "Failed to execute prefix insertion",
 			Params:     nil,
 		},
 	}
@@ -169,17 +169,17 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 		return resError
 	}
 
-	// Check if we've seen a newer version of this prefix injection
+	// Check if we've seen a newer version of this prefix insertion
 	prefixHash := prefix.Hash()
 	if lastVersion, exists := dv.seenPrefixVersions[prefixHash]; exists && lastVersion >= version {
-		log.Info(dv, "Rejecting older or duplicate prefix injection",
+		log.Info(dv, "Rejecting older or duplicate prefix insertion",
 			"prefix", prefix,
 			"version", version,
 			"lastVersion", lastVersion)
 		return &mgmt.ControlResponse{
 			Val: &mgmt.ControlResponseVal{
 				StatusCode: 409,
-				StatusText: "Older or duplicate prefix injection version",
+				StatusText: "Older or duplicate prefix insertion version",
 				Params:     nil,
 			},
 		}
@@ -188,7 +188,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 	dv.seenPrefixVersions[prefixHash] = version
 
 	piWire := object.Content()
-	params, err := tlv.ParsePrefixInjectionInnerContent(enc.NewWireView(piWire), true)
+	params, err := tlv.ParsePrefixInsertionInnerContent(enc.NewWireView(piWire), true)
 	if err != nil {
 		log.Warn(dv, "Failed to parse prefix announcement object", "err", err)
 		return resError
@@ -211,7 +211,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 
 		now := time.Now().UTC()
 		if now.Before(notBefore) || now.After(notAfter) {
-			log.Info(dv, "Prefix injection outside validity period",
+			log.Info(dv, "Prefix insertion outside validity period",
 				"prefix", prefix,
 				"notBefore", notBefore,
 				"notAfter", notAfter,
@@ -219,7 +219,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 			return &mgmt.ControlResponse{
 				Val: &mgmt.ControlResponseVal{
 					StatusCode: 403,
-					StatusText: "Prefix injection outside validity period",
+					StatusText: "Prefix insertion outside validity period",
 					Params:     nil,
 				},
 			}
@@ -273,7 +273,7 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 			Args: &mgmt.ControlArgs{
 				Name:   prefix,
 				FaceId: optional.Some(faceId),
-				Origin: optional.Some(config.PrefixInjOrigin),
+				Origin: optional.Some(config.PrefixInsOrigin),
 				Cost:   optional.Some(cost),
 			},
 			Retries: 3,
@@ -292,11 +292,11 @@ func (dv *Router) onPrefixInjectionObject(object ndn.Data, faceId uint64) *mgmt.
 	return &mgmt.ControlResponse{
 		Val: &mgmt.ControlResponseVal{
 			StatusCode: 200,
-			StatusText: "Prefix Injection command successful",
+			StatusText: "Prefix Insertion command successful",
 			Params: &mgmt.ControlArgs{
 				Name:   prefix,
 				FaceId: optional.Some(faceId),
-				Origin: optional.Some(config.PrefixInjOrigin),
+				Origin: optional.Some(config.PrefixInsOrigin),
 				Cost:   optional.Some(cost),
 			},
 		},

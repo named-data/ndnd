@@ -31,7 +31,7 @@ const (
 	RouteOriginStatic    RouteOrigin = 255
 	RouteOriginNLSR      RouteOrigin = 128
 	RouteOriginPrefixAnn RouteOrigin = 129
-	RouteOriginPrefixInj RouteOrigin = 130
+	RouteOriginPrefixIns RouteOrigin = 130
 	RouteOriginClient    RouteOrigin = 65
 	RouteOriginAutoreg   RouteOrigin = 64
 	RouteOriginAutoconf  RouteOrigin = 66

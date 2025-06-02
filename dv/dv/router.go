@@ -33,10 +33,10 @@ type Router struct {
 	trust *sec.TrustConfig
 	// object client
 	client ndn.Client
-	// whether to do prefix injection
-	enablePrefixInjection bool
-	// prefix injection client
-	prefixInjectionClient ndn.Client
+	// whether to do prefix insertion
+	enablePrefixInsertion bool
+	// prefix insertion client
+	prefixInsertionClient ndn.Client
 	// nfd management thread
 	nfdc *nfdc.NfdMgmtThread
 	// single mutex for all operations
@@ -66,7 +66,7 @@ type Router struct {
 	// forwarding table
 	fib *table.Fib
 
-	// map to track seen prefix injection versions (prefix hash -> version)
+	// map to track seen prefix insertion versions (prefix hash -> version)
 	seenPrefixVersions map[uint64]uint64
 }
 
@@ -104,19 +104,19 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		trust.UseDataNameFwHint = true
 	}
 
-	enablePrefixInjection := config.PrefixInjectionSchemaPath != "deny"
-	prefixInjectionStore := storage.NewMemoryStore()
-	var prefixInjectionTrust *sec.TrustConfig = nil
-	if !enablePrefixInjection {
-		log.Warn(nil, "Prefix injection is disabled")
-	} else if config.PrefixInjectionSchemaPath == "insecure" || config.PrefixInjectionKeychainUri == "insecure" {
-		log.Warn(nil, "Prefix injection module is in allow-all mode")
+	enablePrefixInsertion := config.PrefixInsertionSchemaPath != "deny"
+	prefixInsertionStore := storage.NewMemoryStore()
+	var prefixInsertionTrust *sec.TrustConfig = nil
+	if !enablePrefixInsertion {
+		log.Warn(nil, "Prefix insertion is disabled")
+	} else if config.PrefixInsertionSchemaPath == "insecure" || config.PrefixInsertionKeychainUri == "insecure" {
+		log.Warn(nil, "Prefix insertion module is in allow-all mode")
 	} else {
-		kc, err := keychain.NewKeyChain(config.PrefixInjectionKeychainUri, prefixInjectionStore)
+		kc, err := keychain.NewKeyChain(config.PrefixInsertionKeychainUri, prefixInsertionStore)
 		if err != nil {
 			return nil, err
 		}
-		schemaData, err := os.ReadFile(config.PrefixInjectionSchemaPath)
+		schemaData, err := os.ReadFile(config.PrefixInsertionSchemaPath)
 		if err != nil {
 			return nil, err
 		}
@@ -124,8 +124,8 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		if err != nil {
 			return nil, err
 		}
-		anchors := config.PrefixInjectionTrustAnchorNames()
-		prefixInjectionTrust, err = sec.NewTrustConfig(kc, schema, anchors)
+		anchors := config.PrefixInsertionTrustAnchorNames()
+		prefixInsertionTrust, err = sec.NewTrustConfig(kc, schema, anchors)
 		if err != nil {
 			return nil, err
 		}
@@ -137,8 +137,8 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		config:                config,
 		trust:                 trust,
 		client:                object.NewClient(engine, store, trust),
-		enablePrefixInjection: enablePrefixInjection,
-		prefixInjectionClient: object.NewClient(engine, prefixInjectionStore, prefixInjectionTrust),
+		enablePrefixInsertion: enablePrefixInsertion,
+		prefixInsertionClient: object.NewClient(engine, prefixInsertionStore, prefixInsertionTrust),
 		nfdc:                  nfdc.NewNfdMgmtThread(engine),
 		mutex:                 sync.Mutex{},
 		seenPrefixVersions:    make(map[uint64]uint64),
@@ -277,13 +277,13 @@ func (dv *Router) register() (err error) {
 		return err
 	}
 
-	injectPrefix := enc.NewGenericComponent("routing").
-		Append(enc.NewGenericComponent("inject"))
+	insertPrefix := enc.NewGenericComponent("routing").
+		Append(enc.NewGenericComponent("insert"))
 
-	if dv.enablePrefixInjection {
-		err = dv.engine.AttachHandler(injectPrefix,
+	if dv.enablePrefixInsertion {
+		err = dv.engine.AttachHandler(insertPrefix,
 			func(args ndn.InterestHandlerArgs) {
-				go dv.onInjection(args)
+				go dv.onInsertion(args)
 			})
 		if err != nil {
 			return err
@@ -298,8 +298,8 @@ func (dv *Router) register() (err error) {
 		dv.pfxSvs.DataPrefix(),
 		dv.config.MgmtPrefix(),
 	}
-	if dv.enablePrefixInjection {
-		pfxs = append(pfxs, injectPrefix)
+	if dv.enablePrefixInsertion {
+		pfxs = append(pfxs, insertPrefix)
 	}
 
 	for _, prefix := range pfxs {

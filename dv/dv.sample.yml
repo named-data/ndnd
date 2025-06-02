@@ -12,16 +12,16 @@ dv:
   trust_anchors:
     - "/ndn/KEY/%27%C4%B2%2A%9F%7B%81%27/ndn/v=1651246789556"
 
-  # [optional] Trust schema for prefix injection
+  # [optional] Trust schema for prefix insertion
   # - If "insecure" is specified, security is disabled
-  # - If "deny" is specified, the prefix injection handler will be turned off
+  # - If "deny" is specified, the prefix insertion handler will be turned off
   # - Example: /absolute/path/to/schema.tlv
-  prefix_injection_schema: "insecure"
-  # [optional] Keychain URI for prefix injection
-  prefix_injection_keychain: "insecure"
-  # [optional] List of full names of all prefix injection trust anchors
+  prefix_insertion_schema: "insecure"
+  # [optional] Keychain URI for prefix insertion
+  prefix_insertion_keychain: "insecure"
+  # [optional] List of full names of all prefix insertion trust anchors
   # - There should be at least one trust anchor if the schema is not "insecure" or "deny"
-  prefix_injection_trust_anchors: []
+  prefix_insertion_trust_anchors: []
 
   # [optional] List of permanent neighbors
   # Example with all options:

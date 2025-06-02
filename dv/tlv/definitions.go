@@ -73,14 +73,14 @@ type Status struct {
 	NFibEntries uint64 `tlv:"0x19B"`
 }
 
-type PrefixInjection struct {
+type PrefixInsertion struct {
 	//+field:sequence:[]byte:binary:[]byte
 	StapledCertificates [][]byte `tlv:"0x216"`
 	//+field:binary
 	ObjectWire []byte `tlv:"0x06"`
 }
 
-type PrefixInjectionInnerContent struct {
+type PrefixInsertionInnerContent struct {
 	//+field:natural
 	ExpirationPeriod uint64 `tlv:"0x6d"`
 	//+field:struct:spec_2022.ValidityPeriod

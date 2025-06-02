@@ -1685,17 +1685,17 @@ func ParseStatus(reader enc.WireView, ignoreCritical bool) (*Status, error) {
 	return context.Parse(reader, ignoreCritical)
 }
 
-type PrefixInjectionEncoder struct {
+type PrefixInsertionEncoder struct {
 	Length uint
 
 	StapledCertificates_subencoder []struct {
 	}
 }
 
-type PrefixInjectionParsingContext struct {
+type PrefixInsertionParsingContext struct {
 }
 
-func (encoder *PrefixInjectionEncoder) Init(value *PrefixInjection) {
+func (encoder *PrefixInsertionEncoder) Init(value *PrefixInsertion) {
 	{
 		StapledCertificates_l := len(value.StapledCertificates)
 		encoder.StapledCertificates_subencoder = make([]struct {
@@ -1748,11 +1748,11 @@ func (encoder *PrefixInjectionEncoder) Init(value *PrefixInjection) {
 
 }
 
-func (context *PrefixInjectionParsingContext) Init() {
+func (context *PrefixInsertionParsingContext) Init() {
 
 }
 
-func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []byte) {
+func (encoder *PrefixInsertionEncoder) EncodeInto(value *PrefixInsertion, buf []byte) {
 
 	pos := uint(0)
 
@@ -1789,7 +1789,7 @@ func (encoder *PrefixInjectionEncoder) EncodeInto(value *PrefixInjection, buf []
 	}
 }
 
-func (encoder *PrefixInjectionEncoder) Encode(value *PrefixInjection) enc.Wire {
+func (encoder *PrefixInsertionEncoder) Encode(value *PrefixInsertion) enc.Wire {
 
 	wire := make(enc.Wire, 1)
 	wire[0] = make([]byte, encoder.Length)
@@ -1799,7 +1799,7 @@ func (encoder *PrefixInjectionEncoder) Encode(value *PrefixInjection) enc.Wire {
 	return wire
 }
 
-func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
+func (context *PrefixInsertionParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInsertion, error) {
 
 	var handled_StapledCertificates bool = false
 	var handled_ObjectWire bool = false
@@ -1807,7 +1807,7 @@ func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreC
 	progress := -1
 	_ = progress
 
-	value := &PrefixInjection{}
+	value := &PrefixInsertion{}
 	var err error
 	var startPos int
 	for {
@@ -1889,33 +1889,33 @@ func (context *PrefixInjectionParsingContext) Parse(reader enc.WireView, ignoreC
 	return value, nil
 }
 
-func (value *PrefixInjection) Encode() enc.Wire {
-	encoder := PrefixInjectionEncoder{}
+func (value *PrefixInsertion) Encode() enc.Wire {
+	encoder := PrefixInsertionEncoder{}
 	encoder.Init(value)
 	return encoder.Encode(value)
 }
 
-func (value *PrefixInjection) Bytes() []byte {
+func (value *PrefixInsertion) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParsePrefixInjection(reader enc.WireView, ignoreCritical bool) (*PrefixInjection, error) {
-	context := PrefixInjectionParsingContext{}
+func ParsePrefixInsertion(reader enc.WireView, ignoreCritical bool) (*PrefixInsertion, error) {
+	context := PrefixInsertionParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
 
-type PrefixInjectionInnerContentEncoder struct {
+type PrefixInsertionInnerContentEncoder struct {
 	Length uint
 
 	ValidityPeriod_encoder spec_2022.ValidityPeriodEncoder
 }
 
-type PrefixInjectionInnerContentParsingContext struct {
+type PrefixInsertionInnerContentParsingContext struct {
 	ValidityPeriod_context spec_2022.ValidityPeriodParsingContext
 }
 
-func (encoder *PrefixInjectionInnerContentEncoder) Init(value *PrefixInjectionInnerContent) {
+func (encoder *PrefixInsertionInnerContentEncoder) Init(value *PrefixInsertionInnerContent) {
 
 	if value.ValidityPeriod != nil {
 		encoder.ValidityPeriod_encoder.Init(value.ValidityPeriod)
@@ -1937,13 +1937,13 @@ func (encoder *PrefixInjectionInnerContentEncoder) Init(value *PrefixInjectionIn
 
 }
 
-func (context *PrefixInjectionInnerContentParsingContext) Init() {
+func (context *PrefixInsertionInnerContentParsingContext) Init() {
 
 	context.ValidityPeriod_context.Init()
 
 }
 
-func (encoder *PrefixInjectionInnerContentEncoder) EncodeInto(value *PrefixInjectionInnerContent, buf []byte) {
+func (encoder *PrefixInsertionInnerContentEncoder) EncodeInto(value *PrefixInsertionInnerContent, buf []byte) {
 
 	pos := uint(0)
 
@@ -1972,7 +1972,7 @@ func (encoder *PrefixInjectionInnerContentEncoder) EncodeInto(value *PrefixInjec
 	}
 }
 
-func (encoder *PrefixInjectionInnerContentEncoder) Encode(value *PrefixInjectionInnerContent) enc.Wire {
+func (encoder *PrefixInsertionInnerContentEncoder) Encode(value *PrefixInsertionInnerContent) enc.Wire {
 
 	wire := make(enc.Wire, 1)
 	wire[0] = make([]byte, encoder.Length)
@@ -1982,7 +1982,7 @@ func (encoder *PrefixInjectionInnerContentEncoder) Encode(value *PrefixInjection
 	return wire
 }
 
-func (context *PrefixInjectionInnerContentParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInjectionInnerContent, error) {
+func (context *PrefixInsertionInnerContentParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInsertionInnerContent, error) {
 
 	var handled_ExpirationPeriod bool = false
 	var handled_ValidityPeriod bool = false
@@ -1991,7 +1991,7 @@ func (context *PrefixInjectionInnerContentParsingContext) Parse(reader enc.WireV
 	progress := -1
 	_ = progress
 
-	value := &PrefixInjectionInnerContent{}
+	value := &PrefixInsertionInnerContent{}
 	var err error
 	var startPos int
 	for {
@@ -2096,18 +2096,18 @@ func (context *PrefixInjectionInnerContentParsingContext) Parse(reader enc.WireV
 	return value, nil
 }
 
-func (value *PrefixInjectionInnerContent) Encode() enc.Wire {
-	encoder := PrefixInjectionInnerContentEncoder{}
+func (value *PrefixInsertionInnerContent) Encode() enc.Wire {
+	encoder := PrefixInsertionInnerContentEncoder{}
 	encoder.Init(value)
 	return encoder.Encode(value)
 }
 
-func (value *PrefixInjectionInnerContent) Bytes() []byte {
+func (value *PrefixInsertionInnerContent) Bytes() []byte {
 	return value.Encode().Join()
 }
 
-func ParsePrefixInjectionInnerContent(reader enc.WireView, ignoreCritical bool) (*PrefixInjectionInnerContent, error) {
-	context := PrefixInjectionInnerContentParsingContext{}
+func ParsePrefixInsertionInnerContent(reader enc.WireView, ignoreCritical bool) (*PrefixInsertionInnerContent, error) {
+	context := PrefixInsertionInnerContentParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
