@@ -105,30 +105,34 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 	}
 
 	enablePrefixInsertion := config.PrefixInsertionSchemaPath != "deny"
-	prefixInsertionStore := storage.NewMemoryStore()
-	var prefixInsertionTrust *sec.TrustConfig = nil
-	if !enablePrefixInsertion {
-		log.Warn(nil, "Prefix insertion is disabled")
-	} else if config.PrefixInsertionSchemaPath == "insecure" || config.PrefixInsertionKeychainUri == "insecure" {
-		log.Warn(nil, "Prefix insertion module is in allow-all mode")
+	var prefixInsertionClient ndn.Client
+	if enablePrefixInsertion {
+		prefixInsertionStore := storage.NewMemoryStore()
+		var prefixInsertionTrust *sec.TrustConfig = nil
+		if config.PrefixInsertionSchemaPath == "insecure" || config.PrefixInsertionKeychainUri == "insecure" {
+			log.Warn(nil, "Prefix insertion module is in allow-all mode")
+		} else {
+			kc, err := keychain.NewKeyChain(config.PrefixInsertionKeychainUri, prefixInsertionStore)
+			if err != nil {
+				return nil, err
+			}
+			schemaData, err := os.ReadFile(config.PrefixInsertionSchemaPath)
+			if err != nil {
+				return nil, err
+			}
+			schema, err := trust_schema.NewLvsSchema(schemaData)
+			if err != nil {
+				return nil, err
+			}
+			anchors := config.PrefixInsertionTrustAnchorNames()
+			prefixInsertionTrust, err = sec.NewTrustConfig(kc, schema, anchors)
+			if err != nil {
+				return nil, err
+			}
+		}
+		prefixInsertionClient = object.NewClient(engine, prefixInsertionStore, prefixInsertionTrust)
 	} else {
-		kc, err := keychain.NewKeyChain(config.PrefixInsertionKeychainUri, prefixInsertionStore)
-		if err != nil {
-			return nil, err
-		}
-		schemaData, err := os.ReadFile(config.PrefixInsertionSchemaPath)
-		if err != nil {
-			return nil, err
-		}
-		schema, err := trust_schema.NewLvsSchema(schemaData)
-		if err != nil {
-			return nil, err
-		}
-		anchors := config.PrefixInsertionTrustAnchorNames()
-		prefixInsertionTrust, err = sec.NewTrustConfig(kc, schema, anchors)
-		if err != nil {
-			return nil, err
-		}
+		log.Warn(nil, "Prefix insertion is disabled")
 	}
 
 	// Create the DV router
@@ -138,7 +142,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		trust:                 trust,
 		client:                object.NewClient(engine, store, trust),
 		enablePrefixInsertion: enablePrefixInsertion,
-		prefixInsertionClient: object.NewClient(engine, prefixInsertionStore, prefixInsertionTrust),
+		prefixInsertionClient: prefixInsertionClient,
 		nfdc:                  nfdc.NewNfdMgmtThread(engine),
 		mutex:                 sync.Mutex{},
 		seenPrefixVersions:    make(map[uint64]uint64),
@@ -189,6 +193,11 @@ func (dv *Router) Start() (err error) {
 	// Start object client
 	dv.client.Start()
 	defer dv.client.Stop()
+
+	if dv.enablePrefixInsertion {
+		dv.prefixInsertionClient.Start()
+		defer dv.prefixInsertionClient.Stop()
+	}
 
 	// Start management thread
 	go dv.nfdc.Start()
