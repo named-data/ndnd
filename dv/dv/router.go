@@ -194,11 +194,6 @@ func (dv *Router) Start() (err error) {
 	dv.client.Start()
 	defer dv.client.Stop()
 
-	if dv.enablePrefixInsertion {
-		dv.prefixInsertionClient.Start()
-		defer dv.prefixInsertionClient.Stop()
-	}
-
 	// Start management thread
 	go dv.nfdc.Start()
 	defer dv.nfdc.Stop()
