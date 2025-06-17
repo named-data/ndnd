@@ -77,7 +77,7 @@ type PrefixInsertion struct {
 	//+field:sequence:[]byte:binary:[]byte
 	StapledCertificates [][]byte `tlv:"0x216"`
 	//+field:binary
-	ObjectWire []byte `tlv:"0x06"`
+	Data []byte `tlv:"0x06"`
 }
 
 type PrefixInsertionInnerContent struct {

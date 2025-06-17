@@ -1739,10 +1739,10 @@ func (encoder *PrefixInsertionEncoder) Init(value *PrefixInsertion) {
 			}
 		}
 	}
-	if value.ObjectWire != nil {
+	if value.Data != nil {
 		l += 1
-		l += uint(enc.TLNum(len(value.ObjectWire)).EncodingLength())
-		l += uint(len(value.ObjectWire))
+		l += uint(enc.TLNum(len(value.Data)).EncodingLength())
+		l += uint(len(value.Data))
 	}
 	encoder.Length = l
 
@@ -1780,12 +1780,12 @@ func (encoder *PrefixInsertionEncoder) EncodeInto(value *PrefixInsertion, buf []
 			}
 		}
 	}
-	if value.ObjectWire != nil {
+	if value.Data != nil {
 		buf[pos] = byte(6)
 		pos += 1
-		pos += uint(enc.TLNum(len(value.ObjectWire)).EncodeInto(buf[pos:]))
-		copy(buf[pos:], value.ObjectWire)
-		pos += uint(len(value.ObjectWire))
+		pos += uint(enc.TLNum(len(value.Data)).EncodeInto(buf[pos:]))
+		copy(buf[pos:], value.Data)
+		pos += uint(len(value.Data))
 	}
 }
 
@@ -1802,7 +1802,7 @@ func (encoder *PrefixInsertionEncoder) Encode(value *PrefixInsertion) enc.Wire {
 func (context *PrefixInsertionParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInsertion, error) {
 
 	var handled_StapledCertificates bool = false
-	var handled_ObjectWire bool = false
+	var handled_Data bool = false
 
 	progress := -1
 	_ = progress
@@ -1853,9 +1853,9 @@ func (context *PrefixInsertionParsingContext) Parse(reader enc.WireView, ignoreC
 			case 6:
 				if true {
 					handled = true
-					handled_ObjectWire = true
-					value.ObjectWire = make([]byte, l)
-					_, err = reader.ReadFull(value.ObjectWire)
+					handled_Data = true
+					value.Data = make([]byte, l)
+					_, err = reader.ReadFull(value.Data)
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -1878,8 +1878,8 @@ func (context *PrefixInsertionParsingContext) Parse(reader enc.WireView, ignoreC
 	if !handled_StapledCertificates && err == nil {
 		// sequence - skip
 	}
-	if !handled_ObjectWire && err == nil {
-		value.ObjectWire = nil
+	if !handled_Data && err == nil {
+		value.Data = nil
 	}
 
 	if err != nil {

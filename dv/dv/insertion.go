@@ -65,7 +65,7 @@ func (dv *Router) onInsertion(args ndn.InterestHandlerArgs) {
 	// Decode Prefix Announcement Object
 	dCtx := spec.DataParsingContext{}
 	dCtx.Init()
-	data, err := dCtx.Parse(enc.NewBufferView(paParams.ObjectWire), true)
+	data, err := dCtx.Parse(enc.NewBufferView(paParams.Data), true)
 	if err != nil {
 		log.Warn(dv, "Failed to parse Prefix Insertion inner data", "err", err)
 		reply(resError)
