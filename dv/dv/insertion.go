@@ -170,8 +170,8 @@ func (dv *Router) onPrefixInsertionObject(object ndn.Data, faceId uint64) *mgmt.
 	}
 
 	// Check if we've seen a newer version of this prefix insertion
-	prefixHash := prefix.Hash()
-	if lastVersion, exists := dv.seenPrefixVersions[prefixHash]; exists && lastVersion >= version {
+	prefixStr := string(prefix.Bytes())
+	if lastVersion, exists := dv.seenPrefixVersions[prefixStr]; exists && lastVersion >= version {
 		log.Info(dv, "Rejecting older or duplicate prefix insertion",
 			"prefix", prefix,
 			"version", version,
@@ -185,7 +185,7 @@ func (dv *Router) onPrefixInsertionObject(object ndn.Data, faceId uint64) *mgmt.
 		}
 	}
 
-	dv.seenPrefixVersions[prefixHash] = version
+	dv.seenPrefixVersions[prefixStr] = version
 
 	piWire := object.Content()
 	params, err := tlv.ParsePrefixInsertionInnerContent(enc.NewWireView(piWire), true)

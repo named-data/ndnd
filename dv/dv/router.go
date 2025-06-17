@@ -66,8 +66,8 @@ type Router struct {
 	// forwarding table
 	fib *table.Fib
 
-	// map to track seen prefix insertion versions (prefix hash -> version)
-	seenPrefixVersions map[uint64]uint64
+	// map to track seen prefix insertion versions (prefix string -> version)
+	seenPrefixVersions map[string]uint64
 }
 
 // Create a new DV router.
@@ -145,7 +145,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		prefixInsertionClient: prefixInsertionClient,
 		nfdc:                  nfdc.NewNfdMgmtThread(engine),
 		mutex:                 sync.Mutex{},
-		seenPrefixVersions:    make(map[uint64]uint64),
+		seenPrefixVersions:    make(map[string]uint64),
 	}
 
 	// Initialize advertisement module
