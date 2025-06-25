@@ -89,31 +89,33 @@ func Query(ctx context.Context, req Request) (res Response, e error) {
 	req.applyDefaults()
 	u, e := req.toURL()
 	if e != nil {
-		return res, e
+		return
 	}
 
 	hReq, e := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if e != nil {
-		return res, e
+		return
 	}
 	hReq.Header.Set("Accept", "application/json, text/plain, */*")
 
 	hRes, e := http.DefaultClient.Do(hReq)
 	if e != nil {
-		return res, e
+		return
 	}
+	defer hRes.Body.Close()
+
 	if hRes.StatusCode != http.StatusOK {
 		return res, fmt.Errorf("HTTP %s", hRes.Status)
 	}
 
 	body, e := io.ReadAll(hRes.Body)
 	if e != nil {
-		return res, e
+		return
 	}
 
 	if strings.HasPrefix(hRes.Header.Get("Content-Type"), "application/json") {
 		e = json.Unmarshal(body, &res)
-		return res, e
+		return
 	}
 
 	routers := bytes.Split(body, []byte{','})
