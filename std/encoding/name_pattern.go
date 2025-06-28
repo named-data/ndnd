@@ -315,7 +315,7 @@ func (n Name) Equal(rhs Name) bool {
 	if len(n) == 0 || &n[0] == &rhs[0] {
 		return true // cheap
 	}
-	for i := 0; i < len(n); i++ {
+	for i := range n {
 		if !n[i].Equal(rhs[i]) {
 			return false
 		}

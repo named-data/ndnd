@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"slices"
+
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
@@ -35,7 +37,7 @@ func (c *Client) ConsumeExt(args ndn.ConsumeExtArgs) {
 		complete:  atomic.Bool{},
 		meta:      nil,
 		fetchName: args.Name,
-		wnd:       [3]int{0, 0},
+		wnd:       FetchWindow{},
 		segCnt:    -1,
 	})
 }
@@ -141,7 +143,7 @@ func (c *Client) fetchMetadata(
 
 				// clone fields for lifetime
 				metadata.Name = metadata.Name.Clone()
-				metadata.FinalBlockID = append([]byte{}, metadata.FinalBlockID...)
+				metadata.FinalBlockID = slices.Clone(metadata.FinalBlockID)
 				callback(metadata, nil)
 			})
 		},

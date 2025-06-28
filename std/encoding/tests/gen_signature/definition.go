@@ -24,6 +24,9 @@ type T1 struct {
 
 	//+field:procedureArgument:enc.Wire
 	sigCovered enc.PlaceHolder
+
+	//+field:natural:optional
+	H3 optional.Optional[uint64] `tlv:"0x06"`
 }
 
 func (v *T1) Encode(estLen uint, value []byte) (enc.Wire, enc.Wire) {

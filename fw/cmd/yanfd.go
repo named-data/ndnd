@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
@@ -24,6 +25,7 @@ type YaNFD struct {
 
 	unixListener *face.UnixStreamListener
 	wsListener   *face.WebSocketListener
+	h3Listener   *face.HTTP3Listener
 	tcpListeners []*face.TCPListener
 	udpListeners []*face.UDPListener
 }
@@ -70,7 +72,7 @@ func (y *YaNFD) Start() {
 	}
 	fw.Threads = make([]*fw.Thread, fw.CfgNumThreads())
 	var fwForDispatch []dispatch.FWThread
-	for i := 0; i < fw.CfgNumThreads(); i++ {
+	for i := range fw.CfgNumThreads() {
 		newThread := fw.NewThread(i)
 		fw.Threads[i] = newThread
 		fwForDispatch = append(fwForDispatch, newThread)
@@ -80,30 +82,6 @@ func (y *YaNFD) Start() {
 
 	// Set up listeners for faces
 	listenerCount := 0
-
-	// Create unicast UDP face
-	if core.C.Faces.Udp.EnabledUnicast {
-		udpAddrs := []*net.UDPAddr{{
-			IP:   net.IPv4zero,
-			Port: face.CfgUDPUnicastPort(),
-		}, {
-			IP:   net.IPv6zero,
-			Port: face.CfgUDPUnicastPort(),
-		}}
-
-		for _, udpAddr := range udpAddrs {
-			uri := fmt.Sprintf("udp://%s", udpAddr)
-			udpListener, err := face.MakeUDPListener(defn.DecodeURIString(uri))
-			if err != nil {
-				core.Log.Error(y, "Unable to create UDP listener", "uri", uri, "err", err)
-			} else {
-				listenerCount++
-				go udpListener.Run()
-				y.udpListeners = append(y.udpListeners, udpListener)
-				core.Log.Info(y, "Created unicast UDP listener", "uri", uri)
-			}
-		}
-	}
 
 	// Create unicast TCP face
 	if core.C.Faces.Tcp.Enabled {
@@ -129,8 +107,34 @@ func (y *YaNFD) Start() {
 		}
 	}
 
-	// Create multicast UDP face on each non-loopback interface
-	if core.C.Faces.Udp.EnabledMulticast {
+	// Utility to create unicast UDP face
+	createUdpFace := func(ipAddr net.IP, zone string) {
+		uri := fmt.Sprintf("udp://%s", &net.UDPAddr{
+			IP:   ipAddr,
+			Port: face.CfgUDPUnicastPort(),
+			Zone: zone,
+		})
+
+		udpListener, err := face.MakeUDPListener(defn.DecodeURIString(uri))
+		if err != nil {
+			core.Log.Error(y, "Unable to create UDP listener", "uri", uri, "err", err)
+		} else {
+			listenerCount++
+			go udpListener.Run()
+			y.udpListeners = append(y.udpListeners, udpListener)
+			core.Log.Info(y, "Created unicast UDP listener", "uri", uri)
+		}
+	}
+
+	// On Linux and Windows, create a single UDP face for all interfaces.
+	// On macOS, create a UDP face for each interface (see below)
+	if runtime.GOOS != "darwin" {
+		createUdpFace(net.IPv4zero, "")
+		createUdpFace(net.IPv6zero, "")
+	}
+
+	// Create UDP faces on each non-loopback interface
+	if core.C.Faces.Udp.EnabledUnicast || core.C.Faces.Udp.EnabledMulticast {
 		ifaces, err := net.Interfaces()
 		if err != nil {
 			core.Log.Error(y, "Unable to access network interfaces", "err", err)
@@ -150,27 +154,33 @@ func (y *YaNFD) Start() {
 
 			for _, addr := range addrs {
 				ipAddr := addr.(*net.IPNet)
-				udpAddr := net.UDPAddr{
-					IP:   ipAddr.IP,
-					Zone: iface.Name,
-					Port: face.CfgUDPMulticastPort(),
+
+				// Create unicast UDP faces on each interface for macOS.
+				// Do not make a single listener here for all interfaces.
+				// https://github.com/named-data/ndnd/issues/144
+				if runtime.GOOS == "darwin" && core.C.Faces.Udp.EnabledUnicast {
+					createUdpFace(ipAddr.IP, iface.Name)
 				}
-				uri := fmt.Sprintf("udp://%s", &udpAddr)
 
-				if !addr.(*net.IPNet).IP.IsLoopback() {
-					multicastUDPTransport, err := face.MakeMulticastUDPTransport(defn.DecodeURIString(uri))
-					if err != nil {
-						core.Log.Error(y, "Unable to create MulticastUDPTransport", "uri", uri, "err", err)
-						continue
+				// Create multicast UDP faces
+				if core.C.Faces.Udp.EnabledMulticast {
+					uri := fmt.Sprintf("udp://%s", &net.UDPAddr{
+						IP:   ipAddr.IP,
+						Port: face.CfgUDPMulticastPort(),
+						Zone: iface.Name,
+					})
+
+					if !addr.(*net.IPNet).IP.IsLoopback() {
+						multicastUDPTransport, err := face.MakeMulticastUDPTransport(defn.DecodeURIString(uri))
+						if err != nil {
+							core.Log.Error(y, "Unable to create MulticastUDPTransport", "uri", uri, "err", err)
+							continue
+						}
+						face.MakeNDNLPLinkService(multicastUDPTransport, face.MakeNDNLPLinkServiceOptions()).Run(nil)
+
+						listenerCount++
+						core.Log.Info(y, "Created multicast UDP face", "uri", uri)
 					}
-
-					face.MakeNDNLPLinkService(
-						multicastUDPTransport,
-						face.MakeNDNLPLinkServiceOptions(),
-					).Run(nil)
-
-					listenerCount++
-					core.Log.Info(y, "Created multicast UDP face", "uri", uri)
 				}
 			}
 		}
@@ -208,6 +218,26 @@ func (y *YaNFD) Start() {
 			go wsListener.Run()
 			y.wsListener = wsListener
 			core.Log.Info(y, "Created WebSocket listener", "uri", cfg.URL().String())
+		}
+	}
+
+	// Set up HTTP/3 WebTransport listener
+	if c := core.C.Faces.HTTP3; c.Enabled {
+		cfg := face.HTTP3ListenerConfig{
+			Bind:    c.Bind,
+			Port:    c.Port,
+			TLSCert: c.TlsCert,
+			TLSKey:  c.TlsKey,
+		}
+
+		h3Listener, err := face.NewHTTP3Listener(cfg)
+		if err != nil {
+			core.Log.Error(y, "Unable to create HTTP/3 WebTransport Listener", "cfg", cfg, "err", err)
+		} else {
+			listenerCount++
+			go h3Listener.Run()
+			y.h3Listener = h3Listener
+			core.Log.Info(y, "Created HTTP/3 WebTransport listener", "uri", cfg.URL().String())
 		}
 	}
 

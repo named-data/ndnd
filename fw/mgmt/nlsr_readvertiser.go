@@ -14,17 +14,12 @@ import (
 // Currently the command is one-shot, and does not handle failures.
 type NlsrReadvertiser struct {
 	m *Thread
-	// List of routes already advertised to NLSR
-	advertised map[uint64]int // hash -> count
 	// This is called from RIB (i.e. could be fw threads)
 	mutex sync.Mutex
 }
 
 func NewNlsrReadvertiser(m *Thread) *NlsrReadvertiser {
-	return &NlsrReadvertiser{
-		m:          m,
-		advertised: make(map[uint64]int),
-	}
+	return &NlsrReadvertiser{m: m}
 }
 
 func (r *NlsrReadvertiser) String() string {
@@ -33,67 +28,53 @@ func (r *NlsrReadvertiser) String() string {
 
 func (r *NlsrReadvertiser) Announce(name enc.Name, route *table.Route) {
 	if route.Origin != uint64(spec_mgmt.RouteOriginClient) {
-		core.Log.Debug(r, "Skip advertise", "name", name, "origin", route.Origin)
 		return
 	}
-	core.Log.Info(r, "Advertise", "name", name)
+	core.Log.Info(r, "NlsrAdvertise", "name", name)
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	r.advertised[name.Hash()] += 1
 
-	params := &spec_mgmt.ControlArgs{
-		Name:   name,
-		Origin: optional.Some(route.Origin),
-		Cost:   optional.Some(route.Cost),
-	}
-
-	nameParams := &spec_mgmt.ControlParameters{
-		Val: &spec_mgmt.ControlArgs{Name: name},
+	params := &spec_mgmt.ControlParameters{
+		Val: &spec_mgmt.ControlArgs{
+			Name:   name,
+			FaceId: optional.Some(route.FaceID),
+			Cost:   optional.Some(route.Cost),
+		},
 	}
 
 	cmd := enc.Name{enc.LOCALHOST,
 		enc.NewGenericComponent("nlsr"),
 		enc.NewGenericComponent("rib"),
 		enc.NewGenericComponent("register"),
-		enc.NewGenericBytesComponent(nameParams.Encode().Join()),
+		enc.NewGenericBytesComponent(params.Encode().Join()),
 	}
 
-	r.m.sendInterest(cmd, params.Encode())
+	r.m.sendInterest(cmd, enc.Wire{})
 }
 
 func (r *NlsrReadvertiser) Withdraw(name enc.Name, route *table.Route) {
 	if route.Origin != uint64(spec_mgmt.RouteOriginClient) {
-		core.Log.Debug(r, "Skip withdraw (origin)", "name", name, "origin", route.Origin)
 		return
 	}
+	core.Log.Info(r, "NlsrWithdraw", "name", name)
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	nhash := name.Hash()
-	r.advertised[nhash] -= 1
-	if r.advertised[nhash] > 0 {
-		core.Log.Debug(r, "Skip withdraw (still advertised)", "name", name)
-		return
-	}
-	core.Log.Info(r, "Withdraw", "name", name)
-
-	params := &spec_mgmt.ControlArgs{
-		Name:   name,
-		Origin: optional.Some(route.Origin),
-	}
-
-	nameParams := &spec_mgmt.ControlParameters{
-		Val: &spec_mgmt.ControlArgs{Name: name},
+	params := &spec_mgmt.ControlParameters{
+		Val: &spec_mgmt.ControlArgs{
+			Name:   name,
+			FaceId: optional.Some(route.FaceID),
+		},
 	}
 
 	cmd := enc.Name{enc.LOCALHOST,
 		enc.NewGenericComponent("nlsr"),
 		enc.NewGenericComponent("rib"),
 		enc.NewGenericComponent("unregister"),
-		enc.NewGenericBytesComponent(nameParams.Encode().Join()),
+		enc.NewGenericBytesComponent(params.Encode().Join()),
 	}
 
-	r.m.sendInterest(cmd, params.Encode())
+	r.m.sendInterest(cmd, enc.Wire{})
 }

@@ -10,6 +10,7 @@ package defn
 import (
 	"errors"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"regexp"
@@ -21,8 +22,9 @@ import (
 // URIType represents the type of the URI.
 type URIType int
 
-// Regex to extract zone from URI
-var zoneRegex, _ = regexp.Compile(`:\/\/\[?(?:[0-9A-Za-z\:\.\-]+)(?:%(?P<zone>[A-Za-z0-9\-]+))?\]?`)
+// Regex to extract zone from URI.
+// Windows zones can have spaces in them.
+var zoneRegex, _ = regexp.Compile(`:\/\/\[?(?:[0-9A-Za-z\:\.\-]+)(?:%(?P<zone>[A-Za-z0-9 \-]+))?\]?`)
 
 // URL not canonical error
 var ErrNotCanonical = errors.New("URI could not be canonized")
@@ -38,6 +40,7 @@ const (
 	unixURI
 	wsURI
 	wsclientURI
+	quicURI
 )
 
 // URI represents a URI for a face.
@@ -147,6 +150,16 @@ func MakeWebSocketClientFaceURI(addr net.Addr) *URI {
 	}
 }
 
+// MakeQuicFaceURI constructs a URI for an HTTP/3 WebTransport endpoint.
+func MakeQuicFaceURI(addr netip.AddrPort) *URI {
+	return &URI{
+		uriType: quicURI,
+		scheme:  "quic",
+		path:    addr.Addr().String(),
+		port:    addr.Port(),
+	}
+}
+
 func DecodeURIString(str string) *URI {
 	ret := &URI{
 		uriType: unknownURI,
@@ -167,6 +180,23 @@ func DecodeURIString(str string) *URI {
 		return ret
 	}
 
+	decodeHostPort := func(uriType URIType, defaultPort uint16) {
+		ret.uriType = uriType
+
+		ret.scheme = uri.Scheme
+		ret.path = uri.Hostname()
+		if uri.Port() != "" {
+			port, _ := strconv.ParseUint(uri.Port(), 10, 16)
+			ret.port = uint16(port)
+		} else {
+			ret.port = uint16(6363) // default NDN port
+		}
+
+		if zone != "" {
+			ret.path += "%" + zone
+		}
+	}
+
 	switch uri.Scheme {
 	case "dev":
 		ret.uriType = devURI
@@ -182,26 +212,12 @@ func DecodeURIString(str string) *URI {
 	case "null":
 		ret.uriType = nullURI
 		ret.scheme = uri.Scheme
-	case "udp", "udp4", "udp6", "tcp", "tcp4", "tcp6":
-		if strings.HasPrefix(uri.Scheme, "udp") {
-			ret.uriType = udpURI
-		} else {
-			ret.uriType = tcpURI
-		}
-
-		ret.scheme = uri.Scheme
-		ret.path = uri.Hostname()
-		if uri.Port() != "" {
-			port, _ := strconv.ParseUint(uri.Port(), 10, 16)
-			ret.port = uint16(port)
-		} else {
-			ret.port = uint16(6363) // default NDN port
-		}
-
-		if zone != "" {
-			ret.path += "%" + zone
-		}
-
+	case "udp", "udp4", "udp6":
+		decodeHostPort(udpURI, 6363)
+	case "tcp", "tcp4", "tcp6":
+		decodeHostPort(tcpURI, 6363)
+	case "quic":
+		decodeHostPort(quicURI, 443)
 	case "unix":
 		ret.uriType = unixURI
 		ret.scheme = uri.Scheme
@@ -401,7 +417,7 @@ func (u *URI) String() string {
 		return "internal://"
 	case nullURI:
 		return "null://"
-	case udpURI, tcpURI, wsURI, wsclientURI:
+	case udpURI, tcpURI, wsURI, wsclientURI, quicURI:
 		return u.scheme + "://" + net.JoinHostPort(u.path, strconv.FormatUint(uint64(u.port), 10))
 	case unixURI:
 		return u.scheme + "://" + u.path

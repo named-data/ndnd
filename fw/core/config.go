@@ -9,6 +9,7 @@ package core
 
 import (
 	"path/filepath"
+	"runtime"
 )
 
 // Global initial configuration of the forwarder.
@@ -92,6 +93,19 @@ type Config struct {
 			// TLS private key (relative to the config file)
 			TlsKey string `json:"tls_key"`
 		} `json:"websocket"`
+
+		HTTP3 struct {
+			// Whether to enable HTTP/3 WebTransport listener
+			Enabled bool `json:"enabled"`
+			// Bind address for HTTP/3 WebTransport listener
+			Bind string `json:"bind"`
+			// Port for HTTP/3 WebTransport listener
+			Port uint16 `json:"port"`
+			// TLS certificate path (relative to the config file)
+			TlsCert string `json:"tls_cert"`
+			// TLS private key (relative to the config file)
+			TlsKey string `json:"tls_key"`
+		} `json:"http3"`
 	} `json:"faces"`
 
 	Fw struct {
@@ -181,6 +195,9 @@ func DefaultConfig() *Config {
 
 	c.Faces.Unix.Enabled = true
 	c.Faces.Unix.SocketPath = "/run/nfd/nfd.sock"
+	if runtime.GOOS == "darwin" {
+		c.Faces.Unix.SocketPath = "/var/run/nfd/nfd.sock"
+	}
 
 	c.Faces.WebSocket.Enabled = true
 	c.Faces.WebSocket.Bind = ""
@@ -188,6 +205,12 @@ func DefaultConfig() *Config {
 	c.Faces.WebSocket.TlsEnabled = false
 	c.Faces.WebSocket.TlsCert = ""
 	c.Faces.WebSocket.TlsKey = ""
+
+	c.Faces.HTTP3.Enabled = false
+	c.Faces.HTTP3.Bind = ""
+	c.Faces.HTTP3.Port = 443
+	c.Faces.HTTP3.TlsCert = ""
+	c.Faces.HTTP3.TlsKey = ""
 
 	c.Fw.Threads = 8
 	c.Fw.QueueSize = 1024

@@ -49,6 +49,16 @@ func MarshalSecret(key ndn.Signer) (enc.Wire, error) {
 	return data.Wire, nil
 }
 
+// MarshalSecretToData encodes a key secret to a signed NDN Data packet.
+func MarshalSecretToData(key ndn.Signer) (ndn.Data, error) {
+	wire, err := MarshalSecret(key)
+	if err != nil {
+		return nil, err
+	}
+	data, _, err := spec.Spec{}.ReadData(enc.NewWireView(wire))
+	return data, err
+}
+
 // UnmarshalSecret decodes a signed NDN Data packet to a key secret.
 func UnmarshalSecret(data ndn.Data) (ndn.Signer, error) {
 	// Check data content type

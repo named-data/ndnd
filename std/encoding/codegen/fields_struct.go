@@ -64,8 +64,8 @@ func (f *StructField) GenEncodingLength() (string, error) {
 	var g strErrBuf
 	g.printlnf("if value.%s != nil {", f.name)
 	g.printlne(GenTypeNumLen(f.typeNum))
-	g.printlne(GenNaturalNumberLen(fmt.Sprintf("encoder.%s_encoder.length", f.name), true))
-	g.printlnf("l += encoder.%s_encoder.length", f.name)
+	g.printlne(GenNaturalNumberLen(fmt.Sprintf("encoder.%s_encoder.Length", f.name), true))
+	g.printlnf("l += encoder.%s_encoder.Length", f.name)
 	g.printlnf("}")
 	return g.output()
 }
@@ -75,8 +75,8 @@ func (f *StructField) GenEncodingWirePlan() (string, error) {
 		var g strErrBuf
 		g.printlnf("if value.%s != nil {", f.name)
 		g.printlne(GenTypeNumLen(f.typeNum))
-		g.printlne(GenNaturalNumberLen(fmt.Sprintf("encoder.%s_encoder.length", f.name), true))
-		g.printlnf("if encoder.%s_encoder.length > 0 {", f.name)
+		g.printlne(GenNaturalNumberLen(fmt.Sprintf("encoder.%s_encoder.Length", f.name), true))
+		g.printlnf("if encoder.%s_encoder.Length > 0 {", f.name)
 		// wirePlan[0] is always nonzero.
 		g.printlnf("l += encoder.%s_encoder.wirePlan[0]", f.name)
 		g.printlnf("for i := 1; i < len(encoder.%s_encoder.wirePlan); i ++ {", f.name)
@@ -102,11 +102,11 @@ func (f *StructField) GenEncodeInto() (string, error) {
 	var g strErrBuf
 	g.printlnf("if value.%s != nil {", f.name)
 	g.printlne(GenEncodeTypeNum(f.typeNum))
-	g.printlne(GenNaturalNumberEncode(fmt.Sprintf("encoder.%s_encoder.length", f.name), true))
-	g.printlnf("if encoder.%s_encoder.length > 0 {", f.name)
+	g.printlne(GenNaturalNumberEncode(fmt.Sprintf("encoder.%s_encoder.Length", f.name), true))
+	g.printlnf("if encoder.%s_encoder.Length > 0 {", f.name)
 	if !f.innerNoCopy {
 		g.printlnf("encoder.%s_encoder.EncodeInto(value.%s, buf[pos:])", f.name, f.name)
-		g.printlnf("pos += encoder.%s_encoder.length", f.name)
+		g.printlnf("pos += encoder.%s_encoder.Length", f.name)
 	} else {
 		templ := template.Must(template.New("StructEncodeInto").Parse(`{
 			subWire := make(enc.Wire, len(encoder.{{.}}_encoder.wirePlan))

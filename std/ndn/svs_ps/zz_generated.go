@@ -5,10 +5,209 @@ import (
 	"io"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn/svs/v3"
 )
 
+type InstanceStateEncoder struct {
+	Length uint
+
+	Name_length uint
+
+	StateVector_encoder svs.StateVectorEncoder
+}
+
+type InstanceStateParsingContext struct {
+	StateVector_context svs.StateVectorParsingContext
+}
+
+func (encoder *InstanceStateEncoder) Init(value *InstanceState) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+
+	if value.StateVector != nil {
+		encoder.StateVector_encoder.Init(value.StateVector)
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	l += 1
+	l += uint(1 + enc.Nat(value.BootstrapTime).EncodingLength())
+	if value.StateVector != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.StateVector_encoder.Length).EncodingLength())
+		l += encoder.StateVector_encoder.Length
+	}
+	encoder.Length = l
+
+}
+
+func (context *InstanceStateParsingContext) Init() {
+
+	context.StateVector_context.Init()
+}
+
+func (encoder *InstanceStateEncoder) EncodeInto(value *InstanceState, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	buf[pos] = byte(212)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.BootstrapTime).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	if value.StateVector != nil {
+		buf[pos] = byte(201)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.StateVector_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.StateVector_encoder.Length > 0 {
+			encoder.StateVector_encoder.EncodeInto(value.StateVector, buf[pos:])
+			pos += encoder.StateVector_encoder.Length
+		}
+	}
+}
+
+func (encoder *InstanceStateEncoder) Encode(value *InstanceState) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *InstanceStateParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*InstanceState, error) {
+
+	var handled_Name bool = false
+	var handled_BootstrapTime bool = false
+	var handled_StateVector bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &InstanceState{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			case 212:
+				if true {
+					handled = true
+					handled_BootstrapTime = true
+					value.BootstrapTime = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.BootstrapTime = uint64(value.BootstrapTime<<8) | uint64(x)
+						}
+					}
+				}
+			case 201:
+				if true {
+					handled = true
+					handled_StateVector = true
+					value.StateVector, err = context.StateVector_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+	if !handled_BootstrapTime && err == nil {
+		err = enc.ErrSkipRequired{Name: "BootstrapTime", TypeNum: 212}
+	}
+	if !handled_StateVector && err == nil {
+		value.StateVector = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *InstanceState) Encode() enc.Wire {
+	encoder := InstanceStateEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *InstanceState) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseInstanceState(reader enc.WireView, ignoreCritical bool) (*InstanceState, error) {
+	context := InstanceStateParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
 type HistorySnapEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -60,15 +259,15 @@ func (encoder *HistorySnapEncoder) Init(value *HistorySnap) {
 				value := &pseudoValue
 				if value.Entries != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Entries_encoder.length).EncodingLength())
-					l += encoder.Entries_encoder.length
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -85,8 +284,8 @@ func (encoder *HistorySnapEncoder) Init(value *HistorySnap) {
 				value := &pseudoValue
 				if value.Entries != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Entries_encoder.length).EncodingLength())
-					if encoder.Entries_encoder.length > 0 {
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					if encoder.Entries_encoder.Length > 0 {
 						l += encoder.Entries_encoder.wirePlan[0]
 						for i := 1; i < len(encoder.Entries_encoder.wirePlan); i++ {
 							wirePlan = append(wirePlan, l)
@@ -135,8 +334,8 @@ func (encoder *HistorySnapEncoder) EncodeInto(value *HistorySnap, wire enc.Wire)
 				if value.Entries != nil {
 					buf[pos] = byte(130)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Entries_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Entries_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
 						{
 							subWire := make(enc.Wire, len(encoder.Entries_encoder.wirePlan))
 							subWire[0] = buf[pos:]
@@ -287,7 +486,7 @@ func ParseHistorySnap(reader enc.WireView, ignoreCritical bool) (*HistorySnap, e
 }
 
 type HistorySnapEntryEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -314,7 +513,7 @@ func (encoder *HistorySnapEntryEncoder) Init(value *HistorySnapEntry) {
 		l += uint(enc.TLNum(encoder.Content_length).EncodingLength())
 		l += encoder.Content_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)
@@ -499,7 +698,7 @@ func ParseHistorySnapEntry(reader enc.WireView, ignoreCritical bool) (*HistorySn
 }
 
 type HistoryIndexEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -551,7 +750,7 @@ func (encoder *HistoryIndexEncoder) Init(value *HistoryIndex) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)

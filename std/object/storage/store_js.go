@@ -1,8 +1,10 @@
 //go:build js && wasm
 
-package object
+package storage
 
 import (
+	"bytes"
+	"fmt"
 	"syscall/js"
 
 	"unsafe"
@@ -91,14 +93,14 @@ func (s *JsStore) Get(name enc.Name, prefix bool) ([]byte, error) {
 	return nil, nil
 }
 
-func (s *JsStore) Put(name enc.Name, version uint64, wire []byte) error {
+func (s *JsStore) Put(name enc.Name, wire []byte) error {
 	tlvBytes := name.BytesInner()
 	name_js := jsutil.SliceToJsArray(tlvBytes)
 	wire_js := jsutil.SliceToJsArray(wire)
 
 	// This cannot be awaited because it will block the main thread
 	// and deadlock if called from a js function
-	promise := s.api.Call("put", name_js, version, wire_js, s.tx) // yolo
+	promise := s.api.Call("put", name_js, wire_js, s.tx) // yolo
 	if s.tx != 0 {
 		jsutil.Await(promise)
 	}
@@ -126,8 +128,14 @@ func (s *JsStore) RemovePrefix(prefix enc.Name) error {
 }
 
 func (s *JsStore) RemoveFlatRange(prefix enc.Name, first enc.Component, last enc.Component) error {
-	first_js := jsutil.SliceToJsArray(prefix.Append(first).BytesInner())
-	last_js := jsutil.SliceToJsArray(prefix.Append(last).BytesInner())
+	firstKey := prefix.Append(first).BytesInner()
+	lastKey := prefix.Append(last).BytesInner()
+	if bytes.Compare(firstKey, lastKey) > 0 {
+		return fmt.Errorf("first key is greater than last key")
+	}
+
+	first_js := jsutil.SliceToJsArray(firstKey)
+	last_js := jsutil.SliceToJsArray(lastKey)
 	s.api.Call("remove_flat_range", first_js, last_js)
 	return nil
 }
@@ -151,6 +159,13 @@ func (s *JsStore) Commit() error {
 func (s *JsStore) Rollback() error {
 	jsutil.Await(s.api.Call("rollback", s.tx))
 	return nil
+}
+
+func (s *JsStore) ClearCache() {
+	for s.cachePq.Len() > 0 {
+		k := s.cachePq.Pop()
+		delete(s.cache, k.name)
+	}
 }
 
 func (s *JsStore) insertCache(tlvstr string, wire []byte) {

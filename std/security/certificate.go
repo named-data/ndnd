@@ -24,6 +24,8 @@ type SignCertArgs struct {
 	NotAfter time.Time
 	// Description is extra information to be included in the certificate.
 	Description map[string]string
+	// CrossSchema to attach to the certificate.
+	CrossSchema enc.Wire
 }
 
 // SignCert signs a new NDN certificate with the given signer.
@@ -61,6 +63,7 @@ func SignCert(args SignCertArgs) (enc.Wire, error) {
 		Freshness:    optional.Some(time.Hour),
 		SigNotBefore: optional.Some(args.NotBefore),
 		SigNotAfter:  optional.Some(args.NotAfter),
+		CrossSchema:  args.CrossSchema,
 	}
 	cert, err := spec.Spec{}.MakeData(certName, cfg, enc.Wire{pk}, args.Signer)
 	if err != nil {
@@ -71,7 +74,7 @@ func SignCert(args SignCertArgs) (enc.Wire, error) {
 }
 
 // SelfSign generates a self-signed certificate.
-func SelfSign(args SignCertArgs) (enc.Wire, error) {
+func SelfSign(args SignCertArgs) (wire enc.Wire, err error) {
 	if args.Data != nil {
 		return nil, ndn.ErrInvalidValue{Item: "SelfSign.args.Data", Value: args.Data}
 	}
@@ -82,11 +85,7 @@ func SelfSign(args SignCertArgs) (enc.Wire, error) {
 		args.IssuerId = enc.NewGenericComponent("self")
 	}
 
-	keyWire, err := sig.MarshalSecret(args.Signer)
-	if err != nil {
-		return nil, err
-	}
-	args.Data, _, err = spec.Spec{}.ReadData(enc.NewWireView(keyWire))
+	args.Data, err = sig.MarshalSecretToData(args.Signer)
 	if err != nil {
 		return nil, err
 	}

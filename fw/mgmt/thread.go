@@ -21,6 +21,7 @@ import (
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
 )
@@ -36,7 +37,7 @@ type Thread struct {
 	timer     ndn.Timer
 
 	store  ndn.Store
-	objDir *object.MemoryFifoDir
+	objDir *storage.MemoryFifoDir
 	signer ndn.Signer
 }
 
@@ -49,8 +50,8 @@ func MakeMgmtThread() *Thread {
 	m := &Thread{
 		modules: make(map[string]Module),
 		timer:   basic_engine.NewTimer(),
-		store:   object.NewMemoryStore(),
-		objDir:  object.NewMemoryFifoDir(32),
+		store:   storage.NewMemoryStore(),
+		objDir:  storage.NewMemoryFifoDir(32),
 		signer:  signer.NewSha256Signer(),
 	}
 

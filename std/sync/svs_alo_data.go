@@ -26,8 +26,8 @@ type svsDataState struct {
 }
 
 func (s *SvsALO) objectName(node enc.Name, boot uint64, seq uint64) enc.Name {
-	return node.
-		Append(s.SyncPrefix()...).
+	return s.GroupPrefix().
+		Append(node...).
 		Append(enc.NewTimestampComponent(boot)).
 		Append(enc.NewSequenceNumComponent(seq)).
 		WithVersion(enc.VersionImmutable)
@@ -210,6 +210,10 @@ func (s *SvsALO) snapRecvCallback(callback snapRecvCallback) {
 	pub, err := callback(s.state)
 	if err != nil {
 		s.queueError(err)
+		return
+	}
+	if pub.Content == nil {
+		// no error but ignore the snapshot
 		return
 	}
 

@@ -8,7 +8,7 @@ import (
 )
 
 type SvsDataEncoder struct {
-	length uint
+	Length uint
 
 	StateVector_encoder StateVectorEncoder
 }
@@ -25,10 +25,10 @@ func (encoder *SvsDataEncoder) Init(value *SvsData) {
 	l := uint(0)
 	if value.StateVector != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.StateVector_encoder.length).EncodingLength())
-		l += encoder.StateVector_encoder.length
+		l += uint(enc.TLNum(encoder.StateVector_encoder.Length).EncodingLength())
+		l += encoder.StateVector_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -43,10 +43,10 @@ func (encoder *SvsDataEncoder) EncodeInto(value *SvsData, buf []byte) {
 	if value.StateVector != nil {
 		buf[pos] = byte(201)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.StateVector_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.StateVector_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.StateVector_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.StateVector_encoder.Length > 0 {
 			encoder.StateVector_encoder.EncodeInto(value.StateVector, buf[pos:])
-			pos += encoder.StateVector_encoder.length
+			pos += encoder.StateVector_encoder.Length
 		}
 	}
 }
@@ -54,7 +54,7 @@ func (encoder *SvsDataEncoder) EncodeInto(value *SvsData, buf []byte) {
 func (encoder *SvsDataEncoder) Encode(value *SvsData) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -142,7 +142,7 @@ func ParseSvsData(reader enc.WireView, ignoreCritical bool) (*SvsData, error) {
 }
 
 type StateVectorEncoder struct {
-	length uint
+	Length uint
 
 	Entries_subencoder []struct {
 		Entries_encoder StateVectorEntryEncoder
@@ -192,15 +192,15 @@ func (encoder *StateVectorEncoder) Init(value *StateVector) {
 				value := &pseudoValue
 				if value.Entries != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Entries_encoder.length).EncodingLength())
-					l += encoder.Entries_encoder.length
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -226,10 +226,10 @@ func (encoder *StateVectorEncoder) EncodeInto(value *StateVector, buf []byte) {
 				if value.Entries != nil {
 					buf[pos] = byte(202)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Entries_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Entries_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
 						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
-						pos += encoder.Entries_encoder.length
+						pos += encoder.Entries_encoder.Length
 					}
 				}
 				_ = encoder
@@ -242,7 +242,7 @@ func (encoder *StateVectorEncoder) EncodeInto(value *StateVector, buf []byte) {
 func (encoder *StateVectorEncoder) Encode(value *StateVector) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -344,7 +344,7 @@ func ParseStateVector(reader enc.WireView, ignoreCritical bool) (*StateVector, e
 }
 
 type StateVectorEntryEncoder struct {
-	length uint
+	Length uint
 
 	Name_length uint
 }
@@ -368,7 +368,7 @@ func (encoder *StateVectorEntryEncoder) Init(value *StateVectorEntry) {
 	}
 	l += 1
 	l += uint(1 + enc.Nat(value.SeqNo).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -398,7 +398,7 @@ func (encoder *StateVectorEntryEncoder) EncodeInto(value *StateVectorEntry, buf 
 func (encoder *StateVectorEntryEncoder) Encode(value *StateVectorEntry) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 

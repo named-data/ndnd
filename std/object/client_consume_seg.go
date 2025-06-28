@@ -1,6 +1,7 @@
 package object
 
 import (
+	"container/list"
 	"fmt"
 	"slices"
 	"sync"
@@ -8,6 +9,8 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	cong "github.com/named-data/ndnd/std/object/congestion"
 	"github.com/named-data/ndnd/std/utils"
 )
 
@@ -26,7 +29,21 @@ type rrSegFetcher struct {
 	// number of outstanding interests
 	outstanding int
 	// window size
-	window int
+	window cong.CongestionWindow
+	// retransmission queue
+	retxQueue *list.List
+	// remaining segments to be transmitted by state
+	txCounter map[*ConsumeState]int
+	// maximum number of retries
+	maxRetries int
+}
+
+// retxEntry represents an entry in the retransmission queue
+// it contains the consumer state, segment number and the number of retries left for the segment
+type retxEntry struct {
+	state   *ConsumeState
+	seg     uint64
+	retries int
 }
 
 func newRrSegFetcher(client *Client) rrSegFetcher {
@@ -34,8 +51,11 @@ func newRrSegFetcher(client *Client) rrSegFetcher {
 		mutex:       sync.RWMutex{},
 		client:      client,
 		streams:     make([]*ConsumeState, 0),
-		window:      100,
+		window:      cong.NewFixedCongestionWindow(100),
 		outstanding: 0,
+		retxQueue:   list.New(),
+		txCounter:   make(map[*ConsumeState]int),
+		maxRetries:  3,
 	}
 }
 
@@ -48,7 +68,7 @@ func (s *rrSegFetcher) String() string {
 func (s *rrSegFetcher) IsCongested() bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.outstanding >= s.window
+	return s.outstanding >= s.window.Size()
 }
 
 // add a stream to the fetch queue
@@ -71,10 +91,6 @@ func (s *rrSegFetcher) remove(state *ConsumeState) {
 func (s *rrSegFetcher) findWork() *ConsumeState {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	if s.outstanding >= s.window {
-		return nil
-	}
 
 	// round-robin selection of the next stream to fetch
 	next := func() *ConsumeState {
@@ -113,13 +129,13 @@ func (s *rrSegFetcher) findWork() *ConsumeState {
 		}
 
 		// if we don't know the segment count, wait for the first segment
-		if check.segCnt == -1 && check.wnd[2] > 0 {
+		if check.segCnt == -1 && check.wnd.Pending > 0 {
 			// log.Infof("seg-fetcher: state wnd full for %s", check.fetchName)
 			continue
 		}
 
 		// all interests are out
-		if check.segCnt > 0 && check.wnd[2] >= check.segCnt {
+		if check.segCnt > 0 && check.wnd.Pending >= check.segCnt {
 			// log.Infof("seg-fetcher: all interests are out for %s", check.fetchName)
 			continue
 		}
@@ -133,60 +149,146 @@ func (s *rrSegFetcher) findWork() *ConsumeState {
 
 func (s *rrSegFetcher) check() {
 	for {
-		state := s.findWork()
-		if state == nil {
+		log.Debug(nil, "Checking for work")
+
+		// check if the window is full
+		if s.IsCongested() {
+			log.Debug(nil, "Window full", "size", s.window.Size())
+			return // no need to generate new interests
+		}
+
+		var (
+			state   *ConsumeState
+			seg     uint64
+			retries int = s.maxRetries // TODO: make it configurable
+		)
+
+		// if there are retransmissions, handle them first
+		if s.retxQueue.Len() > 0 {
+			log.Debug(nil, "Retransmitting")
+
+			var retx *retxEntry
+
+			s.mutex.Lock()
+			front := s.retxQueue.Front()
+			if front != nil {
+				retx = s.retxQueue.Remove(front).(*retxEntry)
+				s.mutex.Unlock()
+			} else {
+				s.mutex.Unlock()
+				continue
+			}
+
+			state = retx.state
+			seg = retx.seg
+			retries = retx.retries
+
+		} else { // if no retransmissions, find a stream to work on
+			state = s.findWork()
+			if state == nil {
+				return
+			}
+
+			// update window parameters
+			seg = uint64(state.wnd.Pending)
+			state.wnd.Pending++
+		}
+
+		// build interest
+		name := state.fetchName.Append(enc.NewSegmentComponent(seg))
+		config := &ndn.InterestConfig{
+			MustBeFresh: false,
+			Nonce:       utils.ConvertNonce(s.client.engine.Timer().Nonce()), // new nonce for each call
+		}
+		log.Debug(nil, "Building interest", "name", name, "config", config)
+		interest, err := s.client.Engine().Spec().MakeInterest(name, config, nil, nil)
+		if err != nil {
+			s.handleResult(ndn.ExpressCallbackArgs{
+				Result: ndn.InterestResultError,
+				Error:  err,
+			}, state, seg, retries)
 			return
 		}
 
-		// update window parameters
-		seg := uint64(state.wnd[2])
-		s.outstanding++
-		state.wnd[2]++
+		// build express callback function
+		callback := func(args ndn.ExpressCallbackArgs) {
+			s.handleResult(args, state, seg, retries)
+		}
 
-		// queue outgoing interest for the next segment
-		s.client.ExpressR(ndn.ExpressRArgs{
-			Name: state.fetchName.Append(enc.NewSegmentComponent(seg)),
-			Config: &ndn.InterestConfig{
-				MustBeFresh: false,
-			},
-			Retries:  3,
-			TryStore: utils.If(state.args.TryStore, s.client.store, nil),
-			Callback: func(args ndn.ExpressCallbackArgs) {
-				s.handleData(args, state)
-			},
-		})
+		// express interest
+		log.Debug(nil, "Expressing interest", "name", interest.FinalName)
+		err = s.client.Engine().Express(interest, callback)
+		if err != nil {
+			s.handleResult(ndn.ExpressCallbackArgs{
+				Result: ndn.InterestResultError,
+				Error:  err,
+			}, state, seg, retries)
+			return
+		}
+
+		// increment outstanding interest count
+		s.incrementOutstanding()
 	}
 }
 
-// handleData is called when a data packet is received.
+// handleResult is called when the result for an interest is ready.
 // It is necessary that this function be called only from one goroutine - the engine.
-// The notable exception here is when there is a timeout, which has a separate goroutine.
-func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeState) {
-	s.mutex.Lock()
-	s.outstanding--
-	s.mutex.Unlock()
+func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *ConsumeState, seg uint64, retries int) {
+	// get the name of the interest
+	var interestName enc.Name = state.fetchName.Append(enc.NewSegmentComponent(seg))
+	log.Debug(nil, "Parsing interest result", "name", interestName)
+
+	// decrement outstanding interest count
+	s.decrementOutstanding()
 
 	if state.IsComplete() {
 		return
 	}
 
-	if args.Result == ndn.InterestResultError {
-		state.finalizeError(fmt.Errorf("%w: fetch seg failed: %w", ndn.ErrNetwork, args.Error))
-		return
-	}
+	// handle the result
+	switch args.Result {
+	case ndn.InterestResultTimeout:
+		log.Debug(nil, "Interest timeout", "name", interestName)
 
-	if args.Result != ndn.InterestResultData {
+		s.window.HandleSignal(cong.SigLoss)
+		s.enqueueForRetransmission(state, seg, retries-1)
+
+	case ndn.InterestResultNack:
+		log.Debug(nil, "Interest nack'd", "name", interestName)
+
+		switch args.NackReason {
+		case spec.NackReasonDuplicate:
+			// ignore Nack for duplicates
+		case spec.NackReasonCongestion:
+			// congestion signal
+			s.window.HandleSignal(cong.SigCongest)
+			s.enqueueForRetransmission(state, seg, retries-1)
+		default:
+			// treat as irrecoverable error for now
+			state.finalizeError(fmt.Errorf("%w: fetch seg failed with result: %s", ndn.ErrNetwork, args.Result))
+		}
+
+	case ndn.InterestResultData: // data is successfully retrieved
+		s.handleData(args, state)
+		s.window.HandleSignal(cong.SigData)
+
+	default: // treat as irrecoverable error for now
 		state.finalizeError(fmt.Errorf("%w: fetch seg failed with result: %s", ndn.ErrNetwork, args.Result))
-		return
 	}
 
+	s.check() // check for more work
+}
+
+// handleData is called when the interest result is processed and the data is ready to be validated.
+// It is necessary that this function be called only from one goroutine - the engine.
+// The notable exception here is when there is a timeout, which has a separate goroutine.
+func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeState) {
 	s.client.Validate(args.Data, args.SigCovered, func(valid bool, err error) {
 		if !valid {
 			state.finalizeError(fmt.Errorf("%w: validate seg failed: %w", ndn.ErrSecurity, err))
 		} else {
 			s.handleValidatedData(args, state)
 		}
-		s.check()
 	})
 }
 
@@ -205,6 +307,7 @@ func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *
 		}
 
 		state.segCnt = int(fbId.NumberVal()) + 1
+		s.txCounter[state] = state.segCnt // number of segments to be transmitted for this state
 		if state.segCnt > maxObjectSeg || state.segCnt <= 0 {
 			state.finalizeError(fmt.Errorf("%w: invalid FinalBlockId=%d", ndn.ErrProtocol, state.segCnt))
 			return
@@ -237,17 +340,21 @@ func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *
 		panic("[BUG] consume: nil data segment")
 	}
 
+	// decrement transmission counter
+	s.decrementTxCounter(state)
+
 	// if this is the first outstanding segment, move windows
-	if state.wnd[1] == segNum {
-		for state.wnd[1] < state.segCnt && state.content[state.wnd[1]] != nil {
-			state.wnd[1]++
+	if state.wnd.Fetching == segNum {
+		for state.wnd.Fetching < state.segCnt && state.content[state.wnd.Fetching] != nil {
+			state.wnd.Fetching++
 		}
 
-		if state.wnd[1] == state.segCnt {
+		if state.wnd.Fetching == state.segCnt && s.txCounter[state] == 0 {
 			log.Debug(s, "Stream completed successfully", "name", state.fetchName)
 
 			s.mutex.Lock()
 			s.remove(state)
+			delete(s.txCounter, state)
 			s.mutex.Unlock()
 
 			if !state.complete.Swap(true) {
@@ -266,4 +373,36 @@ func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *
 	// 		state.name, segNum, state.segCnt, state.wnd[0], state.wnd[1], state.wnd[2],
 	// 		s.outstanding)
 	// }
+}
+
+// enqueueForRetransmission enqueues a segment for retransmission
+// it registers retries and treats exhausted retries as irrecoverable errors
+func (s *rrSegFetcher) enqueueForRetransmission(state *ConsumeState, seg uint64, retries int) {
+	if retries == 0 { // retransmission exhausted
+		state.finalizeError(fmt.Errorf("%w: retries exhausted, segment number=%d", ndn.ErrNetwork, seg))
+		return
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.retxQueue.PushBack(&retxEntry{state, seg, retries})
+}
+
+func (s *rrSegFetcher) incrementOutstanding() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.outstanding++
+}
+
+func (s *rrSegFetcher) decrementOutstanding() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.outstanding--
+}
+
+func (s *rrSegFetcher) decrementTxCounter(state *ConsumeState) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.txCounter[state]--
 }

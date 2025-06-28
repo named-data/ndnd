@@ -84,6 +84,12 @@ func TestDecodeUri(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", uri.PathHost())
 	assert.Equal(t, uint16(800), uri.Port())
 
+	// QUIC URI
+	uri = defn.DecodeURIString("quic://[::1]:443")
+	assert.False(t, uri.IsCanonical())
+	assert.Equal(t, "quic", uri.Scheme())
+	assert.Equal(t, uint16(443), uri.Port())
+
 	// UDP4 with zone
 	uri = defn.DecodeURIString("udp://127.0.0.1%eth0:3000")
 	assert.True(t, uri.IsCanonical())

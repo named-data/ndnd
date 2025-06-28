@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	enc "github.com/named-data/ndnd/std/encoding"
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svsps "github.com/named-data/ndnd/std/ndn/svs_ps"
 )
 
 // instanceState returns the current state of the instance.
 func (s *SvsALO) instanceState() enc.Wire {
-	state := spec_svs.InstanceState{
+	state := spec_svsps.InstanceState{
 		Name:          s.opts.Name,
 		BootstrapTime: s.BootTime(),
 		StateVector: s.state.Encode(func(state svsDataState) uint64 {
@@ -22,7 +22,7 @@ func (s *SvsALO) instanceState() enc.Wire {
 // parseInstanceState parses an instance state into the current state.
 // Only the constructor should call this function.
 func (s *SvsALO) parseInstanceState(wire enc.Wire) error {
-	initState, err := spec_svs.ParseInstanceState(enc.NewWireView(wire), true)
+	initState, err := spec_svsps.ParseInstanceState(enc.NewWireView(wire), true)
 	if err != nil {
 		return err
 	}

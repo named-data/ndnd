@@ -3,6 +3,7 @@ package cmd
 import (
 	dv "github.com/named-data/ndnd/dv/cmd"
 	fw "github.com/named-data/ndnd/fw/cmd"
+	"github.com/named-data/ndnd/repo"
 	"github.com/named-data/ndnd/std/utils"
 	"github.com/named-data/ndnd/tools"
 	"github.com/named-data/ndnd/tools/dvc"
@@ -38,6 +39,7 @@ func init() {
 	CmdNDNd.AddCommand(cmdFw())
 	CmdNDNd.AddCommand(cmdDv())
 	CmdNDNd.AddCommand(cmdDaemon)
+	CmdNDNd.AddCommand(cmdRepo())
 
 	CmdNDNd.AddGroup(&cobra.Group{ID: "sec", Title: "Security Tools"})
 	CmdNDNd.AddCommand(sec.CmdSec())
@@ -98,4 +100,20 @@ Reference:
 	}
 
 	return cmdDv
+}
+
+func cmdRepo() *cobra.Command {
+	cmdRepo := &cobra.Command{
+		Use:     "repo",
+		Short:   "NDN Data Repository",
+		Long:    `Named Data Networking Data Repository`,
+		GroupID: "daemons",
+	}
+
+	cmdRepo.AddGroup(&cobra.Group{ID: "run", Title: "NDN Data Repository Daemon"})
+	repo.CmdRepo.Use = "run CONFIG-FILE"
+	repo.CmdRepo.Short = "Start the NDN Data Repository Daemon"
+	cmdRepo.AddCommand(repo.CmdRepo)
+
+	return cmdRepo
 }

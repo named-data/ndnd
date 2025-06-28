@@ -9,7 +9,7 @@ import (
 )
 
 type StringMapEncoder struct {
-	length uint
+	Length uint
 
 	Params_valencoder map[string]*struct {
 	}
@@ -69,7 +69,7 @@ func (encoder *StringMapEncoder) Init(value *StringMap) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -116,7 +116,7 @@ func (encoder *StringMapEncoder) EncodeInto(value *StringMap, buf []byte) {
 func (encoder *StringMapEncoder) Encode(value *StringMap) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -240,7 +240,7 @@ func ParseStringMap(reader enc.WireView, ignoreCritical bool) (*StringMap, error
 }
 
 type InnerEncoder struct {
-	length uint
+	Length uint
 }
 
 type InnerParsingContext struct {
@@ -251,7 +251,7 @@ func (encoder *InnerEncoder) Init(value *Inner) {
 	l := uint(0)
 	l += 1
 	l += uint(1 + enc.Nat(value.Num).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -273,7 +273,7 @@ func (encoder *InnerEncoder) EncodeInto(value *Inner, buf []byte) {
 func (encoder *InnerEncoder) Encode(value *Inner) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -374,7 +374,7 @@ func ParseInner(reader enc.WireView, ignoreCritical bool) (*Inner, error) {
 }
 
 type IntStructMapEncoder struct {
-	length uint
+	Length uint
 
 	Params_valencoder map[uint64]*struct {
 		Params_v_encoder InnerEncoder
@@ -431,15 +431,15 @@ func (encoder *IntStructMapEncoder) Init(value *IntStructMap) {
 				l += uint(1 + enc.Nat(value.Params_k).EncodingLength())
 				if value.Params_v != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Params_v_encoder.length).EncodingLength())
-					l += encoder.Params_v_encoder.length
+					l += uint(enc.TLNum(encoder.Params_v_encoder.Length).EncodingLength())
+					l += encoder.Params_v_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -472,10 +472,10 @@ func (encoder *IntStructMapEncoder) EncodeInto(value *IntStructMap, buf []byte) 
 				if value.Params_v != nil {
 					buf[pos] = byte(135)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Params_v_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Params_v_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Params_v_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Params_v_encoder.Length > 0 {
 						encoder.Params_v_encoder.EncodeInto(value.Params_v, buf[pos:])
-						pos += encoder.Params_v_encoder.length
+						pos += encoder.Params_v_encoder.Length
 					}
 				}
 				_ = encoder
@@ -488,7 +488,7 @@ func (encoder *IntStructMapEncoder) EncodeInto(value *IntStructMap, buf []byte) 
 func (encoder *IntStructMapEncoder) Encode(value *IntStructMap) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 

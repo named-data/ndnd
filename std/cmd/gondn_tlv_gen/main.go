@@ -7,8 +7,10 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/named-data/ndnd/std/encoding/codegen"
@@ -57,7 +59,13 @@ func main() {
 			continue
 		}
 		log.Printf("processing package %s:\n", pkgName)
-		for fileName, astFile := range pkg.Files {
+
+		// sort files to ensure deterministic output.
+		fileNames := slices.Collect(maps.Keys(pkg.Files))
+		slices.Sort(fileNames)
+
+		for _, fileName := range fileNames {
+			astFile := pkg.Files[fileName]
 			if filepath.Join(pkgFullPath, fileName) == outFullName {
 				continue
 			}

@@ -125,6 +125,32 @@ func TestT1(t *testing.T) {
 	require.True(t, f2.C == nil)
 	require.Equal(t, []byte{0x01}, f2.Sig.Join())
 	require.Equal(t, 0, len(cov2.Join()))
+
+	// Case with H3 (not covered by sig.)
+	f = &def.T1{
+		H1: 1,
+		H2: optional.Some[uint64](2),
+		H3: optional.Some[uint64](3),
+	}
+	wire, cov = f.Encode(5, []byte{0x07, 0x08, 0x09})
+	require.GreaterOrEqual(t, len(wire), 3)
+	require.GreaterOrEqual(t, len(cov), 1)
+	require.Equal(t, []byte{
+		0x1, 0x1, 0x1, 0x2, 0x1, 0x2, 0x4, 0x3, 0x7,
+		0x8, 0x9, 0x6, 0x1, 0x3,
+	}, wire.Join())
+	require.Equal(t, []byte{0x2, 0x1, 0x2}, cov.Join())
+
+	// Decode wire with H3
+	f2, cov2, err = def.ReadT1(enc.NewWireView(wire))
+	require.NoError(t, err)
+	require.Equal(t, f.H1, f2.H1)
+	require.Equal(t, f.H2, f2.H2)
+	require.Equal(t, f.H3, f2.H3)
+	require.Equal(t, 0, len(f2.C.Join()))
+	require.Equal(t, []byte{0x07, 0x08, 0x09}, f2.Sig.Join())
+	require.Equal(t, cov.Join(), cov2.Join())
+
 }
 
 func TestT2(t *testing.T) {

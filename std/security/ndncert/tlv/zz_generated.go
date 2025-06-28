@@ -6,12 +6,13 @@ import (
 	"strings"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 type CaProfileEncoder struct {
-	length uint
+	Length uint
 
-	CaPrefix_encoder NameContainerEncoder
+	CaPrefix_encoder spec.NameContainerEncoder
 
 	ParamKey_subencoder []struct {
 	}
@@ -20,7 +21,7 @@ type CaProfileEncoder struct {
 }
 
 type CaProfileParsingContext struct {
-	CaPrefix_context NameContainerParsingContext
+	CaPrefix_context spec.NameContainerParsingContext
 }
 
 func (encoder *CaProfileEncoder) Init(value *CaProfile) {
@@ -59,8 +60,8 @@ func (encoder *CaProfileEncoder) Init(value *CaProfile) {
 	l := uint(0)
 	if value.CaPrefix != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.CaPrefix_encoder.length).EncodingLength())
-		l += encoder.CaPrefix_encoder.length
+		l += uint(enc.TLNum(encoder.CaPrefix_encoder.Length).EncodingLength())
+		l += encoder.CaPrefix_encoder.Length
 	}
 	l += 1
 	l += uint(enc.TLNum(len(value.CaInfo)).EncodingLength())
@@ -91,7 +92,7 @@ func (encoder *CaProfileEncoder) Init(value *CaProfile) {
 		l += uint(enc.TLNum(encoder.CaCert_length).EncodingLength())
 		l += encoder.CaCert_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -107,10 +108,10 @@ func (encoder *CaProfileEncoder) EncodeInto(value *CaProfile, buf []byte) {
 	if value.CaPrefix != nil {
 		buf[pos] = byte(129)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.CaPrefix_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.CaPrefix_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.CaPrefix_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.CaPrefix_encoder.Length > 0 {
 			encoder.CaPrefix_encoder.EncodeInto(value.CaPrefix, buf[pos:])
-			pos += encoder.CaPrefix_encoder.length
+			pos += encoder.CaPrefix_encoder.Length
 		}
 	}
 	buf[pos] = byte(131)
@@ -158,7 +159,7 @@ func (encoder *CaProfileEncoder) EncodeInto(value *CaProfile, buf []byte) {
 func (encoder *CaProfileEncoder) Encode(value *CaProfile) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -325,7 +326,7 @@ func ParseCaProfile(reader enc.WireView, ignoreCritical bool) (*CaProfile, error
 }
 
 type ProbeReqEncoder struct {
-	length uint
+	Length uint
 
 	Params_valencoder map[string]*struct {
 	}
@@ -385,7 +386,7 @@ func (encoder *ProbeReqEncoder) Init(value *ProbeReq) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -432,7 +433,7 @@ func (encoder *ProbeReqEncoder) EncodeInto(value *ProbeReq, buf []byte) {
 func (encoder *ProbeReqEncoder) Encode(value *ProbeReq) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -556,7 +557,7 @@ func ParseProbeReq(reader enc.WireView, ignoreCritical bool) (*ProbeReq, error) 
 }
 
 type ProbeResValsEncoder struct {
-	length uint
+	Length uint
 
 	Response_length uint
 }
@@ -582,7 +583,7 @@ func (encoder *ProbeResValsEncoder) Init(value *ProbeResVals) {
 		l += 1
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -615,7 +616,7 @@ func (encoder *ProbeResValsEncoder) EncodeInto(value *ProbeResVals, buf []byte) 
 func (encoder *ProbeResValsEncoder) Encode(value *ProbeResVals) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -731,17 +732,17 @@ func ParseProbeResVals(reader enc.WireView, ignoreCritical bool) (*ProbeResVals,
 }
 
 type ProbeResEncoder struct {
-	length uint
+	Length uint
 
 	Vals_subencoder []struct {
 		Vals_encoder ProbeResValsEncoder
 	}
-	RedirectPrefix_encoder NameContainerEncoder
+	RedirectPrefix_encoder spec.NameContainerEncoder
 }
 
 type ProbeResParsingContext struct {
 	Vals_context           ProbeResValsParsingContext
-	RedirectPrefix_context NameContainerParsingContext
+	RedirectPrefix_context spec.NameContainerParsingContext
 }
 
 func (encoder *ProbeResEncoder) Init(value *ProbeRes) {
@@ -786,8 +787,8 @@ func (encoder *ProbeResEncoder) Init(value *ProbeRes) {
 				value := &pseudoValue
 				if value.Vals != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Vals_encoder.length).EncodingLength())
-					l += encoder.Vals_encoder.length
+					l += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodingLength())
+					l += encoder.Vals_encoder.Length
 				}
 				_ = encoder
 				_ = value
@@ -796,10 +797,10 @@ func (encoder *ProbeResEncoder) Init(value *ProbeRes) {
 	}
 	if value.RedirectPrefix != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.RedirectPrefix_encoder.length).EncodingLength())
-		l += encoder.RedirectPrefix_encoder.length
+		l += uint(enc.TLNum(encoder.RedirectPrefix_encoder.Length).EncodingLength())
+		l += encoder.RedirectPrefix_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -826,10 +827,10 @@ func (encoder *ProbeResEncoder) EncodeInto(value *ProbeRes, buf []byte) {
 				if value.Vals != nil {
 					buf[pos] = byte(141)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Vals_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Vals_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Vals_encoder.Length > 0 {
 						encoder.Vals_encoder.EncodeInto(value.Vals, buf[pos:])
-						pos += encoder.Vals_encoder.length
+						pos += encoder.Vals_encoder.Length
 					}
 				}
 				_ = encoder
@@ -840,10 +841,10 @@ func (encoder *ProbeResEncoder) EncodeInto(value *ProbeRes, buf []byte) {
 	if value.RedirectPrefix != nil {
 		buf[pos] = byte(179)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.RedirectPrefix_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.RedirectPrefix_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.RedirectPrefix_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.RedirectPrefix_encoder.Length > 0 {
 			encoder.RedirectPrefix_encoder.EncodeInto(value.RedirectPrefix, buf[pos:])
-			pos += encoder.RedirectPrefix_encoder.length
+			pos += encoder.RedirectPrefix_encoder.Length
 		}
 	}
 }
@@ -851,7 +852,7 @@ func (encoder *ProbeResEncoder) EncodeInto(value *ProbeRes, buf []byte) {
 func (encoder *ProbeResEncoder) Encode(value *ProbeRes) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -963,7 +964,7 @@ func ParseProbeRes(reader enc.WireView, ignoreCritical bool) (*ProbeRes, error) 
 }
 
 type NewReqEncoder struct {
-	length uint
+	Length uint
 
 	CertReq_length uint
 }
@@ -991,7 +992,7 @@ func (encoder *NewReqEncoder) Init(value *NewReq) {
 		l += uint(enc.TLNum(encoder.CertReq_length).EncodingLength())
 		l += encoder.CertReq_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1024,7 +1025,7 @@ func (encoder *NewReqEncoder) EncodeInto(value *NewReq, buf []byte) {
 func (encoder *NewReqEncoder) Encode(value *NewReq) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1123,7 +1124,7 @@ func ParseNewReq(reader enc.WireView, ignoreCritical bool) (*NewReq, error) {
 }
 
 type NewResEncoder struct {
-	length uint
+	Length uint
 
 	Challenge_subencoder []struct {
 	}
@@ -1190,7 +1191,7 @@ func (encoder *NewResEncoder) Init(value *NewRes) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1249,7 +1250,7 @@ func (encoder *NewResEncoder) EncodeInto(value *NewRes, buf []byte) {
 func (encoder *NewResEncoder) Encode(value *NewRes) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1390,7 +1391,7 @@ func ParseNewRes(reader enc.WireView, ignoreCritical bool) (*NewRes, error) {
 }
 
 type CipherMsgEncoder struct {
-	length uint
+	Length uint
 }
 
 type CipherMsgParsingContext struct {
@@ -1414,7 +1415,7 @@ func (encoder *CipherMsgEncoder) Init(value *CipherMsg) {
 		l += uint(enc.TLNum(len(value.Payload)).EncodingLength())
 		l += uint(len(value.Payload))
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1452,7 +1453,7 @@ func (encoder *CipherMsgEncoder) EncodeInto(value *CipherMsg, buf []byte) {
 func (encoder *CipherMsgEncoder) Encode(value *CipherMsg) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1563,7 +1564,7 @@ func ParseCipherMsg(reader enc.WireView, ignoreCritical bool) (*CipherMsg, error
 }
 
 type ChallengeReqEncoder struct {
-	length uint
+	Length uint
 
 	Params_valencoder map[string]*struct {
 	}
@@ -1627,7 +1628,7 @@ func (encoder *ChallengeReqEncoder) Init(value *ChallengeReq) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1679,7 +1680,7 @@ func (encoder *ChallengeReqEncoder) EncodeInto(value *ChallengeReq, buf []byte) 
 func (encoder *ChallengeReqEncoder) Encode(value *ChallengeReq) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1819,17 +1820,17 @@ func ParseChallengeReq(reader enc.WireView, ignoreCritical bool) (*ChallengeReq,
 }
 
 type ChallengeResEncoder struct {
-	length uint
+	Length uint
 
-	CertName_encoder       NameContainerEncoder
-	ForwardingHint_encoder NameContainerEncoder
+	CertName_encoder       spec.NameContainerEncoder
+	ForwardingHint_encoder spec.NameContainerEncoder
 	Params_valencoder      map[string]*struct {
 	}
 }
 
 type ChallengeResParsingContext struct {
-	CertName_context       NameContainerParsingContext
-	ForwardingHint_context NameContainerParsingContext
+	CertName_context       spec.NameContainerParsingContext
+	ForwardingHint_context spec.NameContainerParsingContext
 }
 
 func (encoder *ChallengeResEncoder) Init(value *ChallengeRes) {
@@ -1881,13 +1882,13 @@ func (encoder *ChallengeResEncoder) Init(value *ChallengeRes) {
 	}
 	if value.CertName != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.CertName_encoder.length).EncodingLength())
-		l += encoder.CertName_encoder.length
+		l += uint(enc.TLNum(encoder.CertName_encoder.Length).EncodingLength())
+		l += encoder.CertName_encoder.Length
 	}
 	if value.ForwardingHint != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.ForwardingHint_encoder.length).EncodingLength())
-		l += encoder.ForwardingHint_encoder.length
+		l += uint(enc.TLNum(encoder.ForwardingHint_encoder.Length).EncodingLength())
+		l += encoder.ForwardingHint_encoder.Length
 	}
 	if value.Params != nil {
 		for map_k, map_v := range value.Params {
@@ -1915,7 +1916,7 @@ func (encoder *ChallengeResEncoder) Init(value *ChallengeRes) {
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1961,19 +1962,19 @@ func (encoder *ChallengeResEncoder) EncodeInto(value *ChallengeRes, buf []byte) 
 	if value.CertName != nil {
 		buf[pos] = byte(169)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.CertName_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.CertName_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.CertName_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.CertName_encoder.Length > 0 {
 			encoder.CertName_encoder.EncodeInto(value.CertName, buf[pos:])
-			pos += encoder.CertName_encoder.length
+			pos += encoder.CertName_encoder.Length
 		}
 	}
 	if value.ForwardingHint != nil {
 		buf[pos] = byte(30)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.ForwardingHint_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.ForwardingHint_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.ForwardingHint_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.ForwardingHint_encoder.Length > 0 {
 			encoder.ForwardingHint_encoder.EncodeInto(value.ForwardingHint, buf[pos:])
-			pos += encoder.ForwardingHint_encoder.length
+			pos += encoder.ForwardingHint_encoder.Length
 		}
 	}
 	if value.Params != nil {
@@ -2011,7 +2012,7 @@ func (encoder *ChallengeResEncoder) EncodeInto(value *ChallengeRes, buf []byte) 
 func (encoder *ChallengeResEncoder) Encode(value *ChallengeRes) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -2248,7 +2249,7 @@ func ParseChallengeRes(reader enc.WireView, ignoreCritical bool) (*ChallengeRes,
 }
 
 type ErrorResEncoder struct {
-	length uint
+	Length uint
 }
 
 type ErrorResParsingContext struct {
@@ -2262,7 +2263,7 @@ func (encoder *ErrorResEncoder) Init(value *ErrorRes) {
 	l += 1
 	l += uint(enc.TLNum(len(value.ErrInfo)).EncodingLength())
 	l += uint(len(value.ErrInfo))
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -2289,7 +2290,7 @@ func (encoder *ErrorResEncoder) EncodeInto(value *ErrorRes, buf []byte) {
 func (encoder *ErrorResEncoder) Encode(value *ErrorRes) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -2401,142 +2402,6 @@ func (value *ErrorRes) Bytes() []byte {
 
 func ParseErrorRes(reader enc.WireView, ignoreCritical bool) (*ErrorRes, error) {
 	context := ErrorResParsingContext{}
-	context.Init()
-	return context.Parse(reader, ignoreCritical)
-}
-
-type NameContainerEncoder struct {
-	length uint
-
-	Name_length uint
-}
-
-type NameContainerParsingContext struct {
-}
-
-func (encoder *NameContainerEncoder) Init(value *NameContainer) {
-	if value.Name != nil {
-		encoder.Name_length = 0
-		for _, c := range value.Name {
-			encoder.Name_length += uint(c.EncodingLength())
-		}
-	}
-
-	l := uint(0)
-	if value.Name != nil {
-		l += 1
-		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
-		l += encoder.Name_length
-	}
-	encoder.length = l
-
-}
-
-func (context *NameContainerParsingContext) Init() {
-
-}
-
-func (encoder *NameContainerEncoder) EncodeInto(value *NameContainer, buf []byte) {
-
-	pos := uint(0)
-
-	if value.Name != nil {
-		buf[pos] = byte(7)
-		pos += 1
-		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
-		for _, c := range value.Name {
-			pos += uint(c.EncodeInto(buf[pos:]))
-		}
-	}
-}
-
-func (encoder *NameContainerEncoder) Encode(value *NameContainer) enc.Wire {
-
-	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
-	buf := wire[0]
-	encoder.EncodeInto(value, buf)
-
-	return wire
-}
-
-func (context *NameContainerParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*NameContainer, error) {
-
-	var handled_Name bool = false
-
-	progress := -1
-	_ = progress
-
-	value := &NameContainer{}
-	var err error
-	var startPos int
-	for {
-		startPos = reader.Pos()
-		if startPos >= reader.Length() {
-			break
-		}
-		typ := enc.TLNum(0)
-		l := enc.TLNum(0)
-		typ, err = reader.ReadTLNum()
-		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
-		}
-		l, err = reader.ReadTLNum()
-		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
-		}
-
-		err = nil
-		if handled := false; true {
-			switch typ {
-			case 7:
-				if true {
-					handled = true
-					handled_Name = true
-					delegate := reader.Delegate(int(l))
-					value.Name, err = delegate.ReadName()
-				}
-			default:
-				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
-				}
-				handled = true
-				err = reader.Skip(int(l))
-			}
-			if err == nil && !handled {
-			}
-			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
-			}
-		}
-	}
-
-	startPos = reader.Pos()
-	err = nil
-
-	if !handled_Name && err == nil {
-		value.Name = nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return value, nil
-}
-
-func (value *NameContainer) Encode() enc.Wire {
-	encoder := NameContainerEncoder{}
-	encoder.Init(value)
-	return encoder.Encode(value)
-}
-
-func (value *NameContainer) Bytes() []byte {
-	return value.Encode().Join()
-}
-
-func ParseNameContainer(reader enc.WireView, ignoreCritical bool) (*NameContainer, error) {
-	context := NameContainerParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }

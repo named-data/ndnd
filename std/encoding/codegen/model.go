@@ -49,7 +49,7 @@ func (m *TlvModel) ProcessOption(option string) {
 func (m *TlvModel) GenEncoderStruct(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelEncoderStruct").Parse(`
 		type {{.Name}}Encoder struct {
-			length uint
+			Length uint
 			{{if .NoCopy}}
 				wirePlan []uint
 			{{end}}
@@ -71,7 +71,7 @@ func (m *TlvModel) GenInitEncoder(buf *bytes.Buffer) error {
 			{{- range $f := .Fields}}
 				{{$f.GenEncodingLength}}
 			{{- end}}
-			encoder.length = l
+			encoder.Length = l
 
 			{{if .NoCopy}}
 				wirePlan := make([]uint, 0, 8)
@@ -122,7 +122,7 @@ func (m *TlvModel) GenEncodeInto(buf *bytes.Buffer) error {
 				encoder.EncodeInto(value, wire)
 			{{else}}
 				wire := make(enc.Wire, 1)
-				wire[0] = make([]byte, encoder.length)
+				wire[0] = make([]byte, encoder.Length)
 				buf := wire[0]
 				encoder.EncodeInto(value, buf)
 			{{end}}

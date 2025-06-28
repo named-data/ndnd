@@ -126,6 +126,10 @@ func (d *Data) Content() enc.Wire {
 	return d.ContentV
 }
 
+func (d *Data) CrossSchema() enc.Wire {
+	return d.CrossSchemaV
+}
+
 func (t *Interest) SigType() ndn.SigType {
 	if t.SignatureInfo == nil {
 		return ndn.SignatureNone
@@ -217,6 +221,7 @@ func (t *Interest) AppParam() enc.Wire {
 	return t.ApplicationParameters
 }
 
+// MakeData encodes an NDN Data.
 func (Spec) MakeData(name enc.Name, config *ndn.DataConfig, content enc.Wire, signer ndn.Signer) (*ndn.EncodedData, error) {
 	// Create Data packet.
 	if name == nil {
@@ -239,6 +244,7 @@ func (Spec) MakeData(name enc.Name, config *ndn.DataConfig, content enc.Wire, si
 		ContentV:       content,
 		SignatureInfo:  nil,
 		SignatureValue: nil,
+		CrossSchemaV:   config.CrossSchema,
 	}
 	packet := &Packet{
 		Data: data,
@@ -309,6 +315,8 @@ func (Spec) MakeData(name enc.Name, config *ndn.DataConfig, content enc.Wire, si
 	}, nil
 }
 
+// ReadData parses a Data from the reader.
+// Precondition: reader contains only one TLV.
 func (Spec) ReadData(reader enc.WireView) (ndn.Data, enc.Wire, error) {
 	context := PacketParsingContext{}
 	context.Init()
@@ -325,6 +333,7 @@ func (Spec) ReadData(reader enc.WireView) (ndn.Data, enc.Wire, error) {
 	return ret.Data, context.Data_context.sigCovered, nil
 }
 
+// MakeInterest encodes an NDN Interest.
 func (Spec) MakeInterest(name enc.Name, config *ndn.InterestConfig, appParam enc.Wire, signer ndn.Signer) (*ndn.EncodedInterest, error) {
 	// Create Interest packet.
 	if name == nil {
@@ -490,6 +499,8 @@ func checkInterest(val *Interest, context *InterestParsingContext) error {
 	return nil
 }
 
+// ReadInterest parses an Interest from the reader.
+// Precondition: reader contains only one TLV.
 func (Spec) ReadInterest(reader enc.WireView) (ndn.Interest, enc.Wire, error) {
 	context := PacketParsingContext{}
 	context.Init()

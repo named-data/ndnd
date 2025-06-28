@@ -18,6 +18,8 @@ type Engine interface {
 	Spec() Spec
 	// Timer returns a Timer managed by the engine.
 	Timer() Timer
+	// Face returns the face of the engine.
+	Face() Face
 
 	// Start processing packets.
 	// If the engine is attached to a face, this will attempt

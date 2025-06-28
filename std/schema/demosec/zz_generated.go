@@ -8,7 +8,7 @@ import (
 )
 
 type EncryptedContentEncoder struct {
-	length uint
+	Length uint
 
 	wirePlan []uint
 
@@ -45,7 +45,7 @@ func (encoder *EncryptedContentEncoder) Init(value *EncryptedContent) {
 		l += uint(enc.TLNum(encoder.CipherText_length).EncodingLength())
 		l += encoder.CipherText_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 	wirePlan := make([]uint, 0, 8)
 	l = uint(0)

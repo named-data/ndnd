@@ -3,12 +3,13 @@ package tlv
 
 import (
 	enc "github.com/named-data/ndnd/std/encoding"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/types/optional"
 )
 
 type CaProfile struct {
-	//+field:struct:NameContainer
-	CaPrefix *NameContainer `tlv:"0x81"`
+	//+field:struct:spec.NameContainer
+	CaPrefix *spec.NameContainer `tlv:"0x81"`
 	//+field:string
 	CaInfo string `tlv:"0x83"`
 	//+field:sequence:string:string
@@ -34,8 +35,8 @@ type ProbeResVals struct {
 type ProbeRes struct {
 	//+field:sequence:*ProbeResVals:struct:ProbeResVals
 	Vals []*ProbeResVals `tlv:"0x8D"`
-	//+field:struct:NameContainer
-	RedirectPrefix *NameContainer `tlv:"0xB3"`
+	//+field:struct:spec.NameContainer
+	RedirectPrefix *spec.NameContainer `tlv:"0xB3"`
 }
 
 type NewReq struct {
@@ -81,10 +82,10 @@ type ChallengeRes struct {
 	RemainTries optional.Optional[uint64] `tlv:"0xA5"`
 	//+field:natural:optional
 	RemainTime optional.Optional[uint64] `tlv:"0xA7"`
-	//+field:struct:NameContainer
-	CertName *NameContainer `tlv:"0xA9"`
-	//+field:struct:NameContainer
-	ForwardingHint *NameContainer `tlv:"0x1e"`
+	//+field:struct:spec.NameContainer
+	CertName *spec.NameContainer `tlv:"0xA9"`
+	//+field:struct:spec.NameContainer
+	ForwardingHint *spec.NameContainer `tlv:"0x1e"`
 	//+field:map:string:string:0x87:[]byte:binary
 	Params map[string][]byte `tlv:"0x85"`
 }
@@ -94,9 +95,4 @@ type ErrorRes struct {
 	ErrCode uint64 `tlv:"0xAB"`
 	//+field:string
 	ErrInfo string `tlv:"0xAD"`
-}
-
-type NameContainer struct {
-	//+field:name
-	Name enc.Name `tlv:"0x07"`
 }

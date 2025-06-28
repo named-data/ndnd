@@ -47,7 +47,10 @@ faces:
     # Whether to enable Unix stream transports
     enabled: true
     # Location of the socket file
-    socket_path: /run/nfd/nfd.sock
+    # On Windows, uses ${TEMP}\\nfd\\nfd.sock
+    # On Mac, uses /var/run/nfd/nfd.sock
+    # Uncomment the line below to manually set socket path
+    # socket_path: /run/nfd/nfd.sock
 
   websocket:
     # Whether to enable WebSocket listener
@@ -58,6 +61,18 @@ faces:
     port: 9696
     # Whether to enable TLS
     tls_enabled: false
+    # TLS certificate path (relative to the config file)
+    tls_cert: ""
+    # TLS private key (relative to the config file)
+    tls_key: ""
+
+  http3:
+    # Whether to enable HTTP/3 WebTransport listener
+    enabled: false
+    # Bind address for HTTP/3 WebTransport listener
+    bind: ""
+    # Port for HTTP/3 WebTransport listener
+    port: 443
     # TLS certificate path (relative to the config file)
     tls_cert: ""
     # TLS private key (relative to the config file)

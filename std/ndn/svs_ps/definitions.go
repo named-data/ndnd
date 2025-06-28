@@ -1,7 +1,19 @@
 //go:generate gondn_tlv_gen
 package svs_ps
 
-import enc "github.com/named-data/ndnd/std/encoding"
+import (
+	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn/svs/v3"
+)
+
+type InstanceState struct {
+	//+field:name
+	Name enc.Name `tlv:"0x07"`
+	//+field:natural
+	BootstrapTime uint64 `tlv:"0xd4"`
+	//+field:struct:svs.StateVector
+	StateVector *svs.StateVector `tlv:"0xc9"`
+}
 
 // +tlv-model:nocopy
 type HistorySnap struct {

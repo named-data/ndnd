@@ -1,4 +1,4 @@
-package object
+package storage
 
 import (
 	"fmt"
@@ -27,8 +27,6 @@ type memoryStoreNode struct {
 	children map[string]*memoryStoreNode
 	// data wire
 	wire []byte
-	// version of this wire
-	version uint64
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -50,7 +48,7 @@ func (s *MemoryStore) Get(name enc.Name, prefix bool) ([]byte, error) {
 	return nil, nil
 }
 
-func (s *MemoryStore) Put(name enc.Name, version uint64, wire []byte) error {
+func (s *MemoryStore) Put(name enc.Name, wire []byte) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -59,7 +57,7 @@ func (s *MemoryStore) Put(name enc.Name, version uint64, wire []byte) error {
 		root = s.tx
 	}
 
-	root.insert(name, version, wire)
+	root.insert(name, wire)
 	return nil
 }
 
@@ -145,20 +143,30 @@ func (n *memoryStoreNode) find(name enc.Name) *memoryStoreNode {
 }
 
 func (n *memoryStoreNode) findNewest() *memoryStoreNode {
-	known := n
-	for _, child := range n.children {
-		cl := child.findNewest()
-		if cl.version > known.version {
-			known = cl
+	if len(n.children) == 0 {
+		return n
+	}
+
+	var newest string = ""
+	for key := range n.children {
+		if key > newest {
+			newest = key
 		}
+	}
+	if newest == "" {
+		return nil
+	}
+
+	known := n.children[newest]
+	if sub := known.findNewest(); sub != nil {
+		return sub
 	}
 	return known
 }
 
-func (n *memoryStoreNode) insert(name enc.Name, version uint64, wire []byte) {
+func (n *memoryStoreNode) insert(name enc.Name, wire []byte) {
 	if len(name) == 0 {
 		n.wire = wire
-		n.version = version
 		return
 	}
 
@@ -168,10 +176,10 @@ func (n *memoryStoreNode) insert(name enc.Name, version uint64, wire []byte) {
 
 	key := name[0].TlvStr()
 	if child := n.children[key]; child != nil {
-		child.insert(name[1:], version, wire)
+		child.insert(name[1:], wire)
 	} else {
 		child = &memoryStoreNode{comp: name[0]}
-		child.insert(name[1:], version, wire)
+		child.insert(name[1:], wire)
 		n.children[key] = child
 	}
 }
@@ -180,7 +188,6 @@ func (n *memoryStoreNode) remove(name enc.Name, prefix bool) bool {
 	// return value is if the parent should prune this child
 	if len(name) == 0 {
 		n.wire = nil
-		n.version = 0
 		if prefix {
 			n.children = nil // prune subtree
 		}
@@ -205,7 +212,6 @@ func (n *memoryStoreNode) remove(name enc.Name, prefix bool) bool {
 func (n *memoryStoreNode) merge(tx *memoryStoreNode) {
 	if tx.wire != nil {
 		n.wire = tx.wire
-		n.version = tx.version
 	}
 
 	for key, child := range tx.children {

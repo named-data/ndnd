@@ -1,4 +1,4 @@
-package object
+package storage
 
 import (
 	"sync"

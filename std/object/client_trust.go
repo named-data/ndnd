@@ -41,10 +41,11 @@ func (c *Client) ValidateExt(args ndn.ValidateExtArgs) {
 	}
 
 	c.trust.Validate(sec.TrustConfigValidateArgs{
-		Data:         args.Data,
-		DataSigCov:   args.SigCovered,
-		Callback:     args.Callback,
-		OverrideName: overrideName,
+		Data:              args.Data,
+		DataSigCov:        args.SigCovered,
+		Callback:          args.Callback,
+		OverrideName:      overrideName,
+		UseDataNameFwHint: args.UseDataNameFwHint,
 		Fetch: func(name enc.Name, config *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
 			config.NextHopId = args.CertNextHop
 			c.ExpressR(ndn.ExpressRArgs{

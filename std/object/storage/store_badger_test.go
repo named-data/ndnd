@@ -1,23 +1,23 @@
 //go:build !js
 
-package object_test
+package storage_test
 
 import (
 	"os"
 	"testing"
 
-	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	tu "github.com/named-data/ndnd/std/utils/testutils"
 	"github.com/stretchr/testify/require"
 )
 
-func TestBoltStore(t *testing.T) {
+func TestBadgerStore(t *testing.T) {
 	tu.SetT(t)
-	filename := "test.db"
-	os.Remove(filename)
-	defer os.Remove(filename)
+	dir := "badger-test"
+	os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 
-	store, err := object.NewBoltStore(filename)
+	store, err := storage.NewBadgerStore(dir)
 	require.NoError(t, err)
 	testStoreBasic(t, store)
 	testStoreRemoveRange(t, store)

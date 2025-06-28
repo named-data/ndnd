@@ -7,7 +7,7 @@ type Snapshot interface {
 	Snapshot() Snapshot
 
 	// initialize the strategy, and set up ps state.
-	initialize(snapPsState)
+	initialize(snapPsState, SvMap[svsDataState])
 
 	// onUpdate is called when the state vector is updated for a different node.
 	// The strategy can decide to block fetching for the snapshot.

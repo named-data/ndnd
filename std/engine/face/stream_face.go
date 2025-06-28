@@ -35,10 +35,6 @@ func (f *StreamFace) String() string {
 	return fmt.Sprintf("stream-face (%s://%s)", f.network, f.addr)
 }
 
-func (f *StreamFace) Trait() Face {
-	return f
-}
-
 func (f *StreamFace) Open() error {
 	if f.IsRunning() {
 		return fmt.Errorf("face is already running")

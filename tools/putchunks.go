@@ -10,9 +10,8 @@ import (
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
-	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	"github.com/named-data/ndnd/std/object"
-	"github.com/named-data/ndnd/std/types/optional"
+	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -59,7 +58,7 @@ func (pc *PutChunks) run(_ *cobra.Command, args []string) {
 	defer app.Stop()
 
 	// start object client
-	cli := object.NewClient(app, object.NewMemoryStore(), nil)
+	cli := object.NewClient(app, storage.NewMemoryStore(), nil)
 	err = cli.Start()
 	if err != nil {
 		log.Fatal(pc, "Unable to start object client", "err", err)
@@ -93,20 +92,12 @@ func (pc *PutChunks) run(_ *cobra.Command, args []string) {
 	content = nil // gc
 	log.Info(pc, "Object produced", "name", vname)
 
-	// register route to the object
-	var origin optional.Optional[uint64]
-	if pc.expose {
-		origin = optional.Some(uint64(mgmt.RouteOriginClient))
-	}
-	_, err = app.ExecMgmtCmd("rib", "register", &mgmt.ControlArgs{
+	// announce the prefix
+	cli.AnnouncePrefix(ndn.Announcement{
 		Name:   name,
-		Origin: origin,
+		Expose: pc.expose,
 	})
-	if err != nil {
-		log.Fatal(pc, "Unable to register route", "err", err)
-		return
-	}
-	defer app.UnregisterRoute(name)
+	defer cli.WithdrawPrefix(name, nil)
 
 	// wait forever
 	sigchan := make(chan os.Signal, 1)

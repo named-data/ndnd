@@ -29,12 +29,13 @@ func NewCertCache() *CertCache {
 // The name can be either the certificate name or the key locator.
 // If the cert expires in less than 5 minutes, it is considered stale.
 func (cc *CertCache) Get(name enc.Name) (ndn.Data, bool) {
-	if v, ok := cc.cache.Load(name.TlvStr()); ok {
+	str := name.TlvStr()
+	if v, ok := cc.cache.Load(str); ok {
 		entry := v.(certCacheEntry)
 		if entry.expiry.Add(5 * time.Minute).After(time.Now()) {
 			return entry.data, true
 		} else {
-			cc.cache.Delete(name)
+			cc.cache.Delete(str)
 		}
 	}
 	return nil, false

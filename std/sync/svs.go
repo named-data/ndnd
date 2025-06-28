@@ -39,6 +39,9 @@ type SvSync struct {
 
 	// Channel for incoming state vectors
 	recvSv chan svSyncRecvSvArgs
+
+	// cancellation for face hook
+	faceCancel func()
 }
 
 type SvSyncOpts struct {
@@ -48,6 +51,12 @@ type SvSyncOpts struct {
 	GroupPrefix enc.Name
 	// Callback for SVSync updates
 	OnUpdate func(SvSyncUpdate)
+
+	// Name of this instance for security
+	// This name will be used directly for the Sync Data name;
+	// only a version component will be appended.
+	// If not provided, the GroupPrefix will be used instead.
+	SyncDataName enc.Name
 
 	// Initial state vector from persistence
 	InitialState *spec_svs.StateVector
@@ -108,6 +117,9 @@ func NewSvSync(opts SvSyncOpts) *SvSync {
 	if opts.SuppressionPeriod == 0 {
 		opts.SuppressionPeriod = 200 * time.Millisecond
 	}
+	if len(opts.SyncDataName) == 0 {
+		opts.SyncDataName = opts.GroupPrefix
+	}
 
 	return &SvSync{
 		o: opts,
@@ -128,6 +140,8 @@ func NewSvSync(opts SvSyncOpts) *SvSync {
 		passiveWillPersist: atomic.Bool{},
 
 		recvSv: make(chan svSyncRecvSvArgs, 128),
+
+		faceCancel: func() {},
 	}
 }
 
@@ -152,10 +166,18 @@ func (s *SvSync) Start() (err error) {
 }
 
 func (s *SvSync) main() {
+	// Cleanup on exit
 	defer s.o.Client.Engine().DetachHandler(s.prefix)
 
+	// Set running state
 	s.running.Store(true)
 	defer s.running.Store(false)
+
+	// Notify everyone when we are back online
+	s.faceCancel = s.o.Client.Engine().Face().OnUp(func() {
+		time.AfterFunc(100*time.Millisecond, s.sendSyncInterest)
+	})
+	defer s.faceCancel()
 
 	if s.o.Passive {
 		// [Passive] Load the buffered wires from persistence
@@ -244,6 +266,18 @@ func (s *SvSync) IncrSeqNo(name enc.Name) uint64 {
 
 func (s *SvSync) GetBootTime() uint64 {
 	return s.o.BootTime
+}
+
+func (s *SvSync) GetNames() []enc.Name {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	names := make([]enc.Name, 0, len(s.state))
+	for name := range s.state.Iter() {
+		names = append(names, name)
+	}
+
+	return names
 }
 
 func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
@@ -434,7 +468,7 @@ func (s *SvSync) encodeSyncData() enc.Wire {
 	svWire := (&spec_svs.SvsData{StateVector: sv}).Encode()
 
 	// SVS v3 Sync Data
-	name := s.prefix
+	name := s.o.SyncDataName.WithVersion(enc.VersionUnixMicro)
 
 	// Sign Sync Data
 	signer := s.o.Client.SuggestSigner(name)
@@ -578,7 +612,7 @@ func (s *SvSync) persistPassiveWires() {
 
 	name := s.prefix.Append(enc.NewKeywordComponent("passive-state"))
 	wire := pstate.Encode().Join()
-	if err := s.o.Client.Store().Put(name, 0, wire); err != nil {
+	if err := s.o.Client.Store().Put(name, wire); err != nil {
 		log.Error(s, "Failed to persist wires", "err", err)
 	}
 }

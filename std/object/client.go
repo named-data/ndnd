@@ -2,6 +2,7 @@ package object
 
 import (
 	"fmt"
+	"sync"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
@@ -17,6 +18,10 @@ type Client struct {
 	trust *sec.TrustConfig
 	// segment fetcher
 	fetcher rrSegFetcher
+
+	// announcements
+	announcements sync.Map
+	faceCancel    func()
 }
 
 // Create a new client with given engine and store
@@ -26,6 +31,10 @@ func NewClient(engine ndn.Engine, store ndn.Store, trust *sec.TrustConfig) ndn.C
 	client.store = store
 	client.trust = trust
 	client.fetcher = newRrSegFetcher(client)
+
+	client.announcements = sync.Map{}
+	client.faceCancel = func() {}
+
 	return client
 }
 
@@ -44,11 +53,15 @@ func (c *Client) Start() error {
 		return err
 	}
 
+	c.faceCancel = c.engine.Face().OnUp(c.onFaceUp)
+
 	return nil
 }
 
 // Stop the client
 func (c *Client) Stop() error {
+	c.faceCancel()
+
 	if err := c.engine.DetachHandler(enc.Name{}); err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/ndncert/tlv"
 	sig "github.com/named-data/ndnd/std/security/signer"
@@ -43,7 +44,7 @@ func NewClient(engine ndn.Engine, caCert []byte) (*Client, error) {
 	// No need to start the client because it is only used for consume.
 	// TODO: find a better way to express this and prevent the error
 	// returned by start due to multiple clients.
-	client := object.NewClient(engine, object.NewMemoryStore(), nil)
+	client := object.NewClient(engine, storage.NewMemoryStore(), nil)
 
 	// Generate ECDH Key used for encryption
 	ecdhKey, err := EcdhKeygen()
@@ -252,7 +253,7 @@ func (c *Client) RequestCert(args RequestCertArgs) (*RequestCertResult, error) {
 
 	// ======  Step 3: NEW ==============
 	// Use the longest possible validity period
-	expiry := time.Now().Add(time.Second * time.Duration(profile.MaxValidPeriod))
+	expiry := time.Now().Add(time.Second * time.Duration(profile.MaxValidPeriod-300))
 	newRes, err := c.New(args.Challenge, expiry)
 	if err != nil {
 		return nil, err

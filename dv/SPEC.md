@@ -19,12 +19,13 @@ This page describes the protocol specification of NDN Distance Vector Routing (n
 ## 2. Format and Naming
 
 ```
-Advertisement Sync (active)       = /localhop/<network>/32=DV/32=ADS/32=ACT
-Advertisement Sync (passive)      = /localhop/<network>/32=DV/32=ADS/32=PSV
+Advertisement Broadcast Interest  = /localhop/<network>/32=DV/32=ADS/32=ACT
+Advertisement Broadcast Interest  = /localhop/<network>/32=DV/32=ADS/32=PSV
+Advertisement Broadcast Data      = /localhop/<router>/32=DV/32=ADV/32=SYNC
 Advertisement Data                = /localhop/<router>/32=DV/32=ADV/t=<boot>/v=<seq>
-Prefix Sync group                 = /<network>/32=DV/32=PFS
-Prefix Data                       = /<router>/32=DV/32=PFX/t=<boot>/seq=<seq>/v=0
-Prefix Snapshot                   = /<router>/32=DV/32=PFX/t=<boot>/32=SNAP/v=<seq>
+Prefix Group SVS                  = /<network>/32=DV/32=PFS/32=svs
+Prefix Data                       = /<network>/32=DV/32=PFS/<router>/t=<boot>/seq=<seq>/v=0
+Prefix Snapshot                   = /<network>/32=DV/32=PFS/<router>/t=<boot>/32=SNAP/v=<seq>
 
 <router>  = router's unique name in the network
 <network> = globally unique network prefix
@@ -105,16 +106,16 @@ Notes:
 1. If the advertisement changes, the router increments the sequence number for the *Advertisement Sync* group.
 1. Neighbor is considered dead if no update is received for the `RouterDeadInterval` period.
 
-### Advertisement Sync
+### Advertisement Broadcast
 
-ndn-dv uses a local variant of SVS v2 for advertisement synchronization
+ndn-dv uses a local variant of SVS v3 for advertisement broadcast. The name of the Interest and encapsulated Data (in ApplicationParameters) are provided in the format and naming section.
 
 1. Each router maintains a local sequence number that is incremented when the advertisement changes.
 1. Sync Interests are encoded identical to SVS, but the state vector ONLY contains the router's own sequence number.
 1. Sync Interests are propagated only one hop, using `localhop` and a `HopLimit` of 2.
 1. On receiving a Sync Interest, the router updates the sequence number for the sending neighbor.
 1. However, the outgoing state vector does not change, and always only contains the router itself.
-1. The incoming face of a Advertisement Sync Interest is used to set up data routes to neighbors.
+1. The incoming face of a Advertisement Broadcast Interest is used to set up data routes to neighbors.
 
 To allow for asymmetric face configurations, two types of Sync Interests are used:
 
@@ -178,3 +179,11 @@ The FIB is configured based on the RIB state and the global prefix table.
 
 1. When a prefix destination has multiple exit routers, the router chooses the exit
    router that it can reach with the lowest cost.
+
+### Security
+
+The LightVerSec policy for ndn-dv is described in [config/schema.trust](./config/schema.trust).
+
+All routers must have a unique name configured in the network, and a global common network name. ndn-dv data is signed using the router's key, which in turn is signed by the network key (trust anchor).
+
+When fetching certificates, the name of the data being verified MUST be attached as a forwarding hint to all certificate Interests in the chain.

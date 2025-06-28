@@ -4,11 +4,11 @@ import enc "github.com/named-data/ndnd/std/encoding"
 
 type Store interface {
 	// Get returns a Data wire matching the given name
-	// prefix = return the newest Data wire with the given prefix
+	// prefix = return the lexicographically last Data wire with the given prefix
 	Get(name enc.Name, prefix bool) ([]byte, error)
 
 	// Put inserts a Data wire into the store
-	Put(name enc.Name, version uint64, wire []byte) error
+	Put(name enc.Name, wire []byte) error
 
 	// Remove removes a Data wire from the store
 	Remove(name enc.Name) error

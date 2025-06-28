@@ -83,6 +83,7 @@ type Data interface {
 	FinalBlockID() optional.Optional[enc.Component]
 	Content() enc.Wire
 	Signature() Signature
+	CrossSchema() enc.Wire
 }
 
 // DataConfig is used to create a Data.
@@ -95,6 +96,9 @@ type DataConfig struct {
 	// Certificate parameters
 	SigNotBefore optional.Optional[time.Time]
 	SigNotAfter  optional.Optional[time.Time]
+
+	// Cross Schema attachment
+	CrossSchema enc.Wire
 }
 
 // Container for an encoded Data packet

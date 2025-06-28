@@ -10,6 +10,8 @@ import (
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
+	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/spf13/cobra"
@@ -20,12 +22,13 @@ type PingServer struct {
 	signer ndn.Signer
 	name   enc.Name
 	nRecv  int
+	expose bool
 }
 
 func CmdPingServer() *cobra.Command {
 	ps := PingServer{}
 
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		GroupID: "tools",
 		Use:     "pingserver PREFIX",
 		Short:   "Start a ping server under a name prefix",
@@ -33,6 +36,9 @@ func CmdPingServer() *cobra.Command {
 		Example: `  ndnd pingserver /my/prefix`,
 		Run:     ps.run,
 	}
+
+	cmd.Flags().BoolVar(&ps.expose, "expose", false, "Use client origin for prefix registration")
+	return cmd
 }
 
 func (ps *PingServer) String() string {
@@ -62,11 +68,18 @@ func (ps *PingServer) run(_ *cobra.Command, args []string) {
 		return
 	}
 
-	err = ps.app.RegisterRoute(ps.name)
-	if err != nil {
-		log.Fatal(ps, "Unable to register route", "err", err)
+	cli := object.NewClient(ps.app, storage.NewMemoryStore(), nil)
+	if err = cli.Start(); err != nil {
+		log.Fatal(ps, "Unable to start object client", "err", err)
 		return
 	}
+	defer cli.Stop()
+
+	cli.AnnouncePrefix(ndn.Announcement{
+		Name:   name,
+		Expose: ps.expose,
+	})
+	defer cli.WithdrawPrefix(name, nil)
 
 	fmt.Printf("PING SERVER %s\n", ps.name)
 	defer ps.stats()

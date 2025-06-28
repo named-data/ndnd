@@ -27,7 +27,7 @@ def scenario(ndn: Minindn, fw=None, network='/minindn'):
     AppManager(ndn, ndn.net.hosts, fw)
 
     dv_util.setup(ndn, network=network)
-    dv_util.converge(ndn.net.hosts, network=network)
+    dv_util.converge(ndn.net.hosts, network=network, use_nfdc=(fw==Nfd))
 
     info('Testing file transfer\n')
     test_file = '/tmp/test.bin'

@@ -12,6 +12,7 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	"github.com/named-data/ndnd/std/object"
+	"github.com/named-data/ndnd/std/object/storage"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/keychain"
 	"github.com/named-data/ndnd/std/security/trust_schema"
@@ -70,7 +71,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 	}
 
 	// Create packet store
-	store := object.NewMemoryStore()
+	store := storage.NewMemoryStore()
 
 	// Create security configuration
 	var trust *sec.TrustConfig = nil
@@ -90,6 +91,9 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Attach data name as forwarding hint to cert Interests
+		trust.UseDataNameFwHint = true
 	}
 
 	// Create the DV router
@@ -107,7 +111,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		dv:       dv,
 		bootTime: uint64(time.Now().Unix()),
 		seq:      0,
-		objDir:   object.NewMemoryFifoDir(32), // keep last few advertisements
+		objDir:   storage.NewMemoryFifoDir(32), // keep last few advertisements
 	}
 
 	// Create prefix table
@@ -239,8 +243,8 @@ func (dv *Router) register() (err error) {
 	pfxs := []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
 		dv.config.AdvertisementDataPrefix(),
-		dv.config.PrefixTableSyncPrefix(),
-		dv.config.RouterDataPrefix(),
+		dv.pfxSvs.SyncPrefix(),
+		dv.pfxSvs.DataPrefix(),
 		dv.config.MgmtPrefix(),
 	}
 	for _, prefix := range pfxs {
@@ -259,7 +263,7 @@ func (dv *Router) register() (err error) {
 	// Set strategy to multicast for sync prefixes
 	pfxs = []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
-		dv.config.PrefixTableSyncPrefix(),
+		dv.pfxSvs.SyncPrefix(),
 	}
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
@@ -345,10 +349,10 @@ func (dv *Router) createPrefixTable() {
 	// SVS delivery agent
 	var err error
 	dv.pfxSvs, err = ndn_sync.NewSvsALO(ndn_sync.SvsAloOpts{
-		Name: dv.config.RouterDataPrefix(),
+		Name: dv.config.RouterName(),
 		Svs: ndn_sync.SvSyncOpts{
 			Client:      dv.client,
-			GroupPrefix: dv.config.PrefixTableSyncPrefix(),
+			GroupPrefix: dv.config.PrefixTableGroupPrefix(),
 			BootTime:    dv.advert.bootTime,
 		},
 		Snapshot: &ndn_sync.SnapshotNodeLatest{

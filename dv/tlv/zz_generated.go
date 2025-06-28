@@ -10,7 +10,7 @@ import (
 )
 
 type PacketEncoder struct {
-	length uint
+	Length uint
 
 	Advertisement_encoder AdvertisementEncoder
 	PrefixOpList_encoder  PrefixOpListEncoder
@@ -32,15 +32,15 @@ func (encoder *PacketEncoder) Init(value *Packet) {
 	l := uint(0)
 	if value.Advertisement != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Advertisement_encoder.length).EncodingLength())
-		l += encoder.Advertisement_encoder.length
+		l += uint(enc.TLNum(encoder.Advertisement_encoder.Length).EncodingLength())
+		l += encoder.Advertisement_encoder.Length
 	}
 	if value.PrefixOpList != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.PrefixOpList_encoder.length).EncodingLength())
-		l += encoder.PrefixOpList_encoder.length
+		l += uint(enc.TLNum(encoder.PrefixOpList_encoder.Length).EncodingLength())
+		l += encoder.PrefixOpList_encoder.Length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -56,20 +56,20 @@ func (encoder *PacketEncoder) EncodeInto(value *Packet, buf []byte) {
 	if value.Advertisement != nil {
 		buf[pos] = byte(201)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Advertisement_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Advertisement_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Advertisement_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Advertisement_encoder.Length > 0 {
 			encoder.Advertisement_encoder.EncodeInto(value.Advertisement, buf[pos:])
-			pos += encoder.Advertisement_encoder.length
+			pos += encoder.Advertisement_encoder.Length
 		}
 	}
 	if value.PrefixOpList != nil {
 		buf[pos] = 253
 		binary.BigEndian.PutUint16(buf[pos+1:], uint16(301))
 		pos += 3
-		pos += uint(enc.TLNum(encoder.PrefixOpList_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.PrefixOpList_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.PrefixOpList_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.PrefixOpList_encoder.Length > 0 {
 			encoder.PrefixOpList_encoder.EncodeInto(value.PrefixOpList, buf[pos:])
-			pos += encoder.PrefixOpList_encoder.length
+			pos += encoder.PrefixOpList_encoder.Length
 		}
 	}
 }
@@ -77,7 +77,7 @@ func (encoder *PacketEncoder) EncodeInto(value *Packet, buf []byte) {
 func (encoder *PacketEncoder) Encode(value *Packet) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -175,7 +175,7 @@ func ParsePacket(reader enc.WireView, ignoreCritical bool) (*Packet, error) {
 }
 
 type AdvertisementEncoder struct {
-	length uint
+	Length uint
 
 	Entries_subencoder []struct {
 		Entries_encoder AdvEntryEncoder
@@ -225,15 +225,15 @@ func (encoder *AdvertisementEncoder) Init(value *Advertisement) {
 				value := &pseudoValue
 				if value.Entries != nil {
 					l += 1
-					l += uint(enc.TLNum(encoder.Entries_encoder.length).EncodingLength())
-					l += encoder.Entries_encoder.length
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -259,10 +259,10 @@ func (encoder *AdvertisementEncoder) EncodeInto(value *Advertisement, buf []byte
 				if value.Entries != nil {
 					buf[pos] = byte(202)
 					pos += 1
-					pos += uint(enc.TLNum(encoder.Entries_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.Entries_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
 						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
-						pos += encoder.Entries_encoder.length
+						pos += encoder.Entries_encoder.Length
 					}
 				}
 				_ = encoder
@@ -275,7 +275,7 @@ func (encoder *AdvertisementEncoder) EncodeInto(value *Advertisement, buf []byte
 func (encoder *AdvertisementEncoder) Encode(value *Advertisement) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -377,7 +377,7 @@ func ParseAdvertisement(reader enc.WireView, ignoreCritical bool) (*Advertisemen
 }
 
 type AdvEntryEncoder struct {
-	length uint
+	Length uint
 
 	Destination_encoder DestinationEncoder
 	NextHop_encoder     DestinationEncoder
@@ -399,19 +399,19 @@ func (encoder *AdvEntryEncoder) Init(value *AdvEntry) {
 	l := uint(0)
 	if value.Destination != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.Destination_encoder.length).EncodingLength())
-		l += encoder.Destination_encoder.length
+		l += uint(enc.TLNum(encoder.Destination_encoder.Length).EncodingLength())
+		l += encoder.Destination_encoder.Length
 	}
 	if value.NextHop != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.NextHop_encoder.length).EncodingLength())
-		l += encoder.NextHop_encoder.length
+		l += uint(enc.TLNum(encoder.NextHop_encoder.Length).EncodingLength())
+		l += encoder.NextHop_encoder.Length
 	}
 	l += 1
 	l += uint(1 + enc.Nat(value.Cost).EncodingLength())
 	l += 1
 	l += uint(1 + enc.Nat(value.OtherCost).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -428,19 +428,19 @@ func (encoder *AdvEntryEncoder) EncodeInto(value *AdvEntry, buf []byte) {
 	if value.Destination != nil {
 		buf[pos] = byte(204)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.Destination_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.Destination_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.Destination_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Destination_encoder.Length > 0 {
 			encoder.Destination_encoder.EncodeInto(value.Destination, buf[pos:])
-			pos += encoder.Destination_encoder.length
+			pos += encoder.Destination_encoder.Length
 		}
 	}
 	if value.NextHop != nil {
 		buf[pos] = byte(206)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.NextHop_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.NextHop_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.NextHop_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.NextHop_encoder.Length > 0 {
 			encoder.NextHop_encoder.EncodeInto(value.NextHop, buf[pos:])
-			pos += encoder.NextHop_encoder.length
+			pos += encoder.NextHop_encoder.Length
 		}
 	}
 	buf[pos] = byte(208)
@@ -458,7 +458,7 @@ func (encoder *AdvEntryEncoder) EncodeInto(value *AdvEntry, buf []byte) {
 func (encoder *AdvEntryEncoder) Encode(value *AdvEntry) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -602,7 +602,7 @@ func ParseAdvEntry(reader enc.WireView, ignoreCritical bool) (*AdvEntry, error) 
 }
 
 type DestinationEncoder struct {
-	length uint
+	Length uint
 
 	Name_length uint
 }
@@ -624,7 +624,7 @@ func (encoder *DestinationEncoder) Init(value *Destination) {
 		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
 		l += encoder.Name_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -649,7 +649,7 @@ func (encoder *DestinationEncoder) EncodeInto(value *Destination, buf []byte) {
 func (encoder *DestinationEncoder) Encode(value *Destination) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -738,7 +738,7 @@ func ParseDestination(reader enc.WireView, ignoreCritical bool) (*Destination, e
 }
 
 type PrefixOpListEncoder struct {
-	length uint
+	Length uint
 
 	ExitRouter_encoder DestinationEncoder
 
@@ -812,8 +812,8 @@ func (encoder *PrefixOpListEncoder) Init(value *PrefixOpList) {
 	l := uint(0)
 	if value.ExitRouter != nil {
 		l += 1
-		l += uint(enc.TLNum(encoder.ExitRouter_encoder.length).EncodingLength())
-		l += encoder.ExitRouter_encoder.length
+		l += uint(enc.TLNum(encoder.ExitRouter_encoder.Length).EncodingLength())
+		l += encoder.ExitRouter_encoder.Length
 	}
 	if value.PrefixOpReset {
 		l += 3
@@ -832,8 +832,8 @@ func (encoder *PrefixOpListEncoder) Init(value *PrefixOpList) {
 				value := &pseudoValue
 				if value.PrefixOpAdds != nil {
 					l += 3
-					l += uint(enc.TLNum(encoder.PrefixOpAdds_encoder.length).EncodingLength())
-					l += encoder.PrefixOpAdds_encoder.length
+					l += uint(enc.TLNum(encoder.PrefixOpAdds_encoder.Length).EncodingLength())
+					l += encoder.PrefixOpAdds_encoder.Length
 				}
 				_ = encoder
 				_ = value
@@ -853,15 +853,15 @@ func (encoder *PrefixOpListEncoder) Init(value *PrefixOpList) {
 				value := &pseudoValue
 				if value.PrefixOpRemoves != nil {
 					l += 3
-					l += uint(enc.TLNum(encoder.PrefixOpRemoves_encoder.length).EncodingLength())
-					l += encoder.PrefixOpRemoves_encoder.length
+					l += uint(enc.TLNum(encoder.PrefixOpRemoves_encoder.Length).EncodingLength())
+					l += encoder.PrefixOpRemoves_encoder.Length
 				}
 				_ = encoder
 				_ = value
 			}
 		}
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -879,10 +879,10 @@ func (encoder *PrefixOpListEncoder) EncodeInto(value *PrefixOpList, buf []byte) 
 	if value.ExitRouter != nil {
 		buf[pos] = byte(204)
 		pos += 1
-		pos += uint(enc.TLNum(encoder.ExitRouter_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.ExitRouter_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.ExitRouter_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.ExitRouter_encoder.Length > 0 {
 			encoder.ExitRouter_encoder.EncodeInto(value.ExitRouter, buf[pos:])
-			pos += encoder.ExitRouter_encoder.length
+			pos += encoder.ExitRouter_encoder.Length
 		}
 	}
 	if value.PrefixOpReset {
@@ -907,10 +907,10 @@ func (encoder *PrefixOpListEncoder) EncodeInto(value *PrefixOpList, buf []byte) 
 					buf[pos] = 253
 					binary.BigEndian.PutUint16(buf[pos+1:], uint16(304))
 					pos += 3
-					pos += uint(enc.TLNum(encoder.PrefixOpAdds_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.PrefixOpAdds_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.PrefixOpAdds_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.PrefixOpAdds_encoder.Length > 0 {
 						encoder.PrefixOpAdds_encoder.EncodeInto(value.PrefixOpAdds, buf[pos:])
-						pos += encoder.PrefixOpAdds_encoder.length
+						pos += encoder.PrefixOpAdds_encoder.Length
 					}
 				}
 				_ = encoder
@@ -933,10 +933,10 @@ func (encoder *PrefixOpListEncoder) EncodeInto(value *PrefixOpList, buf []byte) 
 					buf[pos] = 253
 					binary.BigEndian.PutUint16(buf[pos+1:], uint16(306))
 					pos += 3
-					pos += uint(enc.TLNum(encoder.PrefixOpRemoves_encoder.length).EncodeInto(buf[pos:]))
-					if encoder.PrefixOpRemoves_encoder.length > 0 {
+					pos += uint(enc.TLNum(encoder.PrefixOpRemoves_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.PrefixOpRemoves_encoder.Length > 0 {
 						encoder.PrefixOpRemoves_encoder.EncodeInto(value.PrefixOpRemoves, buf[pos:])
-						pos += encoder.PrefixOpRemoves_encoder.length
+						pos += encoder.PrefixOpRemoves_encoder.Length
 					}
 				}
 				_ = encoder
@@ -949,7 +949,7 @@ func (encoder *PrefixOpListEncoder) EncodeInto(value *PrefixOpList, buf []byte) 
 func (encoder *PrefixOpListEncoder) Encode(value *PrefixOpList) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1096,7 +1096,7 @@ func ParsePrefixOpList(reader enc.WireView, ignoreCritical bool) (*PrefixOpList,
 }
 
 type PrefixOpAddEncoder struct {
-	length uint
+	Length uint
 
 	Name_length uint
 }
@@ -1120,7 +1120,7 @@ func (encoder *PrefixOpAddEncoder) Init(value *PrefixOpAdd) {
 	}
 	l += 1
 	l += uint(1 + enc.Nat(value.Cost).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1150,7 +1150,7 @@ func (encoder *PrefixOpAddEncoder) EncodeInto(value *PrefixOpAdd, buf []byte) {
 func (encoder *PrefixOpAddEncoder) Encode(value *PrefixOpAdd) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1262,7 +1262,7 @@ func ParsePrefixOpAdd(reader enc.WireView, ignoreCritical bool) (*PrefixOpAdd, e
 }
 
 type PrefixOpRemoveEncoder struct {
-	length uint
+	Length uint
 
 	Name_length uint
 }
@@ -1284,7 +1284,7 @@ func (encoder *PrefixOpRemoveEncoder) Init(value *PrefixOpRemove) {
 		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
 		l += encoder.Name_length
 	}
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1309,7 +1309,7 @@ func (encoder *PrefixOpRemoveEncoder) EncodeInto(value *PrefixOpRemove, buf []by
 func (encoder *PrefixOpRemoveEncoder) Encode(value *PrefixOpRemove) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
@@ -1398,7 +1398,7 @@ func ParsePrefixOpRemove(reader enc.WireView, ignoreCritical bool) (*PrefixOpRem
 }
 
 type StatusEncoder struct {
-	length uint
+	Length uint
 
 	NetworkName_encoder DestinationEncoder
 	RouterName_encoder  DestinationEncoder
@@ -1424,13 +1424,13 @@ func (encoder *StatusEncoder) Init(value *Status) {
 	l += uint(len(value.Version))
 	if value.NetworkName != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.NetworkName_encoder.length).EncodingLength())
-		l += encoder.NetworkName_encoder.length
+		l += uint(enc.TLNum(encoder.NetworkName_encoder.Length).EncodingLength())
+		l += encoder.NetworkName_encoder.Length
 	}
 	if value.RouterName != nil {
 		l += 3
-		l += uint(enc.TLNum(encoder.RouterName_encoder.length).EncodingLength())
-		l += encoder.RouterName_encoder.length
+		l += uint(enc.TLNum(encoder.RouterName_encoder.Length).EncodingLength())
+		l += encoder.RouterName_encoder.Length
 	}
 	l += 3
 	l += uint(1 + enc.Nat(value.NRibEntries).EncodingLength())
@@ -1438,7 +1438,7 @@ func (encoder *StatusEncoder) Init(value *Status) {
 	l += uint(1 + enc.Nat(value.NNeighbors).EncodingLength())
 	l += 3
 	l += uint(1 + enc.Nat(value.NFibEntries).EncodingLength())
-	encoder.length = l
+	encoder.Length = l
 
 }
 
@@ -1463,20 +1463,20 @@ func (encoder *StatusEncoder) EncodeInto(value *Status, buf []byte) {
 		buf[pos] = 253
 		binary.BigEndian.PutUint16(buf[pos+1:], uint16(403))
 		pos += 3
-		pos += uint(enc.TLNum(encoder.NetworkName_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.NetworkName_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.NetworkName_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.NetworkName_encoder.Length > 0 {
 			encoder.NetworkName_encoder.EncodeInto(value.NetworkName, buf[pos:])
-			pos += encoder.NetworkName_encoder.length
+			pos += encoder.NetworkName_encoder.Length
 		}
 	}
 	if value.RouterName != nil {
 		buf[pos] = 253
 		binary.BigEndian.PutUint16(buf[pos+1:], uint16(405))
 		pos += 3
-		pos += uint(enc.TLNum(encoder.RouterName_encoder.length).EncodeInto(buf[pos:]))
-		if encoder.RouterName_encoder.length > 0 {
+		pos += uint(enc.TLNum(encoder.RouterName_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.RouterName_encoder.Length > 0 {
 			encoder.RouterName_encoder.EncodeInto(value.RouterName, buf[pos:])
-			pos += encoder.RouterName_encoder.length
+			pos += encoder.RouterName_encoder.Length
 		}
 	}
 	buf[pos] = 253
@@ -1502,7 +1502,7 @@ func (encoder *StatusEncoder) EncodeInto(value *Status, buf []byte) {
 func (encoder *StatusEncoder) Encode(value *Status) enc.Wire {
 
 	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.length)
+	wire[0] = make([]byte, encoder.Length)
 	buf := wire[0]
 	encoder.EncodeInto(value, buf)
 
