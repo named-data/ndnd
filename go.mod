@@ -6,6 +6,7 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/dgraph-io/badger/v4 v4.7.0
 	github.com/goccy/go-yaml v1.17.1
+	github.com/gorilla/schema v1.4.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/quic-go/quic-go v0.51.0
