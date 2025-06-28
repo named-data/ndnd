@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
 type PacketEncoder struct {
@@ -1680,6 +1681,433 @@ func (value *Status) Bytes() []byte {
 
 func ParseStatus(reader enc.WireView, ignoreCritical bool) (*Status, error) {
 	context := StatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PrefixInsertionEncoder struct {
+	Length uint
+
+	StapledCertificates_subencoder []struct {
+	}
+}
+
+type PrefixInsertionParsingContext struct {
+}
+
+func (encoder *PrefixInsertionEncoder) Init(value *PrefixInsertion) {
+	{
+		StapledCertificates_l := len(value.StapledCertificates)
+		encoder.StapledCertificates_subencoder = make([]struct {
+		}, StapledCertificates_l)
+		for i := 0; i < StapledCertificates_l; i++ {
+			pseudoEncoder := &encoder.StapledCertificates_subencoder[i]
+			pseudoValue := struct {
+				StapledCertificates []byte
+			}{
+				StapledCertificates: value.StapledCertificates[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.StapledCertificates != nil {
+		for seq_i, seq_v := range value.StapledCertificates {
+			pseudoEncoder := &encoder.StapledCertificates_subencoder[seq_i]
+			pseudoValue := struct {
+				StapledCertificates []byte
+			}{
+				StapledCertificates: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.StapledCertificates != nil {
+					l += 3
+					l += uint(enc.TLNum(len(value.StapledCertificates)).EncodingLength())
+					l += uint(len(value.StapledCertificates))
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.Data != nil {
+		l += 1
+		l += uint(enc.TLNum(len(value.Data)).EncodingLength())
+		l += uint(len(value.Data))
+	}
+	encoder.Length = l
+
+}
+
+func (context *PrefixInsertionParsingContext) Init() {
+
+}
+
+func (encoder *PrefixInsertionEncoder) EncodeInto(value *PrefixInsertion, buf []byte) {
+
+	pos := uint(0)
+
+	if value.StapledCertificates != nil {
+		for seq_i, seq_v := range value.StapledCertificates {
+			pseudoEncoder := &encoder.StapledCertificates_subencoder[seq_i]
+			pseudoValue := struct {
+				StapledCertificates []byte
+			}{
+				StapledCertificates: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.StapledCertificates != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(534))
+					pos += 3
+					pos += uint(enc.TLNum(len(value.StapledCertificates)).EncodeInto(buf[pos:]))
+					copy(buf[pos:], value.StapledCertificates)
+					pos += uint(len(value.StapledCertificates))
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.Data != nil {
+		buf[pos] = byte(6)
+		pos += 1
+		pos += uint(enc.TLNum(len(value.Data)).EncodeInto(buf[pos:]))
+		copy(buf[pos:], value.Data)
+		pos += uint(len(value.Data))
+	}
+}
+
+func (encoder *PrefixInsertionEncoder) Encode(value *PrefixInsertion) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PrefixInsertionParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInsertion, error) {
+
+	var handled_StapledCertificates bool = false
+	var handled_Data bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PrefixInsertion{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 534:
+				if true {
+					handled = true
+					handled_StapledCertificates = true
+					if value.StapledCertificates == nil {
+						value.StapledCertificates = make([][]byte, 0)
+					}
+					{
+						pseudoValue := struct {
+							StapledCertificates []byte
+						}{}
+						{
+							value := &pseudoValue
+							value.StapledCertificates = make([]byte, l)
+							_, err = reader.ReadFull(value.StapledCertificates)
+							_ = value
+						}
+						value.StapledCertificates = append(value.StapledCertificates, pseudoValue.StapledCertificates)
+					}
+					progress--
+				}
+			case 6:
+				if true {
+					handled = true
+					handled_Data = true
+					value.Data = make([]byte, l)
+					_, err = reader.ReadFull(value.Data)
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_StapledCertificates && err == nil {
+		// sequence - skip
+	}
+	if !handled_Data && err == nil {
+		value.Data = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PrefixInsertion) Encode() enc.Wire {
+	encoder := PrefixInsertionEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PrefixInsertion) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePrefixInsertion(reader enc.WireView, ignoreCritical bool) (*PrefixInsertion, error) {
+	context := PrefixInsertionParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PrefixInsertionInnerContentEncoder struct {
+	Length uint
+
+	ValidityPeriod_encoder spec_2022.ValidityPeriodEncoder
+}
+
+type PrefixInsertionInnerContentParsingContext struct {
+	ValidityPeriod_context spec_2022.ValidityPeriodParsingContext
+}
+
+func (encoder *PrefixInsertionInnerContentEncoder) Init(value *PrefixInsertionInnerContent) {
+
+	if value.ValidityPeriod != nil {
+		encoder.ValidityPeriod_encoder.Init(value.ValidityPeriod)
+	}
+
+	l := uint(0)
+	l += 1
+	l += uint(1 + enc.Nat(value.ExpirationPeriod).EncodingLength())
+	if value.ValidityPeriod != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.ValidityPeriod_encoder.Length).EncodingLength())
+		l += encoder.ValidityPeriod_encoder.Length
+	}
+	if optval, ok := value.Cost.Get(); ok {
+		l += 1
+		l += uint(1 + enc.Nat(optval).EncodingLength())
+	}
+	encoder.Length = l
+
+}
+
+func (context *PrefixInsertionInnerContentParsingContext) Init() {
+
+	context.ValidityPeriod_context.Init()
+
+}
+
+func (encoder *PrefixInsertionInnerContentEncoder) EncodeInto(value *PrefixInsertionInnerContent, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = byte(109)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.ExpirationPeriod).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	if value.ValidityPeriod != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(253))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.ValidityPeriod_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.ValidityPeriod_encoder.Length > 0 {
+			encoder.ValidityPeriod_encoder.EncodeInto(value.ValidityPeriod, buf[pos:])
+			pos += encoder.ValidityPeriod_encoder.Length
+		}
+	}
+	if optval, ok := value.Cost.Get(); ok {
+		buf[pos] = byte(106)
+		pos += 1
+
+		buf[pos] = byte(enc.Nat(optval).EncodeInto(buf[pos+1:]))
+		pos += uint(1 + buf[pos])
+
+	}
+}
+
+func (encoder *PrefixInsertionInnerContentEncoder) Encode(value *PrefixInsertionInnerContent) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PrefixInsertionInnerContentParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixInsertionInnerContent, error) {
+
+	var handled_ExpirationPeriod bool = false
+	var handled_ValidityPeriod bool = false
+	var handled_Cost bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PrefixInsertionInnerContent{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 109:
+				if true {
+					handled = true
+					handled_ExpirationPeriod = true
+					value.ExpirationPeriod = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.ExpirationPeriod = uint64(value.ExpirationPeriod<<8) | uint64(x)
+						}
+					}
+				}
+			case 253:
+				if true {
+					handled = true
+					handled_ValidityPeriod = true
+					value.ValidityPeriod, err = context.ValidityPeriod_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 106:
+				if true {
+					handled = true
+					handled_Cost = true
+					{
+						optval := uint64(0)
+						optval = uint64(0)
+						{
+							for i := 0; i < int(l); i++ {
+								x := byte(0)
+								x, err = reader.ReadByte()
+								if err != nil {
+									if err == io.EOF {
+										err = io.ErrUnexpectedEOF
+									}
+									break
+								}
+								optval = uint64(optval<<8) | uint64(x)
+							}
+						}
+						value.Cost.Set(optval)
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_ExpirationPeriod && err == nil {
+		err = enc.ErrSkipRequired{Name: "ExpirationPeriod", TypeNum: 109}
+	}
+	if !handled_ValidityPeriod && err == nil {
+		value.ValidityPeriod = nil
+	}
+	if !handled_Cost && err == nil {
+		value.Cost.Unset()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PrefixInsertionInnerContent) Encode() enc.Wire {
+	encoder := PrefixInsertionInnerContentEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PrefixInsertionInnerContent) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePrefixInsertionInnerContent(reader enc.WireView, ignoreCritical bool) (*PrefixInsertionInnerContent, error) {
+	context := PrefixInsertionInnerContentParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }

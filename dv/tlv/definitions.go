@@ -1,7 +1,11 @@
 //go:generate gondn_tlv_gen
 package tlv
 
-import enc "github.com/named-data/ndnd/std/encoding"
+import (
+	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn/spec_2022"
+	"github.com/named-data/ndnd/std/types/optional"
+)
 
 type Packet struct {
 	//+field:struct:Advertisement
@@ -67,4 +71,20 @@ type Status struct {
 	NNeighbors uint64 `tlv:"0x199"`
 	//+field:natural
 	NFibEntries uint64 `tlv:"0x19B"`
+}
+
+type PrefixInsertion struct {
+	//+field:sequence:[]byte:binary:[]byte
+	StapledCertificates [][]byte `tlv:"0x216"`
+	//+field:binary
+	Data []byte `tlv:"0x06"`
+}
+
+type PrefixInsertionInnerContent struct {
+	//+field:natural
+	ExpirationPeriod uint64 `tlv:"0x6d"`
+	//+field:struct:spec_2022.ValidityPeriod
+	ValidityPeriod *spec_2022.ValidityPeriod `tlv:"0xfd"`
+	//+field:natural:optional
+	Cost optional.Optional[uint64] `tlv:"0x6a"`
 }

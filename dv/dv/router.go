@@ -1,6 +1,7 @@
 package dv
 
 import (
+	"os"
 	"sync"
 	"time"
 
@@ -32,6 +33,10 @@ type Router struct {
 	trust *sec.TrustConfig
 	// object client
 	client ndn.Client
+	// whether to do prefix insertion
+	enablePrefixInsertion bool
+	// prefix insertion client
+	prefixInsertionClient ndn.Client
 	// nfd management thread
 	nfdc *nfdc.NfdMgmtThread
 	// single mutex for all operations
@@ -60,6 +65,9 @@ type Router struct {
 	rib *table.Rib
 	// forwarding table
 	fib *table.Fib
+
+	// map to track seen prefix insertion versions (prefix string -> version)
+	seenPrefixVersions map[string]uint64
 }
 
 // Create a new DV router.
@@ -96,14 +104,48 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		trust.UseDataNameFwHint = true
 	}
 
+	enablePrefixInsertion := config.PrefixInsertionSchemaPath != "deny"
+	var prefixInsertionClient ndn.Client
+	if enablePrefixInsertion {
+		prefixInsertionStore := storage.NewMemoryStore()
+		var prefixInsertionTrust *sec.TrustConfig = nil
+		if config.PrefixInsertionSchemaPath == "insecure" || config.PrefixInsertionKeychainUri == "insecure" {
+			log.Warn(nil, "Prefix insertion module is in allow-all mode")
+		} else {
+			kc, err := keychain.NewKeyChain(config.PrefixInsertionKeychainUri, prefixInsertionStore)
+			if err != nil {
+				return nil, err
+			}
+			schemaData, err := os.ReadFile(config.PrefixInsertionSchemaPath)
+			if err != nil {
+				return nil, err
+			}
+			schema, err := trust_schema.NewLvsSchema(schemaData)
+			if err != nil {
+				return nil, err
+			}
+			anchors := config.PrefixInsertionTrustAnchorNames()
+			prefixInsertionTrust, err = sec.NewTrustConfig(kc, schema, anchors)
+			if err != nil {
+				return nil, err
+			}
+		}
+		prefixInsertionClient = object.NewClient(engine, prefixInsertionStore, prefixInsertionTrust)
+	} else {
+		log.Warn(nil, "Prefix insertion is disabled")
+	}
+
 	// Create the DV router
 	dv := &Router{
-		engine: engine,
-		config: config,
-		trust:  trust,
-		client: object.NewClient(engine, store, trust),
-		nfdc:   nfdc.NewNfdMgmtThread(engine),
-		mutex:  sync.Mutex{},
+		engine:                engine,
+		config:                config,
+		trust:                 trust,
+		client:                object.NewClient(engine, store, trust),
+		enablePrefixInsertion: enablePrefixInsertion,
+		prefixInsertionClient: prefixInsertionClient,
+		nfdc:                  nfdc.NewNfdMgmtThread(engine),
+		mutex:                 sync.Mutex{},
+		seenPrefixVersions:    make(map[string]uint64),
 	}
 
 	// Initialize advertisement module
@@ -239,6 +281,19 @@ func (dv *Router) register() (err error) {
 		return err
 	}
 
+	insertPrefix := enc.NewGenericComponent("routing").
+		Append(enc.NewGenericComponent("insert"))
+
+	if dv.enablePrefixInsertion {
+		err = dv.engine.AttachHandler(insertPrefix,
+			func(args ndn.InterestHandlerArgs) {
+				go dv.onInsertion(args)
+			})
+		if err != nil {
+			return err
+		}
+	}
+
 	// Register routes to forwarder
 	pfxs := []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
@@ -247,6 +302,10 @@ func (dv *Router) register() (err error) {
 		dv.pfxSvs.DataPrefix(),
 		dv.config.MgmtPrefix(),
 	}
+	if dv.enablePrefixInsertion {
+		pfxs = append(pfxs, insertPrefix)
+	}
+
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
 			Module: "rib",
