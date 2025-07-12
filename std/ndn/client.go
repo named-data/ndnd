@@ -125,6 +125,8 @@ type ConsumeExtArgs struct {
 	OnProgress func(status ConsumeState)
 	// NoMetadata disables fetching RDR metadata (advanced usage).
 	NoMetadata bool
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 // ExpressRArgs are the arguments for the express retry API.

@@ -69,6 +69,8 @@ type SvSyncOpts struct {
 
 	// Passive mode does not send sign Sync Interests
 	Passive bool
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 type SvSyncUpdate struct {
@@ -511,24 +513,29 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 	}
 
 	// Validate signature
-	s.o.Client.Validate(data, sigCov, func(valid bool, err error) {
-		if !valid || err != nil {
-			log.Warn(s, "SvSync failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
-			return
-		}
+	s.o.Client.ValidateExt(ndn.ValidateExtArgs{
+		Data:           data,
+		SigCovered:     sigCov,
+		IgnoreValidity: s.o.IgnoreValidity,
+		Callback: func(valid bool, err error) {
+			if !valid || err != nil {
+				log.Warn(s, "SvSync failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
+				return
+			}
 
-		// Decode state vector
-		svWire := data.Content().Join()
-		params, err := spec_svs.ParseSvsData(enc.NewBufferView(svWire), false)
-		if err != nil || params.StateVector == nil {
-			log.Warn(s, "onSyncInterest failed to parse StateVec", "err", err)
-			return
-		}
+			// Decode state vector
+			svWire := data.Content().Join()
+			params, err := spec_svs.ParseSvsData(enc.NewBufferView(svWire), false)
+			if err != nil || params.StateVector == nil {
+				log.Warn(s, "onSyncInterest failed to parse StateVec", "err", err)
+				return
+			}
 
-		s.recvSv <- svSyncRecvSvArgs{
-			sv:   params.StateVector,
-			data: dataWire,
-		}
+			s.recvSv <- svSyncRecvSvArgs{
+				sv:   params.StateVector,
+				data: dataWire,
+			}
+		},
 	})
 }
 

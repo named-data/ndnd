@@ -283,12 +283,17 @@ func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *Consume
 // It is necessary that this function be called only from one goroutine - the engine.
 // The notable exception here is when there is a timeout, which has a separate goroutine.
 func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeState) {
-	s.client.Validate(args.Data, args.SigCovered, func(valid bool, err error) {
-		if !valid {
-			state.finalizeError(fmt.Errorf("%w: validate seg failed: %w", ndn.ErrSecurity, err))
-		} else {
-			s.handleValidatedData(args, state)
-		}
+	s.client.ValidateExt(ndn.ValidateExtArgs{
+		Data:           args.Data,
+		SigCovered:     args.SigCovered,
+		IgnoreValidity: state.args.IgnoreValidity,
+		Callback: func(valid bool, err error) {
+			if !valid {
+				state.finalizeError(fmt.Errorf("%w: validate seg failed: %w", ndn.ErrSecurity, err))
+			} else {
+				s.handleValidatedData(args, state)
+			}
+		},
 	})
 }
 

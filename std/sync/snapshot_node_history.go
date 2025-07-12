@@ -8,6 +8,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/ndn/svs_ps"
+	"github.com/named-data/ndnd/std/types/optional"
 )
 
 const SnapHistoryIndexFreshness = time.Millisecond * 10
@@ -43,6 +44,8 @@ type SnapshotNodeHistory struct {
 
 	// In Repo mode, all snapshots are fetched automtically for persistence.
 	IsRepo bool
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 	// repoKnown is the known snapshot sequence number.
 	repoKnown SvMap[uint64]
 
@@ -155,8 +158,12 @@ func (s *SnapshotNodeHistory) idxName(node enc.Name, boot uint64) enc.Name {
 
 // fetchIndex fetches the latest index for a remote node.
 func (s *SnapshotNodeHistory) fetchIndex(node enc.Name, boot uint64, known uint64) {
-	s.Client.Consume(s.idxName(node, boot), func(cstate ndn.ConsumeState) {
-		go s.handleIndex(node, boot, known, cstate)
+	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
+		Name:           s.idxName(node, boot),
+		IgnoreValidity: s.IgnoreValidity,
+		Callback: func(cstate ndn.ConsumeState) {
+			go s.handleIndex(node, boot, known, cstate)
+		},
 	})
 }
 
@@ -199,7 +206,11 @@ func (s *SnapshotNodeHistory) handleIndex(node enc.Name, boot uint64, known uint
 			snapC := make(chan ndn.ConsumeState)
 
 			snapName := s.snapName(node, boot).WithVersion(seqNo)
-			s.Client.Consume(snapName, func(cstate ndn.ConsumeState) { snapC <- cstate })
+			s.Client.ConsumeExt(ndn.ConsumeExtArgs{
+				Name:           snapName,
+				IgnoreValidity: s.IgnoreValidity,
+				Callback: func(cstate ndn.ConsumeState) { snapC <- cstate },
+			})
 
 			scstate := <-snapC
 			if err := scstate.Error(); err != nil {

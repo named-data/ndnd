@@ -140,6 +140,14 @@ func NewSvsALO(opts SvsAloOpts) (*SvsALO, error) {
 		}, s.state)
 	}
 
+	// Overeide IgnoreValidity from SVS (incorect but practical)
+	if latest, ok := s.opts.Snapshot.(*SnapshotNodeLatest); ok {
+		latest.IgnoreValidity = s.opts.Svs.IgnoreValidity
+	}
+	if history, ok := s.opts.Snapshot.(*SnapshotNodeHistory); ok {
+		history.IgnoreValidity = s.opts.Svs.IgnoreValidity
+	}
+
 	return s, nil
 }
 

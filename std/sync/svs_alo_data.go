@@ -114,81 +114,86 @@ func (s *SvsALO) consumeCheck(node enc.Name) {
 // check to fetch more objects if necessary.
 func (s *SvsALO) consumeObject(node enc.Name, boot uint64, seq uint64) {
 	fetchName := s.objectName(node, boot, seq)
-	s.client.Consume(fetchName, func(status ndn.ConsumeState) {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
+	s.client.ConsumeExt(ndn.ConsumeExtArgs{
+		Name: fetchName,
+		// inherit ignoreValidity from SVS, not correct but practical
+		IgnoreValidity: s.opts.Svs.IgnoreValidity,
+		Callback: func(status ndn.ConsumeState) {
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
 
-		// Always check if we can fetch more
-		defer s.consumeCheck(node)
+			// Always check if we can fetch more
+			defer s.consumeCheck(node)
 
-		// Get the state vector entry
-		hash := node.TlvStr()
-		entry := s.state.Get(hash, boot)
+			// Get the state vector entry
+			hash := node.TlvStr()
+			entry := s.state.Get(hash, boot)
 
-		// Check if this is already delivered
-		if seq <= entry.Known {
-			return
-		}
-
-		// Get the list of subscribers
-		subscribers := slices.Collect(s.nodePs.Subs(node))
-
-		// Check if we have to deliver this data
-		if entry.SnapBlock != 0 || len(subscribers) == 0 {
-			entry.Pending = min(entry.Pending, seq-1)
-			s.state.Set(hash, boot, entry)
-			return
-		}
-
-		// Check for errors
-		if err := status.Error(); err != nil {
-			// Propagate the error to application
-			s.queueError(&ErrSync{
-				Publisher: node,
-				BootTime:  boot,
-				Err:       err,
-			})
-
-			// TODO: exponential backoff
-			time.AfterFunc(2*time.Second, func() {
-				s.consumeObject(node, boot, seq)
-			})
-			return
-		}
-
-		// Initialize the pending map
-		if entry.PendingPubs == nil {
-			entry.PendingPubs = make(map[uint64]SvsPub)
-			s.state.Set(hash, boot, entry)
-		}
-
-		// Store the content for in-order delivery
-		// The size of this map is upper bounded
-		entry.PendingPubs[seq] = SvsPub{
-			Publisher: node,
-			Content:   status.Content(),
-			DataName:  status.Name(),
-			BootTime:  boot,
-			SeqNum:    seq,
-		}
-
-		for {
-			// Check if the next seq is available
-			nextSeq := entry.Known + 1
-			pub, ok := entry.PendingPubs[nextSeq]
-			if !ok {
-				break
+			// Check if this is already delivered
+			if seq <= entry.Known {
+				return
 			}
 
-			// Update known state
-			entry.Known = nextSeq
-			delete(entry.PendingPubs, nextSeq)
-			s.state.Set(hash, boot, entry)
+			// Get the list of subscribers
+			subscribers := slices.Collect(s.nodePs.Subs(node))
 
-			// Deliver the data to application
-			pub.subcribers = subscribers // use most current list
-			s.queuePub(pub)
-		}
+			// Check if we have to deliver this data
+			if entry.SnapBlock != 0 || len(subscribers) == 0 {
+				entry.Pending = min(entry.Pending, seq-1)
+				s.state.Set(hash, boot, entry)
+				return
+			}
+
+			// Check for errors
+			if err := status.Error(); err != nil {
+				// Propagate the error to application
+				s.queueError(&ErrSync{
+					Publisher: node,
+					BootTime:  boot,
+					Err:       err,
+				})
+
+				// TODO: exponential backoff
+				time.AfterFunc(2*time.Second, func() {
+					s.consumeObject(node, boot, seq)
+				})
+				return
+			}
+
+			// Initialize the pending map
+			if entry.PendingPubs == nil {
+				entry.PendingPubs = make(map[uint64]SvsPub)
+				s.state.Set(hash, boot, entry)
+			}
+
+			// Store the content for in-order delivery
+			// The size of this map is upper bounded
+			entry.PendingPubs[seq] = SvsPub{
+				Publisher: node,
+				Content:   status.Content(),
+				DataName:  status.Name(),
+				BootTime:  boot,
+				SeqNum:    seq,
+			}
+
+			for {
+				// Check if the next seq is available
+				nextSeq := entry.Known + 1
+				pub, ok := entry.PendingPubs[nextSeq]
+				if !ok {
+					break
+				}
+
+				// Update known state
+				entry.Known = nextSeq
+				delete(entry.PendingPubs, nextSeq)
+				s.state.Set(hash, boot, entry)
+
+				// Deliver the data to application
+				pub.subcribers = subscribers // use most current list
+				s.queuePub(pub)
+			}
+		},
 	})
 }
 
