@@ -9,6 +9,9 @@ export interface KeyChainJS {
 
     // Write a key or certificate to the keychain
     write(name: string, blob: Uint8Array): Promise<void>;
+
+    // Delete a key or certificate from the keychain
+    delete(name: string): Promise<void>;
 }
 
 import Dexie from 'dexie';
@@ -36,5 +39,9 @@ export class KeyChainDexie implements KeyChainJS {
 
   public async write(name: string, blob: Uint8Array) {
     await this.db.keys.put({ name, blob });
+  }
+
+  public async delete(name: string) {
+    await this.db.keys.delete(name);
   }
 }

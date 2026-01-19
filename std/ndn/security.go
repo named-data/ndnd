@@ -64,8 +64,12 @@ type KeyChain interface {
 	IdentityByName(enc.Name) KeyChainIdentity
 	// InsertKey inserts a key to the keychain.
 	InsertKey(Signer) error
+	// DeleteKey removes a key and all its certificates from the keychain.
+	DeleteKey(enc.Name) error
 	// InsertCert inserts a certificate to the keychain.
 	InsertCert([]byte) error
+	// DeleteCert removes a certificate from the keychain.
+	DeleteCert(enc.Name) error
 }
 
 // KeyChainIdentity is the interface of a signing identity.

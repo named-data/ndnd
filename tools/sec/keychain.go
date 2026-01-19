@@ -47,6 +47,24 @@ and inserts them into the specified keychain.`,
 
 	cmd.AddCommand(&cobra.Command{
 		GroupID: "keychain",
+		Use:     "key-delete KEYCHAIN-URI KEY-NAME",
+		Short:   "Delete a key and its certificates from a keychain",
+		Args:    cobra.ExactArgs(2),
+		Example: `  ndnd sec key-delete dir:///safe/keys /alice/KEY/%DE%AD%BE%EF`,
+		Run:     t.DeleteKey,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		GroupID: "keychain",
+		Use:     "cert-delete KEYCHAIN-URI CERT-NAME",
+		Short:   "Delete a certificate from a keychain",
+		Args:    cobra.ExactArgs(2),
+		Example: `  ndnd sec cert-delete dir:///safe/keys /alice/KEY/%DE%AD%BE%EF/%C0%DE%BE%EF/v=1`,
+		Run:     t.DeleteCert,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		GroupID: "keychain",
 		Use:     "key-export KEYCHAIN-URI KEY-NAME",
 		Short:   "Export a key from a keychain",
 		Long: `Export the specified key from a keychain.
@@ -163,4 +181,48 @@ func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 	}
 
 	os.Stdout.Write(out)
+}
+
+// DeleteKey removes a key and its certificates from the keychain.
+func (*ToolKeychain) DeleteKey(_ *cobra.Command, args []string) {
+	name, err := enc.NameFromStr(args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid key name: %s\n", args[1])
+		os.Exit(1)
+		return
+	}
+
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	if err := kc.DeleteKey(name); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to delete key: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+// DeleteCert removes a certificate from the keychain.
+func (*ToolKeychain) DeleteCert(_ *cobra.Command, args []string) {
+	name, err := enc.NameFromStr(args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid certificate name: %s\n", args[1])
+		os.Exit(1)
+		return
+	}
+
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	if err := kc.DeleteCert(name); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to delete certificate: %s\n", err)
+		os.Exit(1)
+	}
 }
