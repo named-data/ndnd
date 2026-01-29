@@ -50,10 +50,12 @@ func NewCUBICCongestionWindow(cwnd int, rttEstimator *RTTEstimator) *CUBICConges
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string “cubic-congestion-window” to represent a CUBICCongestionWindow instance.
 func (cw *CUBICCongestionWindow) String() string {
 	return "cubic-congestion-window"
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the current congestion window size of the CUBIC congestion controller as an integer.
 func (cw *CUBICCongestionWindow) Size() int {
 	cw.mutex.RLock()
 	defer cw.mutex.RUnlock()
@@ -94,6 +96,7 @@ func (cw *CUBICCongestionWindow) CubicUpdate() {
 	log.Debug(cw, "Cubic increment", "wCubic", wCubic, "window", cw.window)
 }
 
+// (AI GENERATED DESCRIPTION): Increments the congestion window size: during slow‑start it adds `aiStep` until the threshold `ssthresh`, then invokes `CubicUpdate` for CUBIC congestion‑avoidance.
 func (cw *CUBICCongestionWindow) IncreaseWindow() {
 	cw.mutex.Lock()
 
@@ -110,6 +113,7 @@ func (cw *CUBICCongestionWindow) IncreaseWindow() {
 	log.Debug(cw, "Window size changes", "window", cw.window)
 }
 
+// (AI GENERATED DESCRIPTION): Decreases the congestion window and slow‑start threshold using a multiplicative‑decrease rule, updates the window maximum for fast convergence if enabled, and records the time of the last reduction.
 func (cw *CUBICCongestionWindow) DecreaseWindow() {
 	cw.mutex.Lock()
 
@@ -134,6 +138,7 @@ func (cw *CUBICCongestionWindow) DecreaseWindow() {
 	log.Debug(cw, "Window size changes", "window", cw.window)
 }
 
+// (AI GENERATED DESCRIPTION): Adjusts the congestion window in response to a congestion signal, increasing the window on data reception and decreasing it on loss or congestion indications.
 func (cw *CUBICCongestionWindow) HandleSignal(signal CongestionSignal) {
 	switch signal {
 	case SigData:

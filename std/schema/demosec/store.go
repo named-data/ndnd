@@ -79,6 +79,7 @@ func (store *DemoHmacKeyStore) SaveKey(name enc.Name, keyBits enc.Buffer, cert e
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new DemoHmacKeyStore instance with an empty slice of DemoHmacKey entries.
 func NewDemoHmacKeyStore() *DemoHmacKeyStore {
 	return &DemoHmacKeyStore{
 		Keys: make([]DemoHmacKey, 0),

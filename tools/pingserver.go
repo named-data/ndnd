@@ -25,6 +25,7 @@ type PingServer struct {
 	expose bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a Cobra command that starts a ping server under a specified name prefix, with an optional flag to expose the prefix registration using the client origin.
 func CmdPingServer() *cobra.Command {
 	ps := PingServer{}
 
@@ -41,10 +42,12 @@ func CmdPingServer() *cobra.Command {
 	return cmd
 }
 
+// (AI GENERATED DESCRIPTION): Returns a constant string identifying the PingServer, used as its string representation.
 func (ps *PingServer) String() string {
 	return "ping-server"
 }
 
+// (AI GENERATED DESCRIPTION): Starts the PingServer by initializing the NDN engine and object client, registering an interest handler for the specified prefix, announcing that prefix, and waiting until a termination signal is received.
 func (ps *PingServer) run(_ *cobra.Command, args []string) {
 	name, err := enc.NameFromStr(args[0])
 	if err != nil {
@@ -89,11 +92,13 @@ func (ps *PingServer) run(_ *cobra.Command, args []string) {
 	<-sigchan
 }
 
+// (AI GENERATED DESCRIPTION): Prints the ping server’s statistics, displaying its name and the total number of Interests it has processed.
 func (ps *PingServer) stats() {
 	fmt.Printf("\n--- %s ping server statistics ---\n", ps.name)
 	fmt.Printf("%d Interests processed\n", ps.nRecv)
 }
 
+// (AI GENERATED DESCRIPTION): Handles an incoming Interest by creating a signed Data packet that echoes the Interest’s name and app parameters, then replying with that Data.
 func (ps *PingServer) onInterest(args ndn.InterestHandlerArgs) {
 	fmt.Printf("interest received: %s\n", args.Interest.Name())
 	ps.nRecv++

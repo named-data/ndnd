@@ -65,6 +65,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 `
 
+// (AI GENERATED DESCRIPTION): Initializes an NDN engine, attaches a schema tree, publishes a single data packet with Lorem‑Ipsum content, and then runs until the program receives an interrupt signal.
 func main() {
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{

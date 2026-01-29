@@ -25,6 +25,7 @@ type SignCrossSchemaArgs struct {
 	Store ndn.Store
 }
 
+// (AI GENERATED DESCRIPTION): Builds, signs, and optionally stores a single‑segment cross‑schema Data packet for the given name (which must end with a version), using the supplied validity period, content, and signer, and returns the packet’s wire encoding.
 func SignCrossSchema(args SignCrossSchemaArgs) (enc.Wire, error) {
 	// Check all parameters
 	if args.Signer == nil || args.Name == nil {
@@ -71,17 +72,18 @@ func SignCrossSchema(args SignCrossSchemaArgs) (enc.Wire, error) {
 	return cs.Wire, nil
 }
 
+// (AI GENERATED DESCRIPTION): **Matches a data name and certificate name against the CrossSchemaContent’s rules, returning true if any simple or prefix rule is satisfied.**
 func (cross *CrossSchemaContent) Match(dataName enc.Name, certName enc.Name) bool {
 	for _, rule := range cross.SimpleSchemaRules {
 		if rule.NamePrefix == nil || rule.KeyLocator == nil || rule.KeyLocator.Name == nil {
 			continue
 		}
 
-		if !rule.NamePrefix.IsPrefix(dataName) {
+		if !matchNamePattern(rule.NamePrefix, dataName) {
 			continue
 		}
 
-		if rule.KeyLocator.Name.IsPrefix(certName) {
+		if matchNamePattern(rule.KeyLocator.Name, certName) {
 			return true
 		}
 	}
@@ -91,15 +93,53 @@ func (cross *CrossSchemaContent) Match(dataName enc.Name, certName enc.Name) boo
 			continue
 		}
 
-		if !rule.NamePrefix.IsPrefix(dataName) {
+		if !matchNamePattern(rule.NamePrefix, dataName) {
 			continue
 		}
 
 		// /keyName/KEY/kid/iss/ver
-		if certName.Prefix(-4).IsPrefix(dataName[len(rule.NamePrefix):]) {
+		if matchNamePattern(certName.Prefix(-4), dataName[len(rule.NamePrefix):]) {
+			return true
+		}
+	}
+
+	for _, rule := range cross.ComponentSchemaRules {
+		if rule == nil || rule.NamePrefix == nil || rule.KeyLocator == nil || rule.KeyLocator.Name == nil {
+			continue
+		}
+
+		if !matchNamePattern(rule.NamePrefix, dataName) || !matchNamePattern(rule.KeyLocator.Name, certName) {
+			continue
+		}
+
+		if rule.NameComponentIndex >= uint64(len(dataName)) {
+			continue
+		}
+		if rule.KeyComponentIndex >= uint64(len(certName)) {
+			continue
+		}
+
+		dataComp := dataName[int(rule.NameComponentIndex)]
+		certComp := certName[int(rule.KeyComponentIndex)]
+		if dataComp.Equal(certComp) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func matchNamePattern(pattern enc.Name, name enc.Name) bool {
+	if len(name) < len(pattern) {
+		return false
+	}
+	for i, comp := range pattern {
+		if comp.IsKeyword("_") || string(comp.Val) == "_" {
+			continue
+		}
+		if !comp.Equal(name[i]) {
+			return false
+		}
+	}
+	return true
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Lists the current routing strategies by retrieving the “strategy‑choice/list” status dataset from the local NFD and printing each prefix together with its chosen strategy.
 func (t *Tool) ExecStrategyList(_ *cobra.Command, args []string) {
 	t.Start()
 	defer t.Stop()

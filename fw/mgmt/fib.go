@@ -21,18 +21,22 @@ type FIBModule struct {
 	manager *Thread
 }
 
+// (AI GENERATED DESCRIPTION): Returns the identifier string `"mgmt-fib"` that represents the FIB module’s name.
 func (f *FIBModule) String() string {
 	return "mgmt-fib"
 }
 
+// (AI GENERATED DESCRIPTION): Registers the given Thread as the manager for this FIBModule by setting its manager field.
 func (f *FIBModule) registerManager(manager *Thread) {
 	f.manager = manager
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Thread manager associated with the FIBModule.
 func (f *FIBModule) getManager() *Thread {
 	return f.manager
 }
 
+// (AI GENERATED DESCRIPTION): Handles locally‑issued FIB management Interests by dispatching the request (add‑nexthop, remove‑nexthop, or list) and rejecting non‑/localhost requests or unknown verbs.
 func (f *FIBModule) handleIncomingInterest(interest *Interest) {
 	// Only allow from /localhost
 	if !LOCAL_PREFIX.IsPrefix(interest.Name()) {
@@ -55,6 +59,7 @@ func (f *FIBModule) handleIncomingInterest(interest *Interest) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Adds a next‑hop entry to the FIB for a given name using the supplied (or default) face ID and optional cost, after validating the control parameters and replying with a control response.
 func (f *FIBModule) add(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		f.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -93,6 +98,7 @@ func (f *FIBModule) add(interest *Interest) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Removes a next‑hop entry from the FIB for a given name and face, validating the control parameters and replying to the control Interest with a success or error response.
 func (f *FIBModule) remove(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		f.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -124,6 +130,7 @@ func (f *FIBModule) remove(interest *Interest) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Generates a FibStatus dataset from all current FIB entries and sends it as a response to a “fib/list” interest that matches the local prefix.
 func (f *FIBModule) list(interest *Interest) {
 	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
 		// Ignore because contains version and/or segment components

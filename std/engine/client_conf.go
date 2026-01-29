@@ -11,6 +11,7 @@ type ClientConfig struct {
 	TransportUri string
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the NDN client configuration, starting with a default transport URI and overriding it with values from `client.conf` files in prioritized directories and the `NDN_CLIENT_TRANSPORT` environment variable.
 func GetClientConfig() ClientConfig {
 	// Default configuration
 	transportUri := "unix:///run/nfd/nfd.sock"

@@ -18,6 +18,7 @@ type StreamFace struct {
 	conn    net.Conn
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new StreamFace configured with the specified network type and address, marks it as local or remote, and registers a default handler that exits the process with status 106 when the face goes down.
 func NewStreamFace(network string, addr string, local bool) *StreamFace {
 	s := &StreamFace{
 		baseFace: newBaseFace(local),
@@ -31,10 +32,12 @@ func NewStreamFace(network string, addr string, local bool) *StreamFace {
 	return s
 }
 
+// (AI GENERATED DESCRIPTION): Returns a string describing the stream face, formatted as “stream‑face (network://addr)”.
 func (f *StreamFace) String() string {
 	return fmt.Sprintf("stream-face (%s://%s)", f.network, f.addr)
 }
 
+// (AI GENERATED DESCRIPTION): Opens a stream-based Face by establishing a network connection, initializing its state, and launching a goroutine to receive packets.
 func (f *StreamFace) Open() error {
 	if f.IsRunning() {
 		return fmt.Errorf("face is already running")
@@ -56,6 +59,7 @@ func (f *StreamFace) Open() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Closes the StreamFace by marking its state as closed and shutting down the underlying connection if one exists.
 func (f *StreamFace) Close() error {
 	if f.setStateClosed() {
 		if f.conn != nil {
@@ -66,6 +70,7 @@ func (f *StreamFace) Close() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Sends the provided packet over the StreamFace’s underlying connection, returning an error if the face is not running or if the write fails.
 func (f *StreamFace) Send(pkt enc.Wire) error {
 	if !f.IsRunning() {
 		return fmt.Errorf("face is not running")
@@ -82,6 +87,7 @@ func (f *StreamFace) Send(pkt enc.Wire) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Receives TLV packets from the underlying connection, dispatching each to the packet handler, and upon stream termination or an error, triggers an error callback and transitions the face to a down state.
 func (f *StreamFace) receive() {
 	defer f.setStateDown()
 

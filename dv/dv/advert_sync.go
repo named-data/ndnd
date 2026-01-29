@@ -26,10 +26,12 @@ type advertModule struct {
 	objDir *storage.MemoryFifoDir
 }
 
+// (AI GENERATED DESCRIPTION): Returns a constant string “dv‑advert” identifying this advert module.
 func (a *advertModule) String() string {
 	return "dv-advert"
 }
 
+// (AI GENERATED DESCRIPTION): Sends sync interests for both active (outgoing) and passive (incoming) connections, logging any errors that occur.
 func (a *advertModule) sendSyncInterest() (err error) {
 	// Sync Interests for our outgoing connections
 	err = a.sendSyncInterestImpl(a.dv.config.AdvertisementSyncActivePrefix())
@@ -46,6 +48,7 @@ func (a *advertModule) sendSyncInterest() (err error) {
 	return err
 }
 
+// (AI GENERATED DESCRIPTION): Sends a signed state‑vector Data packet as the payload of a sync Interest to the given `syncName`, expressing the Interest locally without expecting a reply.
 func (a *advertModule) sendSyncInterestImpl(syncName enc.Name) (err error) {
 	// State Vector for our group
 	sv := &spec_svs.SvsData{
@@ -98,6 +101,7 @@ func (a *advertModule) sendSyncInterestImpl(syncName enc.Name) (err error) {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Handles an incoming Sync Interest by verifying its signature, decoding the included state vector, and invoking the state‑vector processing routine.
 func (a *advertModule) OnSyncInterest(args ndn.InterestHandlerArgs, active bool) {
 	// If there is no incoming face ID, we can't use this
 	if !args.IncomingFaceId.IsSet() {
@@ -144,6 +148,7 @@ func (a *advertModule) OnSyncInterest(args ndn.InterestHandlerArgs, active bool)
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Processes a received StateVector, updates neighbor states and timestamps, schedules a data fetch for each new or updated neighbor, and triggers a Forwarding Information Base refresh if any neighbor’s face changed.
 func (a *advertModule) onStateVector(sv *spec_svs.StateVector, faceId uint64, active bool) {
 	// Process each entry in the state vector
 	a.dv.mutex.Lock()

@@ -15,6 +15,8 @@ var SyncProtocolSvsV3 = enc.Name{
 type RepoCmd struct {
 	//+field:struct:SyncJoin
 	SyncJoin *SyncJoin `tlv:"0x1DB0"`
+	//+field:struct:SyncLeave
+	SyncLeave *SyncLeave `tlv:"0x1DB1"`
 	//+field:struct:BlobFetch
 	BlobFetch *BlobFetch `tlv:"0x1DB2"`
 }
@@ -35,6 +37,15 @@ type SyncJoin struct {
 	MulticastPrefix *spec.NameContainer `tlv:"0x194"`
 	//+field:struct:HistorySnapshotConfig
 	HistorySnapshot *HistorySnapshotConfig `tlv:"0x1A4"`
+	//+field:struct:spec.NameContainer
+	SecurityConfig *spec.NameContainer `tlv:"0x1DB4"`
+}
+
+type SyncLeave struct {
+	//+field:struct:spec.NameContainer
+	Protocol *spec.NameContainer `tlv:"0x191"`
+	//+field:struct:spec.NameContainer
+	Group *spec.NameContainer `tlv:"0x193"`
 }
 
 type HistorySnapshotConfig struct {
@@ -47,4 +58,11 @@ type BlobFetch struct {
 	Name *spec.NameContainer `tlv:"0x1B8"`
 	//+field:sequence:[]byte:binary:[]byte
 	Data [][]byte `tlv:"0x1BA"`
+}
+
+type SecurityConfigObject struct {
+	//+field:sequence:[]byte:binary:[]byte
+	Schema []byte `tlv:"0x1A5"`
+	//+field:sequence:[]byte:binary:[]byte
+	Anchors [][]byte `tlv:"0x1BA"`
 }

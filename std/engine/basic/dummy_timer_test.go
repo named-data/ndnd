@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that the DummyTimer starts at epoch zero and correctly advances its internal clock when time is moved forward.
 func TestClock(t *testing.T) {
 	tu.SetT(t)
 
@@ -20,6 +21,7 @@ func TestClock(t *testing.T) {
 	require.Equal(t, tu.NoErr(time.Parse(time.RFC3339, "1970-01-01T00:01:00Z")), tm.Now())
 }
 
+// (AI GENERATED DESCRIPTION): Tests the DummyTimer's scheduling logic by scheduling callbacks at various future times and confirming they execute in the correct order as the timer is advanced.
 func TestSchedule(t *testing.T) {
 	tu.SetT(t)
 
@@ -49,6 +51,7 @@ func TestSchedule(t *testing.T) {
 	require.Equal(t, []int{1, 2, 3}, lst)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that cancelling a scheduled timer event prevents its execution, ensuring that cancelled events do not fire even when multiple events are scheduled.
 func TestCancel(t *testing.T) {
 	tu.SetT(t)
 

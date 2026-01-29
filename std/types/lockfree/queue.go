@@ -15,6 +15,7 @@ type node[T any] struct {
 	next atomic.Pointer[node[T]]
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new empty concurrent queue by initializing a sentinel head node and setting both the head and tail pointers to that node.
 func NewQueue[T any]() *Queue[T] {
 	q := &Queue[T]{
 		head: &node[T]{},
@@ -24,6 +25,7 @@ func NewQueue[T any]() *Queue[T] {
 	return q
 }
 
+// (AI GENERATED DESCRIPTION): Adds a new element to the end of the lock‑free queue, atomically updating the tail pointer and linking the new node.
 func (q *Queue[T]) Push(v T) {
 	n := &node[T]{val: v}
 	for {
@@ -35,6 +37,7 @@ func (q *Queue[T]) Push(v T) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Pops and returns the front value of the queue, yielding `ok=false` if the queue is empty.
 func (q *Queue[T]) Pop() (val T, ok bool) {
 	next := q.head.next.Load()
 	if next == nil {

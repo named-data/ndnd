@@ -63,6 +63,7 @@ func (s *StrategyBase) NewStrategyBase(
 	s.logName = name
 }
 
+// (AI GENERATED DESCRIPTION): Returns a formatted string containing the strategy's log name, version, and thread ID.
 func (s *StrategyBase) String() string {
 	return fmt.Sprintf("%s (v=%d t=%d)", s.logName, s.version, s.threadID)
 }

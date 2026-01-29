@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Registers a permanent NDN route for the supplied face, using a prefix that combines the router’s localhop network name with the DV/ADS/ACT keyword components.
 func (t *Tool) RunDvLinkCreate(cmd *cobra.Command, args []string) {
 	t.Start()
 	defer t.Stop()
@@ -34,6 +35,7 @@ func (t *Tool) RunDvLinkCreate(cmd *cobra.Command, args []string) {
 	}, []string{})
 }
 
+// (AI GENERATED DESCRIPTION): Destroys an NFD face by executing the `faces destroy` command with the specified face identifier.
 func (t *Tool) RunDvLinkDestroy(cmd *cobra.Command, args []string) {
 	// just destroy the face assuming we created it
 	new(nfdc.Tool).ExecCmd(cmd, "faces", "destroy", []string{

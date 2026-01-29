@@ -83,6 +83,7 @@ type Neighbor struct {
 	Created bool `json:"-"`
 }
 
+// (AI GENERATED DESCRIPTION): Creates a default `Config` instance with empty network and router fields, preset advertisement sync and router‑dead intervals, and an undefined key‑chain URI.
 func DefaultConfig() *Config {
 	return &Config{
 		Network:                      "", // invalid
@@ -95,6 +96,7 @@ func DefaultConfig() *Config {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Parses and validates the NLSR configuration, converting string fields into `enc.Name` objects, enforcing network‑router relationship and timing constraints, and computing the internal name prefixes used for advertisement sync, data, and prefix sync.
 func (c *Config) Parse() (err error) {
 	// Validate prefixes not empty
 	if c.Network == "" || c.Router == "" {
@@ -182,46 +184,57 @@ func (c *Config) Parse() (err error) {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the network name stored in the configuration.
 func (c *Config) NetworkName() enc.Name {
 	return c.networkNameN
 }
 
+// (AI GENERATED DESCRIPTION): Returns the router name (enc.Name) stored in the Config instance.
 func (c *Config) RouterName() enc.Name {
 	return c.routerNameN
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the advertisement sync prefix stored in the configuration as an `enc.Name`.
 func (c *Config) AdvertisementSyncPrefix() enc.Name {
 	return c.advSyncPfxN
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the configured advertisement sync active prefix (an `enc.Name`) from the `Config` instance.
 func (c *Config) AdvertisementSyncActivePrefix() enc.Name {
 	return c.advSyncActivePfxN
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Name of the prefix used for passive advertisement synchronization.
 func (c *Config) AdvertisementSyncPassivePrefix() enc.Name {
 	return c.advSyncPassivePfxN
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the configured advertisement data prefix (enc.Name) from the Config instance.
 func (c *Config) AdvertisementDataPrefix() enc.Name {
 	return c.advDataPfxN
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the prefix table group prefix stored in the configuration.
 func (c *Config) PrefixTableGroupPrefix() enc.Name {
 	return c.pfxSyncGroupPfxN
 }
 
+// (AI GENERATED DESCRIPTION): Returns the management prefix stored in the Config object.
 func (c *Config) MgmtPrefix() enc.Name {
 	return c.mgmtPrefix
 }
 
+// (AI GENERATED DESCRIPTION): Returns the advertisement synchronization interval from the configuration, converting the stored millisecond value into a `time.Duration`.
 func (c *Config) AdvertisementSyncInterval() time.Duration {
 	return time.Duration(c.AdvertisementSyncInterval_ms) * time.Millisecond
 }
 
+// (AI GENERATED DESCRIPTION): Returns the router dead interval configured in milliseconds, converting the `RouterDeadInterval_ms` field to a `time.Duration`.
 func (c *Config) RouterDeadInterval() time.Duration {
 	return time.Duration(c.RouterDeadInterval_ms) * time.Millisecond
 }
 
+// (AI GENERATED DESCRIPTION): Returns the slice of trust‑anchor names stored in the Config.
 func (c *Config) TrustAnchorNames() []enc.Name {
 	return c.trustAnchorsN
 }
@@ -230,6 +243,7 @@ func (c *Config) PrefixInsertionTrustAnchorNames() []enc.Name {
 	return c.prefixInsertionTrustAnchorsN
 }
 
+// (AI GENERATED DESCRIPTION): Returns the raw byte slice representing the configuration schema.
 func (c *Config) SchemaBytes() []byte {
 	return SchemaBytes
 }

@@ -25,18 +25,22 @@ type RIBModule struct {
 	manager *Thread
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string identifier for this RIBModule, which is always `"mgmt-rib"`.
 func (r *RIBModule) String() string {
 	return "mgmt-rib"
 }
 
+// (AI GENERATED DESCRIPTION): Registers the supplied Thread as the manager for the RIBModule.
 func (r *RIBModule) registerManager(manager *Thread) {
 	r.manager = manager
 }
 
+// (AI GENERATED DESCRIPTION): Returns the manager thread associated with this RIBModule.
 func (r *RIBModule) getManager() *Thread {
 	return r.manager
 }
 
+// (AI GENERATED DESCRIPTION): Handles an incoming control Interest by dispatching it to the appropriate verb handler (register, unregister, announce, list) based on the interest’s name, returning a 501 error for unknown verbs.
 func (r *RIBModule) handleIncomingInterest(interest *Interest) {
 	// Dispatch by verb
 	verb := interest.Name()[len(LOCAL_PREFIX)+1].String()
@@ -55,6 +59,7 @@ func (r *RIBModule) handleIncomingInterest(interest *Interest) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Registers a new route in the RIB using the parameters from a control Interest, validating the request, updating the routing table, and replying with a control response.
 func (r *RIBModule) register(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		r.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -118,6 +123,7 @@ func (r *RIBModule) register(interest *Interest) {
 	r.manager.sendCtrlResp(interest, 200, "OK", responseParams)
 }
 
+// (AI GENERATED DESCRIPTION): Removes a route from the routing information base in response to a control Interest, validating the parameters, updating the RIB, sending a success or error response, and logging the removal.
 func (r *RIBModule) unregister(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		r.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -152,6 +158,7 @@ func (r *RIBModule) unregister(interest *Interest) {
 	core.Log.Info(r, "Removed route", "name", params.Name, "faceid", faceID, "origin", origin)
 }
 
+// (AI GENERATED DESCRIPTION): Handles a PrefixAnnouncement Interest by validating its name and application parameters and replying with a 501 Not Implemented response, since the announcement logic is not yet implemented.
 func (r *RIBModule) announce(interest *Interest) {
 	if len(interest.Name()) != len(LOCAL_PREFIX)+3 || interest.Name()[len(LOCAL_PREFIX)+2].Typ != enc.TypeParametersSha256DigestComponent {
 		r.manager.sendCtrlResp(interest, 400, "Name is incorrect", nil)
@@ -176,6 +183,7 @@ func (r *RIBModule) announce(interest *Interest) {
 	r.manager.sendCtrlResp(interest, 501, "PrefixAnnouncement not implemented yet", nil)
 }
 
+// (AI GENERATED DESCRIPTION): Responds to a “/local/rib/list” Interest by collecting all current RIB entries, encoding them into a mgmt.RibStatus dataset, and sending the dataset back as a Data packet with a name derived from the Interest’s prefix and the components “rib”/“list”.
 func (r *RIBModule) list(interest *Interest) {
 	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
 		// Ignore because contains version and/or segment components

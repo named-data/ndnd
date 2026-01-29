@@ -34,6 +34,7 @@ func (l *NullLinkService) Run(initial []byte) {
 	}()
 }
 
+// (AI GENERATED DESCRIPTION): Drops any incoming frame received on a null link service, logging a debug message indicating the frame was discarded.
 func (l *NullLinkService) handleIncomingFrame(frame []byte) {
 	// Do nothing
 	core.Log.Debug(l, "Received frame on null link service - DROP")

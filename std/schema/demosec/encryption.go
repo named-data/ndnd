@@ -23,10 +23,12 @@ type ContentKeyNode struct {
 	schema.BaseNodeImpl
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ContentKeyNode instance as a NodeImpl, enabling it to be used where a schema NodeImpl is required.
 func (n *ContentKeyNode) NodeImplTrait() schema.NodeImpl {
 	return n
 }
 
+// (AI GENERATED DESCRIPTION): Attempts to cast the `ContentKeyNode` to the requested pointer type, returning the node itself, its embedded `BaseNodeImpl`, or `nil` if the type is unsupported.
 func (n *ContentKeyNode) CastTo(ptr any) any {
 	switch ptr.(type) {
 	case (*ContentKeyNode):
@@ -38,10 +40,12 @@ func (n *ContentKeyNode) CastTo(ptr any) any {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string that identifies the node as a `ContentKeyNode` and includes the string representation of its underlying `Node`.
 func (n *ContentKeyNode) String() string {
 	return fmt.Sprintf("ContentKeyNode (%s)", n.Node)
 }
 
+// (AI GENERATED DESCRIPTION): Creates a ContentKeyNode under the given schema node, adding a leaf for `<contentKeyID>` whose content type is set to Key and which is marked as non‑fresh.
 func CreateContentKeyNode(node *schema.Node) schema.NodeImpl {
 	ret := &ContentKeyNode{
 		BaseNodeImpl: schema.BaseNodeImpl{
@@ -57,6 +61,7 @@ func CreateContentKeyNode(node *schema.Node) schema.NodeImpl {
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Generates a random 32‑byte content key, registers it under a new child name derived from the supplied matched node, and returns the key’s identifier and key bits.
 func (n *ContentKeyNode) GenKey(mNode schema.MatchedNode) ContentKey {
 	keybits := make([]byte, 32)
 	rand.Read(keybits) // Should always succeed
@@ -73,6 +78,7 @@ func (n *ContentKeyNode) GenKey(mNode schema.MatchedNode) ContentKey {
 	return ContentKey{ckid, keybits}
 }
 
+// (AI GENERATED DESCRIPTION): Encrypts the given content using AES‑CBC with the provided 32‑byte key and a random IV, then packages the ciphertext together with the key ID, IV, and original length into an encoded EncryptedContent wire.
 func (n *ContentKeyNode) Encrypt(mNode schema.MatchedNode, ck ContentKey, content enc.Wire) enc.Wire {
 	if len(ck.ckid) != 8 || len(ck.keybits) != 32 {
 		log.Error(n, "Invalid content key", "ckid", hex.EncodeToString(ck.ckid))
@@ -107,6 +113,7 @@ func (n *ContentKeyNode) Encrypt(mNode schema.MatchedNode, ck ContentKey, conten
 	return encContent.Encode()
 }
 
+// (AI GENERATED DESCRIPTION): Decrypts the provided encrypted payload by fetching the corresponding content key via the node’s NeedChan, then decrypting the data with AES‑CBC and returning the plaintext wire.
 func (n *ContentKeyNode) Decrypt(mNode schema.MatchedNode, encryptedContent enc.Wire) enc.Wire {
 	// Note: In real-world implementation, a callback/channel version should be provided
 	encContent, err := ParseEncryptedContent(enc.NewWireView(encryptedContent), true)
@@ -148,6 +155,7 @@ var (
 	ContentKeyNodeDesc *schema.NodeImplDesc
 )
 
+// (AI GENERATED DESCRIPTION): Initializes and registers the ContentKeyNode implementation in the schema, defining its properties, inherited events, and handlers for GenKey, Encrypt, and Decrypt that validate arguments before delegating to the node’s methods.
 func init() {
 	ContentKeyNodeDesc = &schema.NodeImplDesc{
 		ClassName: "ContentKeyNode",

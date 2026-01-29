@@ -30,6 +30,7 @@ func Usage() {
 	flag.PrintDefaults()
 }
 
+// (AI GENERATED DESCRIPTION): Parses Go packages from the specified input directory and generates a code file in the specified output path using a custom code generator.
 func main() {
 	flag.Usage = Usage
 	err := flag.CommandLine.Parse(os.Args[1:])

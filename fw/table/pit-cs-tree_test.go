@@ -34,10 +34,12 @@ var VALID_DATA_2 = []byte{
 	0x7d, 0xa9, 0x20, 0xea, 0x8b, 0xda, 0xf6, 0x13, 0xed,
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new `FwData` instance with the specified name, leaving other fields (such as content) unset.
 func makeData(name enc.Name) *defn.FwData {
 	return &defn.FwData{NameV: name}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new FwInterest packet with the given name and a randomly generated nonce.
 func makeInterest(name enc.Name) *defn.FwInterest {
 	return &defn.FwInterest{
 		NameV:  name,
@@ -45,10 +47,12 @@ func makeInterest(name enc.Name) *defn.FwInterest {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Sets the replacement policy for the ContentStore to the specified policy string.
 func setReplacementPolicy(policy string) {
 	core.C.Tables.ContentStore.ReplacementPolicy = policy
 }
 
+// (AI GENERATED DESCRIPTION): Test verifies that a newly created PIT-CS instance starts empty and that all search operations (interest or data lookup) correctly return nil when no entries have been added.
 func TestNewPitCSTree(t *testing.T) {
 	setReplacementPolicy("lru")
 	pitCS := NewPitCS(func(PitEntry) {})
@@ -85,6 +89,7 @@ func TestNewPitCSTree(t *testing.T) {
 	assert.Nil(t, csEntry)
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that a PitCS instance correctly reports whether content‑store admission is enabled by checking that its IsCsAdmitting() method reflects the global CS admission configuration flag.
 func TestIsCsAdmitting(t *testing.T) {
 	setReplacementPolicy("lru")
 	CfgSetCsAdmit(false)
@@ -99,6 +104,7 @@ func TestIsCsAdmitting(t *testing.T) {
 	assert.Equal(t, CfgCsAdmit(), true)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that a newly created PitCS reports the correct CS‑serving state by mirroring the global CfgCsServe configuration.
 func TestIsCsServing(t *testing.T) {
 	setReplacementPolicy("lru")
 	CfgSetCsServe(false)
@@ -113,6 +119,7 @@ func TestIsCsServing(t *testing.T) {
 	assert.Equal(t, CfgCsServe(), true)
 }
 
+// (AI GENERATED DESCRIPTION): Unit test that verifies PitCS.InsertInterest correctly creates or updates PIT entries, detects duplicate nonces, preserves entry state, and supports prefix relationships between interests.
 func TestInsertInterest(t *testing.T) {
 	setReplacementPolicy("lru")
 
@@ -254,6 +261,7 @@ func TestInsertInterest(t *testing.T) {
 	assert.Equal(t, pitCS.PitSize(), 2)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that PitCS.RemoveInterest correctly removes a PIT entry in various scenarios, verifying the PIT size updates appropriately.
 func TestRemoveInterest(t *testing.T) {
 	setReplacementPolicy("lru")
 
@@ -309,6 +317,7 @@ func TestRemoveInterest(t *testing.T) {
 	assert.Equal(t, pitCS.PitSize(), 2)
 }
 
+// (AI GENERATED DESCRIPTION): **FindInterestExactMatchEnc**: Looks up and returns the PIT entry whose name exactly matches the encoded name of the supplied interest, or `nil` if no such entry exists.
 func TestFindInterestExactMatch(t *testing.T) {
 	setReplacementPolicy("lru")
 
@@ -351,6 +360,7 @@ func TestFindInterestExactMatch(t *testing.T) {
 	assert.Nil(t, pitEntryNil)
 }
 
+// (AI GENERATED DESCRIPTION): FindInterestPrefixMatchByDataEnc returns all PIT entries whose interest name is a prefix of the supplied Data packet name, enabling prefix‑based lookup for satisfying pending interests.
 func TestFindInterestPrefixMatchByData(t *testing.T) {
 	setReplacementPolicy("lru")
 
@@ -397,6 +407,7 @@ func TestFindInterestPrefixMatchByData(t *testing.T) {
 	assert.Equal(t, len(pitEntries), 2)
 }
 
+// (AI GENERATED DESCRIPTION): Inserts or updates an outrecord in a PIT entry, recording the given face and the latest nonce of the supplied interest.
 func TestInsertOutRecord(t *testing.T) {
 	setReplacementPolicy("lru")
 
@@ -429,6 +440,7 @@ func TestInsertOutRecord(t *testing.T) {
 	assert.True(t, outRecord.LatestNonce == interest.NonceV.Unwrap())
 }
 
+// (AI GENERATED DESCRIPTION): Test verifies that inserting interests into a PIT entry correctly creates, updates, and maintains out‑records per face, ensuring the latest nonce is stored for each face.
 func TestGetOutRecords(t *testing.T) {
 	setReplacementPolicy("lru")
 
@@ -482,6 +494,7 @@ func TestGetOutRecords(t *testing.T) {
 	assert.True(t, outRecords[1].LatestNonce == interest.NonceV.Unwrap())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the PIT-CS component can retrieve the correct Data packet from the CS cache based on an Interest (exact or prefix match), correctly update existing entries, avoid duplicate insertions, and evict entries when the CS capacity is exceeded.
 func FindMatchingDataFromCS(t *testing.T) {
 	setReplacementPolicy("lru")
 	CfgSetCsCapacity(1024)

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Creates a pointer to the supplied uint64 value (e.g., `utils.IdPtr(42)` returns a `*uint64` pointing to `42`).
 func TestIdPtr(t *testing.T) {
 	tu.SetT(t)
 
@@ -16,6 +17,7 @@ func TestIdPtr(t *testing.T) {
 	require.Equal(t, uint64(42), *p)
 }
 
+// (AI GENERATED DESCRIPTION): Converts a `time.Time` value into an unsigned 64‑bit Unix timestamp expressed in milliseconds.
 func TestMakeTimestamp(t *testing.T) {
 	tu.SetT(t)
 
@@ -23,6 +25,7 @@ func TestMakeTimestamp(t *testing.T) {
 	require.Equal(t, uint64(1609459200000), utils.MakeTimestamp(date))
 }
 
+// (AI GENERATED DESCRIPTION): Converts a 4‑byte big‑endian nonce slice into a 32‑bit unsigned integer nonce.
 func TestConvertNonce(t *testing.T) {
 	tu.SetT(t)
 
@@ -35,6 +38,7 @@ func TestConvertNonce(t *testing.T) {
 	require.Equal(t, uint32(0x421ce14b), val.Unwrap())
 }
 
+// (AI GENERATED DESCRIPTION): Determines whether two slices refer to the exact same contiguous segment of an underlying array.
 func TestHeaderEqual(t *testing.T) {
 	tu.SetT(t)
 

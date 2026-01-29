@@ -19,14 +19,17 @@ type Tree struct {
 	engine ndn.Engine
 }
 
+// (AI GENERATED DESCRIPTION): Returns the fixed string `"schema"` as the textual representation of a `Tree`.
 func (t *Tree) String() string {
 	return "schema"
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ndn.Engine associated with this Tree.
 func (t *Tree) Engine() ndn.Engine {
 	return t.engine
 }
 
+// (AI GENERATED DESCRIPTION): Returns a pointer to the root node of the tree.
 func (t *Tree) Root() *Node {
 	return t.root
 }

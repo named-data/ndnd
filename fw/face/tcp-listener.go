@@ -39,10 +39,12 @@ func MakeTCPListener(localURI *defn.URI) (*TCPListener, error) {
 	return l, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a formatted string identifying the TCPListener, displaying its local URI in the form `"tcp-listener (<localURI>)"`.
 func (l *TCPListener) String() string {
 	return fmt.Sprintf("tcp-listener (%s)", l.localURI)
 }
 
+// (AI GENERATED DESCRIPTION): Runs a TCP listener that accepts incoming connections, creates unicast TCP transports for each, and starts an NDN‑Link Service on every accepted face.
 func (l *TCPListener) Run() {
 	defer func() { l.stopped <- true }()
 
@@ -89,6 +91,7 @@ func (l *TCPListener) Run() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Closes the listener’s TCP connection and blocks until the listener has fully stopped.
 func (l *TCPListener) Close() {
 	if l.conn != nil {
 		l.conn.Close()

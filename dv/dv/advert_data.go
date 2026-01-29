@@ -9,6 +9,7 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 )
 
+// (AI GENERATED DESCRIPTION): Generates a new advertisement Data packet with an incremented sequence number and timestamp, publishes it, updates the object directory, and initiates a sync interest to notify neighbors.
 func (a *advertModule) generate() {
 	a.dv.mutex.Lock()
 	defer a.dv.mutex.Unlock()
@@ -35,6 +36,7 @@ func (a *advertModule) generate() {
 	go a.sendSyncInterest()
 }
 
+// (AI GENERATED DESCRIPTION): Fetches a neighbor’s DV advertisement Data packet (retrying on error) and invokes `dataHandler` with its content when the neighbor’s boot time and sequence number match the expected values.
 func (a *advertModule) dataFetch(nName enc.Name, bootTime uint64, seqNo uint64) {
 	a.dv.mutex.Lock()
 	defer a.dv.mutex.Unlock()

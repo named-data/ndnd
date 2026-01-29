@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Verifies the consume logic of a DummyFace, ensuring it opens correctly, accepts queued packets, returns them in order, and handles errors and closing as expected.
 func TestBasicConsume(t *testing.T) {
 	tu.SetT(t)
 
@@ -47,6 +48,7 @@ func TestBasicConsume(t *testing.T) {
 	require.NoError(t, face.Close())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that feeding packets into a DummyFace correctly invokes the OnPacket handler with the exact payloads in order and that no errors are generated.
 func TestBasicFeed(t *testing.T) {
 	tu.SetT(t)
 	cnt := 0

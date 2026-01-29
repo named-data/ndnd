@@ -50,10 +50,12 @@ func (mgmt *MgmtConfig) MakeCmdDict(module string, cmd string, args map[string]a
 	return mgmt.MakeCmd(module, cmd, vv, config)
 }
 
+// (AI GENERATED DESCRIPTION): Sets the Signer used by MgmtConfig for signing management packets.
 func (mgmt *MgmtConfig) SetSigner(signer ndn.Signer) {
 	mgmt.signer = signer
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new MgmtConfig with the given local flag, signer, and spec, returning nil if either signer or spec is nil.
 func NewConfig(local bool, signer ndn.Signer, spec ndn.Spec) *MgmtConfig {
 	if signer == nil || spec == nil {
 		return nil

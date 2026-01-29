@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Retrieves the CS (Content Store) status dataset from the controller and prints its capacity, admission/serve flags, entry count, hits, and misses.
 func (t *Tool) ExecCsInfo(_ *cobra.Command, args []string) {
 	t.Start()
 	defer t.Stop()

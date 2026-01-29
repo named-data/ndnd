@@ -15,6 +15,7 @@ type WireView struct {
 	end   int // last allowed position (absolute)
 }
 
+// (AI GENERATED DESCRIPTION): Creates a WireView from the given wire segments, precomputing the total byte length of the data.
 func NewWireView(wire Wire) WireView {
 	end := 0
 	for _, seg := range wire {
@@ -23,22 +24,27 @@ func NewWireView(wire Wire) WireView {
 	return WireView{wire: wire, end: end}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a `WireView` that wraps the supplied `Buffer` so it can be treated as a wire representation.
 func NewBufferView(buf Buffer) WireView {
 	return NewWireView(Wire{buf})
 }
 
+// (AI GENERATED DESCRIPTION): Returns true when the current read position has reached or passed the end of the view, indicating no more data to read.
 func (r *WireView) IsEOF() bool {
 	return r.apos >= r.end
 }
 
+// (AI GENERATED DESCRIPTION): Returns the current offset within the WireView relative to its start index.
 func (r *WireView) Pos() int {
 	return r.apos - r.start
 }
 
+// (AI GENERATED DESCRIPTION): Returns the number of bytes represented by the WireView.
 func (r *WireView) Length() int {
 	return r.end - r.start
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the next byte from the wire view, advancing the read position across segment boundaries, and returns an EOF error if the view has been exhausted.
 func (r *WireView) ReadByte() (byte, error) {
 	if r.IsEOF() {
 		return 0, r._eof()
@@ -53,6 +59,7 @@ func (r *WireView) ReadByte() (byte, error) {
 	return b, nil
 }
 
+// (AI GENERATED DESCRIPTION): Copies all remaining bytes from the underlying wire view into the supplied buffer, returning an error if the buffer is larger than the data available.
 func (r *WireView) ReadFull(cpy []byte) (int, error) {
 	cpypos := 0
 	for cpypos < len(cpy) {
@@ -71,6 +78,7 @@ func (r *WireView) ReadFull(cpy []byte) (int, error) {
 	return cpypos, nil
 }
 
+// (AI GENERATED DESCRIPTION): Skips forward n bytes in the current wire view, discarding the skipped data and returning any error that occurs.
 func (r *WireView) Skip(n int) error {
 	_, err := r.SkipGetSegCount(n)
 	return err
@@ -101,6 +109,7 @@ func (r *WireView) SkipGetSegCount(n int) (int, error) {
 	return segcount, nil
 }
 
+// (AI GENERATED DESCRIPTION): **ReadWire** reads the specified number of bytes from the WireView, performing bounds checking, and returns them as a Wire (a slice of byte‑segment slices).
 func (r *WireView) ReadWire(size int) (Wire, error) {
 	r_sz := *r // copy
 	w_size, err := r_sz.SkipGetSegCount(size)
@@ -135,6 +144,7 @@ func (r *WireView) readSeg(size int) []byte {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a sub‑view of the specified size from the current read position, advancing the original view past that region, and returns an empty view if the requested size exceeds the remaining bytes.
 func (r *WireView) Delegate(size int) WireView {
 	if size > r.end-r.apos {
 		return WireView{} // invalid
@@ -146,6 +156,7 @@ func (r *WireView) Delegate(size int) WireView {
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Copies up to `size` bytes from the `WireView` into the supplied `io.Writer`, stopping on EOF or overflow and returning the number of bytes actually written along with any error.
 func (r *WireView) CopyN(w io.Writer, size int) (int, error) {
 	written := 0
 	for written < size {
@@ -165,6 +176,7 @@ func (r *WireView) CopyN(w io.Writer, size int) (int, error) {
 	return written, nil
 }
 
+// (AI GENERATED DESCRIPTION): Reads up to a requested number of bytes from the current position of the wire view, automatically handling segment boundaries and returning an error if the read would exceed the wire size or hit the end of the data.
 func (r *WireView) ReadBuf(size int) ([]byte, error) {
 	if size > r.end-r.apos {
 		return nil, r._overflow()
@@ -198,6 +210,7 @@ func (r *WireView) ReadBuf(size int) ([]byte, error) {
 	return ret, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a sub‑Wire representing the bytes from the given start offset to the end offset within the current WireView, or an empty Wire on error.
 func (r *WireView) Range(start, end int) Wire {
 	rcopy := WireView{wire: r.wire, end: r.end}
 	rcopy.Skip(r.start + start)
@@ -214,10 +227,12 @@ func (r WireView) Debug() []byte {
 	return b
 }
 
+// (AI GENERATED DESCRIPTION): Signals that the wire view has been fully consumed by returning the standard `io.EOF` error.
 func (r *WireView) _eof() error {
 	return io.EOF
 }
 
+// (AI GENERATED DESCRIPTION): Returns an `ErrBufferOverflow` error, signaling that the underlying wire buffer has exceeded its capacity.
 func (r *WireView) _overflow() error {
 	return ErrBufferOverflow
 }

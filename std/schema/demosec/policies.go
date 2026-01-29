@@ -18,14 +18,17 @@ type KeyStoragePolicy struct {
 	KeyStore *DemoHmacKeyStore
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string `"KeyStoragePolicy"` as the textual representation of this policy type.
 func (p *KeyStoragePolicy) String() string {
 	return "KeyStoragePolicy"
 }
 
+// (AI GENERATED DESCRIPTION): Returns the KeyStoragePolicy instance as a `schema.Policy`, enabling it to satisfy the `PolicyTrait` interface.
 func (p *KeyStoragePolicy) PolicyTrait() schema.Policy {
 	return p
 }
 
+// (AI GENERATED DESCRIPTION): Handles a search event by looking up the requested name in the key store, returning its certificate data as a Wire, and rejecting any prefix‐matching interests.
 func (p *KeyStoragePolicy) onSearch(event *schema.Event) any {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -42,6 +45,7 @@ func (p *KeyStoragePolicy) onSearch(event *schema.Event) any {
 	return enc.Wire{key.CertData}
 }
 
+// (AI GENERATED DESCRIPTION): Stores the key from the provided event into the policy’s KeyStore, marking it as fresh forever.
 func (p *KeyStoragePolicy) onSave(event *schema.Event) any {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -51,6 +55,7 @@ func (p *KeyStoragePolicy) onSave(event *schema.Event) any {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Ensures the policy’s KeyStore is configured, panicking if it is nil, and otherwise does nothing (returns nil).
 func (p *KeyStoragePolicy) onAttach(event *schema.Event) any {
 	if p.KeyStore == nil {
 		panic("you must set KeyStore property to be a DemoHmacKeyStore instance in Go.")
@@ -58,6 +63,7 @@ func (p *KeyStoragePolicy) onAttach(event *schema.Event) any {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Recursively attaches the policy’s onAttach, onSearch, and onSave event handlers to a schema node and all its descendant nodes.
 func (p *KeyStoragePolicy) Apply(node *schema.Node) {
 	// TODO: onAttach does not need to be called on every child...
 	// But I don't have enough time to fix this
@@ -76,6 +82,7 @@ func (p *KeyStoragePolicy) Apply(node *schema.Node) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new KeyStoragePolicy instance and returns it as a schema.Policy.
 func NewKeyStoragePolicy() schema.Policy {
 	return &KeyStoragePolicy{}
 }
@@ -89,10 +96,12 @@ type SignedByPolicy struct {
 	keyNode *schema.Node
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string literal `"SignedByPolicy"` as the human‑readable name of the policy.
 func (p *SignedByPolicy) String() string {
 	return "SignedByPolicy"
 }
 
+// (AI GENERATED DESCRIPTION): Returns the `SignedByPolicy` instance as a `schema.Policy`, enabling it to satisfy the Policy interface.
 func (p *SignedByPolicy) PolicyTrait() schema.Policy {
 	return p
 }
@@ -115,6 +124,7 @@ func (p *SignedByPolicy) ConvertName(mNode *schema.MatchedNode) *schema.MatchedN
 	return p.keyNode.Apply(newMatching)
 }
 
+// (AI GENERATED DESCRIPTION): Creates an HMAC signer for the event’s target name, returning nil and logging an error if the key name cannot be constructed or the key is missing.
 func (p *SignedByPolicy) onGetDataSigner(event *schema.Event) any {
 	keyMNode := p.ConvertName(event.Target)
 	if keyMNode == nil {
@@ -129,6 +139,7 @@ func (p *SignedByPolicy) onGetDataSigner(event *schema.Event) any {
 	return signer.NewHmacSigner(key.KeyBits)
 }
 
+// (AI GENERATED DESCRIPTION): Validates a Data packet’s HMAC‑SHA256 signature by retrieving the signing key for the packet’s target name and verifying the signature, returning Pass, Fail, or Silence accordingly.
 func (p *SignedByPolicy) onValidateData(event *schema.Event) any {
 	sigCovered := event.SigCovered
 	signature := event.Signature
@@ -150,6 +161,7 @@ func (p *SignedByPolicy) onValidateData(event *schema.Event) any {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): When attached, the function ensures a KeyStore is configured, resolves the specified KeyNodePath to a node in the event’s target tree, stores that node for later use, and panics if any step fails.
 func (p *SignedByPolicy) onAttach(event *schema.Event) any {
 	if p.KeyStore == nil {
 		panic("you must set KeyStore property to be a DemoHmacKeyStore instance in Go.")
@@ -167,6 +179,7 @@ func (p *SignedByPolicy) onAttach(event *schema.Event) any {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Attaches a SignedByPolicy to a node by registering its onAttach, onGetDataSigner, and onValidateData callbacks to the node’s corresponding events, panicking if the node does not provide a data‑validation event.
 func (p *SignedByPolicy) Apply(node *schema.Node) {
 	if event := node.GetEvent(schema.PropOnAttach); event != nil {
 		event.Add(utils.IdPtr(p.onAttach))
@@ -184,10 +197,12 @@ func (p *SignedByPolicy) Apply(node *schema.Node) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new SignedByPolicy policy instance (with default/empty configuration).
 func NewSignedByPolicy() schema.Policy {
 	return &SignedByPolicy{}
 }
 
+// (AI GENERATED DESCRIPTION): Registers the KeyStoragePolicy and SignedBy policy implementations with the schema registry.
 func init() {
 	keyStoragePolicyDesc := &schema.PolicyImplDesc{
 		ClassName: "KeyStoragePolicy",

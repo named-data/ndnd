@@ -30,6 +30,7 @@ const (
 	SignatureEmptyTest       SigType = 200
 )
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string that names the signature type represented by the SigType value, defaulting to “Unknown” if no match.
 func (t SigType) String() string {
 	switch t {
 	case SignatureNone:
@@ -74,6 +75,7 @@ const (
 	InterestResultError
 )
 
+// (AI GENERATED DESCRIPTION): Returns the string name corresponding to the given InterestResult enum value.
 func (r InterestResult) String() string {
 	switch r {
 	case InterestResultNone:

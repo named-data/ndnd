@@ -1,10 +1,18 @@
 package trust_schema_test
 
 import (
+	"crypto/elliptic"
 	"testing"
+	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
+	"github.com/named-data/ndnd/std/ndn/spec_2022"
+	"github.com/named-data/ndnd/std/object/storage"
+	"github.com/named-data/ndnd/std/security/keychain"
+	"github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/security/trust_schema"
+	"github.com/named-data/ndnd/std/types/optional"
 	tu "github.com/named-data/ndnd/std/utils/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -110,10 +118,12 @@ var TEST_MODEL_COMPLEX = []byte{
 	0x62, 0x67, 0x06, 0x23, 0x01, 0x06, 0x29, 0x01, 0x63,
 }
 
+// (AI GENERATED DESCRIPTION): Creates an enc.Name from the supplied string, panicking if the string is not a valid name.
 func sname(n string) enc.Name {
 	return tu.NoErr(enc.NameFromStr(n))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that parsing a Trust Schema LVS model from binary data correctly produces the expected version, start ID, named pattern count, and the expected numbers of nodes and symbols.
 func TestParseModel(t *testing.T) {
 	tu.SetT(t)
 
@@ -128,6 +138,7 @@ func TestParseModel(t *testing.T) {
 	require.Equal(t, 6, len(m.Symbols))
 }
 
+// (AI GENERATED DESCRIPTION): TestModelSimpleMatch verifies that a trust schema correctly matches name prefixes against its defined rules, ensuring correct handling of valid, invalid, partial, and expansion‑mismatch scenarios.
 func TestModelSimpleMatch(t *testing.T) {
 	tu.SetT(t)
 
@@ -175,6 +186,7 @@ func TestModelSimpleMatch(t *testing.T) {
 	require.Equal(t, 0, len(ms))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that complex trust‑schema rules correctly match Data names by asserting that the `MatchCollect` method returns the expected rule identifiers for a variety of name patterns and attribute constraints.
 func TestModelComplexMatch(t *testing.T) {
 	tu.SetT(t)
 
@@ -226,6 +238,7 @@ func TestModelComplexMatch(t *testing.T) {
 	require.Equal(t, 2, len(ms)) // r1, r3
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the LvsSchema’s Check method correctly validates name relationships against the simple trust model.
 func TestModelSimpleCheck(t *testing.T) {
 	tu.SetT(t)
 
@@ -239,6 +252,7 @@ func TestModelSimpleCheck(t *testing.T) {
 	require.False(t, s.Check(sname("/a/blog/author/100001/KEY/1/000001/1"), sname("/a/blog/KEY/1/self/1")))
 }
 
+// (AI GENERATED DESCRIPTION): Tests the trust schema's `Check` method using a complex model, asserting that name pairs that should match are accepted and that those that should not match are rejected.
 func TestModelComplexCheck(t *testing.T) {
 	tu.SetT(t)
 
@@ -256,4 +270,61 @@ func TestModelComplexCheck(t *testing.T) {
 	require.False(t, s.Check(sname("/a/b/c"), sname("/pqr/pqr/xxx")))
 	require.False(t, s.Check(sname("/a/b/c"), sname("/xxx/pqr")))
 	require.False(t, s.Check(sname("/a/b/c"), sname("/xxx/pqr/rst/uvw")))
+}
+
+func TestSuggestSkipsExpiredCert(t *testing.T) {
+	tu.SetT(t)
+
+	// Schema from TEST_MODEL expects admin to sign author.
+	s, err := trust_schema.NewLvsSchema(TEST_MODEL)
+	require.NoError(t, err)
+
+	store := storage.NewMemoryStore()
+	kc := keychain.NewKeyChainMem(store)
+
+	keyName := sname("/a/blog/admin/000001/KEY/1")
+	signerObj, err := signer.KeygenEcc(keyName, elliptic.P256())
+	require.NoError(t, err)
+	require.NoError(t, kc.InsertKey(signerObj))
+
+	issuer := enc.NewGenericComponent("self")
+	baseCertName := keyName.Append(issuer)
+
+	// Seed keychain with a valid cert so UniqueCerts contains the prefix.
+	validCert1 := buildCert(t, signerObj, baseCertName.Append(enc.NewVersionComponent(1)), time.Now().Add(time.Hour))
+	require.NoError(t, kc.InsertCert(validCert1.Wire.Join()))
+
+	// Latest version is expired -> Suggest should return nil.
+	expiredName := baseCertName.Append(enc.NewVersionComponent(2))
+	expiredCert := buildCert(t, signerObj, expiredName, time.Now().Add(-time.Hour))
+	require.NoError(t, store.Put(expiredName, expiredCert.Wire.Join()))
+	pkt := sname("/a/blog/author/100001/KEY/1/000001/1")
+	require.Nil(t, s.Suggest(pkt, kc))
+
+	// Newer valid version -> Suggest should pick it.
+	validName := baseCertName.Append(enc.NewVersionComponent(3))
+	validCert2 := buildCert(t, signerObj, validName, time.Now().Add(time.Hour))
+	require.NoError(t, store.Put(validName, validCert2.Wire.Join()))
+
+	sugg := s.Suggest(pkt, kc)
+	require.NotNil(t, sugg)
+	require.Equal(t, baseCertName, sugg.KeyLocator())
+}
+
+func buildCert(t *testing.T, signer ndn.Signer, name enc.Name, notAfter time.Time) *ndn.EncodedData {
+	t.Helper()
+
+	pub, err := signer.Public()
+	require.NoError(t, err)
+
+	cfg := &ndn.DataConfig{
+		ContentType:  optional.Some(ndn.ContentTypeKey),
+		SigNotBefore: optional.Some(time.Now().Add(-time.Hour)),
+		SigNotAfter:  optional.Some(notAfter),
+	}
+
+	data, err := spec_2022.Spec{}.MakeData(name, cfg, enc.Wire{pub}, signer)
+	require.NoError(t, err)
+
+	return data
 }

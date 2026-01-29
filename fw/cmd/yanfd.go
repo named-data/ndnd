@@ -47,6 +47,7 @@ func NewYaNFD(config *core.Config) *YaNFD {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the identifier string “yanfd” for a YaNFD instance.
 func (y *YaNFD) String() string {
 	return "yanfd"
 }

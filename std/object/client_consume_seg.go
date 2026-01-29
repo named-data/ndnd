@@ -46,6 +46,7 @@ type retxEntry struct {
 	retries int
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a new `rrSegFetcher` with the given client, an empty stream list, a fixed congestion window of size 100, no outstanding packets, an empty retransmission queue, a retry counter map, and a maximum of 3 retries.
 func newRrSegFetcher(client *Client) rrSegFetcher {
 	return rrSegFetcher{
 		mutex:       sync.RWMutex{},
@@ -147,6 +148,7 @@ func (s *rrSegFetcher) findWork() *ConsumeState {
 	return state
 }
 
+// (AI GENERATED DESCRIPTION): Checks for pending or retransmitted segments, builds and expresses Interest packets for them (updating the congestion window and retry count), and handles the outcome until no more work or the window becomes full.
 func (s *rrSegFetcher) check() {
 	for {
 		log.Debug(nil, "Checking for work")
@@ -283,15 +285,21 @@ func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *Consume
 // It is necessary that this function be called only from one goroutine - the engine.
 // The notable exception here is when there is a timeout, which has a separate goroutine.
 func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeState) {
-	s.client.Validate(args.Data, args.SigCovered, func(valid bool, err error) {
-		if !valid {
-			state.finalizeError(fmt.Errorf("%w: validate seg failed: %w", ndn.ErrSecurity, err))
-		} else {
-			s.handleValidatedData(args, state)
-		}
+	s.client.ValidateExt(ndn.ValidateExtArgs{
+		Data:           args.Data,
+		SigCovered:     args.SigCovered,
+		IgnoreValidity: state.args.IgnoreValidity,
+		Callback: func(valid bool, err error) {
+			if !valid {
+				state.finalizeError(fmt.Errorf("%w: validate seg failed: %w", ndn.ErrSecurity, err))
+			} else {
+				s.handleValidatedData(args, state)
+			}
+		},
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Handles a validated Data packet by extracting its segment number, storing its payload in the consume state’s buffer, updating counters and sliding windows, and finalizing the state when all segments have been received.
 func (s *rrSegFetcher) handleValidatedData(args ndn.ExpressCallbackArgs, state *ConsumeState) {
 	// get the final block id if we don't know the segment count
 	if state.segCnt == -1 { // TODO: can change?
@@ -389,18 +397,21 @@ func (s *rrSegFetcher) enqueueForRetransmission(state *ConsumeState, seg uint64,
 	s.retxQueue.PushBack(&retxEntry{state, seg, retries})
 }
 
+// (AI GENERATED DESCRIPTION): Increments the thread‑safe count of outstanding segment fetch requests.
 func (s *rrSegFetcher) incrementOutstanding() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.outstanding++
 }
 
+// (AI GENERATED DESCRIPTION): Decrements the rrSegFetcher’s outstanding request counter in a thread‑safe manner.
 func (s *rrSegFetcher) decrementOutstanding() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.outstanding--
 }
 
+// (AI GENERATED DESCRIPTION): Decrements the outstanding transmission counter for a given consume state, protecting the update with the fetcher’s mutex.
 func (s *rrSegFetcher) decrementTxCounter(state *ConsumeState) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

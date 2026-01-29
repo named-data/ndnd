@@ -82,10 +82,12 @@ func NewPitCS(onExpiration OnPitExpiration) *PitCsTree {
 	return pitCs
 }
 
+// (AI GENERATED DESCRIPTION): Returns the channel that emits time events whenever the PIT‑CS tree’s internal update ticker fires.
 func (p *PitCsTree) UpdateTicker() <-chan time.Time {
 	return p.updateTicker.C
 }
 
+// (AI GENERATED DESCRIPTION): Expires all pending PIT entries whose timers have elapsed, invoking their expiration callbacks and removing them from the PIT.
 func (p *PitCsTree) Update() {
 	for p.pitExpiryQueue.Len() > 0 && p.pitExpiryQueue.PeekPriority() <= time.Now().UnixNano() {
 		entry := p.pitExpiryQueue.Pop()
@@ -95,6 +97,7 @@ func (p *PitCsTree) Update() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Updates or inserts the given PIT entry into the expiration priority queue, setting its priority to the entry’s expiration time.
 func (p *PitCsTree) updatePitExpiry(pitEntry PitEntry) {
 	e := pitEntry.(*nameTreePitEntry)
 	if e.pqItem == nil {
@@ -104,6 +107,7 @@ func (p *PitCsTree) updatePitExpiry(pitEntry PitEntry) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the PitCsTable associated with this nameTreePitEntry.
 func (e *nameTreePitEntry) PitCs() PitCsTable {
 	return e.pitCsTable
 }
@@ -222,6 +226,7 @@ func (p *PitCsTree) FindInterestPrefixMatchByDataEnc(data *defn.FwData, token *u
 	return p.findInterestPrefixMatchByNameEnc(data.NameV)
 }
 
+// (AI GENERATED DESCRIPTION): Returns all PIT entries that match the given name either as a prefix or exactly, by starting at the deepest node that matches the name’s prefix and walking up to the root.
 func (p *PitCsTree) findInterestPrefixMatchByNameEnc(name enc.Name) []PitEntry {
 	matching := make([]PitEntry, 0)
 	dataNameLen := len(name)
@@ -255,6 +260,7 @@ func (p *PitCsTree) IsCsServing() bool {
 	return CfgCsServe()
 }
 
+// (AI GENERATED DESCRIPTION): Returns the component at the specified index of the name (negative indices count from the end) or an empty component if the index is out of bounds.
 func At(n enc.Name, index int) enc.Component {
 	if index < -len(n) || index >= len(n) {
 		return enc.Component{}
@@ -266,6 +272,7 @@ func At(n enc.Name, index int) enc.Component {
 	return n[index]
 }
 
+// (AI GENERATED DESCRIPTION): Recursively traverses a PIT/CS tree to locate and return the node whose encoded name exactly matches the supplied name, or nil if no such node exists.
 func (p *pitCsTreeNode) findExactMatchEntryEnc(name enc.Name) *pitCsTreeNode {
 	if len(name) > p.depth {
 		if child, ok := p.children[At(name, p.depth).Hash()]; ok {
@@ -277,6 +284,7 @@ func (p *pitCsTreeNode) findExactMatchEntryEnc(name enc.Name) *pitCsTreeNode {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Finds and returns the deepest pitCsTreeNode in the PIT‑CS tree that matches the longest prefix of the supplied name.
 func (p *pitCsTreeNode) findLongestPrefixEntryEnc(name enc.Name) *pitCsTreeNode {
 	if len(name) > p.depth {
 		if child, ok := p.children[At(name, p.depth).Hash()]; ok {
@@ -286,6 +294,7 @@ func (p *pitCsTreeNode) findLongestPrefixEntryEnc(name enc.Name) *pitCsTreeNode 
 	return p
 }
 
+// (AI GENERATED DESCRIPTION): Extends the PIT/CS tree from the longest existing prefix to the full encoded name by creating any missing intermediate nodes, and returns the leaf node representing that name.
 func (p *pitCsTreeNode) fillTreeToPrefixEnc(name enc.Name) *pitCsTreeNode {
 	entry := p.findLongestPrefixEntryEnc(name)
 
@@ -304,10 +313,12 @@ func (p *pitCsTreeNode) fillTreeToPrefixEnc(name enc.Name) *pitCsTreeNode {
 	return entry
 }
 
+// (AI GENERATED DESCRIPTION): Returns the number of child nodes currently stored in the PIT‑CS tree node.
 func (p *pitCsTreeNode) getChildrenCount() int {
 	return len(p.children)
 }
 
+// (AI GENERATED DESCRIPTION): Removes empty leaf nodes from the PIT/CS tree by climbing upward from the current node, deleting each node that has no children, PIT entries, or CS entry, and returning the pruned nodes to the pool.
 func (p *pitCsTreeNode) pruneIfEmpty() {
 	for curNode := p; curNode.parent != nil && curNode.getChildrenCount() == 0 &&
 		len(curNode.pitEntries) == 0 && curNode.csEntry == nil; curNode = curNode.parent {

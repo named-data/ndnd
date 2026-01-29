@@ -19,6 +19,7 @@ var FrTestWire = enc.Wire{
 	[]byte{0x0e, 0x0f},
 }
 
+// (AI GENERATED DESCRIPTION): TestWireViewReadByte verifies that a WireView correctly reads each byte sequentially from the given wire data, updates its read position accordingly, and reports EOF once all bytes have been consumed.
 func TestWireViewReadByte(t *testing.T) {
 	tu.SetT(t)
 
@@ -34,6 +35,7 @@ func TestWireViewReadByte(t *testing.T) {
 	require.True(t, r.IsEOF())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that a WireView reads sequential bytes correctly, sets EOF after the final read, and returns a buffer‑overflow error when attempting to read beyond the end of the underlying wire data.
 func TestWireViewReadFull(t *testing.T) {
 	tu.SetT(t)
 
@@ -65,6 +67,7 @@ func TestWireViewReadFull(t *testing.T) {
 	require.Equal(t, enc.ErrBufferOverflow, err)
 }
 
+// (AI GENERATED DESCRIPTION): Tests the WireView Skip method, confirming it advances the read position correctly, detects end‑of‑file, and returns an error when a skip would exceed the buffer.
 func TestWireViewSkip(t *testing.T) {
 	tu.SetT(t)
 
@@ -100,6 +103,7 @@ func TestWireViewSkip(t *testing.T) {
 	require.Error(t, r1.Skip(4))
 }
 
+// (AI GENERATED DESCRIPTION): Tests the WireView’s ReadWire, Skip, and EOF logic by sequentially reading and segmenting a predefined wire, ensuring correct position updates, segment boundaries, and proper overflow errors.
 func TestWireViewReadWire(t *testing.T) {
 	tu.SetT(t)
 
@@ -139,6 +143,7 @@ func TestWireViewReadWire(t *testing.T) {
 	require.Equal(t, enc.ErrBufferOverflow, err)
 }
 
+// (AI GENERATED DESCRIPTION): **Tests the `WireView.Delegate` method, verifying that subviews are correctly created, positions and lengths are tracked, EOF semantics are respected, and bounds are enforced during reads and skips.**
 func TestWireViewDelegate(t *testing.T) {
 	tu.SetT(t)
 
@@ -213,6 +218,7 @@ func TestWireViewDelegate(t *testing.T) {
 	require.Error(t, r4.Skip(1))
 }
 
+// (AI GENERATED DESCRIPTION): Copies up to N bytes from a WireView into an io.Writer, returning the number of bytes actually written and an ErrBufferOverflow if the WireView contained fewer bytes than requested.
 func TestWireViewCopyN(t *testing.T) {
 	tu.SetT(t)
 
@@ -246,6 +252,7 @@ func TestWireViewCopyN(t *testing.T) {
 	require.Equal(t, enc.ErrBufferOverflow, err)
 }
 
+// (AI GENERATED DESCRIPTION): Tests reading and skipping bytes from a WireView, verifying correct position updates, EOF detection, and error handling for buffer overflows.
 func TestWireViewReadBuf(t *testing.T) {
 	tu.SetT(t)
 
@@ -285,6 +292,7 @@ func TestWireViewReadBuf(t *testing.T) {
 	require.Nil(t, buf)
 }
 
+// (AI GENERATED DESCRIPTION): Returns a sub‑view of the underlying wire data from the given start offset up to, but not including, the end offset, yielding an empty view when the range is empty or invalid.
 func TestWireViewRange(t *testing.T) {
 	tu.SetT(t)
 

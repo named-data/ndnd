@@ -25,6 +25,7 @@ type NfdMgmtThread struct {
 	stop chan bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new NfdMgmtThread with the given ndn.Engine, initializing its command channel (buffered with 4096) and stop channel for thread control.
 func NewNfdMgmtThread(engine ndn.Engine) *NfdMgmtThread {
 	return &NfdMgmtThread{
 		engine:  engine,
@@ -33,10 +34,12 @@ func NewNfdMgmtThread(engine ndn.Engine) *NfdMgmtThread {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the constant string “dv‑nfdc”, serving as the textual identifier for this NfdMgmtThread instance.
 func (m *NfdMgmtThread) String() string {
 	return "dv-nfdc"
 }
 
+// (AI GENERATED DESCRIPTION): Continuously processes forwarder management commands from the channel, retrying each command up to the specified number of times (or indefinitely if the retry count is negative) and exits when a stop signal is received.
 func (m *NfdMgmtThread) Start() {
 	for {
 		select {
@@ -58,10 +61,12 @@ func (m *NfdMgmtThread) Start() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Signals the NfdMgmtThread to terminate by sending a true value on its stop channel.
 func (m *NfdMgmtThread) Stop() {
 	m.stop <- true
 }
 
+// (AI GENERATED DESCRIPTION): Queues a management command to the NfdMgmtThread by sending it through its command channel.
 func (m *NfdMgmtThread) Exec(mgmt_cmd NfdMgmtCmd) {
 	m.channel <- mgmt_cmd
 }

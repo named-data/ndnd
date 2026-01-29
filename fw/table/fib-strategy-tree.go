@@ -32,6 +32,7 @@ type FibStrategyTree struct {
 	mutex sync.RWMutex
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the FibStrategyTable with a new FibStrategyTree whose root entry has an empty component, default strategy, and empty name.
 func newFibStrategyTableTree() {
 	FibStrategyTable = new(FibStrategyTree)
 	tree := FibStrategyTable.(*FibStrategyTree)

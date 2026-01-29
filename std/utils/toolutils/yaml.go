@@ -7,6 +7,7 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
+// (AI GENERATED DESCRIPTION): Parses a YAML file into the supplied destination object using strict decoding, terminating the program with an error message if the file cannot be opened or parsed.
 func ReadYaml(dest any, file string) {
 	f, err := os.Open(file)
 	if err != nil {

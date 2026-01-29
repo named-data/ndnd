@@ -13,6 +13,7 @@ var RouteFlagList = map[RouteFlag]string{
 	RouteFlagCapture:      "capture",
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string name for a RouteFlag if it exists in RouteFlagList; otherwise returns "unknown".
 func (v RouteFlag) String() string {
 	if s, ok := RouteFlagList[v]; ok {
 		return s
@@ -20,6 +21,7 @@ func (v RouteFlag) String() string {
 	return "unknown"
 }
 
+// (AI GENERATED DESCRIPTION): Determines whether the specific `RouteFlag` is enabled in a given flags bitmask.
 func (v RouteFlag) IsSet(flags uint64) bool {
 	return uint64(v)&flags != 0
 }
@@ -47,6 +49,7 @@ var RouteOriginList = map[RouteOrigin]string{
 	RouteOriginAutoconf:  "autoconf",
 }
 
+// (AI GENERATED DESCRIPTION): Returns the human‑readable name for a `RouteOrigin` value, or `"unknown"` if the value is not present in the list.
 func (v RouteOrigin) String() string {
 	if s, ok := RouteOriginList[v]; ok {
 		return s

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests the encoding and decoding of a T1 packet, verifying that optional headers, content, and signatures are correctly serialized and deserialized.
 func TestT1(t *testing.T) {
 	tu.SetT(t)
 
@@ -153,6 +154,7 @@ func TestT1(t *testing.T) {
 
 }
 
+// (AI GENERATED DESCRIPTION): Unit test that verifies T2 packet encoding and decoding, ensuring correct handling of name components, content, signatures, and optional SHA‑256 digest components.
 func TestT2(t *testing.T) {
 	tu.SetT(t)
 

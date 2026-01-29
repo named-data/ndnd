@@ -70,6 +70,7 @@ const SchemaJson = `{
   ]
 }`
 
+// (AI GENERATED DESCRIPTION): Initializes an NDN engine, attaches a sync schema, periodically publishes new data packets, and listens for missing data requests to fetch and display them.
 func main() {
 	// Note: remember to ` nfdc strategy set /example/schema /localhost/nfd/strategy/multicast `
 	nodeId := fmt.Sprintf("node-%d", rand.Int())

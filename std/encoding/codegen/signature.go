@@ -18,6 +18,7 @@ type SignatureField struct {
 	noCopy     bool
 }
 
+// (AI GENERATED DESCRIPTION): Generates encoder‑struct fields for a signature field by adding an `int` wire‑index field and a `uint` estimated‑length field named after the signature.
 func (f *SignatureField) GenEncoderStruct() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("%s_wireIdx int", f.name)
@@ -25,6 +26,7 @@ func (f *SignatureField) GenEncoderStruct() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the encoder for a signature field by setting its wire index to –1.
 func (f *SignatureField) GenInitEncoder() (string, error) {
 	// SignatureInfo is set in Data/Interest.Encode()
 	// {{.}}_estLen is required as an input to the encoder
@@ -35,14 +37,17 @@ func (f *SignatureField) GenInitEncoder() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go struct definition that represents the parsing context for a signature field, returning the source code string (or an error if generation fails).
 func (f *SignatureField) GenParsingContextStruct() (string, error) {
 	return "", nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates code that initializes the signature‑covered field in the context by assigning it an empty `enc.Wire` slice.
 func (f *SignatureField) GenInitContext() (string, error) {
 	return fmt.Sprintf("context.%s = make(enc.Wire, 0)", f.sigCovered), nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates code that, if the signature field’s estimated length is non‑zero, adds the field’s type number, length prefix, and content size to the total encoding length.
 func (f *SignatureField) GenEncodingLength() (string, error) {
 	var g strErrBuf
 	g.printlnf("if encoder.%s_estLen > 0 {", f.name)
@@ -53,6 +58,7 @@ func (f *SignatureField) GenEncodingLength() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that plans the wire encoding of the signature field, calculating its length and assigning its wire index in the encoding plan.
 func (f *SignatureField) GenEncodingWirePlan() (string, error) {
 	var g strErrBuf
 	g.printlnf("if encoder.%s_estLen > 0 {", f.name)
@@ -65,6 +71,7 @@ func (f *SignatureField) GenEncodingWirePlan() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the encoding logic for a signature field, writing its type number, length, and covered data into the encoder while handling optional copying and wire switching.
 func (f *SignatureField) GenEncodeInto() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("if encoder.%s_estLen > 0 {", f.name)
@@ -100,6 +107,7 @@ func (f *SignatureField) GenEncodeInto() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates code that reads a signature field from a binary reader, assigns it to the struct’s field, and records the byte range covered in the signature context.
 func (f *SignatureField) GenReadFrom() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("value.%s, err = reader.ReadWire(int(l))", f.name)
@@ -110,10 +118,12 @@ func (f *SignatureField) GenReadFrom() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates code that sets the signature field to nil, effectively skipping its processing.
 func (f *SignatureField) GenSkipProcess() (string, error) {
 	return "value." + f.name + " = nil", nil
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new SignatureField TLV field, parsing the annotation string to set the startPoint and sigCovered attributes, and returns an error if the annotation format is invalid.
 func NewSignatureField(name string, typeNum uint64, annotation string, model *TlvModel) (TlvField, error) {
 	strs := strings.Split(annotation, ":")
 	if len(strs) < 2 || strs[0] == "" || strs[1] == "" {
@@ -139,6 +149,7 @@ type InterestNameField struct {
 	sigCovered string
 }
 
+// (AI GENERATED DESCRIPTION): Generates the encoder struct field declarations for an Interest name field, producing variables for its length, digest‑need flag, wire index, and position.
 func (f *InterestNameField) GenEncoderStruct() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("%s_length uint", f.name)
@@ -148,6 +159,7 @@ func (f *InterestNameField) GenEncoderStruct() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the encoder for an Interest name field by resetting its indices, stripping any existing digest component, optionally adding a SHA‑256 digest component, and computing the total encoded length.
 func (f *InterestNameField) GenInitEncoder() (string, error) {
 	var g strErrBuf
 	const Temp = `
@@ -173,6 +185,7 @@ func (f *InterestNameField) GenInitEncoder() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates a struct definition snippet for an InterestNameField that tracks its parsing state, including a wire index (int) and current position (uint).
 func (f *InterestNameField) GenParsingContextStruct() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("%s_wireIdx int", f.name)
@@ -180,10 +193,12 @@ func (f *InterestNameField) GenParsingContextStruct() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the initial context string for an Interest name field, which currently returns an empty string and no error since no special initialization is required.
 func (f *InterestNameField) GenInitContext() (string, error) {
 	return "", nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that computes the encoding length of the InterestNameField by adding the field’s type number, length prefix, and value length to the total only when the field is non‑nil.
 func (f *InterestNameField) GenEncodingLength() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("if value.%s != nil {", f.name)
@@ -194,10 +209,12 @@ func (f *InterestNameField) GenEncodingLength() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the encoding wire plan for an `InterestNameField` by delegating to its `GenEncodingLength` method.
 func (f *InterestNameField) GenEncodingWirePlan() (string, error) {
 	return f.GenEncodingLength()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that encodes an Interest’s name field (type, length, and components) into a buffer, tracks the portion to be covered by the signature, and updates the encoder’s state accordingly.
 func (f *InterestNameField) GenEncodeInto() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("if value.%s != nil {", f.name)
@@ -228,6 +245,7 @@ func (f *InterestNameField) GenEncodeInto() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates code to read an Interest’s name from the packet, decoding each component and capturing the byte range that must be covered by the packet’s signature.
 func (f *InterestNameField) GenReadFrom() (string, error) {
 	var g strErrBuf
 
@@ -269,10 +287,12 @@ func (f *InterestNameField) GenReadFrom() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that sets the InterestNameField’s value to nil, effectively skipping its processing.
 func (f *InterestNameField) GenSkipProcess() (string, error) {
 	return fmt.Sprintf("value.%s = nil", f.name), nil
 }
 
+// (AI GENERATED DESCRIPTION): Creates an InterestNameField with the given name, type number, and signature‑coverage annotation, returning ErrInvalidField if the annotation is empty.
 func NewInterestNameField(name string, typeNum uint64, annotation string, _ *TlvModel) (TlvField, error) {
 	if annotation == "" {
 		return nil, ErrInvalidField

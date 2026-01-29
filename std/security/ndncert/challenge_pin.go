@@ -11,10 +11,12 @@ type ChallengePin struct {
 	CodeCallback func(status string) string
 }
 
+// (AI GENERATED DESCRIPTION): Returns the predefined keyword string (KwPin) that identifies a ChallengePin, used as its name in the protocol.
 func (*ChallengePin) Name() string {
 	return KwPin
 }
 
+// (AI GENERATED DESCRIPTION): Processes a challenge request by calling a configured callback to obtain a PIN code when the status indicates “need‑code” or “wrong‑code”, returning that code in a ParamMap, and otherwise validating the challenge configuration or returning an error for unknown status.
 func (c *ChallengePin) Request(input ParamMap, status optional.Optional[string]) (ParamMap, error) {
 	// Validate challenge configuration
 	if c.CodeCallback == nil {

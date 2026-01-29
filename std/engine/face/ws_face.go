@@ -15,6 +15,7 @@ type WebSocketFace struct {
 	conn *websocket.Conn
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new WebSocketFace, initializing its base face with the supplied local flag and assigning the given WebSocket URL.
 func NewWebSocketFace(url string, local bool) *WebSocketFace {
 	return &WebSocketFace{
 		baseFace: newBaseFace(local),
@@ -22,10 +23,12 @@ func NewWebSocketFace(url string, local bool) *WebSocketFace {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string describing the WebSocketFace, formatted as “websocket‑face (URL)”.
 func (f *WebSocketFace) String() string {
 	return fmt.Sprintf("websocket-face (%s)", f.url)
 }
 
+// (AI GENERATED DESCRIPTION): Opens a WebSocket connection for the face, initializes the connection, sets the face state to up, and starts a goroutine to receive packets.
 func (f *WebSocketFace) Open() error {
 	if f.IsRunning() {
 		return fmt.Errorf("face is already running")
@@ -47,6 +50,7 @@ func (f *WebSocketFace) Open() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Closes the WebSocket face by marking it as closed and terminating the underlying connection if it hasn't already been closed.
 func (f *WebSocketFace) Close() error {
 	if f.setStateClosed() {
 		return f.conn.Close()
@@ -55,6 +59,7 @@ func (f *WebSocketFace) Close() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Sends the given packet over the WebSocket connection if the face is running, otherwise returns an error.
 func (f *WebSocketFace) Send(pkt enc.Wire) error {
 	if !f.IsRunning() {
 		return fmt.Errorf("face is not running")
@@ -63,6 +68,7 @@ func (f *WebSocketFace) Send(pkt enc.Wire) error {
 	return f.conn.WriteMessage(websocket.BinaryMessage, pkt.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Continuously reads binary messages from the WebSocket, processes each as a packet via `onPkt`, handles any read errors, and switches the face to the down state when it stops.
 func (f *WebSocketFace) receive() {
 	defer f.setStateDown()
 

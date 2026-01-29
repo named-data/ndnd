@@ -41,6 +41,7 @@ func MakeUnixStreamTransport(remoteURI *defn.URI, localURI *defn.URI, conn net.C
 	return t, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string describing the Unix stream transport, including its face ID, remote URI, and local URI.
 func (t *UnixStreamTransport) String() string {
 	return fmt.Sprintf("unix-stream-transport (faceid=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
@@ -68,6 +69,7 @@ func (t *UnixStreamTransport) GetSendQueueSize() uint64 {
 	return impl.SyscallGetSocketSendQueueSize(rawConn)
 }
 
+// (AI GENERATED DESCRIPTION): Sends a frame over the Unix stream transport, verifying the transport is running and the frame fits within the MTU, writes it to the underlying connection, updates the outgoing byte counter, and closes the transport on any write error.
 func (t *UnixStreamTransport) sendFrame(frame []byte) {
 	if !t.running.Load() {
 		return
@@ -88,6 +90,7 @@ func (t *UnixStreamTransport) sendFrame(frame []byte) {
 	t.nOutBytes += uint64(len(frame))
 }
 
+// (AI GENERATED DESCRIPTION): Continuously reads TLV frames from the Unix stream, updates inbound byte counters, forwards each frame to the link service, and logs a warning if the read fails while the transport remains active.
 func (t *UnixStreamTransport) runReceive() {
 	defer t.Close()
 
@@ -101,6 +104,7 @@ func (t *UnixStreamTransport) runReceive() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Marks the Unix stream transport as stopped and closes its underlying connection if it was running.
 func (t *UnixStreamTransport) Close() {
 	if t.running.Swap(false) {
 		t.conn.Close()

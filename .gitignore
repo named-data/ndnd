@@ -11,6 +11,7 @@ wasm_exec.js
 # Compiler folders
 .vscode
 .idea
+.gocache
 
 # Temporary
 .env

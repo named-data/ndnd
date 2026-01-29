@@ -70,6 +70,7 @@ type Engine struct {
 	OnDataHook func(data ndn.Data, raw enc.Wire, sigCov enc.Wire) error
 }
 
+// (AI GENERATED DESCRIPTION): Creates and initializes a new Engine instance, wiring the given face and timer into its state and setting up all internal data structures, locks, queues, and configuration needed for packet processing.
 func NewEngine(face ndn.Face, timer ndn.Timer) *Engine {
 	if face == nil || timer == nil {
 		return nil
@@ -95,26 +96,32 @@ func NewEngine(face ndn.Face, timer ndn.Timer) *Engine {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the fixed string `"basic-engine"` as the Engine’s string representation.
 func (e *Engine) String() string {
 	return "basic-engine"
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Engine instance itself as an ndn.Engine.
 func (e *Engine) EngineTrait() ndn.Engine {
 	return e
 }
 
+// (AI GENERATED DESCRIPTION): Returns the engine’s NDN specification, which is currently an empty `spec.Spec` instance.
 func (*Engine) Spec() ndn.Spec {
 	return spec.Spec{}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the `ndn.Timer` instance used by the Engine.
 func (e *Engine) Timer() ndn.Timer {
 	return e.timer
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ndn.Face instance that the Engine uses for communication.
 func (e *Engine) Face() ndn.Face {
 	return e.face
 }
 
+// (AI GENERATED DESCRIPTION): Registers an `InterestHandler` for a given name prefix in the Engine’s FIB, rejecting the operation if a handler is already attached for that prefix.
 func (e *Engine) AttachHandler(prefix enc.Name, handler ndn.InterestHandler) error {
 	e.fibLock.Lock()
 	defer e.fibLock.Unlock()
@@ -126,6 +133,7 @@ func (e *Engine) AttachHandler(prefix enc.Name, handler ndn.InterestHandler) err
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Detaches the handler associated with the specified prefix by removing the corresponding FIB entry.
 func (e *Engine) DetachHandler(prefix enc.Name) error {
 	e.fibLock.Lock()
 	defer e.fibLock.Unlock()
@@ -139,6 +147,7 @@ func (e *Engine) DetachHandler(prefix enc.Name) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Parses an incoming packet frame (handling optional LP encapsulation), determines whether it carries an Interest, Data, or Nack, and forwards the packet to the appropriate engine handler.
 func (e *Engine) onPacket(frame []byte) error {
 	reader := enc.NewBufferView(frame)
 
@@ -227,6 +236,7 @@ func (e *Engine) onPacket(frame []byte) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Processes an incoming Interest by computing its deadline, performing a longest‑prefix FIB lookup to obtain the appropriate handler, attaching a reply callback, and invoking that handler.
 func (e *Engine) onInterest(args ndn.InterestHandlerArgs) {
 	name := args.Interest.Name()
 
@@ -265,6 +275,7 @@ func (e *Engine) onInterest(args ndn.InterestHandlerArgs) {
 	handler(args)
 }
 
+// (AI GENERATED DESCRIPTION): Creates a reply function that forwards a Data packet (or nil) over the engine’s face, optionally wrapping it in an LP packet with the supplied PIT token, and returns any send errors.
 func (e *Engine) newDataReplyFunc(pitToken []byte) ndn.WireReplyFunc {
 	return func(dataWire enc.Wire) error {
 		if dataWire == nil {
@@ -301,6 +312,7 @@ func (e *Engine) newDataReplyFunc(pitToken []byte) ndn.WireReplyFunc {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Matches an incoming Data packet against the Pending Interest Table, removes any pending interests that satisfy the packet’s name, CanBePrefix, and implicit digest constraints, and returns those matched entries.
 func (e *Engine) onDataMatch(pkt *spec.Data, raw enc.Wire) pitEntry {
 	e.pitLock.Lock()
 	defer e.pitLock.Unlock()
@@ -349,6 +361,7 @@ func (e *Engine) onDataMatch(pkt *spec.Data, raw enc.Wire) pitEntry {
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Processes a received Data packet by invoking the optional OnDataHook, matching pending PIT entries, canceling their timeouts, and invoking each matched entry’s callback with either the Data payload (or raw data) or an error if the hook failed.
 func (e *Engine) onData(pkt *spec.Data, sigCovered enc.Wire, raw enc.Wire, pitToken []byte) {
 	var hookErr error = nil
 	if e.OnDataHook != nil {
@@ -379,6 +392,7 @@ func (e *Engine) onData(pkt *spec.Data, sigCovered enc.Wire, raw enc.Wire, pitTo
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Handles an Interest Nack by finding the matching PIT entries, cancelling their timeouts, and invoking each entry’s callback with the Nack reason.
 func (e *Engine) onNack(name enc.Name, reason uint64) {
 	entries := func() []*pendInt {
 		e.pitLock.Lock()
@@ -410,6 +424,7 @@ func (e *Engine) onNack(name enc.Name, reason uint64) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Starts the engine by opening its face, registering packet and error callbacks, and launching a goroutine that processes received packets and queued tasks until the engine is stopped.
 func (e *Engine) Start() error {
 	if e.face.IsRunning() {
 		return fmt.Errorf("face is already running")
@@ -455,6 +470,7 @@ func (e *Engine) Start() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Stops the engine by signaling its close channel (terminating its operation) and returns an error if the engine was not running.
 func (e *Engine) Stop() error {
 	if !e.IsRunning() {
 		return fmt.Errorf("engine is not running")
@@ -464,10 +480,12 @@ func (e *Engine) Stop() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): **IsRunning** – Returns `true` if the engine is currently running, otherwise `false`.
 func (e *Engine) IsRunning() bool {
 	return e.running.Load()
 }
 
+// (AI GENERATED DESCRIPTION): Handles timeout of pending Interest entries by removing them from the PIT and invoking their callbacks with a timeout result.
 func (e *Engine) onExpressTimeout(n *NameTrie[pitEntry]) {
 	now := e.timer.Now()
 
@@ -508,6 +526,7 @@ func (e *Engine) onExpressTimeout(n *NameTrie[pitEntry]) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Expresses an NDN interest by inserting it into the PIT with deadline and callback handling, optionally wrapping it in a link packet, and sending it through the configured face.
 func (e *Engine) Express(interest *ndn.EncodedInterest, callback ndn.ExpressCallbackFunc) error {
 	var impSha256 []byte = nil
 
@@ -575,6 +594,7 @@ func (e *Engine) Express(interest *ndn.EncodedInterest, callback ndn.ExpressCall
 	return err
 }
 
+// (AI GENERATED DESCRIPTION): Executes a named‑data management command by crafting a signed Interest for the specified module and command with the given arguments, sending it, validating the response signature, parsing the control response, and returning the result or an error.
 func (e *Engine) ExecMgmtCmd(module string, cmd string, args any) (any, error) {
 	cmdArgs, ok := args.(*mgmt.ControlArgs)
 	if !ok {
@@ -647,11 +667,13 @@ func (e *Engine) ExecMgmtCmd(module string, cmd string, args any) (any, error) {
 	return resp.val, resp.err
 }
 
+// (AI GENERATED DESCRIPTION): Sets the Engine’s command security by assigning a signer for management packets and a validator function for checking incoming command signatures.
 func (e *Engine) SetCmdSec(signer ndn.Signer, validator func(enc.Name, enc.Wire, ndn.Signature) bool) {
-	e.mgmtConf.SetSigner(signer)
+	e.mgmtConf.SetSigner(sig.AsContextSigner(signer))
 	e.cmdChecker = validator
 }
 
+// (AI GENERATED DESCRIPTION): Registers the supplied name prefix with the engine’s routing information base by issuing a RIB‑management command.
 func (e *Engine) RegisterRoute(prefix enc.Name) error {
 	_, err := e.ExecMgmtCmd("rib", "register", &mgmt.ControlArgs{Name: prefix})
 	if err != nil {
@@ -663,6 +685,7 @@ func (e *Engine) RegisterRoute(prefix enc.Name) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Unregisters the specified NDN prefix from the Engine’s routing information base (RIB) by issuing a management command and logs the result.
 func (e *Engine) UnregisterRoute(prefix enc.Name) error {
 	_, err := e.ExecMgmtCmd("rib", "unregister", &mgmt.ControlArgs{Name: prefix})
 	if err != nil {
@@ -674,6 +697,7 @@ func (e *Engine) UnregisterRoute(prefix enc.Name) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Enqueues a task to the engine's internal task queue, performing a non‑blocking send and spawning a goroutine to enqueue the task if the channel is currently full.
 func (e *Engine) Post(task func()) {
 	select {
 	case e.taskQueue <- task:
@@ -684,6 +708,7 @@ func (e *Engine) Post(task func()) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Checks whether the default logger is set to trace level (or more verbose) and returns true if trace logging is enabled.
 func hasLogTrace() bool {
 	return log.Default().Level() <= log.LevelTrace
 }

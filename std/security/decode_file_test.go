@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Unit tests for `security.DecodeFile`, verifying that it correctly parses TLV and PEM‑encoded certificates and keys while handling malformed or empty input gracefully.
 func TestDecodeFile(t *testing.T) {
 	tu.SetT(t)
 

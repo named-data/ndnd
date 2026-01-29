@@ -9,6 +9,7 @@ type StringField struct {
 	opt bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new `StringField` TlvField with the given name and type number, and marks it optional if the annotation equals `"optional"`.
 func NewStringField(name string, typeNum uint64, annotation string, _ *TlvModel) (TlvField, error) {
 	return &StringField{
 		BaseTlvField: BaseTlvField{
@@ -19,6 +20,7 @@ func NewStringField(name string, typeNum uint64, annotation string, _ *TlvModel)
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates code that calculates the encoded length of a string field, adding its type tag, length prefix, and the string bytes, and handling optional fields by checking for presence before including them.
 func (f *StringField) GenEncodingLength() (string, error) {
 	g := strErrBuf{}
 	if f.opt {
@@ -35,10 +37,12 @@ func (f *StringField) GenEncodingLength() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the wire‑encoding plan for a string field by returning its encoding‑length representation.
 func (f *StringField) GenEncodingWirePlan() (string, error) {
 	return f.GenEncodingLength()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that encodes a string field into a buffer by writing its type number, length, and byte data, handling optional values if present.
 func (f *StringField) GenEncodeInto() (string, error) {
 	g := strErrBuf{}
 	if f.opt {
@@ -57,6 +61,7 @@ func (f *StringField) GenEncodeInto() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source that reads a string of length `l` from a reader and assigns it to the field (using `Set` for optional fields).
 func (f *StringField) GenReadFrom() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("{")
@@ -73,6 +78,7 @@ func (f *StringField) GenReadFrom() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the code snippet that either unsets an optional string field or produces a skip‑required error when a required string field is omitted.
 func (f *StringField) GenSkipProcess() (string, error) {
 	if f.opt {
 		return fmt.Sprintf("value.%s.Unset()", f.name), nil

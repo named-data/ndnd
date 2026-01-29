@@ -16,30 +16,37 @@ type ed25519Signer struct {
 	key  ed25519.PrivateKey
 }
 
+// (AI GENERATED DESCRIPTION): Returns the signature type constant (SignatureEd25519) indicating that this signer uses Ed25519.
 func (s *ed25519Signer) Type() ndn.SigType {
 	return ndn.SignatureEd25519
 }
 
+// (AI GENERATED DESCRIPTION): Returns the name of the ed25519 key associated with the signer.
 func (s *ed25519Signer) KeyName() enc.Name {
 	return s.name
 }
 
+// (AI GENERATED DESCRIPTION): Returns the name that identifies the signer’s key (the key‑locator name).
 func (s *ed25519Signer) KeyLocator() enc.Name {
 	return s.name
 }
 
+// (AI GENERATED DESCRIPTION): Estimates the fixed size (in bytes) of an Ed25519 signature.
 func (s *ed25519Signer) EstimateSize() uint {
 	return ed25519.SignatureSize
 }
 
+// (AI GENERATED DESCRIPTION): Signs the supplied data (by concatenating its wire fragments) with the signer’s Ed25519 private key and returns the resulting signature.
 func (s *ed25519Signer) Sign(covered enc.Wire) ([]byte, error) {
 	return ed25519.Sign(s.key, covered.Join()), nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ed25519 signer’s public key encoded in DER‑format PKIX bytes.
 func (s *ed25519Signer) Public() ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(s.key.Public())
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ed25519 private key encoded as a PKCS#8 DER byte slice.
 func (s *ed25519Signer) Secret() ([]byte, error) {
 	return x509.MarshalPKCS8PrivateKey(s.key)
 }

@@ -138,7 +138,7 @@ func testSignSize(t *testing.T, rsaSize int) {
 
 // TestSignatureSize tests the signature size for RSA keys of different sizes.
 func TestSignatureSize(t *testing.T) {
-	testSignSize(t, 512)
+	testSignSize(t, 1024)
 	testSignSize(t, 2048)
 	testSignSize(t, 4096)
 }

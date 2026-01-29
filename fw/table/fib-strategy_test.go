@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that the baseFibStrategyEntry getters return the correct name, strategy, and next hop list.
 func TestFibStrategyEntryGetters(t *testing.T) {
 	name, _ := enc.NameFromStr("/something")
 

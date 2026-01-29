@@ -56,6 +56,7 @@ const SchemaJson = `{
   ]
 }`
 
+// (AI GENERATED DESCRIPTION): Fetches data for the prefix “/example/schema/rdr” from a Named‑Data‑Networking engine via a schema‑tree attachment, printing whether the request was NACKed, timed out, cancelled, or returned a Data packet.
 func main() {
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{

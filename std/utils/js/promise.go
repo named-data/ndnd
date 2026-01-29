@@ -9,6 +9,7 @@ import (
 
 var promiseGlobal = js.Global().Get("Promise")
 
+// (AI GENERATED DESCRIPTION): Creates a JavaScript function that runs the supplied Go function asynchronously and returns a Promise that resolves with its result or rejects with its error.
 func AsyncFunc(f func(this js.Value, p []js.Value) (any, error)) js.Func {
 	return js.FuncOf(func(this js.Value, p []js.Value) any {
 		promise, resolve, reject := Promise()
@@ -24,6 +25,7 @@ func AsyncFunc(f func(this js.Value, p []js.Value) (any, error)) js.Func {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new JavaScript Promise, returning the Promise object and Go-wrapped `resolve` and `reject` functions to fulfill or reject it.
 func Promise() (promise js.Value, resolve func(args ...any), reject func(args ...any)) {
 	var jsResolve, jsReject js.Value
 
@@ -41,6 +43,7 @@ func Promise() (promise js.Value, resolve func(args ...any), reject func(args ..
 	return
 }
 
+// (AI GENERATED DESCRIPTION): Blocks until the given JavaScript Promise settles, returning the resolved value or an error.
 func Await(promise js.Value) (val js.Value, err error) {
 	res := make(chan any, 1)
 

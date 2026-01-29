@@ -27,6 +27,7 @@ var repoName, _ = enc.NameFromStr("/ndnd/repo")
 
 const SnapshotThreshold = 100
 
+// (AI GENERATED DESCRIPTION): Runs an example chat application that joins an SVS ALO group with SnapshotNodeHistory, subscribes to all publications, announces its prefixes, and allows the user to send and receive chat messages over NDN.
 func main() {
 	// This example shows how to use the SVS ALO with the SnapshotNodeHistory.
 	//
@@ -262,6 +263,7 @@ func publishBlob(content []byte) {
 	publish(cmd.Encode().Join())
 }
 
+// (AI GENERATED DESCRIPTION): Commits the provided state to the NDN object store under the current Sync group, persisting the state atomically.
 func commitState(state enc.Wire) {
 	// Once a publication is processed, ideally the application should persist
 	// it's own state and the state of the Sync group *atomically*.
@@ -271,6 +273,7 @@ func commitState(state enc.Wire) {
 	store.Put(group, state.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the persisted state from the object store and returns it as an `enc.Wire`, or `nil` if no state has been stored.
 func readState() enc.Wire {
 	// Read the state from the object store
 	// See commitState for more information

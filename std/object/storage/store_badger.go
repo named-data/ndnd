@@ -18,6 +18,7 @@ type BadgerStore struct {
 	tx *badger.Txn
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a new BadgerStore by opening a Badger database at the specified path and returns the store or an error.
 func NewBadgerStore(path string) (*BadgerStore, error) {
 	db, err := badger.Open(badger.DefaultOptions(path))
 	if err != nil {
@@ -27,10 +28,12 @@ func NewBadgerStore(path string) (*BadgerStore, error) {
 	return &BadgerStore{db: db}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Closes the underlying Badger database of the store and returns any error.
 func (s *BadgerStore) Close() error {
 	return s.db.Close()
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves a value from the Badger store by name, optionally returning the most recent entry that matches a given prefix, and panics if called while a write transaction is active.
 func (s *BadgerStore) Get(name enc.Name, prefix bool) (wire []byte, err error) {
 	if s.tx != nil {
 		panic("Get() called within a write transaction")
@@ -67,6 +70,7 @@ func (s *BadgerStore) Get(name enc.Name, prefix bool) (wire []byte, err error) {
 	return
 }
 
+// (AI GENERATED DESCRIPTION): Stores the supplied packet wire bytes under the key derived from the given name in the Badger database.
 func (s *BadgerStore) Put(name enc.Name, wire []byte) error {
 	key := s.nameKey(name)
 	return s.update(func(txn *badger.Txn) error {
@@ -74,6 +78,7 @@ func (s *BadgerStore) Put(name enc.Name, wire []byte) error {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Deletes the record associated with the specified name from the BadgerStore.
 func (s *BadgerStore) Remove(name enc.Name) error {
 	key := s.nameKey(name)
 	return s.update(func(txn *badger.Txn) error {
@@ -81,6 +86,7 @@ func (s *BadgerStore) Remove(name enc.Name) error {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Deletes all store entries whose keys begin with the given name prefix.
 func (s *BadgerStore) RemovePrefix(prefix enc.Name) error {
 	keyPfx := s.nameKey(prefix)
 
@@ -101,6 +107,7 @@ func (s *BadgerStore) RemovePrefix(prefix enc.Name) error {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Deletes all key‑value pairs in the Badger store whose keys fall within the flat name range between the specified first and last components for the given prefix.
 func (s *BadgerStore) RemoveFlatRange(prefix enc.Name, first enc.Component, last enc.Component) error {
 	firstKey := s.nameKey(prefix.Append(first))
 	lastKey := s.nameKey(prefix.Append(last))
@@ -133,6 +140,7 @@ func (s *BadgerStore) RemoveFlatRange(prefix enc.Name, first enc.Component, last
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Starts a new write transaction on the BadgerStore and returns a store instance tied to that transaction, panicking if a transaction is already active.
 func (s *BadgerStore) Begin() (ndn.Store, error) {
 	if s.tx != nil {
 		panic("Begin() called within a write transaction")
@@ -141,6 +149,7 @@ func (s *BadgerStore) Begin() (ndn.Store, error) {
 	return &BadgerStore{db: s.db, tx: tx}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Commits the current BadgerDB transaction, writing all pending changes to the database and panicking if called when no write transaction is active.
 func (s *BadgerStore) Commit() error {
 	if s.tx == nil {
 		panic("Commit() called without a write transaction")
@@ -148,6 +157,7 @@ func (s *BadgerStore) Commit() error {
 	return s.tx.Commit()
 }
 
+// (AI GENERATED DESCRIPTION): Reverts any uncommitted changes in the current transaction by discarding it.
 func (s *BadgerStore) Rollback() error {
 	if s.tx == nil {
 		panic("Rollback() called without a write transaction")
@@ -156,10 +166,12 @@ func (s *BadgerStore) Rollback() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the inner byte slice of the supplied `enc.Name` to be used as a key in the Badger store.
 func (s *BadgerStore) nameKey(name enc.Name) []byte {
 	return name.BytesInner()
 }
 
+// (AI GENERATED DESCRIPTION): Executes the supplied update function within the Badger store, using an existing transaction if one is active or starting a new transaction otherwise.
 func (s *BadgerStore) update(f func(tx *badger.Txn) error) error {
 	if s.tx != nil {
 		return f(s.tx)

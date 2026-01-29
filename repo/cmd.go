@@ -20,6 +20,7 @@ var CmdRepo = &cobra.Command{
 	Run:     run,
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the repository using a YAML configuration, starts it, and blocks until an interrupt or SIGTERM signal is received to gracefully stop the repository.
 func run(cmd *cobra.Command, args []string) {
 	config := struct {
 		Repo *Config `json:"repo"`

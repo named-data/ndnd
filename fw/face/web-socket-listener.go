@@ -34,6 +34,7 @@ type WebSocketListener struct {
 	localURI *defn.URI
 }
 
+// (AI GENERATED DESCRIPTION): Generates a *url.URL for a WebSocket listener by joining the bind address and port, and selecting the scheme “ws” or “wss” based on the TLS enabled flag.
 func (cfg WebSocketListenerConfig) URL() *url.URL {
 	addr := net.JoinHostPort(cfg.Bind, strconv.FormatUint(uint64(cfg.Port), 10))
 	u := &url.URL{
@@ -46,10 +47,12 @@ func (cfg WebSocketListenerConfig) URL() *url.URL {
 	return u
 }
 
+// (AI GENERATED DESCRIPTION): Returns a string describing the WebSocketListenerConfig, showing its URL and TLS certificate path.
 func (cfg WebSocketListenerConfig) String() string {
 	return fmt.Sprintf("web-socket-listener (url=%s tls=%s)", cfg.URL(), cfg.TLSCert)
 }
 
+// (AI GENERATED DESCRIPTION): Creates a WebSocketListener configured with the given URL and TLS options, initializing its HTTP server, upgrader, and local URI for the listener.
 func NewWebSocketListener(cfg WebSocketListenerConfig) (*WebSocketListener, error) {
 	localURI := cfg.URL()
 	ret := &WebSocketListener{
@@ -74,10 +77,12 @@ func NewWebSocketListener(cfg WebSocketListenerConfig) (*WebSocketListener, erro
 	return ret, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable description of the WebSocketListener, including its type and local URI.
 func (l *WebSocketListener) String() string {
 	return "WebSocketListener, " + l.localURI.String()
 }
 
+// (AI GENERATED DESCRIPTION): Starts the WebSocket listener by assigning its handler to the HTTP server and invoking ListenAndServe (or ListenAndServeTLS if TLS is configured), logging a fatal error unless the failure is due to a normal server shutdown.
 func (l *WebSocketListener) Run() {
 	l.server.Handler = http.HandlerFunc(l.handler)
 
@@ -92,6 +97,7 @@ func (l *WebSocketListener) Run() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Upgrades an HTTP request to a WebSocket, creates a transport for it, logs the new face, and starts a reliable NDN‑LP link service over the connection.
 func (l *WebSocketListener) handler(w http.ResponseWriter, r *http.Request) {
 	c, e := l.upgrader.Upgrade(w, r, nil)
 	if e != nil {
@@ -106,6 +112,7 @@ func (l *WebSocketListener) handler(w http.ResponseWriter, r *http.Request) {
 	MakeNDNLPLinkService(newTransport, options).Run(nil)
 }
 
+// (AI GENERATED DESCRIPTION): Stops the WebSocket listener by shutting down its underlying HTTP server and logs the stopping action.
 func (l *WebSocketListener) Close() {
 	core.Log.Info(l, "Stopping listener")
 	l.server.Shutdown(context.TODO())

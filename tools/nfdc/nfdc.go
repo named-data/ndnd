@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Creates and returns the Cobra command hierarchy for the NDN command‑line tool, wiring each subcommand (e.g., status, face‑create, route‑add) to the appropriate Tool execution methods.
 func Cmds() []*cobra.Command {
 	t := Tool{}
 	cmd := func(mod string, cmd string, defaults []string) func(*cobra.Command, []string) {
@@ -91,6 +92,7 @@ type Tool struct {
 	engine ndn.Engine
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the tool's engine with a new BasicEngine using a default face if not already set, then starts the engine, exiting the program on startup failure.
 func (t *Tool) Start() {
 	if t.engine != nil {
 		return
@@ -105,10 +107,12 @@ func (t *Tool) Start() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Stops the tool by invoking its underlying engine’s `Stop` method, terminating network activity.
 func (t *Tool) Stop() {
 	t.engine.Stop()
 }
 
+// (AI GENERATED DESCRIPTION): Returns the tool’s default name prefix, which is the NDN name “/localhost/nfd”.
 func (t *Tool) Prefix() enc.Name {
 	return enc.Name{
 		enc.LOCALHOST,

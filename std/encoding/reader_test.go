@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests the core functionality of WireReader and BufferReader by reading, skipping, ranging, and delegating over a predefined wire and its joined byte buffer, ensuring both readers produce identical results and correctly handle EOF conditions.
 func TestBasic(t *testing.T) {
 	tu.SetT(t)
 

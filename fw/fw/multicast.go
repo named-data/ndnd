@@ -23,15 +23,18 @@ type Multicast struct {
 	StrategyBase
 }
 
+// (AI GENERATED DESCRIPTION): Registers the Multicast strategy by appending its constructor to the global strategy initialization list and associating the version “1” with the “multicast” key.
 func init() {
 	strategyInit = append(strategyInit, func() Strategy { return &Multicast{} })
 	StrategyVersions["multicast"] = []uint64{1}
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the multicast strategy by setting up its base with the supplied thread, assigning it the name “multicast” and version 1.
 func (s *Multicast) Instantiate(fwThread *Thread) {
 	s.NewStrategyBase(fwThread, "multicast", 1)
 }
 
+// (AI GENERATED DESCRIPTION): Sends the cached Data packet to the originating face after a content‑store hit.
 func (s *Multicast) AfterContentStoreHit(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
@@ -41,6 +44,7 @@ func (s *Multicast) AfterContentStoreHit(
 	s.SendData(packet, pitEntry, inFace, 0) // 0 indicates ContentStore is source
 }
 
+// (AI GENERATED DESCRIPTION): For each face recorded in the PIT entry, forwards the received Data packet to that face while logging the forwarding action.
 func (s *Multicast) AfterReceiveData(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
@@ -53,6 +57,7 @@ func (s *Multicast) AfterReceiveData(
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Handles a received multicast Interest by suppressing retransmissions that fall within a defined suppression interval and otherwise forwarding the Interest to all applicable next‑hops.
 func (s *Multicast) AfterReceiveInterest(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
@@ -82,6 +87,7 @@ func (s *Multicast) AfterReceiveInterest(
 	}
 }
 
+// (AI GENERATED DESCRIPTION): No‑op hook invoked before satisfying an Interest in the Multicast strategy – it performs no action.
 func (s *Multicast) BeforeSatisfyInterest(pitEntry table.PitEntry, inFace uint64) {
 	// This does nothing in Multicast
 }

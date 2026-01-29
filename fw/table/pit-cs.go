@@ -192,25 +192,32 @@ func (bpe *basePitEntry) EncName() enc.Name {
 	return bpe.encname
 }
 
+// (AI GENERATED DESCRIPTION): Returns true if the base PIT entry is allowed to be used as a prefix for matching interests.
 func (bpe *basePitEntry) CanBePrefix() bool {
 	return bpe.canBePrefix
 }
 
+// (AI GENERATED DESCRIPTION): Returns true if this PIT entry is marked MustBeFresh (i.e., it requires fresh data), otherwise false.
 func (bpe *basePitEntry) MustBeFresh() bool {
 	return bpe.mustBeFresh
 }
+
+// (AI GENERATED DESCRIPTION): Returns the forwarding hint stored in the base PIT entry.
 func (bpe *basePitEntry) ForwardingHintNew() enc.Name {
 	return bpe.forwardingHintNew
 }
 
+// (AI GENERATED DESCRIPTION): Returns the map of incoming PIT records associated with this entry.
 func (bpe *basePitEntry) InRecords() map[uint64]*PitInRecord {
 	return bpe.inRecords
 }
 
+// (AI GENERATED DESCRIPTION): Returns the map of outgoing PIT records for this PIT entry.
 func (bpe *basePitEntry) OutRecords() map[uint64]*PitOutRecord {
 	return bpe.outRecords
 }
 
+// (AI GENERATED DESCRIPTION): Removes the incoming PIT record for the specified face, returns the record to the pool, and deletes its entry from the entry’s map.
 func (bpe *basePitEntry) RemoveInRecord(face uint64) {
 	if record, ok := bpe.inRecords[face]; ok {
 		PitCsPools.PitInRecord.Put(record)
@@ -218,6 +225,7 @@ func (bpe *basePitEntry) RemoveInRecord(face uint64) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Removes the out‑record for a specified face from the PIT entry and returns the record to the pool for reuse.
 func (bpe *basePitEntry) RemoveOutRecord(face uint64) {
 	if record, ok := bpe.outRecords[face]; ok {
 		PitCsPools.PitOutRecord.Put(record)
@@ -241,34 +249,42 @@ func (bpe *basePitEntry) ClearOutRecords() {
 	clear(bpe.outRecords)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the expiration time of this PIT entry.
 func (bpe *basePitEntry) ExpirationTime() time.Time {
 	return bpe.expirationTime
 }
 
+// (AI GENERATED DESCRIPTION): Sets the expiration time of the PIT entry to the specified timestamp.
 func (bpe *basePitEntry) setExpirationTime(t time.Time) {
 	bpe.expirationTime = t
 }
 
+// (AI GENERATED DESCRIPTION): Returns whether this PIT entry has been satisfied.
 func (bpe *basePitEntry) Satisfied() bool {
 	return bpe.satisfied
 }
 
+// (AI GENERATED DESCRIPTION): Sets the satisfied flag of the PIT entry to the supplied boolean value.
 func (bpe *basePitEntry) SetSatisfied(isSatisfied bool) {
 	bpe.satisfied = isSatisfied
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the token value associated with this PIT entry.
 func (bpe *basePitEntry) Token() uint32 {
 	return bpe.token
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the unsigned integer index that identifies this base cache storage entry.
 func (bce *baseCsEntry) Index() uint64 {
 	return bce.index
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the stale time associated with this cache entry.
 func (bce *baseCsEntry) StaleTime() time.Time {
 	return bce.staleTime
 }
 
+// (AI GENERATED DESCRIPTION): Creates a duplicate of the entry’s wire data, parses it into a `FwData` packet, and returns both the parsed data and the raw byte slice (or an error).
 func (bce *baseCsEntry) Copy() (*defn.FwData, []byte, error) {
 	wire := make([]byte, len(bce.wire))
 	copy(wire, bce.wire)

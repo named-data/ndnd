@@ -15,6 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// (AI GENERATED DESCRIPTION): Verifies that the FIB strategy table correctly inserts, retrieves,
+// and removes encoded next‑hop entries, supports longest‑prefix matching,
+// and prunes unused entries in a hash‑table implementation.
 func TestFindNextHopsEncEnc_HT(t *testing.T) {
 	newFibStrategyTableHashTable(1)
 
@@ -68,6 +71,9 @@ func TestFindNextHopsEncEnc_HT(t *testing.T) {
 	assert.Equal(t, 0, len(nexthops2c))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the hash‑table based strategy table correctly finds the default strategy,
+// sets and overrides strategies for specific prefixes, and unsets them,
+// verifying the expected strategy is returned at each lookup.
 func TestFind_Set_Unset_Strategy_HT(t *testing.T) {
 	newFibStrategyTableHashTable(1)
 
@@ -104,6 +110,8 @@ func TestFind_Set_Unset_Strategy_HT(t *testing.T) {
 	assert.True(t, multicast.Equal(FibStrategyTable.FindStrategyEnc(name3)))
 }
 
+// (AI GENERATED DESCRIPTION): Inserts or updates a next‑hop entry in the FIB strategy table for a given name,
+// setting the specified next‑hop identifier and its cost (updating the cost if the entry already exists).
 func TestInsertNextHopEnc_HT(t *testing.T) {
 	newFibStrategyTableHashTable(1)
 	assert.NotNil(t, FibStrategyTable)
@@ -126,6 +134,9 @@ func TestInsertNextHopEnc_HT(t *testing.T) {
 	assert.Equal(t, uint64(20), nextHops[0].Cost)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that FibStrategyTable.ClearNextHopsEnc correctly removes all
+// next‑hop entries for a given name, leaving unrelated or longer names unaffected and handling
+// non‑existent entries gracefully.
 func TestClearNextHops_HT(t *testing.T) {
 	newFibStrategyTableHashTable(1)
 	assert.NotNil(t, FibStrategyTable)
@@ -171,6 +182,9 @@ func TestClearNextHops_HT(t *testing.T) {
 	assert.Equal(t, 1, len(nextHops))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that `RemoveNextHopEnc` correctly deletes specified
+// next‑hop entries from the FIB strategy table for a given name, verifying the remaining
+// hop count after each removal and ensuring entries for other names are not affected.
 func TestRemoveNextHopEnc_HT(t *testing.T) {
 	newFibStrategyTableHashTable(1)
 	assert.NotNil(t, FibStrategyTable)
@@ -212,6 +226,9 @@ func TestRemoveNextHopEnc_HT(t *testing.T) {
 	assert.Equal(t, 1, len(nextHops))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that `GetAllFIBEntries` correctly returns all FIB entries with
+// their associated strategy and next‑hop information, verifying proper handling of entries that have
+// only a strategy, only next hops, or both.
 func TestGetAllFIBEntries_HT(t *testing.T) {
 	newFibStrategyTableHashTable(1)
 	assert.NotNil(t, FibStrategyTable)
@@ -262,6 +279,7 @@ func TestGetAllFIBEntries_HT(t *testing.T) {
 	assert.Equal(t, uint64(50), nextHops[0].Cost)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that GetAllForwardingStrategies correctly returns all configured forwarding strategies and their associated next hop information from the strategy table.
 func TestGetAllForwardingStrategies_HT(t *testing.T) {
 	newFibStrategyTableHashTable(1)
 	assert.NotNil(t, FibStrategyTable)
@@ -312,6 +330,7 @@ func TestGetAllForwardingStrategies_HT(t *testing.T) {
 	assert.Equal(t, 0, len(nextHops))
 }
 
+// (AI GENERATED DESCRIPTION): Tests the hash‑table based FIB strategy table implementation by inserting, querying, and deleting next‑hop entries, verifying correct longest‑prefix matches, pruning logic, and strategy handling.
 func testFIB_HT_Details(t *testing.T, m uint16) {
 	// A test suite specific to the hash table approach
 	newFibStrategyTableHashTable(m)
@@ -462,6 +481,8 @@ func testFIB_HT_Details(t *testing.T, m uint16) {
 	strategy = FibStrategyTable.FindStrategyEnc(name1)
 	assert.Nil(t, strategy)
 }
+
+// (AI GENERATED DESCRIPTION): Runs hashtable‐based FIB tests over several table sizes to validate the handling of real and virtual nodes.
 func TestFIB_HT_RealAndVirtualNodes(t *testing.T) {
 	// Hashtable specific tests, for different values of m
 	for i := 1; i < 8; i++ {

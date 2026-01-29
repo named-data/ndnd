@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests the optional type by creating Some and None values, verifying IsSet, Get, GetOr, Unwrap, and error handling for unset values.
 func TestOptional(t *testing.T) {
 	option := optional.Some[int](42)
 	require.True(t, option.IsSet())

@@ -26,18 +26,22 @@ type FaceModule struct {
 	manager *Thread
 }
 
+// (AI GENERATED DESCRIPTION): Returns the fixed identifier string for the Face module (`"mgmt-face"`), used for naming and logging.
 func (f *FaceModule) String() string {
 	return "mgmt-face"
 }
 
+// (AI GENERATED DESCRIPTION): Assigns the supplied `Thread` instance as the manager for the `FaceModule`, storing it in the module’s `manager` field.
 func (f *FaceModule) registerManager(manager *Thread) {
 	f.manager = manager
 }
 
+// (AI GENERATED DESCRIPTION): Returns the manager Thread associated with this FaceModule.
 func (f *FaceModule) getManager() *Thread {
 	return f.manager
 }
 
+// (AI GENERATED DESCRIPTION): Handles a local face‑management Interest by routing it to the appropriate create, update, destroy, list, or query handler, or returning a 501 error for unknown verbs.
 func (f *FaceModule) handleIncomingInterest(interest *Interest) {
 	// Only allow from /localhost
 	if !LOCAL_PREFIX.IsPrefix(interest.Name()) {
@@ -65,6 +69,7 @@ func (f *FaceModule) handleIncomingInterest(interest *Interest) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new unicast UDP or TCP face from the supplied ControlParameters, performing validation, configuring the transport and NDNLP link service, and replying with the face properties or an error status.
 func (f *FaceModule) create(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		f.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -279,6 +284,7 @@ func (f *FaceModule) create(interest *Interest) {
 	core.Log.Info(f, "Created face", "uri", URI)
 }
 
+// (AI GENERATED DESCRIPTION): Updates a specified NDN face according to the ControlParameters carried in an incoming Interest, validating and applying changes such as persistency, MTU, congestion options, and flag settings, then responds with the updated face properties.
 func (f *FaceModule) update(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		f.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -411,6 +417,7 @@ func (f *FaceModule) update(interest *Interest) {
 	f.manager.sendCtrlResp(interest, 200, "OK", responseParams)
 }
 
+// (AI GENERATED DESCRIPTION): Handles a destroy‑face control Interest by validating the parameters, closing the specified face if it exists, and returning an appropriate control response.
 func (f *FaceModule) destroy(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		f.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -438,6 +445,7 @@ func (f *FaceModule) destroy(interest *Interest) {
 	f.manager.sendCtrlResp(interest, 200, "OK", params)
 }
 
+// (AI GENERATED DESCRIPTION): Responds to a `faces/list` Interest on the local prefix by collecting all registered faces, assembling them into a sorted `FaceStatusMsg` dataset, and sending that dataset back to the requester.
 func (f *FaceModule) list(interest *Interest) {
 	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
 		// Ignore because contains version and/or segment components
@@ -464,6 +472,7 @@ func (f *FaceModule) list(interest *Interest) {
 	f.manager.sendStatusDataset(interest, name, dataset.Encode())
 }
 
+// (AI GENERATED DESCRIPTION): Responds to a FaceQuery interest by filtering the local FaceTable according to the supplied FaceQueryFilter and sending back a dataset of matching FaceStatusMsg entries.
 func (f *FaceModule) query(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		// Name not long enough to contain FaceQueryFilter
@@ -539,6 +548,7 @@ func (f *FaceModule) query(interest *Interest) {
 	f.manager.sendStatusDataset(interest, interest.Name(), dataset.Encode())
 }
 
+// (AI GENERATED DESCRIPTION): Creates a `mgmt.FaceStatus` dataset from a `face.LinkService`, populating its identifiers, statistics, and optional NDN‑LP configuration flags for use in management reporting.
 func (f *FaceModule) createDataset(selectedFace face.LinkService) *mgmt.FaceStatus {
 	faceDataset := &mgmt.FaceStatus{
 		FaceId:          selectedFace.FaceID(),
@@ -579,6 +589,7 @@ func (f *FaceModule) createDataset(selectedFace face.LinkService) *mgmt.FaceStat
 	return faceDataset
 }
 
+// (AI GENERATED DESCRIPTION): Populates a mgmt.ControlArgs struct with the properties of the selected face (ID, remote/local URIs, persistency, MTU) and, if it is an NDNLPLinkService, its congestion‑marking options.
 func (f *FaceModule) fillFaceProperties(params *mgmt.ControlArgs, selectedFace face.LinkService) {
 	params.FaceId = optional.Some(selectedFace.FaceID())
 	params.Uri = optional.Some(selectedFace.RemoteURI().String())

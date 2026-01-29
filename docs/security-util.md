@@ -73,3 +73,21 @@ ndnd sec key-export dir:///etc/app/keys /ndn/bob
 # Export a specific key from a keychain
 ndnd sec key-export dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E
 ```
+
+## `ndnd sec key-delete`
+
+Delete a key (and its certificates) from the keychain.
+
+```bash
+# Delete a specific key from the keychain
+ndnd sec key-delete dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E
+```
+
+## `ndnd sec cert-delete`
+
+Delete a certificate from the keychain.
+
+```bash
+# Delete a certificate by name
+ndnd sec cert-delete dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E/self/v=1
+```

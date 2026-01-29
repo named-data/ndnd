@@ -41,6 +41,7 @@ Z27QIGFgKR4LEuflvnSZZGFRKFxTUF5S2f/ZO/4B4NoxrF1ZOHD9NCWTkwI=
 var CERT_ROOT_NAME, _ = enc.NameFromStr("/ndn/KEY/%27%C4%B2%2A%9F%7B%81%27/ndn/v=1651246789556")
 var KEY_ALICE_NAME, _ = enc.NameFromStr("/ndn/alice/KEY/X%DC%B6%FAg%29%A4%82")
 
+// (AI GENERATED DESCRIPTION): Creates and signs a test certificate with the supplied signer (using a test issuer ID and one‑year validity) and returns the signed certificate as a byte slice.
 func signCert(t *testing.T, signer ndn.Signer) []byte {
 	certData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(
 		tu.NoErr(sig.MarshalSecret(signer))))
@@ -55,6 +56,7 @@ func signCert(t *testing.T, signer ndn.Signer) []byte {
 	return cert.Join()
 }
 
+// (AI GENERATED DESCRIPTION): Tests the in‑memory keychain by inserting identities, keys, and certificates, verifying identity lookup, default signer updates, certificate ordering, handling of invalid keys, and that certificates are correctly stored.
 func TestKeyChainMem(t *testing.T) {
 	tu.SetT(t)
 
@@ -83,6 +85,8 @@ func TestKeyChainMem(t *testing.T) {
 	cert111 := signCert(t, signer11)
 	require.NoError(t, kc.InsertCert(cert111))
 	require.Equal(t, signer11, identity1.Keys()[0].Signer())
+	cert111Data, _, _ := spec.Spec{}.ReadData(enc.NewBufferView(cert111))
+	cert111Name := cert111Data.Name()
 
 	// Generate newer cert for second signer
 	time.Sleep(5 * time.Millisecond) // new version
@@ -98,6 +102,12 @@ func TestKeyChainMem(t *testing.T) {
 	cert122 := signCert(t, signer12)
 	require.NoError(t, kc.InsertCert(cert122))
 	require.Len(t, key12.UniqueCerts(), 1) // same issuer
+	cert121Data, _, _ := spec.Spec{}.ReadData(enc.NewBufferView(cert121))
+	cert121Name := cert121Data.Name()
+	cert122Data, _, _ := spec.Spec{}.ReadData(enc.NewBufferView(cert122))
+	cert122Name := cert122Data.Name()
+	require.GreaterOrEqual(t, cert121Name.At(-1).NumberVal(), cert111Name.At(-1).NumberVal())
+	require.GreaterOrEqual(t, cert122Name.At(-1).NumberVal(), cert121Name.At(-1).NumberVal())
 
 	// Lookup non-existing identity
 	idName2, _ := enc.NameFromStr("/my/test/identity2")
@@ -119,6 +129,8 @@ func TestKeyChainMem(t *testing.T) {
 	require.NoError(t, kc.InsertKey(signer22))
 	require.Len(t, identity2.Keys(), 2)
 	require.Equal(t, signer22, identity2.Keys()[0].Signer()) // has cert
+	cert22Data, _, _ := spec.Spec{}.ReadData(enc.NewBufferView(cert22))
+	cert22Name := cert22Data.Name()
 
 	// Insert invalid key
 	signerInvalid := sig.NewSha256Signer()
@@ -132,8 +144,46 @@ func TestKeyChainMem(t *testing.T) {
 	data, err := store.Get(CERT_ROOT_NAME, false)
 	require.NoError(t, err)
 	require.Equal(t, certRoot, data)
+
+	// Delete latest certificate for signer12 and keep key active
+	require.NoError(t, kc.DeleteCert(cert122Name))
+	data, err = store.Get(cert122Name, false)
+	require.NoError(t, err)
+	require.Nil(t, data)
+	identity1 = kc.IdentityByName(idName1)
+	foundSigner12 := false
+	for _, key := range identity1.Keys() {
+		if key.Signer() == signer12 {
+			foundSigner12 = true
+			break
+		}
+	}
+	require.True(t, foundSigner12)
+
+	// Delete signer12 and its remaining certificate
+	require.NoError(t, kc.DeleteKey(signer12.KeyName()))
+	identity1 = kc.IdentityByName(idName1)
+	require.Len(t, identity1.Keys(), 1)
+	require.Equal(t, signer11, identity1.Keys()[0].Signer())
+	data, err = store.Get(cert121Name, false)
+	require.NoError(t, err)
+	require.Nil(t, data)
+
+	// Delete signer22 and ensure its certificate is removed
+	require.NoError(t, kc.DeleteKey(signer22.KeyName()))
+	identity2 = kc.IdentityByName(idName2)
+	require.Len(t, identity2.Keys(), 1)
+	require.Equal(t, signer21, identity2.Keys()[0].Signer())
+	data, err = store.Get(cert22Name, false)
+	require.NoError(t, err)
+	require.Nil(t, data)
+
+	// Delete remaining key under identity2 and drop the identity
+	require.NoError(t, kc.DeleteKey(signer21.KeyName()))
+	require.Nil(t, kc.IdentityByName(idName2))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that KeyChainDir correctly loads a root certificate into the store and loads identities from key files, while ensuring that non‑certificate keys are not stored.
 func TestKeyChainDir(t *testing.T) {
 	tu.SetT(t)
 
@@ -170,4 +220,19 @@ func TestKeyChainDir(t *testing.T) {
 	// Check Alice key is not in store
 	data, _ = store.Get(KEY_ALICE_NAME, false)
 	require.Nil(t, data)
+
+	// Delete root certificate and ensure file is removed
+	require.NoError(t, kc.DeleteCert(CERT_ROOT_NAME))
+	data, err = store.Get(CERT_ROOT_NAME, false)
+	require.NoError(t, err)
+	require.Nil(t, data)
+	_, err = os.Stat(dirname + "/root.cert")
+	require.True(t, os.IsNotExist(err))
+
+	// Delete Alice key and ensure it disappears from disk and keychain
+	require.NoError(t, kc.DeleteKey(KEY_ALICE_NAME))
+	identity = kc.IdentityByName(KEY_ALICE_NAME.Prefix(-2))
+	require.Nil(t, identity)
+	_, err = os.Stat(dirname + "/alice.key")
+	require.True(t, os.IsNotExist(err))
 }

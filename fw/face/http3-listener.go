@@ -27,10 +27,12 @@ type HTTP3ListenerConfig struct {
 	TLSKey  string
 }
 
+// (AI GENERATED DESCRIPTION): Builds and returns the listener’s network address string by combining its bind host and port into a properly formatted `host:port` string.
 func (cfg HTTP3ListenerConfig) addr() string {
 	return net.JoinHostPort(cfg.Bind, strconv.FormatUint(uint64(cfg.Port), 10))
 }
 
+// (AI GENERATED DESCRIPTION): Returns a `*url.URL` with scheme “https” and host set to the listener’s address.
 func (cfg HTTP3ListenerConfig) URL() *url.URL {
 	u := &url.URL{
 		Scheme: "https",
@@ -39,6 +41,7 @@ func (cfg HTTP3ListenerConfig) URL() *url.URL {
 	return u
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string that describes the HTTP3 listener configuration, showing its type and the URL it uses.
 func (cfg HTTP3ListenerConfig) String() string {
 	return fmt.Sprintf("http3-listener (url=%s)", cfg.URL())
 }
@@ -49,6 +52,7 @@ type HTTP3Listener struct {
 	server *webtransport.Server
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new HTTP/3 listener that loads the specified TLS credentials, registers a handler for the `/ndn` endpoint, and configures a WebTransport server to accept and serve incoming HTTP/3 connections.
 func NewHTTP3Listener(cfg HTTP3ListenerConfig) (*HTTP3Listener, error) {
 	l := &HTTP3Listener{}
 
@@ -82,10 +86,12 @@ func NewHTTP3Listener(cfg HTTP3ListenerConfig) (*HTTP3Listener, error) {
 	return l, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the literal string “HTTP/3 listener” as the textual representation of an HTTP/3 listener.
 func (l *HTTP3Listener) String() string {
 	return "HTTP/3 listener"
 }
 
+// (AI GENERATED DESCRIPTION): Runs the HTTP/3 listener, terminating the program with a fatal log if the server fails to start or stops unexpectedly (excluding the normal http.ErrServerClosed case).
 func (l *HTTP3Listener) Run() {
 	e := l.server.ListenAndServe()
 	if !errors.Is(e, http.ErrServerClosed) {
@@ -93,6 +99,7 @@ func (l *HTTP3Listener) Run() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Handles an incoming HTTP/3 WebTransport upgrade, establishes an HTTP3Transport between the remote and local addresses, and launches an NDN link service on it with fragmentation enabled.
 func (l *HTTP3Listener) handler(rw http.ResponseWriter, r *http.Request) {
 	c, e := l.server.Upgrade(rw, r)
 	if e != nil {

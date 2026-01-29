@@ -30,6 +30,7 @@ type PolicyDesc struct {
 var NodeRegister map[string]*NodeImplDesc
 var PolicyRegister map[string]*PolicyImplDesc
 
+// (AI GENERATED DESCRIPTION): Registers a Node implementation descriptor by its class name, adding it to the global registry and panicking if the name is already registered.
 func RegisterNodeImpl(desc *NodeImplDesc) {
 	name := desc.ClassName
 	if _, ok := NodeRegister[name]; ok {
@@ -38,6 +39,7 @@ func RegisterNodeImpl(desc *NodeImplDesc) {
 	NodeRegister[name] = desc
 }
 
+// (AI GENERATED DESCRIPTION): Registers a policy implementation descriptor, panicking if the class name has already been registered.
 func RegisterPolicyImpl(desc *PolicyImplDesc) {
 	name := desc.ClassName
 	if _, ok := PolicyRegister[name]; ok {
@@ -46,6 +48,7 @@ func RegisterPolicyImpl(desc *PolicyImplDesc) {
 	PolicyRegister[name] = desc
 }
 
+// (AI GENERATED DESCRIPTION): Instantiates event callbacks by resolving each listener name in the event map against the provided environment, producing a map of event keys to slices of Callback functions and panicking if any name is missing.
 func instantiateEvents(events map[string]ListenerList, env map[string]any) map[string][]Callback {
 	ret := make(map[string][]Callback, len(events))
 	for k, lst := range events {
@@ -61,6 +64,7 @@ func instantiateEvents(events map[string]ListenerList, env map[string]any) map[s
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Recursively replaces any string beginning with `$` in the attributes map with the corresponding value from the provided environment map, panicking if a referenced attribute is missing.
 func instantiateAttrs(attrs map[string]any, env map[string]any) map[string]any {
 	var handleList func([]any) []any
 	var handleMap func(map[string]any) map[string]any
@@ -102,6 +106,7 @@ func instantiateAttrs(attrs map[string]any, env map[string]any) map[string]any {
 	return handleMap(attrs)
 }
 
+// (AI GENERATED DESCRIPTION): Instantiates a schema tree by creating nodes and policies defined in the SchemaDesc, applying attributes and events resolved against the supplied environment map, and returns the fully constructed Tree.
 func (sd *SchemaDesc) Instantiate(environment map[string]any) *Tree {
 	// Events must be Callbacks
 	// Attrs has nested maps that needs to be handled

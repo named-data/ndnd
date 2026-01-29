@@ -9,6 +9,7 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 )
 
+// (AI GENERATED DESCRIPTION): Continuously reads TLV‑encoded packets from an io.Reader, buffering partial data and invoking a callback for each complete frame while handling errors and optional early termination.
 func ReadTlvStream(
 	reader io.Reader,
 	onFrame func([]byte) bool,

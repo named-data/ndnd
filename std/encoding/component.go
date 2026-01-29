@@ -39,10 +39,12 @@ type Component struct {
 	Val []byte
 }
 
+// (AI GENERATED DESCRIPTION): Returns the receiver component as a `ComponentPattern`, allowing it to satisfy the `ComponentPattern` interface.
 func (c Component) ComponentPatternTrait() ComponentPattern {
 	return c
 }
 
+// (AI GENERATED DESCRIPTION): Creates a copy of a Component, duplicating its type and cloning the underlying value slice.
 func (c Component) Clone() Component {
 	return Component{
 		Typ: c.Typ,
@@ -50,16 +52,19 @@ func (c Component) Clone() Component {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the byte length of a Component’s value as a TLNum.
 func (c Component) Length() TLNum {
 	return TLNum(len(c.Val))
 }
 
+// (AI GENERATED DESCRIPTION): Returns the serialized string representation of the Component.
 func (c Component) String() string {
 	sb := strings.Builder{}
 	c.WriteTo(&sb)
 	return sb.String()
 }
 
+// (AI GENERATED DESCRIPTION): Writes a component’s type and value into the supplied `strings.Builder` as a `type=value` pair—using a special formatter for known component types (or numeric type IDs if alternative URI formatting is disabled)—and returns the number of bytes written.
 func (c Component) WriteTo(sb *strings.Builder) int {
 	size := 0
 
@@ -81,6 +86,7 @@ func (c Component) WriteTo(sb *strings.Builder) int {
 	return size
 }
 
+// (AI GENERATED DESCRIPTION): Returns a canonical string representation of a name component, prefixing the component type number and “=” for non‑generic types and then appending the component’s value formatted as text.
 func (c Component) CanonicalString() string {
 	sb := strings.Builder{}
 	if c.Typ != TypeGenericNameComponent {
@@ -91,15 +97,18 @@ func (c Component) CanonicalString() string {
 	return sb.String()
 }
 
+// (AI GENERATED DESCRIPTION): Constructs a Name consisting of this component followed by the provided components.
 func (c Component) Append(rest ...Component) Name {
 	return Name{c}.Append(rest...)
 }
 
+// (AI GENERATED DESCRIPTION): Calculates the total byte length needed to encode a component by adding the length of its type, the length of its value’s length field, and the value’s own byte length.
 func (c Component) EncodingLength() int {
 	l := len(c.Val)
 	return c.Typ.EncodingLength() + Nat(l).EncodingLength() + l
 }
 
+// (AI GENERATED DESCRIPTION): Encodes a component's type and value into the supplied buffer—writing the type, the value’s length, and the value bytes—and returns the total number of bytes written.
 func (c Component) EncodeInto(buf Buffer) int {
 	p1 := c.Typ.EncodeInto(buf)
 	p2 := Nat(len(c.Val)).EncodeInto(buf[p1:])
@@ -107,12 +116,14 @@ func (c Component) EncodeInto(buf Buffer) int {
 	return p1 + p2 + len(c.Val)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the fully encoded byte slice representation of the Component.
 func (c Component) Bytes() []byte {
 	buf := make([]byte, c.EncodingLength())
 	c.EncodeInto(buf)
 	return buf
 }
 
+// (AI GENERATED DESCRIPTION): Compares this Component to another ComponentPattern, returning –1, 0, or 1 according to component type, value length, and byte‑wise value ordering, with Components always considered less than non‑Component patterns.
 func (c Component) Compare(rhs ComponentPattern) int {
 	rc, ok := rhs.(Component)
 	if !ok {
@@ -163,6 +174,7 @@ func (c Component) Hash() uint64 {
 	return xx.hash.Sum64()
 }
 
+// (AI GENERATED DESCRIPTION): Compares a Component with another ComponentPattern for equality by checking type and value, correctly handling both value and pointer implementations of Component.
 func (c Component) Equal(rhs ComponentPattern) bool {
 	// Go's strange design leads the the result that both Component and *Component implements this interface
 	// And it is nearly impossible to predict what is what.
@@ -181,16 +193,20 @@ func (c Component) Equal(rhs ComponentPattern) bool {
 	return bytes.Equal(c.Val, rc.Val)
 }
 
+// (AI GENERATED DESCRIPTION): Matches the receiver Component against the provided value and records any match results in the supplied Matching object.
 func (Component) Match(value Component, m Matching) {}
 
+// (AI GENERATED DESCRIPTION): Creates a new Component instance from the current component, ignoring the supplied matching argument.
 func (c Component) FromMatching(m Matching) (*Component, error) {
 	return &c, nil
 }
 
+// (AI GENERATED DESCRIPTION): Determines whether the component matches another component by value equality.
 func (c Component) IsMatch(value Component) bool {
 	return c.Equal(value)
 }
 
+// (AI GENERATED DESCRIPTION): Parses the given string into a Component value, returning the parsed component and an error if the string cannot be interpreted as a component.
 func ComponentFromStr(s string) (Component, error) {
 	ret := Component{}
 	err := componentFromStrInto(s, &ret)
@@ -201,11 +217,13 @@ func ComponentFromStr(s string) (Component, error) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Parses a byte slice into a Component by creating a BufferView and reading the component, returning the Component and any parsing error.
 func ComponentFromBytes(buf []byte) (Component, error) {
 	r := NewBufferView(buf)
 	return r.ReadComponent()
 }
 
+// (AI GENERATED DESCRIPTION): Parses a TLV‑encoded component from the supplied buffer, extracting its type and value and returning the component together with the total number of bytes consumed.
 func ParseComponent(buf Buffer) (Component, int) {
 	typ, p1 := ParseTLNum(buf)
 	l, p2 := ParseTLNum(buf[p1:])
@@ -217,6 +235,7 @@ func ParseComponent(buf Buffer) (Component, int) {
 	}, end
 }
 
+// (AI GENERATED DESCRIPTION): Reads a TLV component from the WireView, decoding its type and length then returning the component’s type and value.
 func (r *WireView) ReadComponent() (Component, error) {
 	typ, err := r.ReadTLNum()
 	if err != nil {
@@ -239,6 +258,7 @@ func (r *WireView) ReadComponent() (Component, error) {
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Parses a component type string into its TLNum identifier and associated value format, returning an error if the string is invalid or unrecognized.
 func parseCompTypeFromStr(s string) (TLNum, compValFmt, error) {
 	if IsAlphabet(rune(s[0])) {
 		if conv, ok := compConvByStr[s]; ok {
@@ -255,6 +275,7 @@ func parseCompTypeFromStr(s string) (TLNum, compValFmt, error) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Parses a string representation of a name component—optionally prefixed by a type name before “=”—into a Component struct, validating the type and converting the value accordingly.
 func componentFromStrInto(s string, ret *Component) error {
 	var err error
 	hasEq := false

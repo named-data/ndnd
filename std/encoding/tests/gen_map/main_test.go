@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that a `StringMap` can be correctly serialized to a byte buffer and parsed back, ensuring round‑trip fidelity and proper handling of empty parameter maps.
 func TestStringMap(t *testing.T) {
 	tu.SetT(t)
 
@@ -36,6 +37,7 @@ func TestStringMap(t *testing.T) {
 	require.Equal(t, 0, len(f2.Params))
 }
 
+// (AI GENERATED DESCRIPTION): Tests the serialization and deserialization of an `IntStructMap`, verifying that a map of integer keys to `Inner` structs round‑trips correctly and that an empty map serializes to an empty byte slice.
 func TestIntStructMap(t *testing.T) {
 	tu.SetT(t)
 

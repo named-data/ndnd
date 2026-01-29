@@ -134,15 +134,18 @@ func AcceptUnicastTCPTransport(
 	return t, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string describing the unicast‑TCP transport, including its face ID, remote URI, and local URI.
 func (t *UnicastTCPTransport) String() string {
 	return fmt.Sprintf("unicast-tcp-transport (faceid=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
 
+// (AI GENERATED DESCRIPTION): Sets the persistency mode for the UnicastTCPTransport and reports success.
 func (t *UnicastTCPTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
 	t.persistency = persistency
 	return true
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the number of bytes currently queued in the underlying TCP socket’s send buffer for this transport.
 func (t *UnicastTCPTransport) GetSendQueueSize() uint64 {
 	rawConn, err := t.conn.SyscallConn()
 	if err != nil {
@@ -209,6 +212,7 @@ func (t *UnicastTCPTransport) reconnect() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Sends a frame over the unicast TCP connection, ensuring it does not exceed the MTU, updating outbound byte statistics, resetting the socket’s expiration timer, and closing the connection if the write fails.
 func (t *UnicastTCPTransport) sendFrame(frame []byte) {
 	if !t.running.Load() {
 		return
@@ -230,6 +234,7 @@ func (t *UnicastTCPTransport) sendFrame(frame []byte) {
 	*t.expirationTime = time.Now().Add(CfgTCPLifetime())
 }
 
+// (AI GENERATED DESCRIPTION): Runs the receive loop for a UnicastTCPTransport, reading TLV frames from the socket, dispatching them to the link service, and automatically reconnecting or closing the face depending on connection state and persistency.
 func (t *UnicastTCPTransport) runReceive() {
 	defer t.Close()
 

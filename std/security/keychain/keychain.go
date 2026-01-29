@@ -8,6 +8,7 @@ import (
 	sec "github.com/named-data/ndnd/std/security"
 )
 
+// (AI GENERATED DESCRIPTION): Creates a new keychain instance from the given URI, selecting either an in‑memory or directory‑based implementation based on the URI scheme and attaching the supplied public key store, returning an error for unsupported schemes.
 func NewKeyChain(uri string, pubStore ndn.Store) (ndn.KeyChain, error) {
 	url, err := url.Parse(uri)
 	if err != nil {

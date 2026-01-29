@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Verifies basic store operations (Put, Get with exact and prefix matching, Remove, and RemovePrefix) by inserting, retrieving, and deleting data under various name prefixes.
 func testStoreBasic(t *testing.T, store ndn.Store) {
 	name1, _ := enc.NameFromStr("/ndn/edu/ucla/test/packet/v1")
 	name2, _ := enc.NameFromStr("/ndn/edu/ucla/test/packet/v5")
@@ -121,6 +122,7 @@ func testStoreBasic(t *testing.T, store ndn.Store) {
 	require.Equal(t, wire5, data)
 }
 
+// (AI GENERATED DESCRIPTION): Tests inserting, retrieving, and removing Data packets in a Store by sequence‑number range, verifying correct behavior across normal, edge, and error scenarios.
 func testStoreRemoveRange(t *testing.T, store ndn.Store) {
 	seq1, _ := enc.NameFromStr("/ndn/edu/wustl/test/packet/seq=1")
 	seq2, _ := enc.NameFromStr("/ndn/edu/wustl/test/packet/seq=2")
@@ -216,6 +218,7 @@ func testStoreRemoveRange(t *testing.T, store ndn.Store) {
 	require.Equal(t, wire7, data)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that a Store correctly supports transactional operations by verifying that data added inside a transaction is invisible until commit, discarded on rollback, and that non‑transactional puts persist immediately.
 func testStoreTxn(t *testing.T, store ndn.Store) {
 	txname1, _ := enc.NameFromStr("/ndn/edu/memphis/test/packet/v1")
 	txname2, _ := enc.NameFromStr("/ndn/edu/memphis/test/packet/v5")
@@ -269,6 +272,7 @@ func testStoreTxn(t *testing.T, store ndn.Store) {
 	require.Equal(t, wire3, data)
 }
 
+// (AI GENERATED DESCRIPTION): Runs a suite of unit tests to verify basic operations, range‑removal behavior, and transactional support for the in‑memory storage backend.
 func TestMemoryStore(t *testing.T) {
 	tu.SetT(t)
 	store := storage.NewMemoryStore()

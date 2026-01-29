@@ -53,6 +53,10 @@ type Client interface {
 	Validate(data Data, sigCov enc.Wire, callback func(bool, error))
 	// ValidateExt validates a single data packet (advanced API).
 	ValidateExt(args ValidateExtArgs)
+	// SetTrustSchema updates trust schema
+	SetTrustSchema(schema TrustSchema)
+	// PromoteTrustAnchor promotes a self-signed cert to a trust anchor
+	PromoteTrustAnchor(cert Data, raw enc.Wire)
 
 	// AnnouncePrefix announces a prefix to the network.
 	AnnouncePrefix(args Announcement)
@@ -125,6 +129,8 @@ type ConsumeExtArgs struct {
 	OnProgress func(status ConsumeState)
 	// NoMetadata disables fetching RDR metadata (advanced usage).
 	NoMetadata bool
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 // ExpressRArgs are the arguments for the express retry API.
@@ -164,6 +170,8 @@ type ValidateExtArgs struct {
 	// Fetch function to use for fetching certificates.
 	// The fetcher MUST check the store for the certificate before fetching.
 	Fetch optional.Optional[func(enc.Name, *InterestConfig, ExpressCallbackFunc)]
+	// IgnoreValidity ignores validity period in the validation chain.
+	IgnoreValidity optional.Optional[bool]
 }
 
 // Announcement are the arguments for the announce prefix API.

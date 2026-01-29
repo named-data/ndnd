@@ -14,6 +14,7 @@ import (
 
 const TimeFmt = "20060102T150405" // ISO 8601 time format
 
+// (AI GENERATED DESCRIPTION): Checks at compile time that the Data and Interest types implement the ndn.Signature, ndn.Data, and ndn.Interest interfaces.
 func _() {
 	// Trait for Signature of Data
 	var _ ndn.Signature = &Data{}
@@ -27,6 +28,7 @@ func _() {
 
 type Spec struct{}
 
+// (AI GENERATED DESCRIPTION): Returns the signature type of the Data packet, defaulting to ndn.SignatureNone when SignatureInfo is nil.
 func (d *Data) SigType() ndn.SigType {
 	if d.SignatureInfo == nil {
 		return ndn.SignatureNone
@@ -35,6 +37,7 @@ func (d *Data) SigType() ndn.SigType {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the name of the key used to sign the data packet, returning the key‑locator’s name or nil when the signature info or key locator is absent.
 func (d *Data) KeyName() enc.Name {
 	if d.SignatureInfo == nil || d.SignatureInfo.KeyLocator == nil {
 		return nil
@@ -43,14 +46,17 @@ func (d *Data) KeyName() enc.Name {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the signature nonce attached to the Data packet, returning nil if no nonce is present.
 func (d *Data) SigNonce() []byte {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the signature timestamp of the Data packet (currently unimplemented and returns nil).
 func (d *Data) SigTime() *time.Time {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Sets the Data packet’s SignatureInfo.SignatureTime to the given time (converted to a millisecond duration) or clears the field if the argument is nil.
 func (d *Data) SetSigTime(t *time.Time) error {
 	if d.SignatureInfo == nil {
 		d.SignatureInfo = &SignatureInfo{}
@@ -63,10 +69,12 @@ func (d *Data) SetSigTime(t *time.Time) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the sequence number associated with the packet’s signature (returning nil if the field is not set).
 func (d *Data) SigSeqNum() *uint64 {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the optional “NotBefore” and “NotAfter” timestamps from a Data packet’s SignatureInfo validity period, returning them as `optional.Optional[time.Time]` values when present.
 func (d *Data) Validity() (notBefore, notAfter optional.Optional[time.Time]) {
 	if d.SignatureInfo != nil && d.SignatureInfo.ValidityPeriod != nil {
 		nbVal, err := time.Parse(TimeFmt, d.SignatureInfo.ValidityPeriod.NotBefore)
@@ -82,6 +90,7 @@ func (d *Data) Validity() (notBefore, notAfter optional.Optional[time.Time]) {
 	return
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Data packet’s signature value as a byte slice, or nil if no signature is present.
 func (d *Data) SigValue() []byte {
 	if d.SignatureValue == nil {
 		return nil
@@ -90,14 +99,17 @@ func (d *Data) SigValue() []byte {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Data packet itself as its own signature, allowing the Data struct to satisfy the ndn.Signature interface.
 func (d *Data) Signature() ndn.Signature {
 	return d
 }
 
+// (AI GENERATED DESCRIPTION): Returns the name (enc.Name) of the Data packet.
 func (d *Data) Name() enc.Name {
 	return d.NameV
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Data packet's `ContentType` from its `MetaInfo`, if present, wrapped as an `optional.Optional[ndn.ContentType]`.
 func (d *Data) ContentType() (val optional.Optional[ndn.ContentType]) {
 	if d.MetaInfo != nil {
 		return optional.CastInt[uint64, ndn.ContentType](d.MetaInfo.ContentType)
@@ -105,6 +117,7 @@ func (d *Data) ContentType() (val optional.Optional[ndn.ContentType]) {
 	return val
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Data packet’s freshness period from MetaInfo if present; otherwise returns an empty optional.
 func (d *Data) Freshness() (val optional.Optional[time.Duration]) {
 	if d.MetaInfo != nil {
 		return d.MetaInfo.FreshnessPeriod
@@ -112,6 +125,7 @@ func (d *Data) Freshness() (val optional.Optional[time.Duration]) {
 	return val
 }
 
+// (AI GENERATED DESCRIPTION): Returns the MetaInfo’s FinalBlockID component as an optional, yielding a parsed `enc.Component` if present and valid, otherwise an empty optional.
 func (d *Data) FinalBlockID() (val optional.Optional[enc.Component]) {
 	if d.MetaInfo != nil && d.MetaInfo.FinalBlockID != nil {
 		reader := enc.NewBufferView(d.MetaInfo.FinalBlockID)
@@ -122,14 +136,17 @@ func (d *Data) FinalBlockID() (val optional.Optional[enc.Component]) {
 	return val
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Data packet’s content payload as a wire‑encoded value.
 func (d *Data) Content() enc.Wire {
 	return d.ContentV
 }
 
+// (AI GENERATED DESCRIPTION): Returns the wire representation of the Data packet in the cross‑schema format.
 func (d *Data) CrossSchema() enc.Wire {
 	return d.CrossSchemaV
 }
 
+// (AI GENERATED DESCRIPTION): Returns the signature type of the Interest packet, defaulting to `SignatureNone` when no signature information is present.
 func (t *Interest) SigType() ndn.SigType {
 	if t.SignatureInfo == nil {
 		return ndn.SignatureNone
@@ -138,6 +155,7 @@ func (t *Interest) SigType() ndn.SigType {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the key name stored in the Interest’s SignatureInfo.KeyLocator, returning nil if the SignatureInfo or KeyLocator is absent.
 func (t *Interest) KeyName() enc.Name {
 	if t.SignatureInfo == nil || t.SignatureInfo.KeyLocator == nil {
 		return nil
@@ -146,6 +164,7 @@ func (t *Interest) KeyName() enc.Name {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the signature nonce stored in the Interest’s SignatureInfo, returning `nil` if no nonce is present.
 func (t *Interest) SigNonce() []byte {
 	if t.SignatureInfo != nil {
 		return t.SignatureInfo.SignatureNonce
@@ -154,6 +173,7 @@ func (t *Interest) SigNonce() []byte {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the signature timestamp of an Interest, returning it as a `*time.Time` when set, or `nil` if no signature time is present.
 func (t *Interest) SigTime() *time.Time {
 	if t.SignatureInfo != nil && t.SignatureInfo.SignatureTime.IsSet() {
 		return utils.IdPtr(time.UnixMilli(t.SignatureInfo.SignatureTime.Unwrap().Milliseconds()))
@@ -162,6 +182,7 @@ func (t *Interest) SigTime() *time.Time {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the signature sequence number from an Interest's SignatureInfo when set, returning a pointer to it; otherwise returns nil.
 func (t *Interest) SigSeqNum() *uint64 {
 	if t.SignatureInfo != nil && t.SignatureInfo.SignatureSeqNum.IsSet() {
 		return utils.IdPtr(t.SignatureInfo.SignatureSeqNum.Unwrap())
@@ -170,30 +191,37 @@ func (t *Interest) SigSeqNum() *uint64 {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the optional notBefore and notAfter timestamps of the Interest packet, returning unset optional values if no validity period is set.
 func (t *Interest) Validity() (notBefore, notAfter optional.Optional[time.Time]) {
 	return
 }
 
+// (AI GENERATED DESCRIPTION): Returns the concatenated raw signature value of the Interest packet as a byte slice.
 func (t *Interest) SigValue() []byte {
 	return t.SignatureValue.Join()
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Interest packet itself as its signature (the Interest implements the ndn.Signature interface).
 func (t *Interest) Signature() ndn.Signature {
 	return t
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Interest packet’s name as an enc.Name value.
 func (t *Interest) Name() enc.Name {
 	return t.NameV
 }
 
+// (AI GENERATED DESCRIPTION): Returns whether the CanBePrefix flag is set on this Interest packet, indicating that it may be satisfied by Data packets whose name is a prefix of the Interest.
 func (t *Interest) CanBePrefix() bool {
 	return t.CanBePrefixV
 }
 
+// (AI GENERATED DESCRIPTION): Returns whether the MustBeFresh flag is set for this Interest packet.
 func (t *Interest) MustBeFresh() bool {
 	return t.MustBeFreshV
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the slice of forwarding‑hint names from the Interest packet, returning nil if no forwarding hint is set.
 func (t *Interest) ForwardingHint() []enc.Name {
 	if t.ForwardingHintV == nil {
 		return nil
@@ -201,14 +229,17 @@ func (t *Interest) ForwardingHint() []enc.Name {
 	return t.ForwardingHintV.Names
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the optional Nonce value from the Interest packet.
 func (t *Interest) Nonce() optional.Optional[uint32] {
 	return t.NonceV
 }
 
+// (AI GENERATED DESCRIPTION): Returns the optional lifetime duration of this Interest packet.
 func (t *Interest) Lifetime() optional.Optional[time.Duration] {
 	return t.InterestLifetimeV
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the hop limit of an Interest, returning it as a `*uint` or `nil` if the hop limit is not set.
 func (t *Interest) HopLimit() *uint {
 	if t.HopLimitV == nil {
 		return nil
@@ -217,6 +248,7 @@ func (t *Interest) HopLimit() *uint {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ApplicationParameters field of the Interest packet.
 func (t *Interest) AppParam() enc.Wire {
 	return t.ApplicationParameters
 }
@@ -470,6 +502,7 @@ func (Spec) MakeInterest(name enc.Name, config *ndn.InterestConfig, appParam enc
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Validates an Interest packet by ensuring it has a name, that a signature digest is present when ApplicationParameters are included, and that the SHA‑256 digest component of the name matches the hash of the covered data.
 func checkInterest(val *Interest, context *InterestParsingContext) error {
 	if val.NameV == nil {
 		return ndn.ErrInvalidValue{Item: "Interest.Name", Value: nil}
@@ -555,10 +588,12 @@ func ReadPacket(reader enc.WireView) (ret *Packet, context PacketParsingContext,
 	return
 }
 
+// (AI GENERATED DESCRIPTION): Returns the wire representation of the signature‑covered portion of an Interest packet.
 func (c InterestParsingContext) SigCovered() enc.Wire {
 	return c.sigCovered
 }
 
+// (AI GENERATED DESCRIPTION): Returns the wire representation of the portion of the Data packet that is covered by the signature.
 func (c DataParsingContext) SigCovered() enc.Wire {
 	return c.sigCovered
 }

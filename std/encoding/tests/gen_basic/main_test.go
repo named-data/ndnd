@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests the encoding and decoding of FakeMetaInfo structures, verifying correct round‑trip conversion, field ordering, and proper error handling for malformed input.
 func TestFakeMetaInfo(t *testing.T) {
 	tu.SetT(t)
 
@@ -71,6 +72,7 @@ func TestFakeMetaInfo(t *testing.T) {
 	tu.Err(gen_basic.ParseFakeMetaInfo(enc.NewBufferView(buf2), false))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that an OptField’s Bytes() method correctly encodes optional fields (Number, Time, Binary, Bool) into a TLV byte stream and that ParseOptField can round‑trip these fields back to the original struct, including handling absent, empty, and zero values.
 func TestOptField(t *testing.T) {
 	tu.SetT(t)
 
@@ -122,6 +124,7 @@ func TestOptField(t *testing.T) {
 	require.Equal(t, f, *f2)
 }
 
+// (AI GENERATED DESCRIPTION): Parses a WireNameField from a byte buffer, extracting the optional wire value and name components while gracefully handling empty or zero‑length fields.
 func TestWireName(t *testing.T) {
 	tu.SetT(t)
 
@@ -155,6 +158,7 @@ func TestWireName(t *testing.T) {
 	require.Equal(t, []byte{}, f2.Wire.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Tests the encoding and parsing of a Markers packet by verifying that a wire and a name are correctly serialized and deserialized.
 func TestMarkers(t *testing.T) {
 	tu.SetT(t)
 
@@ -177,6 +181,7 @@ func TestMarkers(t *testing.T) {
 	require.Equal(t, f.Wire.Join(), f2.Wire.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that a NoCopyStruct can be encoded to a wire and parsed back without copying the underlying byte slices, preserving the original data.
 func TestNoCopy(t *testing.T) {
 	tu.SetT(t)
 
@@ -207,6 +212,7 @@ func TestNoCopy(t *testing.T) {
 	require.Equal(t, f.Wire2.Join(), f2.Wire2.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that the `StrField` type correctly serializes required and optional string fields to the expected byte format, can be parsed back to the original structure, and properly handles empty values and malformed input.
 func TestStrField(t *testing.T) {
 	tu.SetT(t)
 
@@ -232,6 +238,7 @@ func TestStrField(t *testing.T) {
 	tu.Err(gen_basic.ParseStrField(enc.NewBufferView(buf), false))
 }
 
+// (AI GENERATED DESCRIPTION): Test that FixedUintField correctly serializes and deserializes its byte, optional uint32/uint64, and byte‑pointer fields.
 func TestFixedUintField(t *testing.T) {
 	tu.SetT(t)
 

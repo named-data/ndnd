@@ -11,6 +11,7 @@ import (
 
 type ToolPem struct{}
 
+// (AI GENERATED DESCRIPTION): Adds PEM encoding and decoding subcommands to a Cobra command, grouping them under “Encoding Utilities”.
 func (t *ToolPem) configure(cmd *cobra.Command) {
 	cmd.AddGroup(&cobra.Group{
 		ID:    "encoding",
@@ -40,6 +41,7 @@ Provide PEM data as input to stdin.`,
 	})
 }
 
+// (AI GENERATED DESCRIPTION): PEM-encodes data read from standard input and writes the resulting PEM string to standard output.
 func (t *ToolPem) Encode(_ *cobra.Command, args []string) {
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -58,6 +60,7 @@ func (t *ToolPem) Encode(_ *cobra.Command, args []string) {
 	os.Stdout.Write(out)
 }
 
+// (AI GENERATED DESCRIPTION): Decodes PEM‑encoded NDN data from standard input and writes the resulting binary data to standard output, reporting errors when no or multiple valid packets are found.
 func (t *ToolPem) Decode(_ *cobra.Command, args []string) {
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {

@@ -67,6 +67,7 @@ type transportBase struct {
 	nOutBytes uint64
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a transportBase instance with the specified remote and local URIs, persistency, scope, link type, and MTU values, resetting its running flag to false.
 func (t *transportBase) makeTransportBase(
 	remoteURI *defn.URI,
 	localURI *defn.URI,
@@ -88,10 +89,12 @@ func (t *transportBase) makeTransportBase(
 // Setters
 //
 
+// (AI GENERATED DESCRIPTION): Assigns the given face ID to the transport base.
 func (t *transportBase) setFaceID(faceID uint64) {
 	t.faceID = faceID
 }
 
+// (AI GENERATED DESCRIPTION): Sets the transport’s LinkService to the given LinkService.
 func (t *transportBase) setLinkService(linkService LinkService) {
 	t.linkService = linkService
 }
@@ -100,30 +103,37 @@ func (t *transportBase) setLinkService(linkService LinkService) {
 // Getters
 //
 
+// (AI GENERATED DESCRIPTION): Returns the local URI of the transport instance.
 func (t *transportBase) LocalURI() *defn.URI {
 	return t.localURI
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the remote URI associated with this transport instance.
 func (t *transportBase) RemoteURI() *defn.URI {
 	return t.remoteURI
 }
 
+// (AI GENERATED DESCRIPTION): Returns the persistency mode associated with the transport base instance.
 func (t *transportBase) Persistency() spec_mgmt.Persistency {
 	return t.persistency
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the transport’s scope value.
 func (t *transportBase) Scope() defn.Scope {
 	return t.scope
 }
 
+// (AI GENERATED DESCRIPTION): Returns the link type associated with this transport.
 func (t *transportBase) LinkType() defn.LinkType {
 	return t.linkType
 }
 
+// (AI GENERATED DESCRIPTION): Returns the maximum transmission unit (MTU) size configured for the transport instance.
 func (t *transportBase) MTU() int {
 	return t.mtu
 }
 
+// (AI GENERATED DESCRIPTION): Sets the transport’s maximum transmission unit (MTU) to the specified integer value.
 func (t *transportBase) SetMTU(mtu int) {
 	t.mtu = mtu
 }
@@ -137,10 +147,12 @@ func (t *transportBase) ExpirationPeriod() time.Duration {
 	return time.Until(*t.expirationTime)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the unique face ID associated with this transport instance.
 func (t *transportBase) FaceID() uint64 {
 	return t.faceID
 }
 
+// (AI GENERATED DESCRIPTION): Returns `true` if the transport instance is currently running, otherwise `false`.
 func (t *transportBase) IsRunning() bool {
 	return t.running.Load()
 }
@@ -149,10 +161,12 @@ func (t *transportBase) IsRunning() bool {
 // Counters
 //
 
+// (AI GENERATED DESCRIPTION): Returns the total number of bytes received by the transport instance.
 func (t *transportBase) NInBytes() uint64 {
 	return t.nInBytes
 }
 
+// (AI GENERATED DESCRIPTION): Returns the total number of bytes that have been sent through this transport.
 func (t *transportBase) NOutBytes() uint64 {
 	return t.nOutBytes
 }

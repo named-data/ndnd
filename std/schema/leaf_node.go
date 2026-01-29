@@ -22,6 +22,7 @@ type LeafNode struct {
 	ValidDur    time.Duration
 }
 
+// (AI GENERATED DESCRIPTION): Returns the LeafNode itself as a NodeImpl, signifying that LeafNode implements the NodeImpl interface.
 func (n *LeafNode) NodeImplTrait() NodeImpl {
 	return n
 }
@@ -78,6 +79,7 @@ func (n *LeafNode) Provide(
 	return data.Wire
 }
 
+// (AI GENERATED DESCRIPTION): Creates a leaf node with a blob content type, 1‑minute freshness, 100‑year validity, and an event target for signing the data.
 func CreateLeafNode(node *Node) NodeImpl {
 	return &LeafNode{
 		ExpressPoint:    *CreateExpressPoint(node).(*ExpressPoint),
@@ -90,6 +92,7 @@ func CreateLeafNode(node *Node) NodeImpl {
 
 var LeafNodeDesc *NodeImplDesc
 
+// (AI GENERATED DESCRIPTION): Initializes the LeafNode implementation descriptor by defining its properties, events, and the Provide method, then registers the descriptor with the node registry.
 func initLeafNodeDesc() {
 	LeafNodeDesc = &NodeImplDesc{
 		ClassName:  "LeafNode",
@@ -138,6 +141,7 @@ func initLeafNodeDesc() {
 	RegisterNodeImpl(LeafNodeDesc)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the LeafNode as the requested type (LeafNode, ExpressPoint, or BaseNodeImpl) by giving a pointer to the corresponding embedded struct, or nil if the type is unsupported.
 func (n *LeafNode) CastTo(ptr any) any {
 	switch ptr.(type) {
 	case (*LeafNode):

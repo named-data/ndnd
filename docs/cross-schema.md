@@ -11,6 +11,7 @@ CrossSchema = CROSS-SCHEMA-TYPE TLV-LENGTH Data
 ; Content of the Data in the CrossSchema field
 CrossSchemaContent = *SimpleSchemaRule
                      *PrefixSchemaRule
+                     *ComponentSchemaRule
 
 SimpleSchemaRule = SIMPLE-SCHEMA-RULE-TYPE TLV-LENGTH
                    NamePrefix
@@ -19,11 +20,25 @@ SimpleSchemaRule = SIMPLE-SCHEMA-RULE-TYPE TLV-LENGTH
 PrefixSchemaRule = PREFIX-SCHEMA-RULE-TYPE TLV-LENGTH
                    NamePrefix
 
+ComponentSchemaRule = COMPONENT-SCHEMA-RULE-TYPE TLV-LENGTH
+                      NamePrefix
+                      KeyLocator
+                      NameComponentIndex
+                      KeyComponentIndex
+
+; component indices are absolute (relative to the full Data/KeyLocator names)
+; indices are zero-based and MUST be non-negative
+; NamePrefix and KeyLocator may include "_" to match any single component
+NameComponentIndex = NON-NEGATIVE-INTEGER
+KeyComponentIndex = NON-NEGATIVE-INTEGER
+
 NamePrefix = Name
+; "_" wildcard is allowed in NamePrefix and KeyLocator for all rule types
 
 CROSS-SCHEMA-TYPE = 600
 SIMPLE-SCHEMA-RULE-TYPE = 620
 PREFIX-SCHEMA-RULE-TYPE = 622
+COMPONENT-SCHEMA-RULE-TYPE = 624
 ```
 
 ## Usage of `CrossSchema`
@@ -129,3 +144,25 @@ During verification, the verifier:
 
 1. Checks if `NamePrefix` is a prefix of the Data name. If yes, continue; otherwise, reject.
 1. Checks if the `KeyName` appears after `NamePrefix` in the Data name. If yes, accept; otherwise, reject.
+
+### ComponentSchemaRule
+
+A ComponentSchemaRule captures a component in the full Data name (not just the suffix after the prefix) and requires the same component to appear at a specific position in the KeyLocator name. This supports invitations where the producer identifier is not the entire suffix of the Data name.
+
+For example:
+
+```ini
+Content = ComponentSchemaRule {
+  NamePrefix = /ucla.edu/wksp/_/collab   ; "_" matches any single component
+  KeyLocator = /arizona.edu/_            ; "_" matches producer id in cert name
+  NameComponentIndex = 4
+  KeyComponentIndex = 1
+}
+```
+
+1. The rule matches Data names whose first components are `/ucla.edu/wksp/<anything>/collab/...`; `_` is a single-component wildcard.
+1. It captures the 5th component in the full name (index 4) as the producer identifier.
+1. The captured component must equal the second component (index 1) in the certificate name after `/arizona.edu`, e.g., `/arizona.edu/alice/KEY/...`.
+1. If either prefix check fails or the indexed components differ, the rule rejects the signer.
+
+`NameComponentIndex` and `KeyComponentIndex` are zero-based and must be non-negative.

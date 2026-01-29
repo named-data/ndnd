@@ -29,6 +29,9 @@ type TrustConfig struct {
 	// Everything in here is validated, fresh and passes the schema.
 	certCache *CertCache
 
+	// certListCache stores validated CertLists.
+	certListCache *CertListCache
+
 	// UseDataNameFwHint enables using the data name as the forwarding hint.
 	// This flag is useful depending on application naming structure.
 	//
@@ -53,6 +56,7 @@ func NewTrustConfig(keyChain ndn.KeyChain, schema ndn.TrustSchema, roots []enc.N
 
 	// The cache must start with all trust anchors
 	certCache := NewCertCache()
+	certListCache := NewCertListCache()
 
 	// Check if all roots are present in the keychain
 	for _, root := range roots {
@@ -68,14 +72,16 @@ func NewTrustConfig(keyChain ndn.KeyChain, schema ndn.TrustSchema, roots []enc.N
 	}
 
 	return &TrustConfig{
-		mutex:     sync.RWMutex{},
-		keychain:  keyChain,
-		schema:    schema,
-		roots:     roots,
-		certCache: certCache,
+		mutex:         sync.RWMutex{},
+		keychain:      keyChain,
+		schema:        schema,
+		roots:         roots,
+		certCache:     certCache,
+		certListCache: certListCache,
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the constant string `"trust-config"` for a `TrustConfig` value, enabling string formatting via the `fmt.Stringer` interface.
 func (tc *TrustConfig) String() string {
 	return "trust-config"
 }
@@ -86,6 +92,16 @@ func (tc *TrustConfig) Suggest(name enc.Name) ndn.Signer {
 	defer tc.mutex.RUnlock()
 
 	return tc.schema.Suggest(name, tc.keychain)
+}
+
+// SetSchema atomically replaces the trust schema.
+func (tc *TrustConfig) SetSchema(schema ndn.TrustSchema) {
+	if schema == nil {
+		return
+	}
+	tc.mutex.Lock()
+	tc.schema = schema
+	tc.mutex.Unlock()
 }
 
 // TrustConfigValidateArgs are the arguments for the TrustConfig Validate function.
@@ -104,7 +120,8 @@ type TrustConfigValidateArgs struct {
 	Callback func(bool, error)
 	// OverrideName is an override for the data name (advanced usage).
 	OverrideName enc.Name
-
+	// ignore ValidityPeriod in the valication chain
+	IgnoreValidity optional.Optional[bool]
 	// origDataName is the original data name being verified.
 	origDataName enc.Name
 
@@ -159,17 +176,18 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		return
 	}
 
+	// Bail if the data is a cert and is not fresh
+	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
+		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.Data) {
+			args.Callback(false, fmt.Errorf("certificate is expired: %s", args.Data.Name()))
+			return
+		}
+	}
+
 	// Get the key locator
 	keyLocator := signature.KeyName()
 	if len(keyLocator) == 0 {
 		args.Callback(false, fmt.Errorf("key locator is nil"))
-		return
-	}
-
-	// Disallow self-signed certificates, all trust anchors must be in validated cache.
-	// This check is redundant since the trust schema should always disallow self-signed certs.
-	if keyLocator.IsPrefix(args.Data.Name()) {
-		args.Callback(false, fmt.Errorf("self-signed certificate: %s", keyLocator))
 		return
 	}
 
@@ -207,9 +225,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 						args.Callback(valid, fmt.Errorf("cross schema: %w", err))
 					}
 				},
-				OverrideName: args.OverrideName,
-				cert:         args.cert,
-				depth:        args.depth,
+				OverrideName:   args.OverrideName,
+				IgnoreValidity: args.IgnoreValidity,
+				cert:           args.cert,
+				depth:          args.depth,
 			})
 			return
 		} else {
@@ -270,10 +289,11 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			Data:       args.cert,
 			DataSigCov: args.certSigCov,
 
-			Fetch:        args.Fetch,
-			Callback:     args.Callback,
-			OverrideName: nil,
-			origDataName: args.origDataName,
+			Fetch:          args.Fetch,
+			Callback:       args.Callback,
+			OverrideName:   nil,
+			IgnoreValidity: args.IgnoreValidity,
+			origDataName:   args.origDataName,
 
 			cert:        nil,
 			certSigCov:  nil,
@@ -284,6 +304,12 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 			depth: args.depth,
 		})
+		return
+	}
+
+	// Handle self-signed certificate (potential trust anchor).
+	if keyLocator.IsPrefix(args.Data.Name()) {
+		tc.handleSelfSignedCert(args, keyLocator)
 		return
 	}
 
@@ -313,11 +339,14 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	}
 
 	// Cert not found, attempt to fetch from network
-	args.Fetch(keyLocator, &ndn.InterestConfig{
+	fetchCfg := &ndn.InterestConfig{
 		CanBePrefix:    true,
 		MustBeFresh:    true,
 		ForwardingHint: fwHint,
-	}, func(res ndn.ExpressCallbackArgs) {
+	}
+	triedLocal := false
+	var cb ndn.ExpressCallbackFunc
+	cb = func(res ndn.ExpressCallbackArgs) {
 		if res.Error == nil && res.Result != ndn.InterestResultData {
 			res.Error = fmt.Errorf("failed to fetch certificate (%s) with result: %s", keyLocator, res.Result)
 		}
@@ -329,12 +358,20 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 		// Bail if not a certificate
 		if t, ok := res.Data.ContentType().Get(); !ok || t != ndn.ContentTypeKey {
+			if res.IsLocal && !triedLocal {
+				triedLocal = true
+				if res.Data != nil {
+					_ = tc.keychain.Store().Remove(res.Data.Name())
+				}
+				args.Fetch(keyLocator, fetchCfg, cb)
+				return
+			}
 			args.Callback(false, fmt.Errorf("non-certificate in chain: %s", res.Data.Name()))
 			return
 		}
 
 		// Bail if the fetched cert is not fresh
-		if CertIsExpired(res.Data) {
+		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(res.Data) {
 			args.Callback(false, fmt.Errorf("certificate is expired: %s", res.Data.Name()))
 			return
 		}
@@ -350,9 +387,11 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 		// Continue validation with fetched cert
 		tc.Validate(args)
-	})
+	}
+	args.Fetch(keyLocator, fetchCfg, cb)
 }
 
+// (AI GENERATED DESCRIPTION): Validates the cross‑schema signed Data packet by parsing its embedded schema, checking its validity period, ensuring it authorizes the original certificate, and recursively validating the cross‑schema’s signature against the trust configuration.
 func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	crossWire := args.Data.CrossSchema()
 	if crossWire == nil {
@@ -367,7 +406,7 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	}
 
 	// Check validity period of the cross schema
-	if CertIsExpired(crossData) {
+	if !args.IgnoreValidity.GetOr(false) && CertIsExpired(crossData) {
 		args.Callback(false, fmt.Errorf("cross schema is expired: %s", crossData.Name()))
 		return
 	}
@@ -395,10 +434,241 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 		Data:       crossData,
 		DataSigCov: crossDataSigCov,
 
-		Fetch:        args.Fetch,
-		Callback:     args.Callback,
-		OverrideName: dataName, // original data
+		Fetch:          args.Fetch,
+		Callback:       args.Callback,
+		OverrideName:   dataName, // original data
+		IgnoreValidity: args.IgnoreValidity,
 
 		depth: args.depth,
+	})
+}
+
+func (tc *TrustConfig) handleSelfSignedCert(args TrustConfigValidateArgs, keyLocator enc.Name) {
+	if len(args.DataSigCov) == 0 {
+		args.Callback(false, fmt.Errorf("cert sig covered is nil: %s", args.Data.Name()))
+		return
+	}
+
+	valid, err := signer.ValidateData(args.Data, args.DataSigCov, args.Data)
+	if !valid {
+		args.Callback(false, fmt.Errorf("signature is invalid"))
+		return
+	}
+	if err != nil {
+		args.Callback(false, fmt.Errorf("signature validate error: %w", err))
+		return
+	}
+
+	anchorKeyName, err := KeyNameFromLocator(keyLocator)
+	if err != nil {
+		args.Callback(false, fmt.Errorf("invalid anchor key locator: %w", err))
+		return
+	}
+
+	// If already a trust anchor
+	if tc.isTrustedAnchorKey(anchorKeyName) {
+		args.Callback(true, nil)
+		return
+	}
+
+	// Otherwise, continue validation through a CertList
+	tc.exploreCertList(certListArgs{
+		args:         args,
+		anchorCert:   args.Data,
+		anchorRaw:    args.certRaw,
+		anchorKey:    anchorKeyName,
+		visitedLists: map[string]struct{}{},
+		visitedCerts: map[string]struct{}{},
+	}, anchorKeyName.Append(enc.NewKeywordComponent("auth")))
+}
+
+// PromoteAnchor installs a validated trust anchor into caches and keychain.
+func (tc *TrustConfig) PromoteAnchor(cert ndn.Data, raw enc.Wire) {
+	if cert == nil {
+		return
+	}
+	tc.certCache.Put(cert)
+	name := cert.Name()
+
+	// Persist the trust anchor if not already present and raw is available.
+	if len(raw) > 0 {
+		tc.mutex.Lock()
+		_ = tc.keychain.InsertCert(raw.Join())
+		tc.mutex.Unlock()
+	}
+
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	for _, root := range tc.roots {
+		if root.Equal(name) {
+			return
+		}
+	}
+	tc.roots = append(tc.roots, name)
+}
+
+func (tc *TrustConfig) isTrustedAnchorKey(keyLocator enc.Name) bool {
+	tc.mutex.RLock()
+	defer tc.mutex.RUnlock()
+	keyName, err := KeyNameFromLocator(keyLocator)
+	if err != nil {
+		return false
+	}
+	for _, root := range tc.roots {
+		if keyName.IsPrefix(root) {
+			return true
+		}
+	}
+	return false
+}
+
+type certListArgs struct {
+	args         TrustConfigValidateArgs
+	anchorCert   ndn.Data
+	anchorRaw    enc.Wire
+	anchorKey    enc.Name
+	visitedLists map[string]struct{}
+	visitedCerts map[string]struct{}
+}
+
+func (tc *TrustConfig) exploreCertList(args certListArgs, prefix enc.Name) {
+	key := prefix.TlvStr()
+	if _, ok := args.visitedLists[key]; ok {
+		args.args.Callback(false, fmt.Errorf("certlist loop"))
+		return
+	}
+	args.visitedLists[key] = struct{}{}
+
+	if cached, ok := tc.certListCache.Get(prefix); ok {
+		tc.processCertList(args, cached, nil, nil)
+		return
+	}
+
+	var fwHint []enc.Name
+	if args.args.UseDataNameFwHint.GetOr(tc.UseDataNameFwHint) && len(args.args.origDataName) > 0 {
+		fwHint = []enc.Name{args.args.origDataName}
+	}
+
+	args.args.Fetch(prefix, &ndn.InterestConfig{
+		CanBePrefix:    true,
+		MustBeFresh:    true,
+		ForwardingHint: fwHint,
+	}, func(res ndn.ExpressCallbackArgs) {
+		if res.Error == nil && res.Result != ndn.InterestResultData {
+			res.Error = fmt.Errorf("failed to fetch CertList (%s) with result: %s", prefix, res.Result)
+		}
+
+		if res.Error != nil {
+			args.args.Callback(false, res.Error)
+			return
+		}
+
+		raw := utils.If(!res.IsLocal, res.RawData, nil)
+		tc.processCertList(args, res.Data, res.SigCovered, raw)
+	})
+}
+
+func (tc *TrustConfig) processCertList(args certListArgs, listData ndn.Data, listSigCov enc.Wire, raw enc.Wire) {
+	if listData == nil {
+		args.args.Callback(false, fmt.Errorf("certlist missing"))
+		return
+	}
+	if !CertListNameMatches(args.anchorKey, listData.Name()) {
+		args.args.Callback(false, fmt.Errorf("certlist invalid"))
+		return
+	}
+	if listSigCov != nil {
+		valid, err := signer.ValidateData(listData, listSigCov, args.anchorCert)
+		if !valid || err != nil {
+			args.args.Callback(false, fmt.Errorf("certlist invalid"))
+			return
+		}
+		tc.certListCache.Put(args.anchorKey, listData)
+	}
+
+	names, err := DecodeCertList(listData.Content())
+	if err != nil {
+		args.args.Callback(false, fmt.Errorf("certlist invalid: %w", err))
+		return
+	}
+	if len(raw) > 0 {
+		if err := tc.keychain.Store().Put(listData.Name(), raw.Join()); err != nil {
+			log.Warn(tc, "Failed to store CertList", "name", listData.Name(), "err", err)
+		}
+	}
+	tc.tryListedCerts(args, names, 0)
+}
+
+func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx int) {
+	if idx >= len(names) {
+		args.args.Callback(false, fmt.Errorf("no chain to trusted anchor %s (tried %d certs from CertList)", args.anchorKey, len(names)))
+		return
+	}
+
+	name := names[idx]
+	if !args.anchorKey.IsPrefix(name) {
+		log.Debug(tc, "redirected cert name mismatch", "anchor", args.anchorKey, "redirect", name)
+		return
+	}
+	if _, ok := args.visitedCerts[name.TlvStr()]; ok {
+		tc.tryListedCerts(args, names, idx+1)
+		return
+	}
+	args.visitedCerts[name.TlvStr()] = struct{}{}
+
+	if _, ok := tc.certCache.Get(name); ok {
+		tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
+		args.args.Callback(true, nil)
+		return
+	}
+
+	var fwHint []enc.Name
+	if args.args.UseDataNameFwHint.GetOr(tc.UseDataNameFwHint) && len(args.args.origDataName) > 0 {
+		fwHint = []enc.Name{args.args.origDataName}
+	}
+
+	args.args.Fetch(name, &ndn.InterestConfig{
+		CanBePrefix:    true,
+		MustBeFresh:    true,
+		ForwardingHint: fwHint,
+	}, func(res ndn.ExpressCallbackArgs) {
+		if res.Error == nil && res.Result != ndn.InterestResultData {
+			res.Error = fmt.Errorf("failed to fetch certificate (%s) with result: %s", name, res.Result)
+		}
+
+		if res.Error != nil {
+			tc.tryListedCerts(args, names, idx+1)
+			return
+		}
+
+		if t, ok := res.Data.ContentType().Get(); !ok || t != ndn.ContentTypeKey {
+			tc.tryListedCerts(args, names, idx+1)
+			return
+		}
+
+		tc.Validate(TrustConfigValidateArgs{
+			Data:       res.Data,
+			DataSigCov: res.SigCovered,
+
+			Fetch:             args.args.Fetch,
+			UseDataNameFwHint: args.args.UseDataNameFwHint,
+			Callback: func(valid bool, err error) {
+				if valid && err == nil {
+					tc.certCache.Put(res.Data)
+					if len(res.RawData) > 0 {
+						tc.mutex.Lock()
+						_ = tc.keychain.InsertCert(res.RawData.Join())
+						tc.mutex.Unlock()
+					}
+					tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
+					args.args.Callback(true, nil)
+					return
+				}
+				tc.tryListedCerts(args, names, idx+1)
+			},
+			IgnoreValidity: args.args.IgnoreValidity,
+			origDataName:   args.args.origDataName,
+			depth:          args.args.depth,
+		})
 	})
 }

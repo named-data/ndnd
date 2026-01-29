@@ -18,6 +18,7 @@ type Tag interface {
 	String() string
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new `Logger` that writes text‑formatted log entries to the supplied `io.Writer`, using a trace‑level text handler and initializing the logger’s current level to `Info`.
 func NewText(w io.Writer) *Logger {
 	return &Logger{
 		slog: slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
@@ -28,6 +29,7 @@ func NewText(w io.Writer) *Logger {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a Logger that writes JSON‑formatted log entries to the supplied `io.Writer`, initializing the underlying slog handler at trace level while setting the Logger’s default level to info.
 func NewJson(w io.Writer) *Logger {
 	return &Logger{
 		slog: slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
@@ -118,6 +120,7 @@ func (l *Logger) Fatal(t Tag, msg string, v ...any) {
 	l.log(t, msg, LevelFatal, v...)
 }
 
+// (AI GENERATED DESCRIPTION): Converts a slog.Attr with key `log.LevelKey` into a string using the custom `Level` type’s `String()` method, leaving other attributes unchanged.
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 	if a.Key == slog.LevelKey {
 		level := a.Value.Any().(slog.Level)

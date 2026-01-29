@@ -29,6 +29,7 @@ type T1 struct {
 	H3 optional.Optional[uint64] `tlv:"0x06"`
 }
 
+// (AI GENERATED DESCRIPTION): Encodes a T1 packet, inserting the provided signature value into the encoded wire and updating its length field, and returns the full encoded wire along with the sub‑wire that the signature covers.
 func (v *T1) Encode(estLen uint, value []byte) (enc.Wire, enc.Wire) {
 	encoder := T1Encoder{
 		Sig_estLen: estLen,
@@ -46,6 +47,7 @@ func (v *T1) Encode(estLen uint, value []byte) (enc.Wire, enc.Wire) {
 	return wire, encoder.sigCovered
 }
 
+// (AI GENERATED DESCRIPTION): Parses a T1 packet from the given WireView, returning the parsed T1 object and the signature‑covered portion of the packet.
 func ReadT1(reader enc.WireView) (*T1, enc.Wire, error) {
 	context := T1ParsingContext{}
 	context.Init()
@@ -75,6 +77,7 @@ type T2 struct {
 	sigCovered enc.PlaceHolder
 }
 
+// (AI GENERATED DESCRIPTION): Encodes a T2 object into its binary wire format, inserting the supplied signature (if any) and, when requested, computing a SHA‑256 digest over the designated packet portion and embedding that digest into the name component.
 func (v *T2) Encode(estLen uint, value []byte, needDigest bool) (enc.Wire, enc.Wire) {
 	if v.Name == nil {
 		return nil, nil
@@ -128,6 +131,7 @@ func (v *T2) Encode(estLen uint, value []byte, needDigest bool) (enc.Wire, enc.W
 	return wire, encoder.sigCovered
 }
 
+// (AI GENERATED DESCRIPTION): Parses a T2 packet from a wire view, optionally verifies that its last name component is the correct SHA‑256 digest of the signed data, and returns the parsed packet together with the signed portion of the packet.
 func ReadT2(reader enc.WireView, digestRequired bool) (*T2, enc.Wire, error) {
 	context := T2ParsingContext{}
 	context.Init()

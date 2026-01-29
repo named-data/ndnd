@@ -9,6 +9,10 @@ import (
 
 // GetSecret gets the key secret bits.
 func GetSecret(key ndn.Signer) ([]byte, error) {
+	// Unwrap context signer so downstream logic sees the concrete key type.
+	if cs, ok := key.(*ContextSigner); ok && cs != nil {
+		return GetSecret(cs.base)
+	}
 	switch key := key.(type) {
 	case *eccSigner:
 		return key.Secret()

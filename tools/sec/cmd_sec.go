@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Creates and configures the `sec` command group, adding subcommands for key generation, certificate signing, keychain management, and PEM handling.
 func CmdSec() *cobra.Command {
 	cmd := &cobra.Command{
 		GroupID: "sec",

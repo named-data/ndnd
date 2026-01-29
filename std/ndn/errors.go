@@ -10,6 +10,7 @@ type ErrInvalidValue struct {
 	Value any
 }
 
+// (AI GENERATED DESCRIPTION): Formats an error message indicating that a particular item has an invalid value.
 func (e ErrInvalidValue) Error() string {
 	return fmt.Sprintf("invalid value for %s: %v", e.Item, e.Value)
 }
@@ -18,6 +19,7 @@ type ErrNotSupported struct {
 	Item string
 }
 
+// (AI GENERATED DESCRIPTION): Returns an error string indicating that the specified field is not supported.
 func (e ErrNotSupported) Error() string {
 	return fmt.Sprintf("not supported field: %s", e.Item)
 }

@@ -65,6 +65,7 @@ const SchemaJson = `{
 }`
 const HmacKey = "Hello, World!"
 
+// (AI GENERATED DESCRIPTION): Starts an NDN producer that attaches an encryption schema, generates a key, encrypts “Hello, world!”, publishes the encrypted content as a timestamped Data packet, and then runs until it receives a termination signal.
 func main() {
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{

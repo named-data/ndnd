@@ -28,10 +28,12 @@ type SegmentedNode struct {
 	Pipeline            string
 }
 
+// (AI GENERATED DESCRIPTION): Returns the SegmentedNode itself as a schema.NodeImpl for use by the node’s interface.
 func (n *SegmentedNode) NodeImplTrait() schema.NodeImpl {
 	return n
 }
 
+// (AI GENERATED DESCRIPTION): Creates a SegmentedNode configured with default segmentation parameters, registers a leaf node for segment numbers in the supplied schema node, and returns the configured NodeImpl.
 func CreateSegmentedNode(node *schema.Node) schema.NodeImpl {
 	ret := &SegmentedNode{
 		BaseNodeImpl: schema.BaseNodeImpl{
@@ -53,10 +55,12 @@ func CreateSegmentedNode(node *schema.Node) schema.NodeImpl {
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Returns a formatted string that identifies the SegmentedNode by embedding its underlying Node value.
 func (n *SegmentedNode) String() string {
 	return fmt.Sprintf("SegmentedNode (%s)", n.Node)
 }
 
+// (AI GENERATED DESCRIPTION): Splits the supplied content into fixed‑size segments, generates a Data packet for each segment by invoking the schema’s Provide method, and returns either the segment count or, if requested, the implicit SHA256 digests of each segment for a manifest.
 func (n *SegmentedNode) Provide(mNode schema.MatchedNode, content enc.Wire, needManifest bool) any {
 	if mNode.Node != n.Node {
 		panic("NTSchema tree compromised.")
@@ -113,6 +117,7 @@ func (n *SegmentedNode) Provide(mNode schema.MatchedNode, content enc.Wire, need
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Starts the appropriate callback pipeline for a matched node (e.g., SinglePacket) asynchronously, or returns an error if the pipeline type is unsupported.
 func (n *SegmentedNode) NeedCallback(
 	mNode schema.MatchedNode, callback schema.Callback, manifest []enc.Buffer) error {
 	if mNode.Node != n.Node {
@@ -127,6 +132,7 @@ func (n *SegmentedNode) NeedCallback(
 	return fmt.Errorf("unrecognized pipeline: %s", n.Pipeline)
 }
 
+// (AI GENERATED DESCRIPTION): Triggers a need request on the node and returns a channel that receives the resulting NeedResult when the callback is invoked.
 func (n *SegmentedNode) NeedChan(mNode schema.MatchedNode, manifest []enc.Buffer) chan schema.NeedResult {
 	ret := make(chan schema.NeedResult, 1)
 	callback := func(event *schema.Event) any {
@@ -145,6 +151,7 @@ func (n *SegmentedNode) NeedChan(mNode schema.MatchedNode, manifest []enc.Buffer
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and concatenates all segments of a segmented Data packet (using an optional manifest to locate segments), then invokes the callback with an event summarizing the collected fragments and the final fetch status.
 func (n *SegmentedNode) SinglePacketPipeline(
 	mNode schema.MatchedNode, callback schema.Callback, manifest []enc.Buffer,
 ) {
@@ -211,6 +218,7 @@ func (n *SegmentedNode) SinglePacketPipeline(
 	callback(event)
 }
 
+// (AI GENERATED DESCRIPTION): Casts the `SegmentedNode` to the requested type, returning itself when queried as `*SegmentedNode` or its embedded `BaseNodeImpl` when queried as `*schema.BaseNodeImpl`, and `nil` for unsupported types.
 func (n *SegmentedNode) CastTo(ptr any) any {
 	switch ptr.(type) {
 	case (*SegmentedNode):
@@ -230,14 +238,17 @@ type RdrNode struct {
 	MaxRetriesForMeta uint64
 }
 
+// (AI GENERATED DESCRIPTION): Returns a string representation of the RdrNode as `"RdrNode (<node>)"`, where `<node>` is the string form of its embedded Node field.
 func (n *RdrNode) String() string {
 	return fmt.Sprintf("RdrNode (%s)", n.Node)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the receiver RdrNode as a schema.NodeImpl implementation.
 func (n *RdrNode) NodeImplTrait() schema.NodeImpl {
 	return n
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a Reader node implementation, sets its metadata freshness and retry limits, and registers child node descriptors for a versioned metadata segment (including a leaf for segment 0) within the supplied schema node.
 func CreateRdrNode(node *schema.Node) schema.NodeImpl {
 	ret := &RdrNode{
 		BaseNodeImpl: schema.BaseNodeImpl{
@@ -257,6 +268,7 @@ func CreateRdrNode(node *schema.Node) schema.NodeImpl {
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Provides a matched node with the given content by creating a versioned, segmented Data packet, storing a corresponding metadata packet in storage, and returning the version timestamp used.
 func (n *RdrNode) Provide(mNode schema.MatchedNode, content enc.Wire) uint64 {
 	if mNode.Node != n.Node {
 		panic("NTSchema tree compromised.")
@@ -301,6 +313,7 @@ func (n *RdrNode) Provide(mNode schema.MatchedNode, content enc.Wire) uint64 {
 	return ver
 }
 
+// (AI GENERATED DESCRIPTION): Initiates an asynchronous need request for a node: if no version is supplied it first fetches the node’s metadata (retrying up to MaxRetriesForMeta) to determine the full name, then requests the data for that name and calls the supplied callback with the result.
 func (n *RdrNode) NeedCallback(mNode schema.MatchedNode, callback schema.Callback, version *uint64) {
 	if mNode.Node != n.Node {
 		panic("NTSchema tree compromised.")
@@ -364,6 +377,7 @@ func (n *RdrNode) NeedCallback(mNode schema.MatchedNode, callback schema.Callbac
 	}()
 }
 
+// (AI GENERATED DESCRIPTION): Creates a one‑shot channel that receives the `NeedResult` of a Need operation on the given matched node, by registering a callback that forwards the event to the channel and then closes it.
 func (n *RdrNode) NeedChan(mNode schema.MatchedNode, version *uint64) chan schema.NeedResult {
 	ret := make(chan schema.NeedResult, 1)
 	callback := func(event *schema.Event) any {
@@ -382,6 +396,7 @@ func (n *RdrNode) NeedChan(mNode schema.MatchedNode, version *uint64) chan schem
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Casts an RdrNode to the requested target type, returning the node or its embedded BaseNodeImpl pointer when the argument’s type matches, otherwise returning nil.
 func (n *RdrNode) CastTo(ptr any) any {
 	switch ptr.(type) {
 	case (*RdrNode):
@@ -403,10 +418,12 @@ type GeneralObjNode struct {
 	MaxRetriesForManifest uint64
 }
 
+// (AI GENERATED DESCRIPTION): Returns the `GeneralObjNode` as a `schema.NodeImpl` interface implementation.
 func (n *GeneralObjNode) NodeImplTrait() schema.NodeImpl {
 	return n
 }
 
+// (AI GENERATED DESCRIPTION): Casts a GeneralObjNode to the requested type, returning the node itself for *GeneralObjNode, its embedded BaseNodeImpl for *schema.BaseNodeImpl, or nil for unsupported types.
 func (n *GeneralObjNode) CastTo(ptr any) any {
 	switch ptr.(type) {
 	case (*GeneralObjNode):
@@ -418,6 +435,7 @@ func (n *GeneralObjNode) CastTo(ptr any) any {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a GeneralObjNode attached to the supplied schema node, initializes its freshness and retry limits, and registers child nodes for the data, metadata, and manifest segments of a general object.
 func CreateGeneralObjNode(node *schema.Node) schema.NodeImpl {
 	ret := &GeneralObjNode{
 		BaseNodeImpl: schema.BaseNodeImpl{
@@ -441,10 +459,12 @@ func CreateGeneralObjNode(node *schema.Node) schema.NodeImpl {
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Returns a formatted string representing the GeneralObjNode, including its type label and the underlying Node value.
 func (n *GeneralObjNode) String() string {
 	return fmt.Sprintf("GeneralObjNode (%s)", n.Node)
 }
 
+// (AI GENERATED DESCRIPTION): Generates and registers segmented data, its metadata, and a manifest for the matched node, storing each as Data packets in the NTSchema tree and returning the number of segments.
 func (n *GeneralObjNode) Provide(mNode schema.MatchedNode, content enc.Wire) uint64 {
 	if mNode.Node != n.Node {
 		panic("NTSchema tree compromised.")
@@ -498,6 +518,7 @@ func (n *GeneralObjNode) Provide(mNode schema.MatchedNode, content enc.Wire) uin
 	return segCnt
 }
 
+// (AI GENERATED DESCRIPTION): Requests a manifest for the given matched node, parses it, then requests each segment listed in the manifest, passing the results to the supplied callback.
 func (n *GeneralObjNode) NeedCallback(mNode schema.MatchedNode, callback schema.Callback) {
 	if mNode.Node != n.Node {
 		panic("NTSchema tree compromised.")
@@ -563,6 +584,7 @@ func (n *GeneralObjNode) NeedCallback(mNode schema.MatchedNode, callback schema.
 	}()
 }
 
+// (AI GENERATED DESCRIPTION): Creates and returns a channel that will receive a `NeedResult` when the node’s `NeedCallback` processes a need event for the specified matched node.
 func (n *GeneralObjNode) NeedChan(mNode schema.MatchedNode) chan schema.NeedResult {
 	ret := make(chan schema.NeedResult, 1)
 	callback := func(event *schema.Event) any {
@@ -587,6 +609,7 @@ var (
 	GeneralObjNodeDesc *schema.NodeImplDesc
 )
 
+// (AI GENERATED DESCRIPTION): Initializes and registers the node implementation descriptors for SegmentedNode, RdrNode, and GeneralObjNode, configuring their properties, events, and exposed functions.
 func initRdrNodes() {
 	SegmentedNodeDesc = &schema.NodeImplDesc{
 		ClassName: "SegmentedNode",
@@ -821,6 +844,7 @@ func initRdrNodes() {
 	schema.RegisterNodeImpl(GeneralObjNodeDesc)
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the package by invoking initRdrNodes to set up reader nodes at startup.
 func init() {
 	initRdrNodes()
 }

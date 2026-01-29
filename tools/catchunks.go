@@ -16,6 +16,7 @@ import (
 
 type CatChunks struct{}
 
+// (AI GENERATED DESCRIPTION): Creates a Cobra command that retrieves the data object for a given name prefix and writes its content to standard output.
 func CmdCatChunks() *cobra.Command {
 	cc := CatChunks{}
 
@@ -31,10 +32,12 @@ The object contents are written to stdout on success.`,
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the literal string `"cat"` as the textual representation of a `CatChunks` instance.
 func (cc *CatChunks) String() string {
 	return "cat"
 }
 
+// (AI GENERATED DESCRIPTION): Fetches an NDN object by name, streams its payload to standard output, and prints fetch statistics and progress to standard error.
 func (cc *CatChunks) run(_ *cobra.Command, args []string) {
 	name, err := enc.NameFromStr(args[0])
 	if err != nil {

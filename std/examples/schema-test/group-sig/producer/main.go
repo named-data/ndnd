@@ -76,6 +76,7 @@ occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim 
 `
 const HmacKey = "Hello, World!"
 
+// (AI GENERATED DESCRIPTION): Launches an NDN application that registers a schema, produces a timestamped Data packet containing Lorem‑Ipsum, and runs until an interrupt signal is received.
 func main() {
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{

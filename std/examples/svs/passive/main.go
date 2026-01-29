@@ -15,6 +15,7 @@ import (
 	"github.com/named-data/ndnd/std/sync"
 )
 
+// (AI GENERATED DESCRIPTION): Runs an SVS instance in passive mode that announces a group prefix, receives updates from other SVS nodes, buffers them in a Badger store, and logs each received update until the program is terminated.
 func main() {
 	// ===========================================================
 	// IMPORTANT: Passive mode is not recommended for general use.

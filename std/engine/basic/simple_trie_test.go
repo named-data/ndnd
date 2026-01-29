@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests the insertion, exact and prefix matching, and pruning behavior of a basic name‑trie data structure.
 func TestBasicMatch(t *testing.T) {
 	tu.SetT(t)
 
@@ -71,6 +72,7 @@ func TestBasicMatch(t *testing.T) {
 	require.False(t, trie.HasChildren())
 }
 
+// (AI GENERATED DESCRIPTION): PruneIf conditionally removes a NameTrie node and its entire subtree when the node’s value satisfies a given predicate and it has no other non‑zero children, updating parent links but preserving ancestors that still have remaining non‑zero descendants.
 func TestPruneIf(t *testing.T) {
 	tu.SetT(t)
 

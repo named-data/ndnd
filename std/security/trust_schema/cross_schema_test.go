@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): TestSignCrossSchema verifies that a cross‑schema Data packet can be signed with a given signer, including a validity window, and that the resulting packet’s name, content, and signature validity periods can be correctly parsed and validated.
 func TestSignCrossSchema(t *testing.T) {
 	tu.SetT(t)
 
@@ -53,4 +54,29 @@ func TestSignCrossSchema(t *testing.T) {
 	nb, na := parsed.Signature().Validity()
 	require.Equal(t, T1.Unix(), nb.Unwrap().Unix())
 	require.Equal(t, T2.Unix(), na.Unwrap().Unix())
+}
+
+func TestCrossSchemaComponentRuleMatch(t *testing.T) {
+	tu.SetT(t)
+
+	dataName := tu.NoErr(enc.NameFromStr("/app/invite/team/alice/data"))
+	dataPattern := tu.NoErr(enc.NameFromStr("/app/_/team")) // wildcard in the middle
+	certName := tu.NoErr(enc.NameFromStr("/users/alice/KEY/kid/iss/ver"))
+
+	cross := trust_schema.CrossSchemaContent{
+		ComponentSchemaRules: []*trust_schema.ComponentSchemaRule{{
+			NamePrefix:         dataPattern,
+			KeyLocator:         &spec_2022.KeyLocator{Name: tu.NoErr(enc.NameFromStr("/users/_"))}, // wildcard in cert prefix
+			NameComponentIndex: 3,                                                                  // capture "alice" in full data name
+			KeyComponentIndex:  1,                                                                  // expect it immediately after "/users" in cert name
+		}},
+	}
+
+	require.True(t, cross.Match(dataName, certName))
+
+	mismatchCert := tu.NoErr(enc.NameFromStr("/users/bob/KEY/kid/iss/ver"))
+	require.False(t, cross.Match(dataName, mismatchCert))
+
+	shortName := tu.NoErr(enc.NameFromStr("/app/invite/team"))
+	require.False(t, cross.Match(shortName, certName))
 }

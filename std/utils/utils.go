@@ -26,10 +26,12 @@ func ConvIntPtr[A, B constraints.Integer](a *A) *B {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Converts a `time.Time` into a Unix‑epoch timestamp expressed in milliseconds, returned as a `uint64`.
 func MakeTimestamp(t time.Time) uint64 {
 	return uint64(t.UnixNano() / int64(time.Millisecond))
 }
 
+// (AI GENERATED DESCRIPTION): Converts a byte slice nonce into an unsigned 32‑bit integer and returns it wrapped in an optional.Optional.
 func ConvertNonce(nonce []byte) (ret optional.Optional[uint32]) {
 	x := uint32(0)
 	for _, b := range nonce {

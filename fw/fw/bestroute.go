@@ -25,15 +25,18 @@ type BestRoute struct {
 	StrategyBase
 }
 
+// (AI GENERATED DESCRIPTION): Registers the BestRoute strategy with version 1 in the strategy registry by appending its constructor to the init list.
 func init() {
 	strategyInit = append(strategyInit, func() Strategy { return &BestRoute{} })
 	StrategyVersions["best-route"] = []uint64{1}
 }
 
+// (AI GENERATED DESCRIPTION): Initializes the *BestRoute strategy by setting up its base with the name “best‑route” and priority 1 on the provided forwarding thread.
 func (s *BestRoute) Instantiate(fwThread *Thread) {
 	s.NewStrategyBase(fwThread, "best-route", 1)
 }
 
+// (AI GENERATED DESCRIPTION): Sends a cached Data packet (retrieved from the Content Store) back to the requester via the specified PIT entry, using the requesting face and indicating the Content Store as the data source.
 func (s *BestRoute) AfterContentStoreHit(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
@@ -43,6 +46,7 @@ func (s *BestRoute) AfterContentStoreHit(
 	s.SendData(packet, pitEntry, inFace, 0) // 0 indicates ContentStore is source
 }
 
+// (AI GENERATED DESCRIPTION): Forwards a received Data packet to every face recorded in the PIT entry, logging each forwarding step and invoking SendData for each destination.
 func (s *BestRoute) AfterReceiveData(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
@@ -55,6 +59,7 @@ func (s *BestRoute) AfterReceiveData(
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Forwards an incoming Interest to the lowest‑cost next‑hop, suppressing retransmissions within a set time window, and drops the Interest if no usable nexthop is found.
 func (s *BestRoute) AfterReceiveInterest(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
@@ -100,6 +105,7 @@ func (s *BestRoute) AfterReceiveInterest(
 	core.Log.Debug(s, "No usable nexthop for Interest - DROP", "name", packet.Name)
 }
 
+// (AI GENERATED DESCRIPTION): No‑op; the BestRoute strategy performs no action before satisfying an Interest.
 func (s *BestRoute) BeforeSatisfyInterest(pitEntry table.PitEntry, inFace uint64) {
 	// This does nothing in BestRoute
 }

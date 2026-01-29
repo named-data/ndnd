@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that the Sha256Signer produces the correct signature type, size, key name, and digest when signing the byte slice "hello".
 func TestSha256Signer(t *testing.T) {
 	tu.SetT(t)
 

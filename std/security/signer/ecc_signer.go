@@ -18,22 +18,27 @@ type eccSigner struct {
 	keyLen uint
 }
 
+// (AI GENERATED DESCRIPTION): Returns the signature type for an ECDSA signer, specifically SHA‑256 with ECDSA.
 func (s *eccSigner) Type() ndn.SigType {
 	return ndn.SignatureSha256WithEcdsa
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the enc.Name that identifies the ECC signer's key.
 func (s *eccSigner) KeyName() enc.Name {
 	return s.name
 }
 
+// (AI GENERATED DESCRIPTION): Returns the name of the key associated with the ECC signer.
 func (s *eccSigner) KeyLocator() enc.Name {
 	return s.name
 }
 
+// (AI GENERATED DESCRIPTION): Estimates the size, in bytes, of the ECC signature that this signer will generate.
 func (s *eccSigner) EstimateSize() uint {
 	return s.keyLen
 }
 
+// (AI GENERATED DESCRIPTION): Computes a SHA‑256 digest of the provided buffers and returns the ASN.1‑encoded ECDSA signature using the signer's private key.
 func (s *eccSigner) Sign(covered enc.Wire) ([]byte, error) {
 	h := sha256.New()
 	for _, buf := range covered {
@@ -46,10 +51,12 @@ func (s *eccSigner) Sign(covered enc.Wire) ([]byte, error) {
 	return ecdsa.SignASN1(rand.Reader, s.key, digest)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ECC signer's public key encoded as an X.509 PKIX byte slice.
 func (s *eccSigner) Public() ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(&s.key.PublicKey)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the EC private key associated with the signer, encoded as a DER‑encoded byte slice (or an error if marshalling fails).
 func (s *eccSigner) Secret() ([]byte, error) {
 	return x509.MarshalECPrivateKey(s.key)
 }

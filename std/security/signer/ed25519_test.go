@@ -14,6 +14,7 @@ import (
 
 var TEST_KEY_NAME, _ = enc.NameFromStr("/KEY")
 
+// (AI GENERATED DESCRIPTION): Verifies that the supplied Ed25519 signer signs a sample data packet correctly and that the resulting signature validates against the provided public key.
 func testEd25519Verify(t *testing.T, signer ndn.Signer, verifyKey []byte) bool {
 	require.Equal(t, uint(ed25519.SignatureSize), signer.EstimateSize())
 	require.Equal(t, ndn.SignatureEd25519, signer.Type())
@@ -30,6 +31,7 @@ func testEd25519Verify(t *testing.T, signer ndn.Signer, verifyKey []byte) bool {
 	return ed25519.Verify(verifyKeyBits, dataVal.Join(), sigValue)
 }
 
+// (AI GENERATED DESCRIPTION): Creates an Ed25519 signer from a seed, extracts its public key, and verifies that signatures produced by the signer are correctly validated.
 func TestEd25519SignerNew(t *testing.T) {
 	tu.SetT(t)
 
@@ -39,6 +41,7 @@ func TestEd25519SignerNew(t *testing.T) {
 	require.True(t, testEd25519Verify(t, signer, pub))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that Ed25519 key generation produces unique key pairs and that each key’s public key correctly verifies signatures from its own signer.
 func TestEd25519Keygen(t *testing.T) {
 	tu.SetT(t)
 
@@ -54,6 +57,7 @@ func TestEd25519Keygen(t *testing.T) {
 	require.False(t, testEd25519Verify(t, signer2, pub1))
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that an Ed25519 signer can be reconstructed from its secret key and that attempting to parse a public key fails.
 func TestEd25519Parse(t *testing.T) {
 	tu.SetT(t)
 

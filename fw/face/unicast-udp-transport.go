@@ -94,15 +94,18 @@ func MakeUnicastUDPTransport(
 	return t, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string that identifies the unicast UDP transport by its face ID, remote URI, and local URI.
 func (t *UnicastUDPTransport) String() string {
 	return fmt.Sprintf("unicast-udp-transport (face=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
 
+// (AI GENERATED DESCRIPTION): Sets the persistency mode on the UnicastUDPTransport instance and returns true to indicate success.
 func (t *UnicastUDPTransport) SetPersistency(persistency spec_mgmt.Persistency) bool {
 	t.persistency = persistency
 	return true
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the size (in bytes) of the underlying UDP socket’s send queue for this UnicastUDPTransport, logging a warning if the raw connection cannot be obtained.
 func (t *UnicastUDPTransport) GetSendQueueSize() uint64 {
 	rawConn, err := t.conn.SyscallConn()
 	if err != nil {
@@ -111,6 +114,7 @@ func (t *UnicastUDPTransport) GetSendQueueSize() uint64 {
 	return impl.SyscallGetSocketSendQueueSize(rawConn)
 }
 
+// (AI GENERATED DESCRIPTION): Sends a UDP frame over the transport, validating it against the MTU, handling write errors by logging and closing the face, and updating outbound byte counters and the face’s expiration time.
 func (t *UnicastUDPTransport) sendFrame(frame []byte) {
 	if !t.running.Load() {
 		return
@@ -133,6 +137,7 @@ func (t *UnicastUDPTransport) sendFrame(frame []byte) {
 	*t.expirationTime = time.Now().Add(CfgUDPLifetime())
 }
 
+// (AI GENERATED DESCRIPTION): Continuously reads TLV frames from the UDP socket, updates input byte count and expiration time, forwards each frame to the link service, and silently ignores connection‑refused errors while logging other read failures.
 func (t *UnicastUDPTransport) runReceive() {
 	defer t.Close()
 
@@ -151,6 +156,7 @@ func (t *UnicastUDPTransport) runReceive() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Closes the UDP connection if it is currently active, atomically setting the running flag to false.
 func (t *UnicastUDPTransport) Close() {
 	if t.running.Swap(false) {
 		t.conn.Close()

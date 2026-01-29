@@ -40,10 +40,12 @@ func MakeUnixStreamListener(localURI *defn.URI) (*UnixStreamListener, error) {
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string identifying the UnixStreamListener, including its local URI.
 func (l *UnixStreamListener) String() string {
 	return fmt.Sprintf("unix-stream-listener (%s)", l.localURI)
 }
 
+// (AI GENERATED DESCRIPTION): Runs a Unix‑domain socket listener that accepts incoming stream connections, creates an NDN link service for each connection, and starts it until the program exits.
 func (l *UnixStreamListener) Run() {
 	defer func() { l.stopped <- true }()
 
@@ -99,6 +101,7 @@ func (l *UnixStreamListener) Run() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Closes the listener’s underlying connection if it exists and blocks until the listener’s stopped channel signals that it has fully stopped.
 func (l *UnixStreamListener) Close() {
 	if l.conn != nil {
 		l.conn.Close()

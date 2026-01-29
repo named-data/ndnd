@@ -47,6 +47,7 @@ type Fib struct {
 	mark     map[uint64]bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new Fib instance with the supplied configuration and NFD control thread, initializing its internal maps for name‑to‑name, prefix‑to‑entries, and mark flags.
 func NewFib(config *config.Config, nfdc *nfdc.NfdMgmtThread) *Fib {
 	return &Fib{
 		config:   config,
@@ -57,14 +58,17 @@ func NewFib(config *config.Config, nfdc *nfdc.NfdMgmtThread) *Fib {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Return the number of prefixes stored in the forwarding information base (FIB).
 func (fib *Fib) Size() int {
 	return len(fib.prefixes)
 }
 
+// (AI GENERATED DESCRIPTION): Updates the FIB entry for the specified name with the provided entries, returning true if the update succeeded.
 func (fib *Fib) Update(name enc.Name, newEntries []FibEntry) bool {
 	return fib.UpdateH(name.Hash(), name, newEntries)
 }
 
+// (AI GENERATED DESCRIPTION): Updates the FIB entry for a given prefix hash by merging new routing entries, adjusting costs, registering or unregistering NFD routes as needed, and removing the prefix entirely if no reachable routes remain.
 func (fib *Fib) UpdateH(nameH uint64, name enc.Name, newEntries []FibEntry) bool {
 	if _, ok := fib.names[nameH]; !ok {
 		fib.names[nameH] = name
@@ -156,16 +160,19 @@ func (fib *Fib) UpdateH(nameH uint64, name enc.Name, newEntries []FibEntry) bool
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Marks the specified name identifier as true in the Fib’s internal `mark` map.
 func (fib *Fib) MarkH(name uint64) {
 	fib.mark[name] = true
 }
 
+// (AI GENERATED DESCRIPTION): Clears all entries from the Fib’s mark map, effectively removing every marked hash.
 func (fib *Fib) UnmarkAll() {
 	for hash := range fib.mark {
 		delete(fib.mark, hash)
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Iterates over all next‑hops in the FIB and removes those whose mark flag is false by calling `UpdateH` with a nil value.
 func (fib *Fib) RemoveUnmarked() {
 	for nh := range fib.prefixes {
 		if !fib.mark[nh] {

@@ -105,6 +105,7 @@ const (
 	}`
 )
 
+// (AI GENERATED DESCRIPTION): Runs an NDN consumer that enrolls a trust anchor, attaches a schema tree, requests the Data packet named `/\<nodeId\>/data` for the given node ID, and prints the outcome (data, NACK, timeout, or cancellation).
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal(nil, "Insufficient argument. Please input the version number given by the producer.")

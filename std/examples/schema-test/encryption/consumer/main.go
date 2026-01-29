@@ -63,6 +63,7 @@ const SchemaJson = `{
 }`
 const HmacKey = "Hello, World!"
 
+// (AI GENERATED DESCRIPTION): Starts an NDN engine, queries the network for a specified version of `/randomData`, decrypts the returned Data packet with the `/contentKey`, and prints the plaintext.
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal(nil, "Insufficient argument. Please input the version number given by the producer.")

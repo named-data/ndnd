@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that a `basePitEntry` correctly returns its stored name, flags, forwarding hint, expiration time, satisfaction status, token, and that its in‑ and out‑record slices are initially empty.
 func TestBasePitEntryGetters(t *testing.T) {
 	name, _ := enc.NameFromStr("/something")
 	currTime := time.Now()
@@ -35,6 +36,7 @@ func TestBasePitEntryGetters(t *testing.T) {
 	assert.Equal(t, bpe.Token(), uint32(1234))
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that the `basePitEntry` setters correctly update its expiration time and satisfied flag.
 func TestBasePitEntrySetters(t *testing.T) {
 	name, _ := enc.NameFromStr("/something")
 	currTime := time.Now()
@@ -56,6 +58,7 @@ func TestBasePitEntrySetters(t *testing.T) {
 	assert.Equal(t, bpe.Satisfied(), false)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the `ClearInRecords` method removes all entries from the `inRecords` map of a `basePitEntry`.
 func TestClearInRecords(t *testing.T) {
 	inrecord1 := PitInRecord{}
 	inrecord2 := PitInRecord{}
@@ -71,6 +74,7 @@ func TestClearInRecords(t *testing.T) {
 	assert.Equal(t, len(bpe.InRecords()), 0)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that calling ClearOutRecords on a basePitEntry removes all entries from its outRecords map.
 func TestClearOutRecords(t *testing.T) {
 	outrecord1 := PitOutRecord{}
 	outrecord2 := PitOutRecord{}
@@ -86,6 +90,7 @@ func TestClearOutRecords(t *testing.T) {
 	assert.Equal(t, len(bpe.OutRecords()), 0)
 }
 
+// (AI GENERATED DESCRIPTION): InsertInRecord adds or updates an incoming PIT record for the specified face ID with the provided interest nonce and PIT token, returning the record, a flag indicating whether the record was already present, and the previous nonce if it was updated.
 func TestInsertInRecord(t *testing.T) {
 	// Case 1: interest does not already exist in basePitEntry.inRecords
 	name, _ := enc.NameFromStr("/something")
@@ -147,6 +152,7 @@ func TestInsertInRecord(t *testing.T) {
 	// of time.Now()
 }
 
+// (AI GENERATED DESCRIPTION): Tests that a baseCsEntry correctly exposes its index and stale time, and that its Copy method returns an identical Data packet (with the expected name) and wire representation without error.
 func TestBaseCsEntryGetters(t *testing.T) {
 	name, _ := enc.NameFromStr("/ndn/edu/ucla/ping/123")
 	currTime := time.Now()

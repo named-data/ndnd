@@ -42,6 +42,7 @@ const SchemaJson = `{
   ]
 }`
 
+// (AI GENERATED DESCRIPTION): Requests a Data packet matching `/randomData/<v=time>` with the current timestamp, then prints whether the request was NACKed, timed out, canceled, or successfully received.
 func main() {
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{

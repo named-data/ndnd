@@ -17,22 +17,27 @@ type rsaSigner struct {
 	key  *rsa.PrivateKey
 }
 
+// (AI GENERATED DESCRIPTION): Returns the signature type for the RSA signer, indicating that it uses SHA‑256 with RSA.
 func (s *rsaSigner) Type() ndn.SigType {
 	return ndn.SignatureSha256WithRsa
 }
 
+// (AI GENERATED DESCRIPTION): Returns the key name (`enc.Name`) used by this RSA signer.
 func (s *rsaSigner) KeyName() enc.Name {
 	return s.name
 }
 
+// (AI GENERATED DESCRIPTION): Returns the name of the key that serves as the KeyLocator for this RSA signer.
 func (s *rsaSigner) KeyLocator() enc.Name {
 	return s.name
 }
 
+// (AI GENERATED DESCRIPTION): Estimates the byte length of an RSA signature that this signer would produce, based on the RSA key size.
 func (s *rsaSigner) EstimateSize() uint {
 	return uint(s.key.Size())
 }
 
+// (AI GENERATED DESCRIPTION): Generates an RSA PKCS#1 v1.5 signature by hashing the concatenated buffers in the supplied covered wire with SHA‑256 and signing the resulting digest using the signer’s private key.
 func (s *rsaSigner) Sign(covered enc.Wire) ([]byte, error) {
 	h := sha256.New()
 	for _, buf := range covered {
@@ -45,10 +50,12 @@ func (s *rsaSigner) Sign(covered enc.Wire) ([]byte, error) {
 	return rsa.SignPKCS1v15(nil, s.key, crypto.SHA256, digest)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the RSA public key of the signer encoded as a PKIX ASN.1 DER byte slice.
 func (s *rsaSigner) Public() ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(&s.key.PublicKey)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the RSA signer’s private key encoded as PKCS#1 DER‑formatted bytes.
 func (s *rsaSigner) Secret() ([]byte, error) {
 	return x509.MarshalPKCS1PrivateKey(s.key), nil
 }

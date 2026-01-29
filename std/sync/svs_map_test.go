@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Creates and returns a sample SvMap containing two names ("/ndn/alice" and "/ndn/bob") each with associated timestamp‑sequence pairs.
 func makeSvMap() ndn_sync.SvMap[uint64] {
 	m := ndn_sync.NewSvMap[uint64](0)
 	m.Set("/ndn/alice", 100, 1)
@@ -17,6 +18,7 @@ func makeSvMap() ndn_sync.SvMap[uint64] {
 	return m
 }
 
+// (AI GENERATED DESCRIPTION): TestSvMapBasic verifies that the SvMap correctly stores, retrieves, updates, and allows direct modification of timestamped values associated with name keys.
 func TestSvMapBasic(t *testing.T) {
 	tu.SetT(t)
 
@@ -40,6 +42,7 @@ func TestSvMapBasic(t *testing.T) {
 	require.Equal(t, uint64(138), m.Get("/ndn/alice", 100))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the SvMap.Set method correctly inserts new entries, updates existing ones, and maintains the entries sorted by boot time.
 func TestSvMapSet(t *testing.T) {
 	tu.SetT(t)
 
@@ -62,6 +65,7 @@ func TestSvMapSet(t *testing.T) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Tests the SvMap.IsNewerThan method to verify that it correctly determines whether one SvMap is newer than another based on entry sequence numbers and presence of entries.
 func TestSvMapNewer(t *testing.T) {
 	tu.SetT(t)
 
@@ -97,6 +101,7 @@ func TestSvMapNewer(t *testing.T) {
 	require.False(t, m1.IsNewerThan(m2, exist))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that an SvMap encodes name entries in NDN canonical order and their sequence‑number entries sorted by ascending bootstrap time.
 func TestSvMapTLV(t *testing.T) {
 	tu.SetT(t)
 

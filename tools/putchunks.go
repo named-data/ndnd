@@ -19,6 +19,7 @@ type PutChunks struct {
 	expose bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a Cobra command that publishes data chunks read from standard input under a specified name prefix, optionally registering the prefix with the client origin.
 func CmdPutChunks() *cobra.Command {
 	pc := PutChunks{}
 
@@ -37,10 +38,12 @@ This tool expects data from the standard input.`,
 	return cmd
 }
 
+// (AI GENERATED DESCRIPTION): Returns the literal string `"put"` to identify the `PutChunks` operation (implementing the fmt.Stringer interface).
 func (pc *PutChunks) String() string {
 	return "put"
 }
 
+// (AI GENERATED DESCRIPTION): Ingests data from standard input, produces a named Data object in the NDN engine, announces its prefix, and blocks until a termination signal is received.
 func (pc *PutChunks) run(_ *cobra.Command, args []string) {
 	name, err := enc.NameFromStr(args[0])
 	if err != nil {

@@ -18,14 +18,17 @@ type keyChainKey struct {
 	latestCertVer uint64
 }
 
+// (AI GENERATED DESCRIPTION): Returns the name of the key associated with this keyChainKey’s signer.
 func (k *keyChainKey) KeyName() enc.Name {
 	return k.signer.KeyName()
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Signer instance stored in the keyChainKey for signing packets.
 func (k *keyChainKey) Signer() ndn.Signer {
 	return k.signer
 }
 
+// (AI GENERATED DESCRIPTION): Returns the slice of unique certificate names associated with the key.
 func (k *keyChainKey) UniqueCerts() []enc.Name {
 	return k.uniqueCerts
 }
@@ -55,14 +58,17 @@ type keyChainIdentity struct {
 	keyList []ndn.KeyChainKey
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the name of the keyChainIdentity instance.
 func (id *keyChainIdentity) Name() enc.Name {
 	return id.name
 }
 
+// (AI GENERATED DESCRIPTION): Returns the slice of keys associated with this identity.
 func (id *keyChainIdentity) Keys() []ndn.KeyChainKey {
 	return id.keyList
 }
 
+// (AI GENERATED DESCRIPTION): Adds a certificate name to all keys of the identity whose names prefix the given certificate name, then re‑sorts the identity's key list.
 func (id *keyChainIdentity) insertCert(name enc.Name) {
 	if !id.Name().IsPrefix(name) {
 		return
@@ -75,6 +81,7 @@ func (id *keyChainIdentity) insertCert(name enc.Name) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Sorts the identity’s key list in descending order based on each key’s latest certificate version number.
 func (id *keyChainIdentity) sort() {
 	sort.Slice(id.keyList, func(i, j int) bool {
 		return id.keyList[i].(*keyChainKey).latestCertVer >

@@ -12,6 +12,7 @@ import (
 	"github.com/named-data/ndnd/std/utils"
 )
 
+// (AI GENERATED DESCRIPTION): Starts an NDN BasicEngine, expresses a fresh Interest for a timestamp‑appended name, and prints the result (Data payload or Nack/timeout/cancellation) received from the network.
 func main() {
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()

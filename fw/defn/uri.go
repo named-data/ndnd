@@ -160,6 +160,7 @@ func MakeQuicFaceURI(addr netip.AddrPort) *URI {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Parses a URI string into a normalized URI object, interpreting its scheme, host, port, path, and optional zone, handling special cases (dev, fd, internal, null, unix, WebSocket server/client) and returning the resulting URI or nil on failure.
 func DecodeURIString(str string) *URI {
 	ret := &URI{
 		uriType: unknownURI,
@@ -407,6 +408,7 @@ func (u *URI) Scope() Scope {
 	return Local
 }
 
+// (AI GENERATED DESCRIPTION): Formats a URI object into its canonical string representation based on its type, scheme, host, port, and path.
 func (u *URI) String() string {
 	switch u.uriType {
 	case devURI:

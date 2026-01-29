@@ -40,6 +40,7 @@ type ComponentPattern interface {
 	FromMatching(m Matching) (*Component, error)
 }
 
+// (AI GENERATED DESCRIPTION): Parses a string into a ComponentPattern, interpreting angle‑bracketed syntax as a generic or typed component pattern (e.g., `<foo>` or `<Type=foo>`) and delegating plain strings to the standard component parser.
 func ComponentPatternFromStr(s string) (ComponentPattern, error) {
 	if len(s) <= 0 || s[0] != '<' {
 		return ComponentFromStr(s)
@@ -74,6 +75,7 @@ type Pattern struct {
 	Tag string
 }
 
+// (AI GENERATED DESCRIPTION): Generates a human‑readable string for a `Pattern`, formatting its tag and type as `<name=tag>` if a conversion name exists, `<tag>` for a generic name component, or `<type=tag>` otherwise.
 func (p Pattern) String() string {
 	if p.Typ == TypeGenericNameComponent {
 		return "<" + p.Tag + ">"
@@ -84,6 +86,7 @@ func (p Pattern) String() string {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Produces a canonical string representation of a Pattern, outputting `<Tag>` for generic name components and `<Typ=Tag>` for all other components.
 func (p Pattern) CanonicalString() string {
 	if p.Typ == TypeGenericNameComponent {
 		return "<" + p.Tag + ">"
@@ -92,10 +95,12 @@ func (p Pattern) CanonicalString() string {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Pattern value itself as a ComponentPattern, effectively casting the Pattern to the ComponentPattern interface.
 func (p Pattern) ComponentPatternTrait() ComponentPattern {
 	return p
 }
 
+// (AI GENERATED DESCRIPTION): Compares this `Pattern` to another `ComponentPattern`, ordering first by component type and then by tag string, treating non‑Pattern components as greater.
 func (p Pattern) Compare(rhs ComponentPattern) int {
 	rp, ok := rhs.(Pattern)
 	if !ok {
@@ -116,6 +121,7 @@ func (p Pattern) Compare(rhs ComponentPattern) int {
 	return strings.Compare(p.Tag, rp.Tag)
 }
 
+// (AI GENERATED DESCRIPTION): Checks whether a `Pattern` is equal to another `ComponentPattern`, returning true only if the other is a `Pattern` (or pointer to one) with the same `Typ` and `Tag` values.
 func (p Pattern) Equal(rhs ComponentPattern) bool {
 	rp, ok := rhs.(Pattern)
 	if !ok {
@@ -128,11 +134,13 @@ func (p Pattern) Equal(rhs ComponentPattern) bool {
 	return p.Typ == rp.Typ && p.Tag == rp.Tag
 }
 
+// (AI GENERATED DESCRIPTION): Records the byte value of a matched component into the given matching map, using the pattern’s tag as the key.
 func (p Pattern) Match(value Component, m Matching) {
 	m[p.Tag] = make([]byte, len(value.Val))
 	copy(m[p.Tag], value.Val)
 }
 
+// (AI GENERATED DESCRIPTION): Creates a Component from a matching value identified by the pattern’s tag, returning an ErrNotFound if the tag is absent.
 func (p Pattern) FromMatching(m Matching) (*Component, error) {
 	val, ok := m[p.Tag]
 	if !ok {
@@ -144,6 +152,7 @@ func (p Pattern) FromMatching(m Matching) (*Component, error) {
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Checks whether a Component’s type matches the Pattern’s type.
 func (p Pattern) IsMatch(value Component) bool {
 	return p.Typ == value.Typ
 }

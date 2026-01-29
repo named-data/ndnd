@@ -31,6 +31,7 @@ type TlvModel struct {
 	Fields []TlvField
 }
 
+// (AI GENERATED DESCRIPTION): Sets the corresponding boolean configuration flags of a TlvModel based on the supplied option string, panicking if the option is unrecognized.
 func (m *TlvModel) ProcessOption(option string) {
 	switch option {
 	case "private":
@@ -46,6 +47,7 @@ func (m *TlvModel) ProcessOption(option string) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go struct definition that encodes a TLV model, including a length field, an optional wire plan slice, and nested encoder fields for each component.
 func (m *TlvModel) GenEncoderStruct(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelEncoderStruct").Parse(`
 		type {{.Name}}Encoder struct {
@@ -60,6 +62,7 @@ func (m *TlvModel) GenEncoderStruct(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates the Init method for a TLV encoder, initializing each field, computing the total encoding length, and building a wire‑plan slice for models that do not copy payload data.
 func (m *TlvModel) GenInitEncoder(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelInitEncoderStruct").Parse(`
 		func (encoder *{{.Name}}Encoder) Init(value *{{.Name}}) {
@@ -88,6 +91,7 @@ func (m *TlvModel) GenInitEncoder(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source that implements encoding a TLV model into its wire representation, writing the encoder methods into the supplied buffer.
 func (m *TlvModel) GenEncodeInto(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelEncodeInto").Parse(`
 		func (encoder *{{.Name}}Encoder) EncodeInto(value *{{.Name}},
@@ -131,6 +135,7 @@ func (m *TlvModel) GenEncodeInto(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go struct named `<ModelName>ParsingContext` containing field declarations derived from the model’s fields and writes the resulting code into the supplied buffer.
 func (m *TlvModel) GenParsingContextStruct(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelParsingContextStruct").Parse(`
 		type {{.Name}}ParsingContext struct {
@@ -141,6 +146,7 @@ func (m *TlvModel) GenParsingContextStruct(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates the Init method for the model’s parsing context, writing code that initializes each field defined in the TLV model.
 func (m *TlvModel) GenInitContext(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelInitContext").Parse(`
 		func (context *{{.Name}}ParsingContext) Init() {
@@ -151,6 +157,7 @@ func (m *TlvModel) GenInitContext(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates the Parse method for a TlvModel, producing Go code that reads a TLV‑encoded buffer into the model struct while respecting field ordering, critical‑field rules, and skipping unknown or unhandled tags.
 func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelParse").Parse(`
 		{{if .Model.WithParsingContext -}}
@@ -261,6 +268,7 @@ func (m *TlvModel) GenReadFrom(buf *bytes.Buffer) error {
 // 	}
 // }
 
+// (AI GENERATED DESCRIPTION): Generates the public `Encode()` and `Bytes()` methods for a TLV struct, enabling the struct to be marshalled into a wire format (`enc.Wire`) and converted to a raw byte slice.
 func (m *TlvModel) genPublicEncode(buf *bytes.Buffer) error {
 	return template.Must(template.New("PublicEncode").Parse(`
 		func (value *{{.Name}}) Encode() enc.Wire {
@@ -275,6 +283,7 @@ func (m *TlvModel) genPublicEncode(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates a public Parse\<Type\> function that parses a serialized object of the given type from a WireView, initializing and invoking the corresponding parsing context.
 func (m *TlvModel) genPublicParse(buf *bytes.Buffer) error {
 	return template.Must(template.New("PublicParse").Parse(`
 		func Parse{{.Name}}(reader enc.WireView, ignoreCritical bool) (*{{.Name}}, error) {
@@ -285,6 +294,7 @@ func (m *TlvModel) genPublicParse(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source code for a TLV model, emitting encoder structs, optional parsing context, initialization, encode/decode logic, public API helpers, and dictionary conversion routines.
 func (m *TlvModel) Generate(buf *bytes.Buffer) error {
 	// m.detectParsingContext()
 	m.WithParsingContext = true
@@ -351,6 +361,7 @@ func (m *TlvModel) Generate(buf *bytes.Buffer) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates a `ToDict` method that serializes a model instance into a `map[string]any` by converting each field to a dictionary entry.
 func (m *TlvModel) GenToDict(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelToDict").Parse(`
 		func (value *{{.Name}}) ToDict() map[string]any {
@@ -363,6 +374,7 @@ func (m *TlvModel) GenToDict(buf *bytes.Buffer) error {
 	`)).Execute(buf, m)
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source that defines a `DictTo<StructName>` function, converting a `map[string]any` into a typed struct by applying each field’s custom parsing logic.
 func (m *TlvModel) GenFromDict(buf *bytes.Buffer) error {
 	return template.Must(template.New("ModelFromDict").Parse(`
 		func DictTo{{.Name}}(dict map[string]any) (*{{.Name}}, error) {

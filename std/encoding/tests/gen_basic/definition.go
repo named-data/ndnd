@@ -49,6 +49,7 @@ type Markers struct {
 	endMarker enc.PlaceHolder
 }
 
+// (AI GENERATED DESCRIPTION): Encodes the Markers instance into a wire‑formatted byte slice using the supplied argument and returns the result only if the markers span the entire slice.
 func (m *Markers) Encode(arg int) []byte {
 	enc := MarkersEncoder{}
 	enc.Init(m)
@@ -64,6 +65,7 @@ func (m *Markers) Encode(arg int) []byte {
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Parses a byte slice into markers, returning a Markers object only if the entire slice is successfully parsed without error; otherwise it returns nil.
 func ParseMarkers(buf []byte, arg int) *Markers {
 	cont := MarkersParsingContext{
 		argument: arg,

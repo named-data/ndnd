@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that the `SignCert` function correctly returns an error when invoked with a nil signer and nil data.
 func TestSignCertInvalid(t *testing.T) {
 	tu.SetT(t)
 
@@ -24,6 +25,7 @@ func TestSignCertInvalid(t *testing.T) {
 	require.Error(t, err)
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that a key can self‑sign its own certificate, checking the certificate name, public‑key content, validity period, and Ed25519 signature correctness.
 func TestSignCertSelf(t *testing.T) {
 	tu.SetT(t)
 
@@ -71,6 +73,7 @@ func TestSignCertSelf(t *testing.T) {
 	require.True(t, tu.NoErr(signer.ValidateData(cert, certSigCov, cert)))
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that Alice’s signer can correctly sign a root certificate, producing a certificate with the expected name, content, signature format, validity period, and that the signature verifies against Alice’s own certificate.
 func TestSignCertOther(t *testing.T) {
 	tu.SetT(t)
 
@@ -79,7 +82,7 @@ func TestSignCertOther(t *testing.T) {
 	aliceSigner := tu.NoErr(signer.UnmarshalSecret(aliceKeyData))
 
 	// self signed alice's key
-	aliceCert, err := sec.SignCert(sec.SignCertArgs{
+	aliceCertWire, err := sec.SignCert(sec.SignCertArgs{
 		Signer:    aliceSigner,
 		Data:      aliceKeyData,
 		IssuerId:  ISSUER,
@@ -87,7 +90,7 @@ func TestSignCertOther(t *testing.T) {
 		NotAfter:  T2,
 	})
 	require.NoError(t, err)
-	aliceCertData, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCert))
+	aliceCertData, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
 	require.NoError(t, err)
 
 	// parse existing certificate
@@ -132,4 +135,59 @@ func TestSignCertOther(t *testing.T) {
 	// check signature
 	require.Equal(t, 64, len(signature.SigValue())) // ed25519
 	require.True(t, tu.NoErr(signer.ValidateData(newCert, newSigCov, aliceCertData)))
+}
+
+func TestSignCertWithSignerCertName(t *testing.T) {
+	tu.SetT(t)
+
+	aliceKey, _ := base64.StdEncoding.DecodeString(KEY_ALICE)
+	aliceKeyData, _, _ := spec_2022.Spec{}.ReadData(enc.NewBufferView(aliceKey))
+	aliceSigner := tu.NoErr(signer.UnmarshalSecret(aliceKeyData))
+
+	// self signed alice's key to obtain a certificate name for the KeyLocator
+	aliceCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    aliceSigner,
+		Data:      aliceKeyData,
+		IssuerId:  ISSUER,
+		NotBefore: T1,
+		NotAfter:  T2,
+	}))
+	aliceCertData, _, _ := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
+
+	// parse existing certificate
+	rootCert, _ := base64.StdEncoding.DecodeString(CERT_ROOT)
+	rootCertData, _, _ := spec_2022.Spec{}.ReadData(enc.NewBufferView(rootCert))
+
+	// sign root cert with alice's key but force the KeyLocator to use alice's cert name
+	newCertB := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    aliceSigner,
+		Data:      rootCertData,
+		IssuerId:  ISSUER,
+		NotBefore: T1,
+		NotAfter:  T2,
+	}))
+	newCert, newSigCov, err := spec_2022.Spec{}.ReadData(enc.NewWireView(newCertB))
+	require.NoError(t, err)
+
+	signature := newCert.Signature()
+	require.Equal(t, aliceSigner.KeyName(), signature.KeyName())
+	require.True(t, tu.NoErr(signer.ValidateData(newCert, newSigCov, aliceCertData)))
+}
+
+func TestEncodeDecodeCertList(t *testing.T) {
+	tu.SetT(t)
+	n1 := tu.NoErr(enc.NameFromStr("/ndn/alice/KEY/aa/self/v=1"))
+	n2 := tu.NoErr(enc.NameFromStr("/ndn/alice/KEY/bb/ndn/v=2"))
+
+	wire, err := sec.EncodeCertList([]enc.Name{n1, n2})
+	require.NoError(t, err)
+	decoded, err := sec.DecodeCertList(wire)
+	require.NoError(t, err)
+	require.Equal(t, []enc.Name{n1, n2}, decoded)
+
+	_, err = sec.EncodeCertList(nil)
+	require.Error(t, err)
+
+	_, err = sec.DecodeCertList(enc.Wire{[]byte{0x01, 0x02}})
+	require.Error(t, err)
 }

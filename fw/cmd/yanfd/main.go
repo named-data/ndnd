@@ -11,6 +11,7 @@ import (
 	"github.com/named-data/ndnd/fw/cmd"
 )
 
+// (AI GENERATED DESCRIPTION): Starts the YaNFD application by executing its root command (CmdYaNFD).
 func main() {
 	cmd.CmdYaNFD.Execute()
 }

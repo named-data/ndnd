@@ -16,6 +16,7 @@ import (
 
 type ToolKeychain struct{}
 
+// (AI GENERATED DESCRIPTION): Registers the keychain‑management subcommands (key-list, key-import, key-export) and groups them under the “keychain” command group in the CLI.
 func (t *ToolKeychain) configure(cmd *cobra.Command) {
 	cmd.AddGroup(&cobra.Group{
 		ID:    "keychain",
@@ -46,6 +47,24 @@ and inserts them into the specified keychain.`,
 
 	cmd.AddCommand(&cobra.Command{
 		GroupID: "keychain",
+		Use:     "key-delete KEYCHAIN-URI KEY-NAME",
+		Short:   "Delete a key and its certificates from a keychain",
+		Args:    cobra.ExactArgs(2),
+		Example: `  ndnd sec key-delete dir:///safe/keys /alice/KEY/%DE%AD%BE%EF`,
+		Run:     t.DeleteKey,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		GroupID: "keychain",
+		Use:     "cert-delete KEYCHAIN-URI CERT-NAME",
+		Short:   "Delete a certificate from a keychain",
+		Args:    cobra.ExactArgs(2),
+		Example: `  ndnd sec cert-delete dir:///safe/keys /alice/KEY/%DE%AD%BE%EF/%C0%DE%BE%EF/v=1`,
+		Run:     t.DeleteCert,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		GroupID: "keychain",
 		Use:     "key-export KEYCHAIN-URI KEY-NAME",
 		Short:   "Export a key from a keychain",
 		Long: `Export the specified key from a keychain.
@@ -57,6 +76,7 @@ and the default key of the identity will be exported.`,
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Lists all identities and their keys in the keychain at the given path, printing each identity name followed by the names of its keys.
 func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
@@ -73,6 +93,7 @@ func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Imports keychain entries from standard input into the keychain named by the first argument, storing them in a memory-based keychain.
 func (*ToolKeychain) Import(_ *cobra.Command, args []string) {
 	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
@@ -96,6 +117,7 @@ func (*ToolKeychain) Import(_ *cobra.Command, args []string) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Exports a specified key (or an identity’s default key) from a keychain, PEM‑encodes its secret key, and writes it to standard output.
 func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 	name, err := enc.NameFromStr(args[1])
 	if err != nil {
@@ -159,4 +181,48 @@ func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 	}
 
 	os.Stdout.Write(out)
+}
+
+// DeleteKey removes a key and its certificates from the keychain.
+func (*ToolKeychain) DeleteKey(_ *cobra.Command, args []string) {
+	name, err := enc.NameFromStr(args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid key name: %s\n", args[1])
+		os.Exit(1)
+		return
+	}
+
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	if err := kc.DeleteKey(name); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to delete key: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+// DeleteCert removes a certificate from the keychain.
+func (*ToolKeychain) DeleteCert(_ *cobra.Command, args []string) {
+	name, err := enc.NameFromStr(args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid certificate name: %s\n", args[1])
+		os.Exit(1)
+		return
+	}
+
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	if err := kc.DeleteCert(name); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to delete certificate: %s\n", err)
+		os.Exit(1)
+	}
 }

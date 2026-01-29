@@ -24,6 +24,7 @@ type Generator struct {
 	imports map[string]string
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new Generator with an empty model slice, a compiled regex for parsing TLV tags, and an empty imports map.
 func NewGenerator() *Generator {
 	return &Generator{
 		models:  make([]TlvModel, 0),
@@ -32,6 +33,7 @@ func NewGenerator() *Generator {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Parses a `BasicLit` tag string to extract its unsigned integer value using a regex, returning 0 if the tag is absent, doesn’t match the expected pattern, or cannot be parsed.
 func (g *Generator) parseTag(tag *ast.BasicLit) uint64 {
 	if tag == nil {
 		return 0
@@ -47,6 +49,7 @@ func (g *Generator) parseTag(tag *ast.BasicLit) uint64 {
 	return typVal
 }
 
+// (AI GENERATED DESCRIPTION): Parses a comment group to retrieve the text following a specified directive prefix (e.g., `//+<indicator>:` or `// +<indicator>:`).
 func (g *Generator) parseDoc(doc *ast.CommentGroup, indicator string) string {
 	if doc == nil {
 		return ""
@@ -67,6 +70,7 @@ func (g *Generator) parseDoc(doc *ast.CommentGroup, indicator string) string {
 	return ""
 }
 
+// (AI GENERATED DESCRIPTION): Parses a field string (optionally containing an annotation after a colon) and creates a TlvField using the supplied name, type number, annotation, and model.
 func ParseField(name string, typeNum uint64, fieldStr string, model *TlvModel) (TlvField, error) {
 	fieldType := fieldStr
 	annotation := ""
@@ -159,6 +163,7 @@ func (g *Generator) ProcessDecl(node ast.Node) bool {
 	return false
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go source file for the given package by emitting a header with imports and then writing the generated code for each model into the generator’s buffer.
 func (g *Generator) Generate(packName string) {
 	if packName == "" {
 		packName = g.pkgName

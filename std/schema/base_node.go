@@ -37,6 +37,7 @@ type Node struct {
 	engine ndn.Engine
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string representation of the node’s path.
 func (n *Node) String() string {
 	return n.path.String()
 }
@@ -335,6 +336,7 @@ type BaseNodeImpl struct {
 	OnDetachEvt *EventTarget
 }
 
+// (AI GENERATED DESCRIPTION): Returns the underlying node implementation as a NodeImpl interface.
 func (n *BaseNodeImpl) NodeImplTrait() NodeImpl {
 	return n
 }
@@ -372,6 +374,7 @@ func (n *BaseNodeImpl) OnDetach() {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Attempts to cast the node to a `*BaseNodeImpl`; it returns the node itself if the target type is `*BaseNodeImpl`, otherwise it returns `nil`.
 func (n *BaseNodeImpl) CastTo(ptr any) any {
 	switch ptr.(type) {
 	case (*BaseNodeImpl):
@@ -381,10 +384,12 @@ func (n *BaseNodeImpl) CastTo(ptr any) any {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the embedded Node instance associated with this BaseNodeImpl.
 func (n *BaseNodeImpl) TreeNode() *Node {
 	return n.Node
 }
 
+// (AI GENERATED DESCRIPTION): Creates a BaseNodeImpl that wraps the supplied Node and initializes its attach and detach event targets.
 func CreateBaseNode(node *Node) NodeImpl {
 	return &BaseNodeImpl{
 		Node:        node,
@@ -395,6 +400,7 @@ func CreateBaseNode(node *Node) NodeImpl {
 
 var BaseNodeDesc *NodeImplDesc
 
+// (AI GENERATED DESCRIPTION): Initializes the base node implementation descriptor by assigning its class name, default attach/detach events, and creation function, then registers this descriptor with the system.
 func initBaseNodeImplDesc() {
 	BaseNodeDesc = &NodeImplDesc{
 		ClassName:  "Base",

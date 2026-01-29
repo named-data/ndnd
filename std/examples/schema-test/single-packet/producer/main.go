@@ -42,6 +42,7 @@ const SchemaJson = `{
   ]
 }`
 
+// (AI GENERATED DESCRIPTION): Handles an incoming Interest by extracting the timestamp, generating a Data packet with the content “Hello, world!”, replying to the event, and logging the response.
 func onInterest(event *schema.Event) any {
 	mNode := event.Target
 	timestamp, _, _ := enc.ParseNat(mNode.Matching["time"])
@@ -59,6 +60,7 @@ func onInterest(event *schema.Event) any {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a Named‑Data Networking application by creating a schema tree, starting the engine, attaching the schema to a name prefix, and waiting for a termination signal before shutting down.
 func main() {
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{

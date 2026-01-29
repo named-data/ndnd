@@ -14,6 +14,7 @@ type DvExecutor struct {
 	router *dv.Router
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a new `DvExecutor` by validating the supplied configuration, starting a basic NDN engine, and creating the DV router.
 func NewDvExecutor(config *config.Config) (*DvExecutor, error) {
 	dve := new(DvExecutor)
 
@@ -35,6 +36,7 @@ func NewDvExecutor(config *config.Config) (*DvExecutor, error) {
 	return dve, nil
 }
 
+// (AI GENERATED DESCRIPTION): Starts the DV engine and then the router, blocking indefinitely until the router stops, and panics if either component fails to start, ensuring the engine is stopped when the function exits.
 func (dve *DvExecutor) Start() {
 	err := dve.engine.Start()
 	if err != nil {
@@ -48,10 +50,12 @@ func (dve *DvExecutor) Start() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Stops the DvExecutor by shutting down its underlying router.
 func (dve *DvExecutor) Stop() {
 	dve.router.Stop()
 }
 
+// (AI GENERATED DESCRIPTION): Returns the `dv.Router` instance associated with this `DvExecutor`.
 func (dve *DvExecutor) Router() *dv.Router {
 	return dve.router
 }

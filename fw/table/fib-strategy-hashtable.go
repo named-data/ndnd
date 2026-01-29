@@ -225,6 +225,7 @@ func (f *FibStrategyHashTable) pruneTables(entry *baseFibStrategyEntry) {
 
 // FindNextHops returns the longest-prefix matching nexthop(s) matching the specified name.
 
+// (AI GENERATED DESCRIPTION): FindNextHopsEnc returns the list of next‑hop entries for the longest prefix match of the supplied name, scanning from that prefix downwards until it finds an entry with nexthops, or nil if no such entry exists.
 func (f *FibStrategyHashTable) FindNextHopsEnc(name enc.Name) []*FibNextHopEntry {
 	f.fibStrategyRWMutex.RLock()
 	defer f.fibStrategyRWMutex.RUnlock()
@@ -250,6 +251,7 @@ func (f *FibStrategyHashTable) FindNextHopsEnc(name enc.Name) []*FibNextHopEntry
 
 // FindStrategy returns the longest-prefix matching strategy choice entry for the specified name.
 
+// (AI GENERATED DESCRIPTION): Finds and returns the strategy name for the longest‑matching prefix of a given name, searching ancestor prefixes in the FIB until a strategy is found or nil is returned if none exists.
 func (f *FibStrategyHashTable) FindStrategyEnc(name enc.Name) enc.Name {
 	f.fibStrategyRWMutex.RLock()
 	defer f.fibStrategyRWMutex.RUnlock()
@@ -310,6 +312,7 @@ func (f *FibStrategyHashTable) ClearNextHopsEnc(name enc.Name) {
 
 // RemoveNextHop removes the specified nexthop entry from the specified prefix
 
+// (AI GENERATED DESCRIPTION): Removes the specified next hop from the FIB entry corresponding to the given encoded name, updating internal tables and pruning any empty entries.
 func (f *FibStrategyHashTable) RemoveNextHopEnc(name enc.Name, nexthop uint64) {
 	f.fibStrategyRWMutex.Lock()
 	defer f.fibStrategyRWMutex.Unlock()
@@ -359,6 +362,7 @@ func (f *FibStrategyHashTable) GetAllFIBEntries() []FibStrategyEntry {
 
 // SetStrategy sets the strategy for the specified prefix.
 
+// (AI GENERATED DESCRIPTION): Sets the routing strategy for a given name entry in the FIB strategy hash table, ensuring thread‑safe update of the entry’s strategy field.
 func (f *FibStrategyHashTable) SetStrategyEnc(name enc.Name, strategy enc.Name) {
 	f.fibStrategyRWMutex.Lock()
 	defer f.fibStrategyRWMutex.Unlock()

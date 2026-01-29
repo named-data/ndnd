@@ -19,6 +19,7 @@ type WasmWsFace struct {
 	closed atomic.Bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new Wasm WebSocket face, initializing its base face with the given local flag, setting the URL, and starting with no active connection.
 func NewWasmWsFace(url string, local bool) *WasmWsFace {
 	return &WasmWsFace{
 		baseFace: newBaseFace(local),
@@ -27,10 +28,12 @@ func NewWasmWsFace(url string, local bool) *WasmWsFace {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns a string representation of a Wasm WebSocket face, formatted as "wasm‑ws‑face (<url>)".
 func (f *WasmWsFace) String() string {
 	return fmt.Sprintf("wasm-ws-face (%s)", f.url)
 }
 
+// (AI GENERATED DESCRIPTION): Opens the Wasm WebSocket face, initializing the required callbacks and starting the underlying connection if it is not already running.
 func (f *WasmWsFace) Open() error {
 	if f.IsRunning() {
 		return nil
@@ -46,6 +49,7 @@ func (f *WasmWsFace) Open() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Closes the WebSocket face by marking it as closed, shutting down the underlying JavaScript connection, and clearing the connection reference.
 func (f *WasmWsFace) Close() error {
 	if f.setStateClosed() {
 		f.closed.Store(true)
@@ -56,6 +60,7 @@ func (f *WasmWsFace) Close() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Sends a packet over the WebSocket connection if the face is running, converting the packet’s bytes to a JavaScript array before invoking `conn.send`.
 func (f *WasmWsFace) Send(pkt enc.Wire) error {
 	if !f.IsRunning() {
 		return nil
@@ -67,6 +72,7 @@ func (f *WasmWsFace) Send(pkt enc.Wire) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Reestablishes the WebSocket connection by creating a new socket, attaching handlers for message, open, error, and close events, and scheduling automatic reconnects on failure, but only if the face is neither closed nor already running.
 func (f *WasmWsFace) reopen() {
 	if f.closed.Load() || f.IsRunning() {
 		return
@@ -100,6 +106,7 @@ func (f *WasmWsFace) reopen() {
 	}))
 }
 
+// (AI GENERATED DESCRIPTION): Handles incoming WebSocket events by extracting the event data payload, converting it to a Go byte slice, and passing it to the face’s packet handler.
 func (f *WasmWsFace) receive(this js.Value, args []js.Value) any {
 	event := args[0]
 	data := event.Get("data")

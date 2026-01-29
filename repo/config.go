@@ -17,11 +17,14 @@ type Config struct {
 	KeyChainUri string `json:"keychain"`
 	// List of trust anchor full names.
 	TrustAnchors []string `json:"trust_anchors"`
+	// IgnoreValidity skips validity period checks when fetching remote data (e.g. SVS snapshots).
+	IgnoreValidity bool `json:"ignore_validity"`
 
 	// NameN is the parsed name of the repo service.
 	NameN enc.Name
 }
 
+// (AI GENERATED DESCRIPTION): Parses the configuration by validating the repository name, ensuring a storage directory is specified, converting it to an absolute path, and creating the directory if necessary.
 func (c *Config) Parse() (err error) {
 	c.NameN, err = enc.NameFromStr(c.Name)
 	if err != nil || len(c.NameN) == 0 {
@@ -43,6 +46,7 @@ func (c *Config) Parse() (err error) {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the trust‑anchor names stored in the Config as parsed enc.Name objects, panicking if any string cannot be parsed.
 func (c *Config) TrustAnchorNames() []enc.Name {
 	res := make([]enc.Name, len(c.TrustAnchors))
 	for i, ta := range c.TrustAnchors {
@@ -55,6 +59,7 @@ func (c *Config) TrustAnchorNames() []enc.Name {
 	return res
 }
 
+// (AI GENERATED DESCRIPTION): Returns a new Config with default placeholder values: empty Name and StorageDir strings, and a nil NameN slice.
 func DefaultConfig() *Config {
 	return &Config{
 		Name:       "", // invalid

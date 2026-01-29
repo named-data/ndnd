@@ -6,6 +6,7 @@ import (
 	"github.com/named-data/ndnd/std/object"
 )
 
+// (AI GENERATED DESCRIPTION): Fetches and returns the raw wire representation of a Data packet identified by the supplied suffix, using a consume‑only client to retrieve the content or report an error.
 func (t *Tool) fetchStatusDataset(suffix enc.Name) (enc.Wire, error) {
 	// consume-only client, no need for a store
 	client := object.NewClient(t.engine, nil, nil)

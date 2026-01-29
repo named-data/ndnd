@@ -39,6 +39,7 @@ type RibEntry struct {
 	dirty bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new Rib instance initialized with the supplied configuration and empty entry and neighbor maps.
 func NewRib(config *config.Config) *Rib {
 	return &Rib{
 		config:    config,
@@ -182,10 +183,12 @@ func (r *Rib) Advert() *tlv.Advertisement {
 	return advert
 }
 
+// (AI GENERATED DESCRIPTION): Returns the name stored in this RIB entry.
 func (e *RibEntry) Name() enc.Name {
 	return e.name
 }
 
+// (AI GENERATED DESCRIPTION): Updates a RIB entry’s cost for a given next hop, refreshing the entry only if the cost changes, and returns whether a refresh was performed.
 func (e *RibEntry) Set(nextHop uint64, cost uint64) bool {
 	if known, ok := e.costs[nextHop]; !ok || known != cost {
 		e.costs[nextHop] = cost

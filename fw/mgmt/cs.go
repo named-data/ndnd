@@ -22,18 +22,22 @@ type ContentStoreModule struct {
 	manager *Thread
 }
 
+// (AI GENERATED DESCRIPTION): Returns the module's name “mgmt‑cs”, satisfying the fmt.Stringer interface for logging or debugging.
 func (c *ContentStoreModule) String() string {
 	return "mgmt-cs"
 }
 
+// (AI GENERATED DESCRIPTION): Sets the ContentStoreModule’s internal `manager` field to the supplied `Thread` instance, registering that manager for the content store.
 func (c *ContentStoreModule) registerManager(manager *Thread) {
 	c.manager = manager
 }
 
+// (AI GENERATED DESCRIPTION): Returns the manager thread (`*Thread`) associated with this `ContentStoreModule` instance.
 func (c *ContentStoreModule) getManager() *Thread {
 	return c.manager
 }
 
+// (AI GENERATED DESCRIPTION): Processes incoming local Interest packets for the ContentStoreModule, dispatching “config”, “erase”, or “info” verbs to the appropriate handlers and returning a 501 error for unknown verbs.
 func (c *ContentStoreModule) handleIncomingInterest(interest *Interest) {
 	// Only allow from /localhost
 	if !LOCAL_PREFIX.IsPrefix(interest.Name()) {
@@ -58,6 +62,7 @@ func (c *ContentStoreModule) handleIncomingInterest(interest *Interest) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Handles a CS configuration Interest by validating its ControlParameters, updating the CS capacity and admit/serve flags as requested, and replying with the current CS configuration.
 func (c *ContentStoreModule) config(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		// Name not long enough to contain ControlParameters
@@ -106,6 +111,7 @@ func (c *ContentStoreModule) config(interest *Interest) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Collects content‑store statistics from all threads and replies to the Interest with a status dataset containing the CS capacity, flags, entry count, hit and miss counts.
 func (c *ContentStoreModule) info(interest *Interest) {
 	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
 		// Ignore because contains version and/or segment components
@@ -135,6 +141,7 @@ func (c *ContentStoreModule) info(interest *Interest) {
 	c.manager.sendStatusDataset(interest, name, status.Encode())
 }
 
+// (AI GENERATED DESCRIPTION): Generates a 64‑bit flag mask indicating which content‑store features (admit and serve) are enabled, based on the current configuration.
 func (c *ContentStoreModule) getFlags() uint64 {
 	flags := uint64(0)
 	if table.CfgCsAdmit() {

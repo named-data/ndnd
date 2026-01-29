@@ -11,6 +11,7 @@ import (
 
 // This whole module will change from the current ugly design.
 
+// (AI GENERATED DESCRIPTION): Attaches a handler that processes incoming command Interests by validating the command data, invoking a user‑supplied callback, and replying with a signed Data packet containing the handler’s response.
 func (c *Client) AttachCommandHandler(
 	handlerName enc.Name,
 	handler func(enc.Name, enc.Wire, func(enc.Wire) error),
@@ -59,10 +60,12 @@ func (c *Client) AttachCommandHandler(
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Detaches the command handler identified by the specified name from the client’s engine.
 func (c *Client) DetachCommandHandler(name enc.Name) error {
 	return c.engine.DetachHandler(name)
 }
 
+// (AI GENERATED DESCRIPTION): Sends a signed command data packet to a specified destination, validates the returned data, and delivers the response content to the provided callback.
 func (c *Client) ExpressCommand(dest enc.Name, name enc.Name, cmd enc.Wire, callback func(enc.Wire, error)) {
 	signer := c.SuggestSigner(name)
 	if signer == nil {

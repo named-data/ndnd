@@ -15,6 +15,7 @@ import (
 	"github.com/named-data/ndnd/std/utils"
 )
 
+// (AI GENERATED DESCRIPTION): Sends a fresh Interest containing a timestamp component over a WebSocket face, then waits for and logs whether the Interest is Nacked, times out, cancelled, or returns Data.
 func main() {
 	app := engine.NewBasicEngine(face.NewWasmWsFace("wss://suns.cs.ucla.edu/ws/", false))
 	err := app.Start()

@@ -109,6 +109,7 @@ const (
 	}`
 )
 
+// (AI GENERATED DESCRIPTION): Starts a demo NDN node that enrolls a trust anchor, issues a producer key, attaches a schema, produces a “Hello, world!” data packet, and serves until interrupted.
 func main() {
 	nodeId := fmt.Sprintf("node-%d", rand.Int())
 	prefix, _ := enc.NameFromStr("/example/schema/signedBy")

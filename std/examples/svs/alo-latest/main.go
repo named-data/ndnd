@@ -15,6 +15,7 @@ import (
 	ndn_sync "github.com/named-data/ndnd/std/sync"
 )
 
+// (AI GENERATED DESCRIPTION): Runs an example SVS ALO chat client that joins a sync group, publishes and receives messages using the SnapshotNodeLatest strategy, and handles subscriptions and error recovery.
 func main() {
 	// This example shows how to use the SVS ALO with the SnapshotNodeLatest.
 	//

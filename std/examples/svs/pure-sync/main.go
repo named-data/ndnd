@@ -14,6 +14,7 @@ import (
 	"github.com/named-data/ndnd/std/sync"
 )
 
+// (AI GENERATED DESCRIPTION): Launches an SVSync client that announces the `/ndn/svs` prefix and publishes a new sequence number for the supplied node name every three seconds.
 func main() {
 	// Before running this example, make sure the strategy is correctly setup
 	// to multicast for the sync prefix. For example, using the following:

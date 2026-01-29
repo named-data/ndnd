@@ -11,6 +11,7 @@ const LevelWarn Level = 4
 const LevelError Level = 8
 const LevelFatal Level = 12
 
+// (AI GENERATED DESCRIPTION): Parses a log level string (e.g., "DEBUG") into its corresponding `Level` value, returning an error if the string is not a recognized level.
 func ParseLevel(s string) (Level, error) {
 	switch s {
 	case "TRACE":
@@ -29,6 +30,7 @@ func ParseLevel(s string) (Level, error) {
 	return LevelInfo, fmt.Errorf("invalid log level: %s", s)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string name of a log level, mapping LevelTrace, LevelDebug, LevelInfo, LevelWarn, LevelError, and LevelFatal to their uppercase names and yielding “UNKNOWN” for any unrecognized level.
 func (level Level) String() string {
 	switch level {
 	case LevelTrace:

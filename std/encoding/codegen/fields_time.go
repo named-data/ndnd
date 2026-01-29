@@ -9,6 +9,7 @@ type TimeField struct {
 	opt bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a TimeField with the given name and type number, marking it optional when the annotation is `"optional"`.
 func NewTimeField(name string, typeNum uint64, annotation string, _ *TlvModel) (TlvField, error) {
 	return &TimeField{
 		BaseTlvField: BaseTlvField{
@@ -19,6 +20,7 @@ func NewTimeField(name string, typeNum uint64, annotation string, _ *TlvModel) (
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source that computes the NDN wire‑encoding length of a TimeField, emitting the type‑number length plus the natural‑number length of the time value (in milliseconds) and handling optional fields with an `if` check.
 func (f *TimeField) GenEncodingLength() (string, error) {
 	g := strErrBuf{}
 	if f.opt {
@@ -33,10 +35,12 @@ func (f *TimeField) GenEncodingLength() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the wire‑encoding plan for a time field by delegating to its encoding‑length generation logic.
 func (f *TimeField) GenEncodingWirePlan() (string, error) {
 	return f.GenEncodingLength()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source code that encodes a TimeField into a packet by writing its type number and the time value (converted to milliseconds) as a natural number, and includes conditional logic for optional fields.
 func (f *TimeField) GenEncodeInto() (string, error) {
 	g := strErrBuf{}
 	if f.opt {
@@ -51,6 +55,7 @@ func (f *TimeField) GenEncodeInto() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates a code snippet that reads a natural‐number time value from a binary stream, interprets it as milliseconds, and assigns it to the struct’s time field (using a setter for optional fields).
 func (f *TimeField) GenReadFrom() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("{")
@@ -66,6 +71,7 @@ func (f *TimeField) GenReadFrom() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates code for skipping a TimeField during encoding: if optional it unsets the field, otherwise it assigns an ErrSkipRequired error.
 func (f *TimeField) GenSkipProcess() (string, error) {
 	if f.opt {
 		return fmt.Sprintf("value.%s.Unset()", f.name), nil

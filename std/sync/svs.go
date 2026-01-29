@@ -69,6 +69,8 @@ type SvSyncOpts struct {
 
 	// Passive mode does not send sign Sync Interests
 	Passive bool
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 type SvSyncUpdate struct {
@@ -165,6 +167,7 @@ func (s *SvSync) Start() (err error) {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Runs the SvSync event loop: it performs the initial sync (or passive load), registers periodic timer ticks and face‑up callbacks, processes received state vectors, and exits cleanly when signalled to stop.
 func (s *SvSync) main() {
 	// Cleanup on exit
 	defer s.o.Client.Engine().DetachHandler(s.prefix)
@@ -264,10 +267,12 @@ func (s *SvSync) IncrSeqNo(name enc.Name) uint64 {
 	return entry
 }
 
+// (AI GENERATED DESCRIPTION): Returns the boot time value stored in the SvSync instance.
 func (s *SvSync) GetBootTime() uint64 {
 	return s.o.BootTime
 }
 
+// (AI GENERATED DESCRIPTION): Returns a thread‑safe slice of all names currently stored in the SvSync state.
 func (s *SvSync) GetNames() []enc.Name {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -280,6 +285,7 @@ func (s *SvSync) GetNames() []enc.Name {
 	return names
 }
 
+// (AI GENERATED DESCRIPTION): Processes an incoming state vector, updating the local state vector, notifying the application of any changes, and handling suppression and passive‑sync logic while ensuring updates are delivered in order.
 func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	// Deliver the updates after this call is done
 	// This ensures the mutex is not held during the callback
@@ -394,6 +400,7 @@ func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	s.ticker.Reset(s.getSuppressionTimeout())
 }
 
+// (AI GENERATED DESCRIPTION): Handles a timer expiry by checking suppression state, potentially transitioning to steady state, and asynchronously sending a Sync Interest with the current local state vector.
 func (s *SvSync) timerExpired() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -414,6 +421,7 @@ func (s *SvSync) timerExpired() {
 	go s.sendSyncInterest()
 }
 
+// (AI GENERATED DESCRIPTION): Sends a sync Interest: if passive mode is enabled, it publishes all buffered state updates without duplicates; otherwise, it encodes the current state vector into a wire and transmits it, provided the sync service is running.
 func (s *SvSync) sendSyncInterest() {
 	if !s.running.Load() {
 		return
@@ -432,6 +440,7 @@ func (s *SvSync) sendSyncInterest() {
 	s.sendSyncInterestWith(wire)
 }
 
+// (AI GENERATED DESCRIPTION): Sends a sync Interest carrying the supplied data wire payload with a 1‑second lifetime, using the object’s prefix, and logs any construction or transmission errors.
 func (s *SvSync) sendSyncInterestWith(dataWire enc.Wire) {
 	if dataWire == nil {
 		return
@@ -454,6 +463,7 @@ func (s *SvSync) sendSyncInterestWith(dataWire enc.Wire) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Builds a signed Data packet containing the current state vector for SVS v3 synchronization.
 func (s *SvSync) encodeSyncData() enc.Wire {
 	// Critical section
 	sv := func() *spec_svs.StateVector {
@@ -488,6 +498,7 @@ func (s *SvSync) encodeSyncData() enc.Wire {
 	return data.Wire
 }
 
+// (AI GENERATED DESCRIPTION): Handles a received sync Interest by checking the running state, extracting its AppParam, and passing that payload to the sync‑data processing routine.
 func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 	if !s.running.Load() {
 		return
@@ -503,6 +514,7 @@ func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 	s.onSyncData(interest.AppParam())
 }
 
+// (AI GENERATED DESCRIPTION): Processes a received SyncData packet by parsing it, validating the signature, extracting the state vector, and forwarding the vector and original data to the receiver channel.
 func (s *SvSync) onSyncData(dataWire enc.Wire) {
 	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(dataWire))
 	if err != nil {
@@ -511,24 +523,29 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 	}
 
 	// Validate signature
-	s.o.Client.Validate(data, sigCov, func(valid bool, err error) {
-		if !valid || err != nil {
-			log.Warn(s, "SvSync failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
-			return
-		}
+	s.o.Client.ValidateExt(ndn.ValidateExtArgs{
+		Data:           data,
+		SigCovered:     sigCov,
+		IgnoreValidity: s.o.IgnoreValidity,
+		Callback: func(valid bool, err error) {
+			if !valid || err != nil {
+				log.Warn(s, "SvSync failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
+				return
+			}
 
-		// Decode state vector
-		svWire := data.Content().Join()
-		params, err := spec_svs.ParseSvsData(enc.NewBufferView(svWire), false)
-		if err != nil || params.StateVector == nil {
-			log.Warn(s, "onSyncInterest failed to parse StateVec", "err", err)
-			return
-		}
+			// Decode state vector
+			svWire := data.Content().Join()
+			params, err := spec_svs.ParseSvsData(enc.NewBufferView(svWire), false)
+			if err != nil || params.StateVector == nil {
+				log.Warn(s, "onSyncInterest failed to parse StateVec", "err", err)
+				return
+			}
 
-		s.recvSv <- svSyncRecvSvArgs{
-			sv:   params.StateVector,
-			data: dataWire,
-		}
+			s.recvSv <- svSyncRecvSvArgs{
+				sv:   params.StateVector,
+				data: dataWire,
+			}
+		},
 	})
 }
 
@@ -539,6 +556,7 @@ func (s *SvSync) enterSteadyState() {
 	s.ticker.Reset(s.getPeriodicTimeout())
 }
 
+// (AI GENERATED DESCRIPTION): Returns a duration uniformly randomized within ±10% of the configured periodic timeout.
 func (s *SvSync) getPeriodicTimeout() time.Duration {
 	// [Spec] ±10% uniform jitter
 	jitter := s.o.PeriodicTimeout / 10
@@ -547,6 +565,7 @@ func (s *SvSync) getPeriodicTimeout() time.Duration {
 	return time.Duration(rand.Int64N(int64(max-min))) + min
 }
 
+// (AI GENERATED DESCRIPTION): Calculates a random suppression timeout duration using an exponential‑decay function based on the configured SuppressionPeriod.
 func (s *SvSync) getSuppressionTimeout() time.Duration {
 	// [Spec] Exponential decay function
 	// [Spec] c = SuppressionPeriod  // constant factor

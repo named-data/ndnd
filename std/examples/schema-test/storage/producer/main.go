@@ -48,6 +48,7 @@ const SchemaJson = `{
   ]
 }`
 
+// (AI GENERATED DESCRIPTION): Initializes an NDN engine, attaches a schema tree, publishes a Data packet named “/randomData/<v=time>” with the current timestamp, and waits for a termination signal.
 func main() {
 	// Setup schema tree
 	tree := schema.CreateFromJson(SchemaJson, map[string]any{

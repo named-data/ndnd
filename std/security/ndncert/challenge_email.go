@@ -13,10 +13,12 @@ type ChallengeEmail struct {
 	CodeCallback func(status string) string
 }
 
+// (AI GENERATED DESCRIPTION): Returns the constant name string KwEmail that identifies ChallengeEmail packets.
 func (*ChallengeEmail) Name() string {
 	return KwEmail
 }
 
+// (AI GENERATED DESCRIPTION): Generates the appropriate request parameters for an email‑based challenge, returning the email address on first contact or the user‑supplied code when a status indicates a required or incorrect code.
 func (c *ChallengeEmail) Request(input ParamMap, status optional.Optional[string]) (ParamMap, error) {
 	// Validate challenge configuration
 	if len(c.Email) == 0 || c.CodeCallback == nil {

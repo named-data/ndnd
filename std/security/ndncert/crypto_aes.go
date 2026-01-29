@@ -21,6 +21,7 @@ type AeadMessage struct {
 	CipherText []byte
 }
 
+// (AI GENERATED DESCRIPTION): Creates a tlv.CipherMsg containing the AEAD message’s IV, authentication tag, and ciphertext.
 func (m *AeadMessage) TLV() *tlv.CipherMsg {
 	return &tlv.CipherMsg{
 		InitVec:  m.IV[:],
@@ -29,6 +30,7 @@ func (m *AeadMessage) TLV() *tlv.CipherMsg {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Populates an AeadMessage's IV, AuthTag, and CipherText fields from a provided tlv.CipherMsg.
 func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) {
 	m.IV = [AeadSizeNonce]byte(t.InitVec)
 	m.AuthTag = [AeadSizeTag]byte(t.AuthNTag)
@@ -40,6 +42,7 @@ type AeadCounter struct {
 	random [AeadSizeRand]byte
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new AeadCounter initialized with a zero block counter and a freshly generated random byte sequence.
 func NewAeadCounter() *AeadCounter {
 	randomBytes := make([]byte, AeadSizeRand)
 	if _, randReadErr := io.ReadFull(rand.Reader, randomBytes); randReadErr != nil {
@@ -51,6 +54,7 @@ func NewAeadCounter() *AeadCounter {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Encrypts the given plaintext with AES‑GCM using the supplied key and context info, deriving an IV from the counter, and returns an `AeadMessage` containing the IV, ciphertext, and authentication tag.
 func AeadEncrypt(
 	key [AeadSizeTag]byte,
 	plaintext []byte,
@@ -83,6 +87,7 @@ func AeadEncrypt(
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Decrypts an AEAD‑protected message using AES‑GCM with the given key and additional authenticated data.
 func AeadDecrypt(
 	key [AeadSizeTag]byte,
 	message AeadMessage,

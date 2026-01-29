@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// (AI GENERATED DESCRIPTION): Tests the basic functionality of the priority‑queue implementation by pushing elements with priorities, verifying its length, peeking the highest priority, and popping items in the expected order.
 func TestBasics(t *testing.T) {
 	q := priority_queue.New[int, int]()
 	assert.Equal(t, 0, q.Len())

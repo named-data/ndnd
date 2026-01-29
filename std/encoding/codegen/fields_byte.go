@@ -9,6 +9,7 @@ type ByteField struct {
 	BaseTlvField
 }
 
+// (AI GENERATED DESCRIPTION): Creates a ByteField initialized with the given name and type number, returning it as a TlvField.
 func NewByteField(name string, typeNum uint64, annotation string, _ *TlvModel) (TlvField, error) {
 	return &ByteField{
 		BaseTlvField: BaseTlvField{
@@ -18,6 +19,7 @@ func NewByteField(name string, typeNum uint64, annotation string, _ *TlvModel) (
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that adds the length of a non‑nil byte field (including its type number and length header) to a running total when encoding a TLV message.
 func (f *ByteField) GenEncodingLength() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("if value.%s != nil {", f.name)
@@ -27,10 +29,12 @@ func (f *ByteField) GenEncodingLength() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the wire‑encoding plan for a byte field by delegating to its `GenEncodingLength` method.
 func (f *ByteField) GenEncodingWirePlan() (string, error) {
 	return f.GenEncodingLength()
 }
 
+// (AI GENERATED DESCRIPTION): Generates code that encodes an optional single‑byte field into a buffer, writing the field’s type number, a length byte of 1, and the byte value if the field is present.
 func (f *ByteField) GenEncodeInto() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("if value.%s != nil {", f.name)
@@ -42,6 +46,7 @@ func (f *ByteField) GenEncodeInto() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates code that reads a single byte from a reader, assigns it to the field, and converts an EOF into an unexpected‑EOF error.
 func (f *ByteField) GenReadFrom() (string, error) {
 	g := strErrBuf{}
 	g.printlnf("{")
@@ -54,6 +59,7 @@ func (f *ByteField) GenReadFrom() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that assigns `nil` to the field when the field is skipped during decoding.
 func (f *ByteField) GenSkipProcess() (string, error) {
 	return fmt.Sprintf("value.%s = nil", f.name), nil
 }

@@ -43,6 +43,7 @@ type PingClient struct {
 	rttAvg time.Duration
 }
 
+// (AI GENERATED DESCRIPTION): Creates a Cobra command that sends ping Interests to a specified name prefix, allowing configuration of interval, timeout, count, and starting sequence number.
 func CmdPingClient() *cobra.Command {
 	pc := PingClient{}
 
@@ -64,10 +65,12 @@ The numbers in the Interests are randomly generated`,
 	return cmd
 }
 
+// (AI GENERATED DESCRIPTION): Returns a fixed string identifying the PingClient instance, always returning “ping”.
 func (pc *PingClient) String() string {
 	return "ping"
 }
 
+// (AI GENERATED DESCRIPTION): Sends a ping Interest for the given sequence number, records RTT statistics, and updates counters for received, nacked, timed‑out, and canceled responses.
 func (pc *PingClient) send(seq uint64) {
 	name := pc.name.Append(enc.NewSequenceNumComponent(seq))
 
@@ -120,6 +123,7 @@ func (pc *PingClient) send(seq uint64) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Prints ping statistics for the client, reporting the number of interests sent and received, the percent lost, and the RTT minimum, average, and maximum in milliseconds.
 func (pc *PingClient) stats() {
 	if pc.totalCount == 0 {
 		fmt.Printf("No interests transmitted\n")
@@ -135,6 +139,7 @@ func (pc *PingClient) stats() {
 		float64(pc.rttMax.Microseconds())/1000.0)
 }
 
+// (AI GENERATED DESCRIPTION): Runs the PingClient by parsing the target prefix, starting the networking engine, sending periodic ping interests at the configured interval, and terminating on signal or count limit while collecting and reporting statistics.
 func (pc *PingClient) run(_ *cobra.Command, args []string) {
 	prefix, err := enc.NameFromStr(args[0])
 	if err != nil {

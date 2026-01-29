@@ -19,6 +19,7 @@ import (
 var app ndn.Engine
 var pib *sec_pib.SqlitePib
 
+// (AI GENERATED DESCRIPTION): Responds to an incoming Interest by creating and replying with a signed Data packet named after the Interest that contains the payload “Hello, world!”.
 func onInterest(args ndn.InterestHandlerArgs) {
 	interest := args.Interest
 
@@ -52,6 +53,7 @@ func onInterest(args ndn.InterestHandlerArgs) {
 	fmt.Printf("\n")
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a basic NDN engine, registers a handler and route for the "/example/testApp" prefix, and keeps the application running until an interrupt or termination signal is received.
 func main() {
 	app = engine.NewBasicEngine(engine.NewDefaultFace())
 	err := app.Start()

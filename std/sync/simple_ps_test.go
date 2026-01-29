@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that the SimplePs publish/subscribe implementation correctly matches hierarchical names, delivers published values to the appropriate callbacks, and allows unsubscription to stop delivery.
 func TestSimplePs(t *testing.T) {
 	tu.SetT(t)
 

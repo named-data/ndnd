@@ -8,6 +8,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/ndn/svs_ps"
+	"github.com/named-data/ndnd/std/types/optional"
 )
 
 const SnapHistoryIndexFreshness = time.Millisecond * 10
@@ -43,6 +44,8 @@ type SnapshotNodeHistory struct {
 
 	// In Repo mode, all snapshots are fetched automtically for persistence.
 	IsRepo bool
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 	// repoKnown is the known snapshot sequence number.
 	repoKnown SvMap[uint64]
 
@@ -52,10 +55,12 @@ type SnapshotNodeHistory struct {
 	prevSeq uint64
 }
 
+// (AI GENERATED DESCRIPTION): Returns the fixed string `"snapshot-node-history"` as the textual representation of a SnapshotNodeHistory value.
 func (s *SnapshotNodeHistory) String() string {
 	return "snapshot-node-history"
 }
 
+// (AI GENERATED DESCRIPTION): Returns the `SnapshotNodeHistory` instance as a `Snapshot`.
 func (s *SnapshotNodeHistory) Snapshot() Snapshot {
 	return s
 }
@@ -146,6 +151,7 @@ func (s *SnapshotNodeHistory) snapName(node enc.Name, boot uint64) enc.Name {
 		Append(enc.NewKeywordComponent("HIST"))
 }
 
+// (AI GENERATED DESCRIPTION): Constructs the name for a node’s history index by appending the node’s name, the boot‑time timestamp, and the keyword “HIDX” to the group prefix.
 func (s *SnapshotNodeHistory) idxName(node enc.Name, boot uint64) enc.Name {
 	return s.pss.groupPrefix.
 		Append(node...).
@@ -155,8 +161,12 @@ func (s *SnapshotNodeHistory) idxName(node enc.Name, boot uint64) enc.Name {
 
 // fetchIndex fetches the latest index for a remote node.
 func (s *SnapshotNodeHistory) fetchIndex(node enc.Name, boot uint64, known uint64) {
-	s.Client.Consume(s.idxName(node, boot), func(cstate ndn.ConsumeState) {
-		go s.handleIndex(node, boot, known, cstate)
+	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
+		Name:           s.idxName(node, boot),
+		IgnoreValidity: s.IgnoreValidity,
+		Callback: func(cstate ndn.ConsumeState) {
+			go s.handleIndex(node, boot, known, cstate)
+		},
 	})
 }
 
@@ -199,7 +209,11 @@ func (s *SnapshotNodeHistory) handleIndex(node enc.Name, boot uint64, known uint
 			snapC := make(chan ndn.ConsumeState)
 
 			snapName := s.snapName(node, boot).WithVersion(seqNo)
-			s.Client.Consume(snapName, func(cstate ndn.ConsumeState) { snapC <- cstate })
+			s.Client.ConsumeExt(ndn.ConsumeExtArgs{
+				Name:           snapName,
+				IgnoreValidity: s.IgnoreValidity,
+				Callback:       func(cstate ndn.ConsumeState) { snapC <- cstate },
+			})
 
 			scstate := <-snapC
 			if err := scstate.Error(); err != nil {
@@ -381,6 +395,7 @@ func (s *SnapshotNodeHistory) takeSnap(seqNo uint64) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the most recent locally stored snapshot history index for the node, parses its wire representation, and returns the index name and parsed HistoryIndex.
 func (s *SnapshotNodeHistory) getIndex() (enc.Name, *svs_ps.HistoryIndex, error) {
 	idxName := s.idxName(s.pss.nodePrefix, s.pss.bootTime)
 

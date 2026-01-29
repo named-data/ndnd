@@ -42,6 +42,7 @@ func (c *Client) ConsumeExt(args ndn.ConsumeExtArgs) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Consumes an object by first fetching (or extracting) its metadata when the name lacks a version component, then retrieving its data segments, or directly fetching the segments if the name already contains a version.
 func (c *Client) consumeObject(state *ConsumeState) {
 	name := state.fetchName
 
@@ -63,29 +64,31 @@ func (c *Client) consumeObject(state *ConsumeState) {
 		// if metadata fetching is disabled, just attempt to fetch one segment
 		// with the prefix, then get the versioned name from the segment.
 		if state.args.NoMetadata {
-			c.fetchDataByPrefix(name, state.args.TryStore, func(data ndn.Data, err error) {
-				if err != nil {
-					state.finalizeError(err)
-					return
-				}
-				meta, err := extractSegMetadata(data)
+			c.fetchDataByPrefix(name, state.args.TryStore, state.args.IgnoreValidity.GetOr(false),
+				func(data ndn.Data, err error) {
+					if err != nil {
+						state.finalizeError(err)
+						return
+					}
+					meta, err := extractSegMetadata(data)
+					if err != nil {
+						state.finalizeError(err)
+						return
+					}
+					c.consumeObjectWithMeta(state, meta)
+				})
+			return
+		}
+
+		// fetch RDR metadata for this object
+		c.fetchMetadata(name, state.args.TryStore, state.args.IgnoreValidity.GetOr(false),
+			func(meta *rdr.MetaData, err error) {
 				if err != nil {
 					state.finalizeError(err)
 					return
 				}
 				c.consumeObjectWithMeta(state, meta)
 			})
-			return
-		}
-
-		// fetch RDR metadata for this object
-		c.fetchMetadata(name, state.args.TryStore, func(meta *rdr.MetaData, err error) {
-			if err != nil {
-				state.finalizeError(err)
-				return
-			}
-			c.consumeObjectWithMeta(state, meta)
-		})
 		return
 	}
 
@@ -104,6 +107,7 @@ func (c *Client) consumeObjectWithMeta(state *ConsumeState, meta *rdr.MetaData) 
 func (c *Client) fetchMetadata(
 	name enc.Name,
 	tryStore bool,
+	ignoreValidity bool,
 	callback func(meta *rdr.MetaData, err error),
 ) {
 	log.Debug(c, "Fetching object metadata", "name", name)
@@ -126,25 +130,29 @@ func (c *Client) fetchMetadata(
 				callback(nil, fmt.Errorf("%w: fetch metadata failed with result: %s", ndn.ErrNetwork, args.Result))
 				return
 			}
+			c.ValidateExt(ndn.ValidateExtArgs{
+				Data:           args.Data,
+				SigCovered:     args.SigCovered,
+				IgnoreValidity: optional.Some(ignoreValidity),
+				Callback: func(valid bool, err error) {
+					// validate with trust config
+					if !valid {
+						callback(nil, fmt.Errorf("%w: validate metadata failed: %w", ndn.ErrSecurity, err))
+						return
+					}
 
-			c.Validate(args.Data, args.SigCovered, func(valid bool, err error) {
-				// validate with trust config
-				if !valid {
-					callback(nil, fmt.Errorf("%w: validate metadata failed: %w", ndn.ErrSecurity, err))
-					return
-				}
+					// parse metadata
+					metadata, err := rdr.ParseMetaData(enc.NewWireView(args.Data.Content()), false)
+					if err != nil {
+						callback(nil, fmt.Errorf("%w: failed to parse object metadata: %w", ndn.ErrProtocol, err))
+						return
+					}
 
-				// parse metadata
-				metadata, err := rdr.ParseMetaData(enc.NewWireView(args.Data.Content()), false)
-				if err != nil {
-					callback(nil, fmt.Errorf("%w: failed to parse object metadata: %w", ndn.ErrProtocol, err))
-					return
-				}
-
-				// clone fields for lifetime
-				metadata.Name = metadata.Name.Clone()
-				metadata.FinalBlockID = slices.Clone(metadata.FinalBlockID)
-				callback(metadata, nil)
+					// clone fields for lifetime
+					metadata.Name = metadata.Name.Clone()
+					metadata.FinalBlockID = slices.Clone(metadata.FinalBlockID)
+					callback(metadata, nil)
+				},
 			})
 		},
 	})
@@ -154,6 +162,7 @@ func (c *Client) fetchMetadata(
 func (c *Client) fetchDataByPrefix(
 	name enc.Name,
 	tryStore bool,
+	ignoreValidity bool,
 	callback func(data ndn.Data, err error),
 ) {
 	log.Debug(c, "Fetching data with prefix", "name", name)
@@ -176,14 +185,18 @@ func (c *Client) fetchDataByPrefix(
 				callback(nil, fmt.Errorf("%w: fetch by prefix failed with result: %s", ndn.ErrNetwork, args.Result))
 				return
 			}
+			c.ValidateExt(ndn.ValidateExtArgs{
+				Data:           args.Data,
+				SigCovered:     args.SigCovered,
+				IgnoreValidity: optional.Some(ignoreValidity),
+				Callback: func(valid bool, err error) {
+					if !valid {
+						callback(nil, fmt.Errorf("%w: validate by prefix failed: %w", ndn.ErrSecurity, err))
+						return
+					}
 
-			c.Validate(args.Data, args.SigCovered, func(valid bool, err error) {
-				if !valid {
-					callback(nil, fmt.Errorf("%w: validate by prefix failed: %w", ndn.ErrSecurity, err))
-					return
-				}
-
-				callback(args.Data, nil)
+					callback(args.Data, nil)
+				},
 			})
 		},
 	})

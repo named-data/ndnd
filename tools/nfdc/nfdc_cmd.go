@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Executes a specified management command on the engine, applying default and user‑supplied arguments (after preprocessing), invoking the command, and printing the resulting control response.
 func (t *Tool) ExecCmd(_ *cobra.Command, mod string, cmd string, args []string, defaults []string) {
 	t.Start()
 	defer t.Stop()
@@ -55,6 +56,7 @@ func (t *Tool) ExecCmd(_ *cobra.Command, mod string, cmd string, args []string, 
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Converts a face URI argument into its numeric face ID, querying existing faces or creating a new one as needed for the faces/destroy, rib/unregister, and rib/register management commands.
 func (n *Tool) preprocessArg(
 	ctrlArgs *mgmt.ControlArgs,
 	mod string, cmd string,
@@ -142,6 +144,7 @@ func (n *Tool) preprocessArg(
 	return key, val
 }
 
+// (AI GENERATED DESCRIPTION): Converts a key/value pair from a command into the appropriate field of a ControlArgs struct, parsing numeric and name values, validating persistency and strategy options, and setting optional fields for face, route, and strategy arguments.
 func (n *Tool) convCmdArg(ctrlArgs *mgmt.ControlArgs, key string, val string) {
 	// helper function to parse uint64 values
 	parseUint := func(val string) uint64 {
@@ -203,6 +206,7 @@ func (n *Tool) convCmdArg(ctrlArgs *mgmt.ControlArgs, key string, val string) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Prints a control response’s status code and text, then lists its parameters in sorted order, converting selected values to human‑readable strings before output.
 func (n *Tool) printCtrlResponse(res *mgmt.ControlResponse) {
 	// print status code and text
 	fmt.Printf("Status=%d (%s)\n", res.Val.StatusCode, res.Val.StatusText)

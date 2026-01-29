@@ -46,6 +46,7 @@ const SchemaJson = `{
   ]
 }`
 
+// (AI GENERATED DESCRIPTION): Retrieves data for a specified version using the schema engine, prints the received result (or NACK/timeout), and re-fetches it to demonstrate caching behavior.
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal(nil, "Insufficient argument. Please input the version number given by the producer.")

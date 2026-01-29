@@ -21,18 +21,22 @@ type StrategyChoiceModule struct {
 	manager *Thread
 }
 
+// (AI GENERATED DESCRIPTION): Returns the identifier string `"mgmt-strategy"` for the StrategyChoiceModule.
 func (s *StrategyChoiceModule) String() string {
 	return "mgmt-strategy"
 }
 
+// (AI GENERATED DESCRIPTION): Registers the specified manager by assigning it to the StrategyChoiceModule’s manager field.
 func (s *StrategyChoiceModule) registerManager(manager *Thread) {
 	s.manager = manager
 }
 
+// (AI GENERATED DESCRIPTION): Returns the manager thread (`*Thread`) associated with this `StrategyChoiceModule`.
 func (s *StrategyChoiceModule) getManager() *Thread {
 	return s.manager
 }
 
+// (AI GENERATED DESCRIPTION): Handles an incoming strategy‑management Interest from the local namespace, dispatching it to the appropriate set, unset, or list handler based on the verb, and replying with an error for non‑local or unknown verbs.
 func (s *StrategyChoiceModule) handleIncomingInterest(interest *Interest) {
 	// Only allow from /localhost
 	if !LOCAL_PREFIX.IsPrefix(interest.Name()) {
@@ -55,6 +59,7 @@ func (s *StrategyChoiceModule) handleIncomingInterest(interest *Interest) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Handles a SetStrategy control request by validating the requested strategy and version, updating the FibStrategyTable for the specified name, and replying with an appropriate control response.
 func (s *StrategyChoiceModule) set(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		s.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -136,6 +141,7 @@ func (s *StrategyChoiceModule) set(interest *Interest) {
 	core.Log.Info(s, "Set strategy", "name", params.Name, "strategy", params.Strategy.Name)
 }
 
+// (AI GENERATED DESCRIPTION): Unsets a strategy encoding for a given name by handling a control interest, validating its parameters, removing the strategy from the FIB strategy table, and replying with a 200 OK response.
 func (s *StrategyChoiceModule) unset(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
 		s.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
@@ -164,6 +170,7 @@ func (s *StrategyChoiceModule) unset(interest *Interest) {
 	s.manager.sendCtrlResp(interest, 200, "OK", &mgmt.ControlArgs{Name: params.Name})
 }
 
+// (AI GENERATED DESCRIPTION): Handles an interest that requests the list of strategy choices by collecting all registered forwarding strategies, assembling them into a StrategyChoiceMsg dataset, and replying with that dataset.
 func (s *StrategyChoiceModule) list(interest *Interest) {
 	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
 		// Ignore because contains version and/or segment components

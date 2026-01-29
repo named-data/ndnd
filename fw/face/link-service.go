@@ -73,6 +73,7 @@ type linkServiceBase struct {
 	nOutData      uint64
 }
 
+// (AI GENERATED DESCRIPTION): Returns a human‑readable string that describes the link service, displaying its transport type if present, otherwise its face ID.
 func (l *linkServiceBase) String() string {
 	if l.transport != nil {
 		return fmt.Sprintf("link-service (%s)", l.transport)
@@ -81,6 +82,7 @@ func (l *linkServiceBase) String() string {
 	return fmt.Sprintf("link-service (faceid=%d)", l.faceID)
 }
 
+// (AI GENERATED DESCRIPTION): Sets the link service’s face ID and propagates the change to its underlying transport if one exists.
 func (l *linkServiceBase) SetFaceID(faceID uint64) {
 	l.faceID = faceID
 	if l.transport != nil {
@@ -92,6 +94,7 @@ func (l *linkServiceBase) SetFaceID(faceID uint64) {
 // "Constructors" and threading
 //
 
+// (AI GENERATED DESCRIPTION): Initializes the link service base by creating a `stopped` signal channel and a buffered `sendQueue` channel sized according to the face queue configuration.
 func (l *linkServiceBase) makeLinkServiceBase() {
 	l.stopped = make(chan bool)
 	l.sendQueue = make(chan dispatch.OutPkt, CfgFaceQueueSize())
@@ -221,6 +224,7 @@ func (l *linkServiceBase) SendPacket(out dispatch.OutPkt) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Routes an Interest packet to the correct forwarding thread by hashing its name and enqueuing it for processing.
 func (l *linkServiceBase) dispatchInterest(pkt *defn.Pkt) {
 	if pkt.L3.Interest == nil {
 		panic("dispatchInterest called with packet that is not Interest")
@@ -235,6 +239,7 @@ func (l *linkServiceBase) dispatchInterest(pkt *defn.Pkt) {
 	dispatch.GetFWThread(thread).QueueInterest(pkt)
 }
 
+// (AI GENERATED DESCRIPTION): Routes an incoming Data packet to the appropriate forwarding thread(s) by examining its PIT token or name prefix, handling local producer packets that lack tokens, and logging the dispatch.
 func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 	if pkt.L3.Data == nil {
 		panic("dispatchData called with packet that is not Data")

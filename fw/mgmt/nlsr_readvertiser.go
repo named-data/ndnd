@@ -18,14 +18,17 @@ type NlsrReadvertiser struct {
 	mutex sync.Mutex
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new NlsrReadvertiser instance and associates it with the supplied Thread.
 func NewNlsrReadvertiser(m *Thread) *NlsrReadvertiser {
 	return &NlsrReadvertiser{m: m}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the constant string “mgmt-nlsr-readvertiser”, serving as the human‑readable identifier for the NlsrReadvertiser (used in logs, debugging, or fmt.Stringer output).
 func (r *NlsrReadvertiser) String() string {
 	return "mgmt-nlsr-readvertiser"
 }
 
+// (AI GENERATED DESCRIPTION): Announces a client‑originated route by sending an RIB register interest containing the route’s name, face ID, and cost to the NLSR.
 func (r *NlsrReadvertiser) Announce(name enc.Name, route *table.Route) {
 	if route.Origin != uint64(spec_mgmt.RouteOriginClient) {
 		return
@@ -53,6 +56,7 @@ func (r *NlsrReadvertiser) Announce(name enc.Name, route *table.Route) {
 	r.m.sendInterest(cmd, enc.Wire{})
 }
 
+// (AI GENERATED DESCRIPTION): Sends an unregister interest to the NLSR to withdraw a client‑originated route from the routing table.
 func (r *NlsrReadvertiser) Withdraw(name enc.Name, route *table.Route) {
 	if route.Origin != uint64(spec_mgmt.RouteOriginClient) {
 		return

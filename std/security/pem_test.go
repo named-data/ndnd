@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): TestPemEncodeCert verifies that the security.PemEncode function correctly converts a DER‑encoded certificate into its PEM representation.
 func TestPemEncodeCert(t *testing.T) {
 	tu.SetT(t)
 
@@ -17,6 +18,7 @@ func TestPemEncodeCert(t *testing.T) {
 	require.Equal(t, CERT_ROOT_PEM, string(res))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the `security.PemDecode` function correctly converts a PEM‑encoded certificate string into its original DER‑encoded byte form.
 func TestPemDecodeCert(t *testing.T) {
 	tu.SetT(t)
 

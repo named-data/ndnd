@@ -10,6 +10,7 @@ type BufferReader struct {
 	pos int
 }
 
+// (AI GENERATED DESCRIPTION): Copies data from the BufferReader's internal buffer into the supplied byte slice, advancing the read position and returning io.EOF when the buffer is fully consumed.
 func (r *BufferReader) Read(b []byte) (int, error) {
 	if r.pos >= len(r.buf) && len(b) > 0 {
 		return 0, io.EOF
@@ -19,6 +20,7 @@ func (r *BufferReader) Read(b []byte) (int, error) {
 	return n, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the next byte from the internal buffer, or io.EOF if the end of the buffer has been reached.
 func (r *BufferReader) ReadByte() (byte, error) {
 	if r.pos >= len(r.buf) {
 		return 0, io.EOF
@@ -28,6 +30,7 @@ func (r *BufferReader) ReadByte() (byte, error) {
 	return ret, nil
 }
 
+// (AI GENERATED DESCRIPTION): Decrements the reader's position by one byte so the next read returns the same byte again, returning an error if the position is already at the start of the buffer.
 func (r *BufferReader) UnreadByte() error {
 	if r.pos == 0 {
 		return fmt.Errorf("encoding.BufferReader.UnreadByte: negative position")
@@ -36,6 +39,7 @@ func (r *BufferReader) UnreadByte() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Adjusts the reader’s internal position within its buffer according to the given offset and whence, enforcing bounds and returning an error for invalid parameters.
 func (r *BufferReader) Seek(offset int64, whence int) (int64, error) {
 	var newPos int
 	switch whence {
@@ -58,6 +62,7 @@ func (r *BufferReader) Seek(offset int64, whence int) (int64, error) {
 	return int64(r.pos), nil
 }
 
+// (AI GENERATED DESCRIPTION): Advances the reader’s current position by n bytes, erroring if the resulting index would be negative or beyond the buffer’s length.
 func (r *BufferReader) Skip(n int) error {
 	newPos := r.pos + n
 	if newPos < 0 {
@@ -70,6 +75,7 @@ func (r *BufferReader) Skip(n int) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Reads `l` bytes from the reader’s internal buffer, returns them as a `Wire`, advances the read position, and signals `EOF` or `UnexpectedEOF` if the buffer does not contain enough data.
 func (r *BufferReader) ReadWire(l int) (Wire, error) {
 	if r.pos >= len(r.buf) && l > 0 {
 		return nil, io.EOF
@@ -82,6 +88,7 @@ func (r *BufferReader) ReadWire(l int) (Wire, error) {
 	return Wire{r.buf[p:r.pos]}, nil
 }
 
+// (AI GENERATED DESCRIPTION): ReadBuf reads l bytes from the internal buffer, advancing the read position, and returns an io.ErrUnexpectedEOF error if the buffer does not contain enough data.
 func (r *BufferReader) ReadBuf(l int) (Buffer, error) {
 	if r.pos+l > len(r.buf) {
 		return nil, io.ErrUnexpectedEOF
@@ -91,14 +98,17 @@ func (r *BufferReader) ReadBuf(l int) (Buffer, error) {
 	return r.buf[p:r.pos], nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns the current read position of the BufferReader.
 func (r *BufferReader) Pos() int {
 	return r.pos
 }
 
+// (AI GENERATED DESCRIPTION): Returns the number of bytes currently stored in the BufferReader’s internal buffer.
 func (r *BufferReader) Length() int {
 	return len(r.buf)
 }
 
+// (AI GENERATED DESCRIPTION): Returns a Wire slice of the buffer between `start` (inclusive) and `end` (exclusive), or nil if the indices are out of bounds.
 func (r *BufferReader) Range(start, end int) Wire {
 	if start < 0 || end > len(r.buf) || start > end {
 		return nil
@@ -106,6 +116,7 @@ func (r *BufferReader) Range(start, end int) Wire {
 	return Wire{r.buf[start:end]}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new `ParseReader` that reads the next `l` bytes of the buffer (advancing the current position) or returns an empty reader if the requested length is out of bounds.
 func (r *BufferReader) Delegate(l int) ParseReader {
 	if l < 0 || r.pos+l > len(r.buf) {
 		return NewBufferReader([]byte{})
@@ -115,6 +126,7 @@ func (r *BufferReader) Delegate(l int) ParseReader {
 	return NewBufferReader(subBuf)
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a BufferReader with the supplied Buffer, setting the starting position to zero.
 func NewBufferReader(buf Buffer) *BufferReader {
 	return &BufferReader{
 		buf: buf,
@@ -131,6 +143,7 @@ type WireReader struct {
 	accSz []int
 }
 
+// (AI GENERATED DESCRIPTION): Advances to the next wire segment when the current read position has reached the end of the current segment, returning true if another segment remains to be processed.
 func (r *WireReader) nextSeg() bool {
 	if r.seg < len(r.wire) && r.pos >= len(r.wire[r.seg]) {
 		r.seg++
@@ -139,6 +152,7 @@ func (r *WireReader) nextSeg() bool {
 	return r.seg < len(r.wire)
 }
 
+// (AI GENERATED DESCRIPTION): Reads bytes from the wire buffer into the supplied slice, advancing the read position and returning `io.EOF` once all segments have been consumed.
 func (r *WireReader) Read(b []byte) (int, error) {
 	if !r.nextSeg() && len(b) > 0 {
 		return 0, io.EOF
@@ -148,6 +162,7 @@ func (r *WireReader) Read(b []byte) (int, error) {
 	return n, nil
 }
 
+// (AI GENERATED DESCRIPTION): Reads the next byte from the wire buffer, advancing the internal position and returning `io.EOF` when the buffer is exhausted.
 func (r *WireReader) ReadByte() (byte, error) {
 	if !r.nextSeg() {
 		return 0, io.EOF
@@ -157,6 +172,7 @@ func (r *WireReader) ReadByte() (byte, error) {
 	return ret, nil
 }
 
+// (AI GENERATED DESCRIPTION): Rewinds the WireReader by one byte, moving the read position back by a single byte across segment boundaries and returning an error if already at the very start.
 func (r *WireReader) UnreadByte() error {
 	if r.pos == 0 {
 		if r.seg == 0 {
@@ -169,6 +185,7 @@ func (r *WireReader) UnreadByte() error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Reads `l` bytes from the WireReader’s segmented buffer, returning a `Wire` slice that spans the needed segments and updates the reader’s position, or an error if the buffer ends before `l` bytes are available.
 func (r *WireReader) ReadWire(l int) (Wire, error) {
 	if !r.nextSeg() && l > 0 {
 		return nil, io.EOF
@@ -192,6 +209,7 @@ func (r *WireReader) ReadWire(l int) (Wire, error) {
 	return ret, nil
 }
 
+// (AI GENERATED DESCRIPTION): Reads up to `l` bytes from a segmented wire buffer, returning a contiguous `Buffer` that may span multiple segments, or `io.ErrUnexpectedEOF` if the requested data exceeds the available data.
 func (r *WireReader) ReadBuf(l int) (Buffer, error) {
 	if !r.nextSeg() && l > 0 {
 		return nil, io.ErrUnexpectedEOF
@@ -224,14 +242,17 @@ func (r *WireReader) ReadBuf(l int) (Buffer, error) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the current absolute read position in the wire buffer, including any accumulated segment offsets.
 func (r *WireReader) Pos() int {
 	return r.pos + r.accSz[r.seg]
 }
 
+// (AI GENERATED DESCRIPTION): Returns the cumulative byte length of the data parsed so far by this WireReader.
 func (r *WireReader) Length() int {
 	return r.accSz[len(r.wire)]
 }
 
+// (AI GENERATED DESCRIPTION): Extracts and returns a Wire comprising the bytes from the original WireReader between the specified start and end offsets, preserving segment boundaries, or nil if the range is out of bounds.
 func (r *WireReader) Range(start, end int) Wire {
 	if start < 0 || end > r.accSz[len(r.wire)] || start > end {
 		return nil
@@ -260,6 +281,7 @@ func (r *WireReader) Range(start, end int) Wire {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Skips forward `n` bytes in the wire buffer, advancing across segment boundaries, and returns an error if `n` is negative or the skip would run past the end of the data.
 func (r *WireReader) Skip(n int) error {
 	if n < 0 {
 		return fmt.Errorf("encoding.WireReader.Skip: backword skipping is not allowed")
@@ -275,6 +297,7 @@ func (r *WireReader) Skip(n int) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Delegates the next l bytes from the current WireReader to a new ParseReader, advancing the original reader’s position and returning either a buffer or a new WireReader that spans exactly that byte range.
 func (r *WireReader) Delegate(l int) ParseReader {
 	if l < 0 || r.seg >= len(r.wire) {
 		return NewBufferReader([]byte{})
@@ -312,6 +335,7 @@ func (r *WireReader) Delegate(l int) ParseReader {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new WireReader for the supplied wire, initializing segment and position to zero and precomputing cumulative segment sizes for efficient traversal.
 func NewWireReader(w Wire) *WireReader {
 	accSz := make([]int, len(w)+1)
 	accSz[0] = 0

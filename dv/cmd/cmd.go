@@ -20,6 +20,7 @@ var CmdDv = &cobra.Command{
 	Run:     run,
 }
 
+// (AI GENERATED DESCRIPTION): Initializes a DvExecutor from a YAML configuration file and runs it until an interrupt (Ctrl‑C or SIGTERM) is received, at which point it stops the executor and exits.
 func run(cmd *cobra.Command, args []string) {
 	configfile := args[0]
 

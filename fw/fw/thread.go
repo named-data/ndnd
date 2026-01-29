@@ -93,6 +93,7 @@ func NewThread(id int) *Thread {
 	return t
 }
 
+// (AI GENERATED DESCRIPTION): Returns a string representation of the thread, formatted as “fw-thread‑<threadID>”.
 func (t *Thread) String() string {
 	return fmt.Sprintf("fw-thread-%d", t.threadID)
 }
@@ -171,6 +172,7 @@ func (t *Thread) QueueData(data *defn.Pkt) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Processes an incoming Interest packet: verifies its validity, enforces hop limits and scope, checks for nonces and dead‑nonce loops, updates the PIT and content store, selects and filters next‑hops via the FIB, and forwards the Interest according to the chosen forwarding strategy.
 func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	interest := packet.L3.Interest
 	if interest == nil {
@@ -355,6 +357,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	strategy.AfterReceiveInterest(packet, pitEntry, incomingFace.FaceID(), allowedNexthops)
 }
 
+// (AI GENERATED DESCRIPTION): Forwards an Interest packet to the chosen outgoing face, updating the PIT entry’s out‑record, generating a PIT token, and enforcing HopLimit and anti‑loop rules before transmitting it.
 func (t *Thread) processOutgoingInterest(
 	packet *defn.Pkt,
 	pitEntry table.PitEntry,
@@ -407,6 +410,7 @@ func (t *Thread) processOutgoingInterest(
 	return true
 }
 
+// (AI GENERATED DESCRIPTION): Finalizes an Interest by recording its nonces into the dead‑nonce list and, if the Interest was unsatisfied, incrementing the counter of unsatisfied Interests.
 func (t *Thread) finalizeInterest(pitEntry table.PitEntry) {
 	// Check for nonces to insert into dead nonce list
 	for _, outRecord := range pitEntry.OutRecords() {
@@ -419,6 +423,7 @@ func (t *Thread) finalizeInterest(pitEntry table.PitEntry) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Processes an incoming Data packet by validating it, updating counters, enforcing scope rules, inserting it into the content store, matching and satisfying any pending PIT entries through the appropriate strategy, and forwarding the data to the corresponding downstream faces.
 func (t *Thread) processIncomingData(packet *defn.Pkt) {
 	data := packet.L3.Data
 	if data == nil {
@@ -531,6 +536,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Sends a Data packet to a specified next‑hop face, performing /localhost scope checks, logging the event, updating outgoing data and satisfied interest counters, and delivering the packet via the outgoing face.
 func (t *Thread) processOutgoingData(
 	packet *defn.Pkt,
 	nexthop uint64,

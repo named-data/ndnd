@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that the FibStrategyTable correctly inserts, looks up, removes, and prunes next‑hop entries for encoded name prefixes, including longest‑prefix matching behavior.
 func TestNdnFindNextHops(t *testing.T) {
 	newFibStrategyTableTree()
 
@@ -69,6 +70,7 @@ func TestNdnFindNextHops(t *testing.T) {
 	assert.Equal(t, 0, len(nexthops2c))
 }
 
+// (AI GENERATED DESCRIPTION): Tests setting, unsetting, and pruning of strategy entries in the FIB strategy table tree, verifying that strategy lookups return the correct strategy names.
 func TestNdnFind_Set_Unset_Strategy(t *testing.T) {
 	newFibStrategyTableTree()
 
@@ -105,6 +107,7 @@ func TestNdnFind_Set_Unset_Strategy(t *testing.T) {
 	assert.True(t, multicast.Equal(FibStrategyTable.FindStrategyEnc(name3)))
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that inserting a next‑hop into the FIB strategy table correctly adds the entry, updates its cost on subsequent insertion, and that the hop can be retrieved accurately.
 func TestNdnInsertNextHop(t *testing.T) {
 	newFibStrategyTableTree()
 	assert.NotNil(t, FibStrategyTable)
@@ -127,6 +130,7 @@ func TestNdnInsertNextHop(t *testing.T) {
 	assert.Equal(t, uint64(20), nextHops[0].Cost)
 }
 
+// (AI GENERATED DESCRIPTION): Clears all next‑hop entries associated with a specified name in the FIB strategy table, removing only exact matches while leaving other names and non‑existent entries untouched.
 func TestNdnClearNextHops(t *testing.T) {
 	newFibStrategyTableTree()
 	assert.NotNil(t, FibStrategyTable)
@@ -172,6 +176,7 @@ func TestNdnClearNextHops(t *testing.T) {
 	assert.Equal(t, 1, len(nextHops))
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that next‑hop entries can be inserted, updated in place, and removed from the FIB strategy table, ensuring each operation only affects the intended name prefix and that distinct prefixes remain independent.
 func TestNdnRemoveNextHop(t *testing.T) {
 	newFibStrategyTableTree()
 	assert.NotNil(t, FibStrategyTable)
@@ -213,6 +218,7 @@ func TestNdnRemoveNextHop(t *testing.T) {
 	assert.Equal(t, 1, len(nextHops))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that `GetAllFIBEntries` returns all entries from the FibStrategyTable with correct strategy and next‑hop data, excluding entries that have neither a strategy nor next hops.
 func TestNdnGetAllFIBEntries(t *testing.T) {
 	newFibStrategyTableTree()
 	assert.NotNil(t, FibStrategyTable)
@@ -263,6 +269,7 @@ func TestNdnGetAllFIBEntries(t *testing.T) {
 	assert.Equal(t, uint64(50), nextHops[0].Cost)
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that GetAllForwardingStrategies correctly returns all configured strategies in the FIB tree, including the default, per‑prefix strategies, and their associated next‑hop entries.
 func TestNdnGetAllForwardingStrategies(t *testing.T) {
 	newFibStrategyTableTree()
 	assert.NotNil(t, FibStrategyTable)

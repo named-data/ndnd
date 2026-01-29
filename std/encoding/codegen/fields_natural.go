@@ -9,6 +9,7 @@ type NaturalField struct {
 	opt bool
 }
 
+// (AI GENERATED DESCRIPTION): Creates a NaturalField TLV descriptor with the given name and type number, marking it as optional when the annotation string equals "optional".
 func NewNaturalField(name string, typeNum uint64, annotation string, _ *TlvModel) (TlvField, error) {
 	return &NaturalField{
 		BaseTlvField: BaseTlvField{
@@ -19,6 +20,7 @@ func NewNaturalField(name string, typeNum uint64, annotation string, _ *TlvModel
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that computes the encoding length of a NaturalField, handling optional values by wrapping the length calculation in an `if` check.
 func (f *NaturalField) GenEncodingLength() (string, error) {
 	g := strErrBuf{}
 	if f.opt {
@@ -33,10 +35,12 @@ func (f *NaturalField) GenEncodingLength() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the encoding wire plan for a NaturalField by delegating to its GenEncodingLength method.
 func (f *NaturalField) GenEncodingWirePlan() (string, error) {
 	return f.GenEncodingLength()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source that writes the natural field’s type number and value into an encoding buffer, including an optional presence check when the field is marked optional.
 func (f *NaturalField) GenEncodeInto() (string, error) {
 	g := strErrBuf{}
 	if f.opt {
@@ -51,6 +55,7 @@ func (f *NaturalField) GenEncodeInto() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that reads a natural‑number field from a buffer, decoding it into a temporary variable and setting the field when optional, or decoding directly into the field when mandatory.
 func (f *NaturalField) GenReadFrom() (string, error) {
 	if f.opt {
 		g := strErrBuf{}
@@ -65,6 +70,7 @@ func (f *NaturalField) GenReadFrom() (string, error) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Generates code to handle skipping a field during encoding: if the field is optional it emits code to unset it, otherwise it produces an error indicating a required field was skipped.
 func (f *NaturalField) GenSkipProcess() (string, error) {
 	if f.opt {
 		return fmt.Sprintf("value.%s.Unset()", f.name), nil

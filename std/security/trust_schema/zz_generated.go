@@ -18,11 +18,15 @@ type CrossSchemaContentEncoder struct {
 	PrefixSchemaRules_subencoder []struct {
 		PrefixSchemaRules_encoder PrefixSchemaRuleEncoder
 	}
+	ComponentSchemaRules_subencoder []struct {
+		ComponentSchemaRules_encoder ComponentSchemaRuleEncoder
+	}
 }
 
 type CrossSchemaContentParsingContext struct {
-	SimpleSchemaRules_context SimpleSchemaRuleParsingContext
-	PrefixSchemaRules_context PrefixSchemaRuleParsingContext
+	SimpleSchemaRules_context    SimpleSchemaRuleParsingContext
+	PrefixSchemaRules_context    PrefixSchemaRuleParsingContext
+	ComponentSchemaRules_context ComponentSchemaRuleParsingContext
 }
 
 func (encoder *CrossSchemaContentEncoder) Init(value *CrossSchemaContent) {
@@ -66,6 +70,29 @@ func (encoder *CrossSchemaContentEncoder) Init(value *CrossSchemaContent) {
 				value := &pseudoValue
 				if value.PrefixSchemaRules != nil {
 					encoder.PrefixSchemaRules_encoder.Init(value.PrefixSchemaRules)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	{
+		ComponentSchemaRules_l := len(value.ComponentSchemaRules)
+		encoder.ComponentSchemaRules_subencoder = make([]struct {
+			ComponentSchemaRules_encoder ComponentSchemaRuleEncoder
+		}, ComponentSchemaRules_l)
+		for i := 0; i < ComponentSchemaRules_l; i++ {
+			pseudoEncoder := &encoder.ComponentSchemaRules_subencoder[i]
+			pseudoValue := struct {
+				ComponentSchemaRules *ComponentSchemaRule
+			}{
+				ComponentSchemaRules: value.ComponentSchemaRules[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.ComponentSchemaRules != nil {
+					encoder.ComponentSchemaRules_encoder.Init(value.ComponentSchemaRules)
 				}
 				_ = encoder
 				_ = value
@@ -116,6 +143,27 @@ func (encoder *CrossSchemaContentEncoder) Init(value *CrossSchemaContent) {
 			}
 		}
 	}
+	if value.ComponentSchemaRules != nil {
+		for seq_i, seq_v := range value.ComponentSchemaRules {
+			pseudoEncoder := &encoder.ComponentSchemaRules_subencoder[seq_i]
+			pseudoValue := struct {
+				ComponentSchemaRules *ComponentSchemaRule
+			}{
+				ComponentSchemaRules: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.ComponentSchemaRules != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.ComponentSchemaRules_encoder.Length).EncodingLength())
+					l += encoder.ComponentSchemaRules_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
 	encoder.Length = l
 
 }
@@ -123,6 +171,7 @@ func (encoder *CrossSchemaContentEncoder) Init(value *CrossSchemaContent) {
 func (context *CrossSchemaContentParsingContext) Init() {
 	context.SimpleSchemaRules_context.Init()
 	context.PrefixSchemaRules_context.Init()
+	context.ComponentSchemaRules_context.Init()
 }
 
 func (encoder *CrossSchemaContentEncoder) EncodeInto(value *CrossSchemaContent, buf []byte) {
@@ -181,6 +230,32 @@ func (encoder *CrossSchemaContentEncoder) EncodeInto(value *CrossSchemaContent, 
 			}
 		}
 	}
+	if value.ComponentSchemaRules != nil {
+		for seq_i, seq_v := range value.ComponentSchemaRules {
+			pseudoEncoder := &encoder.ComponentSchemaRules_subencoder[seq_i]
+			pseudoValue := struct {
+				ComponentSchemaRules *ComponentSchemaRule
+			}{
+				ComponentSchemaRules: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.ComponentSchemaRules != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(624))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.ComponentSchemaRules_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.ComponentSchemaRules_encoder.Length > 0 {
+						encoder.ComponentSchemaRules_encoder.EncodeInto(value.ComponentSchemaRules, buf[pos:])
+						pos += encoder.ComponentSchemaRules_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
 }
 
 func (encoder *CrossSchemaContentEncoder) Encode(value *CrossSchemaContent) enc.Wire {
@@ -197,6 +272,7 @@ func (context *CrossSchemaContentParsingContext) Parse(reader enc.WireView, igno
 
 	var handled_SimpleSchemaRules bool = false
 	var handled_PrefixSchemaRules bool = false
+	var handled_ComponentSchemaRules bool = false
 
 	progress := -1
 	_ = progress
@@ -263,6 +339,26 @@ func (context *CrossSchemaContentParsingContext) Parse(reader enc.WireView, igno
 					}
 					progress--
 				}
+			case 624:
+				if true {
+					handled = true
+					handled_ComponentSchemaRules = true
+					if value.ComponentSchemaRules == nil {
+						value.ComponentSchemaRules = make([]*ComponentSchemaRule, 0)
+					}
+					{
+						pseudoValue := struct {
+							ComponentSchemaRules *ComponentSchemaRule
+						}{}
+						{
+							value := &pseudoValue
+							value.ComponentSchemaRules, err = context.ComponentSchemaRules_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.ComponentSchemaRules = append(value.ComponentSchemaRules, pseudoValue.ComponentSchemaRules)
+					}
+					progress--
+				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
 					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
@@ -285,6 +381,9 @@ func (context *CrossSchemaContentParsingContext) Parse(reader enc.WireView, igno
 		// sequence - skip
 	}
 	if !handled_PrefixSchemaRules && err == nil {
+		// sequence - skip
+	}
+	if !handled_ComponentSchemaRules && err == nil {
 		// sequence - skip
 	}
 
@@ -609,6 +708,235 @@ func (value *PrefixSchemaRule) Bytes() []byte {
 
 func ParsePrefixSchemaRule(reader enc.WireView, ignoreCritical bool) (*PrefixSchemaRule, error) {
 	context := PrefixSchemaRuleParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type ComponentSchemaRuleEncoder struct {
+	Length uint
+
+	NamePrefix_length  uint
+	KeyLocator_encoder spec_2022.KeyLocatorEncoder
+}
+
+type ComponentSchemaRuleParsingContext struct {
+	KeyLocator_context spec_2022.KeyLocatorParsingContext
+}
+
+func (encoder *ComponentSchemaRuleEncoder) Init(value *ComponentSchemaRule) {
+	if value.NamePrefix != nil {
+		encoder.NamePrefix_length = 0
+		for _, c := range value.NamePrefix {
+			encoder.NamePrefix_length += uint(c.EncodingLength())
+		}
+	}
+	if value.KeyLocator != nil {
+		encoder.KeyLocator_encoder.Init(value.KeyLocator)
+	}
+
+	l := uint(0)
+	if value.NamePrefix != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.NamePrefix_length).EncodingLength())
+		l += encoder.NamePrefix_length
+	}
+	if value.KeyLocator != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.KeyLocator_encoder.Length).EncodingLength())
+		l += encoder.KeyLocator_encoder.Length
+	}
+	l += 3
+	l += uint(1 + enc.Nat(value.NameComponentIndex).EncodingLength())
+	l += 3
+	l += uint(1 + enc.Nat(value.KeyComponentIndex).EncodingLength())
+	encoder.Length = l
+
+}
+
+func (context *ComponentSchemaRuleParsingContext) Init() {
+
+	context.KeyLocator_context.Init()
+
+}
+
+func (encoder *ComponentSchemaRuleEncoder) EncodeInto(value *ComponentSchemaRule, buf []byte) {
+
+	pos := uint(0)
+
+	if value.NamePrefix != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.NamePrefix_length).EncodeInto(buf[pos:]))
+		for _, c := range value.NamePrefix {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.KeyLocator != nil {
+		buf[pos] = byte(28)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.KeyLocator_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.KeyLocator_encoder.Length > 0 {
+			encoder.KeyLocator_encoder.EncodeInto(value.KeyLocator, buf[pos:])
+			pos += encoder.KeyLocator_encoder.Length
+		}
+	}
+	buf[pos] = 253
+	binary.BigEndian.PutUint16(buf[pos+1:], uint16(625))
+	pos += 3
+
+	buf[pos] = byte(enc.Nat(value.NameComponentIndex).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	buf[pos] = 253
+	binary.BigEndian.PutUint16(buf[pos+1:], uint16(626))
+	pos += 3
+
+	buf[pos] = byte(enc.Nat(value.KeyComponentIndex).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+}
+
+func (encoder *ComponentSchemaRuleEncoder) Encode(value *ComponentSchemaRule) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *ComponentSchemaRuleParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*ComponentSchemaRule, error) {
+
+	var handled_NamePrefix bool = false
+	var handled_KeyLocator bool = false
+	var handled_NameComponentIndex bool = false
+	var handled_KeyComponentIndex bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &ComponentSchemaRule{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_NamePrefix = true
+					delegate := reader.Delegate(int(l))
+					value.NamePrefix, err = delegate.ReadName()
+				}
+			case 28:
+				if true {
+					handled = true
+					handled_KeyLocator = true
+					value.KeyLocator, err = context.KeyLocator_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 625:
+				if true {
+					handled = true
+					handled_NameComponentIndex = true
+					value.NameComponentIndex = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.NameComponentIndex = uint64(value.NameComponentIndex<<8) | uint64(x)
+						}
+					}
+				}
+			case 626:
+				if true {
+					handled = true
+					handled_KeyComponentIndex = true
+					value.KeyComponentIndex = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.KeyComponentIndex = uint64(value.KeyComponentIndex<<8) | uint64(x)
+						}
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_NamePrefix && err == nil {
+		value.NamePrefix = nil
+	}
+	if !handled_KeyLocator && err == nil {
+		value.KeyLocator = nil
+	}
+	if !handled_NameComponentIndex && err == nil {
+		err = enc.ErrSkipRequired{Name: "NameComponentIndex", TypeNum: 625}
+	}
+	if !handled_KeyComponentIndex && err == nil {
+		err = enc.ErrSkipRequired{Name: "KeyComponentIndex", TypeNum: 626}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *ComponentSchemaRule) Encode() enc.Wire {
+	encoder := ComponentSchemaRuleEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *ComponentSchemaRule) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseComponentSchemaRule(reader enc.WireView, ignoreCritical bool) (*ComponentSchemaRule, error) {
+	context := ComponentSchemaRuleParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }

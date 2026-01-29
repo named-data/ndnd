@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests HMAC signing by creating an HmacSigner with a key, signing a sample payload, and asserting the signature type, estimated size, key name, and expected signature bytes.
 func TestHmacSigner(t *testing.T) {
 	tu.SetT(t)
 

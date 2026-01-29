@@ -13,6 +13,7 @@ import (
 	"github.com/named-data/ndnd/std/utils"
 )
 
+// (AI GENERATED DESCRIPTION): Handles incoming management Interest packets by validating the prefix and routing them to the status or RIB handlers based on the command component.
 func (dv *Router) mgmtOnInterest(args ndn.InterestHandlerArgs) {
 	pfxLen := len(dv.config.MgmtPrefix())
 	name := args.Interest.Name()
@@ -33,6 +34,7 @@ func (dv *Router) mgmtOnInterest(args ndn.InterestHandlerArgs) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Handles a status management Interest by replying with a Data packet that encodes the router’s current status (NDNd version, network and router names, and counts of RIB, neighbor, and FIB entries).
 func (dv *Router) mgmtOnStatus(args ndn.InterestHandlerArgs) {
 	status := func() tlv.Status {
 		dv.mutex.Lock()

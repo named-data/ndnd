@@ -52,6 +52,7 @@ var Rib = RibTable{
 	},
 }
 
+// (AI GENERATED DESCRIPTION): Adds any missing intermediate prefix nodes for a given name in the RIB tree, starting from the longest existing prefix and creating new entries down to the full name, then returns the leaf entry.
 func (r *RibEntry) fillTreeToPrefixEnc(name enc.Name) *RibEntry {
 	entry := r.findLongestPrefixEntryEnc(name)
 
@@ -69,6 +70,8 @@ func (r *RibEntry) fillTreeToPrefixEnc(name enc.Name) *RibEntry {
 	}
 	return entry
 }
+
+// (AI GENERATED DESCRIPTION): Finds an exact match for the supplied name in the RIB by performing a longest‑prefix lookup and returning the matching RibEntry if its length equals the name’s length, otherwise nil.
 func (r *RibEntry) findExactMatchEntryEnc(name enc.Name) *RibEntry {
 	match := r.findLongestPrefixEntryEnc(name)
 	if len(name) == len(match.Name) {
@@ -77,6 +80,7 @@ func (r *RibEntry) findExactMatchEntryEnc(name enc.Name) *RibEntry {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Recursively finds and returns the deepest RibEntry in the tree that matches the longest prefix of the supplied encoded name, or the current entry if no deeper match exists.
 func (r *RibEntry) findLongestPrefixEntryEnc(name enc.Name) *RibEntry {
 	if len(name) > r.depth {
 		if child := r.children[At(name, r.depth).Hash()]; child != nil {
@@ -86,6 +90,7 @@ func (r *RibEntry) findLongestPrefixEntryEnc(name enc.Name) *RibEntry {
 	return r
 }
 
+// (AI GENERATED DESCRIPTION): Recursively removes this `RibEntry` and any ancestor entries that have no routes and no children from the RIB tree by deleting them from their parents’ children maps and unlinking them.
 func (r *RibEntry) pruneIfEmpty() {
 	for entry := r; entry != nil && len(entry.children) == 0 && len(entry.routes) == 0; entry = entry.parent {
 		// Remove from parent's children
@@ -214,6 +219,7 @@ func (r *RibTable) RemoveRouteEnc(name enc.Name, faceID uint64, origin uint64) {
 	entry.updateNexthopsEnc() // recursive
 }
 
+// (AI GENERATED DESCRIPTION): Removes all routing entries that reference the given face ID from the RIB, ensuring the table no longer uses that face.
 func (r *RibTable) CleanUpFace(faceId uint64) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -250,6 +256,7 @@ func (r *RibEntry) cleanUpFace(faceId uint64) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Checks whether any route in the RIB entry is marked with the capture flag and returns true if at least one such route exists.
 func (r *RibEntry) HasCaptureRoute() bool {
 	for _, route := range r.routes {
 		if route.HasCaptureFlag() {
@@ -259,10 +266,12 @@ func (r *RibEntry) HasCaptureRoute() bool {
 	return false
 }
 
+// (AI GENERATED DESCRIPTION): Checks whether the route’s flags include the Capture flag.
 func (r *Route) HasCaptureFlag() bool {
 	return r.Flags&uint64(spec_mgmt.RouteFlagCapture) != 0
 }
 
+// (AI GENERATED DESCRIPTION): Returns true if the route’s Flags field has the RouteFlagChildInherit bit set, indicating that child routes inherit this route’s properties.
 func (r *Route) HasChildInheritFlag() bool {
 	return r.Flags&uint64(spec_mgmt.RouteFlagChildInherit) != 0
 }

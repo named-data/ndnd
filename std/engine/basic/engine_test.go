@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Executes a test by creating a dummy face, engine, and timer, starting the engine, running the supplied test function, and then stopping the engine while ensuring no errors occur.
 func executeTest(t *testing.T, main func(*face.DummyFace, *basic_engine.Engine, *basic_engine.DummyTimer)) {
 	tu.SetT(t)
 
@@ -28,11 +29,13 @@ func executeTest(t *testing.T, main func(*face.DummyFace, *basic_engine.Engine, 
 	require.NoError(t, engine.Stop())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the basic engine can start successfully when provided with a dummy face and timer, ensuring no errors occur during initialization.
 func TestEngineStart(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Tests that an expressed Interest is correctly sent, a matching Data packet is received and processed, and the callback receives the expected Data packet with the correct name, freshness, and content.
 func TestConsumerBasic(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 		hitCnt := 0
@@ -72,6 +75,7 @@ func TestConsumerBasic(t *testing.T) {
 
 // TODO: TestInterestCancel
 
+// (AI GENERATED DESCRIPTION): Tests that an Interest expressed with specific parameters correctly triggers a NACK callback with the NoRoute reason, verifying that the outgoing Interest packet is properly encoded and that the engine processes the received NACK as an InterestResultNack.
 func TestInterestNack(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 		hitCnt := 0
@@ -107,6 +111,7 @@ func TestInterestNack(t *testing.T) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that an Interest with a 10 ms lifetime times out after the timer advances and the Express callback is invoked with `InterestResultTimeout`, even when a Data packet arrives afterward.
 func TestInterestTimeout(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 		hitCnt := 0
@@ -135,6 +140,7 @@ func TestInterestTimeout(t *testing.T) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Tests that an Interest with CanBePrefix=true can be satisfied by a Data packet with a longer name, while a non‑prefix Interest times out and that a longer Interest without CanBePrefix still matches the same Data packet.
 func TestInterestCanBePrefix(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 		hitCnt := 0
@@ -198,6 +204,7 @@ func TestInterestCanBePrefix(t *testing.T) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Tests that interests addressed by an implicit SHA‑256 digest name match the correct Data packet and return its content, while a non‑matching digest results in a timeout.
 func TestImplicitSha256(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 		hitCnt := 0
@@ -255,6 +262,7 @@ func TestImplicitSha256(t *testing.T) {
 
 // No need to test AppParam for expression. If `spec.MakeInterest` works, `engine.Express` will.
 
+// (AI GENERATED DESCRIPTION): Tests that an Interest matching a registered prefix (`/not`) is routed to its handler, which verifies the Interest and replies with a correctly‑encoded Data packet containing the string “test”.
 func TestRoute(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 		hitCnt := 0
@@ -289,6 +297,7 @@ func TestRoute(t *testing.T) {
 	})
 }
 
+// (AI GENERATED DESCRIPTION): Tests that an Interest matching a registered prefix correctly invokes its handler, which replies with a signed Data packet containing the string “test”, verifying that the PIT token is processed and the generated packet matches the expected format.
 func TestPitToken(t *testing.T) {
 	executeTest(t, func(face *face.DummyFace, engine *basic_engine.Engine, timer *basic_engine.DummyTimer) {
 		hitCnt := 0

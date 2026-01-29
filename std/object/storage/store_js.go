@@ -31,6 +31,7 @@ type jsStoreTuple struct {
 	wire []byte
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new JsStore instance, initializing its API reference, transaction counter, an empty priority‑queue cache of size 8192, and related bookkeeping fields.
 func NewJsStore(api js.Value) *JsStore {
 	return &JsStore{
 		api: api,
@@ -43,6 +44,7 @@ func NewJsStore(api js.Value) *JsStore {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves the wire data for a given name (or name prefix) from the JavaScript‑backed store, caching any returned items for faster subsequent lookups.
 func (s *JsStore) Get(name enc.Name, prefix bool) ([]byte, error) {
 	*s.cacheP++ // priority
 
@@ -93,6 +95,7 @@ func (s *JsStore) Get(name enc.Name, prefix bool) ([]byte, error) {
 	return nil, nil
 }
 
+// (AI GENERATED DESCRIPTION): Stores a data packet in the JavaScript-backed store under the given name, awaiting the operation when in transaction mode, and updates the in‑memory cache with the stored item.
 func (s *JsStore) Put(name enc.Name, wire []byte) error {
 	tlvBytes := name.BytesInner()
 	name_js := jsutil.SliceToJsArray(tlvBytes)
@@ -112,6 +115,7 @@ func (s *JsStore) Put(name enc.Name, wire []byte) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Removes the entry with the specified name from the underlying store, without clearing any cached data.
 func (s *JsStore) Remove(name enc.Name) error {
 	// This does not evict the cache, but that's fine.
 	// Applications should not rely on the cache for correctness.
@@ -121,12 +125,14 @@ func (s *JsStore) Remove(name enc.Name) error {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Removes all entries in the JavaScript store whose names begin with the specified prefix.
 func (s *JsStore) RemovePrefix(prefix enc.Name) error {
 	name_js := jsutil.SliceToJsArray(prefix.BytesInner())
 	s.api.Call("remove", name_js, true)
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Removes all entries whose keys lie between the concatenated prefix+first component and prefix+last component in the underlying key‑value store.
 func (s *JsStore) RemoveFlatRange(prefix enc.Name, first enc.Component, last enc.Component) error {
 	firstKey := prefix.Append(first).BytesInner()
 	lastKey := prefix.Append(last).BytesInner()
@@ -140,6 +146,7 @@ func (s *JsStore) RemoveFlatRange(prefix enc.Name, first enc.Component, last enc
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Begins a new transaction in the JsStore by calling the underlying API's “begin” method and returns a new JsStore instance.
 func (s *JsStore) Begin() (ndn.Store, error) {
 	return &JsStore{
 		api:       s.api,
@@ -151,16 +158,19 @@ func (s *JsStore) Begin() (ndn.Store, error) {
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Commits the current transaction to the underlying store via the JavaScript API and waits for its completion.
 func (s *JsStore) Commit() error {
 	jsutil.Await(s.api.Call("commit", s.tx))
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Rolls back the current transaction by invoking the JavaScript API’s `rollback` method on the transaction and waiting for completion.
 func (s *JsStore) Rollback() error {
 	jsutil.Await(s.api.Call("rollback", s.tx))
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Clears the JsStore's cache by repeatedly popping items from the priority queue and deleting their corresponding entries from the internal cache map.
 func (s *JsStore) ClearCache() {
 	for s.cachePq.Len() > 0 {
 		k := s.cachePq.Pop()
@@ -168,6 +178,7 @@ func (s *JsStore) ClearCache() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Inserts a new entry into the JsStore’s LRU cache for the given TLV string and wire data, evicting the least‑recently‑used item when the cache size limit is exceeded.
 func (s *JsStore) insertCache(tlvstr string, wire []byte) {
 	if s.cache[tlvstr] == nil {
 		s.cache[tlvstr] = s.cachePq.Push(jsStoreTuple{

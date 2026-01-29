@@ -68,6 +68,7 @@ const SchemaJson = `{
 
 const HmacKey = "Hello, World!"
 
+// (AI GENERATED DESCRIPTION): Starts an NDN consumer, attaches a predefined schema, sends an Interest for the specified version number, and prints the received Data or error status.
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal(nil, "Insufficient argument. Please input the version number given by the producer.")

@@ -24,18 +24,22 @@ type ForwarderStatusModule struct {
 	manager *Thread
 }
 
+// (AI GENERATED DESCRIPTION): Returns the constant string `"mgmt-status"` to identify the ForwarderStatusModule.
 func (f *ForwarderStatusModule) String() string {
 	return "mgmt-status"
 }
 
+// (AI GENERATED DESCRIPTION): Registers the given Thread instance as the manager for the ForwarderStatusModule.
 func (f *ForwarderStatusModule) registerManager(manager *Thread) {
 	f.manager = manager
 }
 
+// (AI GENERATED DESCRIPTION): Retrieves and returns the manager thread (*Thread) associated with the ForwarderStatusModule.
 func (f *ForwarderStatusModule) getManager() *Thread {
 	return f.manager
 }
 
+// (AI GENERATED DESCRIPTION): Handles incoming forwarder‑status management Interests from the local namespace, dispatching them by verb (e.g., “general”) and replying with an error for unknown verbs.
 func (f *ForwarderStatusModule) handleIncomingInterest(interest *Interest) {
 	// Only allow from /localhost
 	if !LOCAL_PREFIX.IsPrefix(interest.Name()) {
@@ -54,6 +58,7 @@ func (f *ForwarderStatusModule) handleIncomingInterest(interest *Interest) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Processes a “status/general” interest by aggregating per‑thread forwarder counters, encoding a GeneralStatus dataset, and sending it back as a Data packet.
 func (f *ForwarderStatusModule) general(interest *Interest) {
 	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
 		// Ignore because contains version and/or segment components

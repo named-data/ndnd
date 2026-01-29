@@ -35,6 +35,7 @@ func MakeNullTransport() *NullTransport {
 	return t
 }
 
+// (AI GENERATED DESCRIPTION): Returns a formatted string describing the NullTransport, including its face ID, remote URI, and local URI.
 func (t *NullTransport) String() string {
 	return fmt.Sprintf("null-transport (faceid=%d remote=%s local=%s)", t.faceID, t.remoteURI, t.localURI)
 }
@@ -58,15 +59,18 @@ func (t *NullTransport) GetSendQueueSize() uint64 {
 	return 0
 }
 
+// (AI GENERATED DESCRIPTION): Discards the supplied frame data without transmitting it, serving as the no‑op implementation for NullTransport.
 func (t *NullTransport) sendFrame([]byte) {
 	// Do nothing
 }
 
+// (AI GENERATED DESCRIPTION): Marks the NullTransport as running and blocks until a signal is received on the close channel to terminate the receiver.
 func (t *NullTransport) runReceive() {
 	t.running.Store(true)
 	<-t.close
 }
 
+// (AI GENERATED DESCRIPTION): Atomically marks the transport as inactive and, if it was previously running, sends a signal on the close channel to trigger shutdown.
 func (t *NullTransport) Close() {
 	if t.running.Swap(false) {
 		t.close <- true

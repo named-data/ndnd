@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Builds a Spec‑2022 Data packet with the given name, optional content type and content, and signs it if a signer is supplied.
 func TestMakeDataBasic(t *testing.T) {
 	tu.SetT(t)
 
@@ -86,6 +87,7 @@ func TestMakeDataBasic(t *testing.T) {
 		data.Wire.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Creates a signed Data packet with the specified name, optional meta‑information (content type, freshness period, final block ID), optional content, and the provided signer.
 func TestMakeDataMetaInfo(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -111,31 +113,38 @@ func TestMakeDataMetaInfo(t *testing.T) {
 
 type testSigner struct{}
 
+// (AI GENERATED DESCRIPTION): Returns a hard‑coded key name of “/KEY” to be used by the test signer.
 func (testSigner) KeyName() enc.Name {
 	name, _ := enc.NameFromStr("/KEY")
 	return name
 }
 
+// (AI GENERATED DESCRIPTION): Returns the key locator name associated with this test signer.
 func (t testSigner) KeyLocator() enc.Name {
 	return t.KeyName()
 }
 
+// (AI GENERATED DESCRIPTION): Returns the fixed signature type value (200) used by the testSigner.
 func (testSigner) Type() ndn.SigType {
 	return ndn.SigType(200)
 }
 
+// (AI GENERATED DESCRIPTION): Estimates the size of a signature as a constant 10 bytes for the test signer.
 func (testSigner) EstimateSize() uint {
 	return 10
 }
 
+// (AI GENERATED DESCRIPTION): Returns a fixed dummy signature of five zero bytes for testing, ignoring the input packet wire.
 func (testSigner) Sign(enc.Wire) ([]byte, error) {
 	return []byte{0, 0, 0, 0, 0}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Returns a nil public‑key slice and the `ndn.ErrNoPubKey` error, indicating that the test signer has no public key available.
 func (testSigner) Public() ([]byte, error) {
 	return nil, ndn.ErrNoPubKey
 }
 
+// (AI GENERATED DESCRIPTION): Creates a Data packet with name “/test”, content type Blob, no payload and a test signature, and verifies that its wire encoding is the minimal (shrunk) byte sequence.
 func TestMakeDataShrink(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -156,6 +165,7 @@ func TestMakeDataShrink(t *testing.T) {
 		data.Wire.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Parses a raw NDN Data packet, extracting its name, content type, freshness, final block ID, content, and signature, and returns the Data object along with the signed portion of the packet.
 func TestReadDataBasic(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -236,6 +246,7 @@ func TestReadDataBasic(t *testing.T) {
 	require.Equal(t, sig, data.Signature().SigValue())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that the NDN spec parser correctly reads a Data packet containing only meta‑information (name, content type, freshness, final block ID and a digest signature) and verifies all parsed fields against the expected values.
 func TestReadDataMetaInfo(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -261,6 +272,7 @@ func TestReadDataMetaInfo(t *testing.T) {
 	require.Equal(t, sig, data.Signature().SigValue())
 }
 
+// (AI GENERATED DESCRIPTION): Tests the spec.MakeInterest function by creating Interest packets with various configurations and asserting that the resulting packet’s wire encoding matches the expected values.
 func TestMakeIntBasic(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -320,6 +332,7 @@ func TestMakeIntBasic(t *testing.T) {
 		interest.Wire.Join())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that an Interest packet containing a 384‑byte application parameter can be correctly encoded and decoded, preserving both the packet’s name and the application parameter.
 func TestMakeIntLargeAppParam(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -344,6 +357,7 @@ func TestMakeIntLargeAppParam(t *testing.T) {
 	require.True(t, interest.Name().Equal(encoded.FinalName))
 }
 
+// (AI GENERATED DESCRIPTION): Creates an Interest packet with the given name, optional lifetime, nonce, and payload, optionally signs it, and appends a params‑sha256 component to the final name derived from the payload data.
 func TestMakeIntSign(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -418,6 +432,7 @@ func TestMakeIntSign(t *testing.T) {
 		interest.Wire.Join())
 }
 
+// (AI GENERATED DESCRIPTION): **`TestReadIntBasic`** – verifies that the 2022 NDN spec correctly parses Interest packets, checking all fields (name, lifetime, flags, nonce, hop limit, application parameters) and validates the associated digest‑based signatures.
 func TestReadIntBasic(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
@@ -524,6 +539,7 @@ func TestReadIntBasic(t *testing.T) {
 	require.Equal(t, sig, interest.Signature().SigValue())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that spec.ReadInterest correctly returns an error when parsing malformed Interest packet byte sequences.
 func TestReadIntErrors(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}

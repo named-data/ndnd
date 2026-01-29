@@ -7,9 +7,11 @@ import (
 	"iter"
 	"maps"
 	"slices"
+	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	sig "github.com/named-data/ndnd/std/security/signer"
 )
 
@@ -21,6 +23,7 @@ type LvsSchema struct {
 
 type LvsCtx = map[uint64]enc.Component
 
+// (AI GENERATED DESCRIPTION): Creates an LvsSchema from raw bytes by parsing the LVSC model and verifying that its version, node IDs, edges, sign‑constraint references, and constraint options are all valid before returning the schema or an error.
 func NewLvsSchema(buf []byte) (*LvsSchema, error) {
 	model, err := ParseLvsModel(enc.NewBufferView(buf), false)
 	if err != nil {
@@ -86,6 +89,7 @@ func NewLvsSchema(buf []byte) (*LvsSchema, error) {
 	return &LvsSchema{m: model}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Collects all `LvsNode` objects that match the given name in the `LvsSchema` and returns them as a slice.
 func (s *LvsSchema) MatchCollect(name enc.Name) []*LvsNode {
 	nodes := make([]*LvsNode, 0)
 	for node := range s.Match(name, nil) {
@@ -94,6 +98,7 @@ func (s *LvsSchema) MatchCollect(name enc.Name) []*LvsNode {
 	return nodes
 }
 
+// (AI GENERATED DESCRIPTION): Yields every pair of LvsNode and its variable‑binding context that matches the supplied name against the schema, performing a depth‑first traversal of value and pattern edges with backtracking to enumerate all successful matches.
 func (s *LvsSchema) Match(name enc.Name, startCtx LvsCtx) iter.Seq2[*LvsNode, LvsCtx] {
 	return func(yield func(*LvsNode, LvsCtx) bool) {
 		// Empty name never matches
@@ -204,6 +209,7 @@ func (s *LvsSchema) Match(name enc.Name, startCtx LvsCtx) iter.Seq2[*LvsNode, Lv
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that the specified key name is authorized to sign the given packet name under the current Lvs schema.
 func (s *LvsSchema) Check(pkt enc.Name, key enc.Name) bool {
 	for pktNode, pktCtx := range s.Match(pkt, nil) {
 		for keyNode := range s.Match(key, pktCtx) {
@@ -215,6 +221,7 @@ func (s *LvsSchema) Check(pkt enc.Name, key enc.Name) bool {
 	return false
 }
 
+// (AI GENERATED DESCRIPTION): Suggest selects a signer from a keychain whose certificate matches the packet name under the current LvsSchema and returns a ContextSigner that will sign the packet with that key, or nil if no suitable signer is found.
 func (s *LvsSchema) Suggest(pkt enc.Name, keychain ndn.KeyChain) ndn.Signer {
 	// O(n^7) ... but n is small
 	for pktNode, pktCtx := range s.Match(pkt, nil) {
@@ -222,11 +229,24 @@ func (s *LvsSchema) Suggest(pkt enc.Name, keychain ndn.KeyChain) ndn.Signer {
 			for _, key := range id.Keys() {
 				for _, cert := range key.UniqueCerts() {
 					for keyNode := range s.Match(cert, pktCtx) {
-						if s.checkSigner(pktNode, keyNode) {
-							return &sig.ContextSigner{
-								Signer:         key.Signer(),
-								KeyLocatorName: cert[:len(cert)-1], // remove version
-							}
+						if !s.checkSigner(pktNode, keyNode) {
+							continue
+						}
+
+						// Load the real cert
+						wire, err := keychain.Store().Get(cert.Prefix(-1), true)
+						if err != nil || wire == nil {
+							continue
+						}
+
+						certData, _, err := spec.Spec{}.ReadData(enc.NewWireView(enc.Wire{wire}))
+						if err != nil {
+							continue
+						}
+
+						_, notAfter := certData.Signature().Validity()
+						if val, ok := notAfter.Get(); ok && val.After(time.Now()) {
+							return sig.WithKeyLocator(key.Signer(), cert[:len(cert)-1]) // remove version
 						}
 					}
 				}
@@ -236,6 +256,7 @@ func (s *LvsSchema) Suggest(pkt enc.Name, keychain ndn.KeyChain) ndn.Signer {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Checks whether a name component satisfies all given pattern constraints by matching it against literal values or context tags, returning true only if every constraint is met.
 func (s *LvsSchema) checkCons(
 	value enc.Component,
 	context LvsCtx,
@@ -268,6 +289,7 @@ func (s *LvsSchema) checkCons(
 	return true
 }
 
+// (AI GENERATED DESCRIPTION): Checks whether a packet node is signed by a given key node by verifying that the key node’s ID appears in the packet’s SignCons list.
 func (s *LvsSchema) checkSigner(pktNode *LvsNode, keyNode *LvsNode) bool {
 	return slices.Contains(pktNode.SignCons, keyNode.Id)
 }

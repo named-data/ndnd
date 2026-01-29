@@ -14,6 +14,7 @@ type FixedUintField struct {
 	l   uint
 }
 
+// (AI GENERATED DESCRIPTION): Creates a FixedUintField with the given name and type number, parsing the annotation to set its byte length (byte, uint16, uint32, or uint64) and whether it is optional.
 func NewFixedUintField(name string, typeNum uint64, annotation string, _ *TlvModel) (TlvField, error) {
 	if annotation == "" {
 		return nil, ErrInvalidField
@@ -44,6 +45,7 @@ func NewFixedUintField(name string, typeNum uint64, annotation string, _ *TlvMod
 	}, nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that calculates the encoding length for a fixed unsigned integer field, adding the field’s type number and length to the total only if the field is required or its optional value is set.
 func (f *FixedUintField) GenEncodingLength() (string, error) {
 	g := strErrBuf{}
 	if f.opt {
@@ -58,10 +60,12 @@ func (f *FixedUintField) GenEncodingLength() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates the wire‑encoding plan string for a FixedUintField by delegating to its GenEncodingLength method, returning the plan and any error.
 func (f *FixedUintField) GenEncodingWirePlan() (string, error) {
 	return f.GenEncodingLength()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source that encodes a fixed‑length unsigned integer field into a buffer, writing its type number and value (in big‑endian order) and optionally guarding against missing values.
 func (f *FixedUintField) GenEncodeInto() (string, error) {
 	g := strErrBuf{}
 
@@ -101,6 +105,7 @@ func (f *FixedUintField) GenEncodeInto() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go code that reads a fixed‑length unsigned integer field from an io.Reader into a target struct field, handling optional values and EOF errors.
 func (f *FixedUintField) GenReadFrom() (string, error) {
 	g := strErrBuf{}
 	digit := ""
@@ -160,6 +165,7 @@ func (f *FixedUintField) GenReadFrom() (string, error) {
 	return g.output()
 }
 
+// (AI GENERATED DESCRIPTION): Generates a code snippet that, when the field is optional, unsets its value, or if mandatory, assigns a skip‑required error.
 func (f *FixedUintField) GenSkipProcess() (string, error) {
 	if f.opt {
 		return fmt.Sprintf("value.%s.Unset()", f.name), nil

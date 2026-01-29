@@ -108,10 +108,12 @@ type FwCachePolicy struct {
 	CachePolicyType uint64 `tlv:"0x0335"`
 }
 
+// (AI GENERATED DESCRIPTION): Returns the Name value (`NameV`) stored in a forwarded Interest packet.
 func (p *FwInterest) Name() enc.Name {
 	return p.NameV
 }
 
+// (AI GENERATED DESCRIPTION): Returns the optional lifetime value of this Interest packet, if one has been set.
 func (p *FwInterest) Lifetime() optional.Optional[time.Duration] {
 	return p.InterestLifetimeV
 }

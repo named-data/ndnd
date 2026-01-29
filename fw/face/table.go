@@ -27,6 +27,7 @@ type Table struct {
 	nextFaceID atomic.Uint64 // starts at 1
 }
 
+// (AI GENERATED DESCRIPTION): Implements the fmt.Stringer interface for Table, returning the literal string “face-table” as its textual identifier.
 func (t *Table) String() string {
 	return "face-table"
 }

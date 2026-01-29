@@ -87,10 +87,12 @@ var msgList []string
 var dataLock sync.Mutex
 var nodeId string
 
+// (AI GENERATED DESCRIPTION): Sends the predefined `homeHtml` content to the client by writing it to the HTTP response writer.
 func homePage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(homeHtml))
 }
 
+// (AI GENERATED DESCRIPTION): Continuously reads messages from the WebSocket connection, passes each payload to the sync node, logs the received data along with the node’s sequence number, echoes the formatted message back to the client, and stops when a read or write error occurs.
 func wsReader() {
 	running := true
 	for running {
@@ -117,6 +119,7 @@ func wsReader() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Upgrades an HTTP request to a WebSocket, ensures only one active client connection, sends any stored messages to that client, and begins reading incoming messages.
 func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
@@ -147,11 +150,13 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	wsReader()
 }
 
+// (AI GENERATED DESCRIPTION): Sets up HTTP routes by registering the home page handler for “/” and the WebSocket endpoint handler for “/ws”.
 func setupRoutes() {
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/ws", wsEndpoint)
 }
 
+// (AI GENERATED DESCRIPTION): Starts a Named‑Data Networking chat server that serves an HTML UI, attaches a data schema, runs the engine, processes missing data requests (fetching and broadcasting them over WebSocket), and gracefully shuts down on interrupt.
 func main() {
 	// Note: remember to ` nfdc strategy set /example/schema /localhost/nfd/strategy/multicast `
 	log.Default().SetLevel(log.LevelError)

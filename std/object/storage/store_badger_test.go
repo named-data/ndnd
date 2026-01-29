@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Runs a suite of tests that create a BadgerStore, verify its basic CRUD, range removal, and transactional behavior, and then close the store.
 func TestBadgerStore(t *testing.T) {
 	tu.SetT(t)
 	dir := "badger-test"

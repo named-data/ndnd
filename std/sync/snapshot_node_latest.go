@@ -7,6 +7,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
+	"github.com/named-data/ndnd/std/types/optional"
 )
 
 // SnapshotNodeLatest is a snapshot strategy that takes a snapshot of the
@@ -32,6 +33,8 @@ type SnapshotNodeLatest struct {
 	SnapMe func(enc.Name) (enc.Wire, error)
 	// Threshold is the number of updates before a snapshot is taken.
 	Threshold uint64
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 
 	// pss is the struct from the svs layer.
 	pss snapPsState
@@ -39,10 +42,12 @@ type SnapshotNodeLatest struct {
 	prevSeq uint64
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string `"snapshot-node-latest"` as the textual representation of a SnapshotNodeLatest node.
 func (s *SnapshotNodeLatest) String() string {
 	return "snapshot-node-latest"
 }
 
+// (AI GENERATED DESCRIPTION): Returns the SnapshotNodeLatest instance itself as a Snapshot.
 func (s *SnapshotNodeLatest) Snapshot() Snapshot {
 	return s
 }
@@ -113,15 +118,19 @@ func (s *SnapshotNodeLatest) snapName(node enc.Name, boot uint64) enc.Name {
 // fetchSnap fetches the latest snapshot for a remote node.
 func (s *SnapshotNodeLatest) fetchSnap(node enc.Name, boot uint64) {
 	// Discover the latest snapshot
-	s.Client.Consume(s.snapName(node, boot), func(cstate ndn.ConsumeState) {
-		if cstate.Error() != nil {
-			// Do not try too fast in case NFD returns NACK
-			time.AfterFunc(2*time.Second, func() {
+	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
+		Name:           s.snapName(node, boot),
+		IgnoreValidity: s.IgnoreValidity,
+		Callback: func(cstate ndn.ConsumeState) {
+			if cstate.Error() != nil {
+				// Do not try too fast in case NFD returns NACK
+				time.AfterFunc(2*time.Second, func() {
+					s.handleSnap(node, boot, cstate)
+				})
+			} else {
 				s.handleSnap(node, boot, cstate)
-			})
-		} else {
-			s.handleSnap(node, boot, cstate)
-		}
+			}
+		},
 	})
 }
 

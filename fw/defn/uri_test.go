@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// (AI GENERATED DESCRIPTION): Verifies that `DecodeURIString` correctly parses diverse URI strings, extracting scheme, host, port, zone, and correctly marking canonical versus non‑canonical forms.
 func TestDecodeUri(t *testing.T) {
 	var uri *defn.URI
 

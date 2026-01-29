@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that `ComponentFromStr` correctly parses various string representations into `Component` structs, covering generic, percent‑encoded, version, and parameters SHA256 digest components.
 func TestComponentFromStrBasic(t *testing.T) {
 	tu.SetT(t)
 
@@ -34,6 +35,7 @@ func TestComponentFromStrBasic(t *testing.T) {
 	require.Equal(t, enc.Component{enc.TypeGenericNameComponent, []byte("")}, comp)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that generic name components are correctly parsed from bytes and strings, percent‑encoded, and round‑tripped back to their binary representation.
 func TestGenericComponent(t *testing.T) {
 	tu.SetT(t)
 
@@ -83,6 +85,7 @@ func TestGenericComponent(t *testing.T) {
 	require.Equal(t, c, c2)
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that NDN component values are correctly parsed from bytes and strings, correctly converted to string representations, correctly constructed from raw components, and that invalid component strings are rejected.
 func TestComponentTypes(t *testing.T) {
 	tu.SetT(t)
 
@@ -150,6 +153,7 @@ func TestComponentTypes(t *testing.T) {
 	require.Equal(t, []byte("\x38\x08\x00\x37\xbb\x0d\x76\xed\x4c\x60"), enc.NewTimestampComponent(tm).Bytes())
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that the Component type’s Compare and Equal methods correctly order and compare components of varying types and byte values.
 func TestComponentCompare(t *testing.T) {
 	tu.SetT(t)
 
@@ -188,6 +192,7 @@ func TestComponentCompare(t *testing.T) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): TestNameBasic validates that a complex name string containing generic components and an implicit SHA‑256 digest component is parsed into a Name structure with the correct component types and values, and that the resulting name’s encoding length and byte representation match the expected values.
 func TestNameBasic(t *testing.T) {
 	tu.SetT(t)
 
@@ -208,6 +213,7 @@ func TestNameBasic(t *testing.T) {
 	require.Equal(t, b, name.Bytes())
 }
 
+// (AI GENERATED DESCRIPTION): Tests that `NameFromStr` correctly parses input strings into `Name` objects and that the resulting `String()` method outputs the canonical representation, including proper handling of slashes, whitespace, and percent‑encoding.
 func TestNameString(t *testing.T) {
 	tu.SetT(t)
 
@@ -232,6 +238,7 @@ func TestNameString(t *testing.T) {
 	tester("//", "//")
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that the Name type’s Equal and Compare methods correctly determine equality and lexicographic order for a set of example names.
 func TestNameCompare(t *testing.T) {
 	tu.SetT(t)
 
@@ -292,6 +299,7 @@ func TestNameCompare(t *testing.T) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): TestNameIsPrefix verifies that the Name.IsPrefix method correctly identifies when one NDN name is a prefix of another, checking identical names, root prefixes, child prefixes, and non‑matching cases.
 func TestNameIsPrefix(t *testing.T) {
 	tu.SetT(t)
 
@@ -322,6 +330,7 @@ func TestNameIsPrefix(t *testing.T) {
 	testFalse("/C", "/21426=AA")
 }
 
+// (AI GENERATED DESCRIPTION): Converts an NDN name to its canonical wire‑format byte representation.
 func TestNameBytes(t *testing.T) {
 	tu.SetT(t)
 
@@ -333,6 +342,7 @@ func TestNameBytes(t *testing.T) {
 	require.True(t, n.Equal(n2))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that appending components to a Name correctly allocates new underlying arrays (avoiding aliasing) and verifies that chained appends reuse buffers only when safe.
 func TestNameAppend(t *testing.T) {
 	tu.SetT(t)
 
@@ -405,6 +415,7 @@ func TestNameAppend(t *testing.T) {
 	require.True(t, unsafe.SliceData(name9) != unsafe.SliceData(name10))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that `Name.At` correctly retrieves the component at a given positive or negative index and returns an empty component when the index is out of bounds.
 func TestNameAt(t *testing.T) {
 	tu.SetT(t)
 
@@ -421,6 +432,7 @@ func TestNameAt(t *testing.T) {
 	require.Equal(t, enc.Component{}, n.At(-5))
 }
 
+// (AI GENERATED DESCRIPTION): Returns a prefix of the name based on the given index—positive values select the first N components, negative values drop N components from the end, and out‑of‑range indices are clamped to the root or full name.
 func TestNamePrefix(t *testing.T) {
 	tu.SetT(t)
 
@@ -438,6 +450,7 @@ func TestNamePrefix(t *testing.T) {
 	require.Equal(t, "/", n.Prefix(-5).String())
 }
 
+// (AI GENERATED DESCRIPTION): Test that converting a name component and an entire name to a TLV string and back preserves the original values.
 func TestNameTlvStr(t *testing.T) {
 	tu.SetT(t)
 	for _, name := range randomNames(1000, 20) {
@@ -448,6 +461,7 @@ func TestNameTlvStr(t *testing.T) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Creates a deep copy of a `Name`, producing an equal but independent instance whose component slices are allocated separately.
 func TestNameClone(t *testing.T) {
 	tu.SetT(t)
 	n := tu.NoErr(enc.NameFromStr("/a/b/c/d"))
@@ -457,6 +471,7 @@ func TestNameClone(t *testing.T) {
 	require.True(t, unsafe.SliceData(n[0].Val) != unsafe.SliceData(n2[0].Val))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that a sample Name’s Hash, PrefixHash and component Hash methods return the expected hash values.
 func TestNameHash(t *testing.T) {
 	tu.SetT(t)
 

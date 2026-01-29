@@ -13,6 +13,7 @@ import (
 	"github.com/named-data/ndnd/fw/core"
 )
 
+// (AI GENERATED DESCRIPTION): Recursively extracts the comments attached to each field of a Go struct and stores them in a YAML comment map keyed by the field’s JSON tag path.
 func getDocstrings(
 	cm yaml.CommentMap,
 	jstr string,
@@ -43,6 +44,7 @@ func getDocstrings(
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Generates a sample `yanfd.sample.yml` file by marshalling the default YaNFD configuration struct to YAML, embedding the struct’s documentation comments as inline YAML comments.
 func main() {
 	f, err := parser.ParseFile(token.NewFileSet(), "core/config.go", nil, parser.ParseComments)
 	if err != nil {

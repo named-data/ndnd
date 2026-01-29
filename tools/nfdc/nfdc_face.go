@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Prints a formatted list of all faces—including their IDs, URIs, congestion settings, MTU, counters, and flags—by fetching the `faces/list` status dataset and parsing it.
 func (t *Tool) ExecFaceList(_ *cobra.Command, args []string) {
 	t.Start()
 	defer t.Stop()

@@ -1,6 +1,7 @@
 package sec
 
 import (
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"os"
@@ -24,14 +25,17 @@ type CertClient struct {
 		outFile   string
 		challenge string
 		email     string
+		domain    string
 		noprobe   bool
 	}
 
 	caCert    []byte
+	caPrefix  enc.Name
 	signer    ndn.Signer
 	challenge ndncert.Challenge
 }
 
+// (AI GENERATED DESCRIPTION): Creates a Cobra command for the NDNCERT certificate client, setting its usage, flags, and run logic.
 func CmdCertCli() *cobra.Command {
 	client := CertClient{}
 
@@ -51,17 +55,20 @@ the CA to obtain a new certificate.`,
 
 	cmd.Flags().StringVarP(&client.flags.outFile, "output", "o", "", `Output filename without extension (default "stdout")`)
 	cmd.Flags().StringVarP(&client.flags.keyFile, "key", "k", "", `File with NDN key to certify (default "keygen")`)
-	cmd.Flags().StringVarP(&client.flags.challenge, "challenge", "c", "", `Challenge type (default "ask")`)
+	cmd.Flags().StringVarP(&client.flags.challenge, "challenge", "c", "", `Challenge type: email, pin, dns (default "ask")`)
 	cmd.Flags().StringVar(&client.flags.email, "email", "", `Email address for probe and email challenge`)
+	cmd.Flags().StringVar(&client.flags.domain, "domain", "", `Domain name for DNS challenge`)
 	cmd.Flags().BoolVar(&client.flags.noprobe, "no-probe", false, `Skip probe and use the provided key directly`)
 
 	return cmd
 }
 
+// (AI GENERATED DESCRIPTION): Returns the string representation of the CertClient, which is the constant "ndncert-cli".
 func (c *CertClient) String() string {
 	return "ndncert-cli"
 }
 
+// (AI GENERATED DESCRIPTION): Loads the CA certificate and optional private key, selects a challenge, and initiates the certificate client.
 func (c *CertClient) run(_ *cobra.Command, args []string) {
 	// Read CA certificate
 	caCertFile, err := os.ReadFile(args[0])
@@ -103,7 +110,7 @@ func (c *CertClient) run(_ *cobra.Command, args []string) {
 func (c *CertClient) chooseChallenge() ndncert.Challenge {
 	defer fmt.Fprintln(os.Stderr)
 
-	challenges := []string{ndncert.KwEmail, ndncert.KwPin}
+	challenges := []string{ndncert.KwEmail, ndncert.KwPin, ndncert.KwDns}
 
 	if c.flags.challenge == "" {
 		i := c.chooseOpts("Please choose a challenge type:", challenges)
@@ -137,6 +144,52 @@ func (c *CertClient) chooseChallenge() ndncert.Challenge {
 			},
 		}
 
+	case ndncert.KwDns:
+		return &ndncert.ChallengeDns{
+			DomainCallback: func(status string) string {
+				if c.flags.domain == "" {
+					c.scanln("Enter the domain name you want to validate", &c.flags.domain)
+				}
+				return c.flags.domain
+			},
+			ConfirmationCallback: func(recordName, expectedValue, status string) string {
+				fmt.Fprintf(os.Stderr, "\n")
+				switch status {
+				case "need-record":
+					fmt.Fprintf(os.Stderr, "=== DNS CHALLENGE SETUP ===\n")
+					fmt.Fprintf(os.Stderr, "Please create the following DNS TXT record:\n\n")
+					fmt.Fprintf(os.Stderr, "Record Name: %s\n", recordName)
+					fmt.Fprintf(os.Stderr, "Record Type: TXT\n")
+					fmt.Fprintf(os.Stderr, "Record Value: %s\n\n", expectedValue)
+					fmt.Fprintf(os.Stderr, "Example DNS configuration:\n")
+					fmt.Fprintf(os.Stderr, "%s IN TXT \"%s\"\n\n", recordName, expectedValue)
+					fmt.Fprintf(os.Stderr, "After creating the DNS TXT record, press ENTER to continue verification...")
+
+				case "wrong-record":
+					fmt.Fprintf(os.Stderr, "DNS verification failed. Please check that:\n")
+					fmt.Fprintf(os.Stderr, "1. The TXT record exists and has the correct value: %s\n", expectedValue)
+					fmt.Fprintf(os.Stderr, "2. DNS propagation has completed (may take a few minutes)\n")
+					fmt.Fprintf(os.Stderr, "3. The record name is correct: %s\n", recordName)
+					fmt.Fprintf(os.Stderr, "Press ENTER to retry verification...")
+
+				case "ready-for-validation":
+					fmt.Fprintf(os.Stderr, "Performing DNS verification...\n")
+
+				default:
+					fmt.Fprintf(os.Stderr, "DNS Challenge Status: %s\n", status)
+					if status != "ready-for-validation" {
+						fmt.Fprintf(os.Stderr, "Press ENTER to continue...")
+					}
+				}
+
+				if status != "ready-for-validation" {
+					var input string
+					fmt.Scanln(&input)
+				}
+				return "ready"
+			},
+		}
+
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid challenge selected: %s\n", c.flags.challenge)
 		os.Exit(3)
@@ -145,6 +198,7 @@ func (c *CertClient) chooseChallenge() ndncert.Challenge {
 	return nil
 }
 
+// (AI GENERATED DESCRIPTION): Obtains an NDN certificate from a CA by starting an NDN engine, configuring a signer (generating one if necessary), performing a DNS challenge when required, requesting the certificate, and writing the resulting PEM‑encoded certificate and optional key to stdout or to specified files.
 func (c *CertClient) client() {
 	// Start the engine
 	engine := engine.NewBasicEngine(engine.NewDefaultFace())
@@ -161,10 +215,39 @@ func (c *CertClient) client() {
 		log.Fatal(c, "Unable to create ndncert client", "err", err)
 		return
 	}
+	c.caPrefix = certClient.CaPrefix()
+	_, isDns := c.challenge.(*ndncert.ChallengeDns)
 
 	// Set signer if provided
 	if c.signer != nil {
 		certClient.SetSigner(c.signer)
+	}
+
+	if isDns {
+		if c.flags.domain == "" {
+			c.scanln("Enter your domain name", &c.flags.domain)
+		}
+		if c.signer == nil {
+			if len(c.caPrefix) == 0 {
+				log.Fatal(c, "CA prefix unavailable for DNS challenge")
+				return
+			}
+
+			identity := c.caPrefix.Append(enc.NewGenericComponent(c.flags.domain))
+			keyName := sec.MakeKeyName(identity)
+			signer, err := sig.KeygenEcc(keyName, elliptic.P256())
+			if err != nil {
+				log.Fatal(c, "Unable to generate key for DNS identity", "err", err)
+				return
+			}
+			c.signer = signer
+			certClient.SetSigner(signer)
+		}
+	}
+
+	disableProbe := c.flags.noprobe
+	if isDns && !disableProbe {
+		disableProbe = true
 	}
 
 	// Start the certificate request
@@ -174,14 +257,27 @@ func (c *CertClient) client() {
 			c.printCaProfile(profile)
 			return nil
 		},
-		DisableProbe: c.flags.noprobe,
+		DisableProbe: disableProbe,
 		OnProbeParam: func(key string) ([]byte, error) {
 			switch key {
 			case ndncert.KwEmail:
+				if isDns {
+					if c.flags.email == "" {
+						return nil, nil
+					}
+					return []byte(c.flags.email), nil
+				}
 				if c.flags.email == "" {
 					c.scanln("Enter your email address", &c.flags.email)
 				}
 				return []byte(c.flags.email), nil
+
+			case ndncert.KwDomain:
+				if c.flags.domain == "" {
+					c.scanln("Enter your domain name", &c.flags.domain)
+				}
+
+				return []byte(c.flags.domain), nil
 
 			default:
 				var val string
@@ -276,6 +372,7 @@ func (c *CertClient) client() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Presents a numbered list of options to the user, reads either the option string or its numeric index, and returns the selected option’s zero‑based index, retrying until a valid choice is made.
 func (c *CertClient) chooseOpts(msg string, opts []string) int {
 	fmt.Fprintf(os.Stderr, "%s\n", msg)
 	for i, opt := range opts {
@@ -306,6 +403,7 @@ func (c *CertClient) chooseOpts(msg string, opts []string) int {
 	return c.chooseOpts(msg, opts)
 }
 
+// (AI GENERATED DESCRIPTION): Prints the details of a CA profile (info, name, maximum validity period, and probe keys) to standard error.
 func (c *CertClient) printCaProfile(profile *spec_ndncert.CaProfile) {
 	fmt.Fprintln(os.Stderr, "=============== CA Profile ================")
 	fmt.Fprintln(os.Stderr, profile.CaInfo)
@@ -316,6 +414,7 @@ func (c *CertClient) printCaProfile(profile *spec_ndncert.CaProfile) {
 	fmt.Fprintln(os.Stderr)
 }
 
+// (AI GENERATED DESCRIPTION): Prompts the user with the given message, reads a line of input into the supplied string pointer, and exits with an error if the entered value is empty.
 func (c *CertClient) scanln(msg string, val *string) {
 	fmt.Fprintf(os.Stderr, "%s: ", msg)
 	fmt.Scanln(val)

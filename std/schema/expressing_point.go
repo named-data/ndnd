@@ -28,6 +28,7 @@ type NeedResult struct {
 	Extra map[string]any
 }
 
+// (AI GENERATED DESCRIPTION): Returns the InterestResult status and the content wire contained in a NeedResult.
 func (r NeedResult) Get() (ndn.InterestResult, enc.Wire) {
 	return r.Status, r.Content
 }
@@ -48,14 +49,17 @@ type ExpressPoint struct {
 	SupressInt  bool
 }
 
+// (AI GENERATED DESCRIPTION): Returns the constant string `"express-point"` as the string representation of an `ExpressPoint`.
 func (n *ExpressPoint) String() string {
 	return "express-point"
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ExpressPoint instance itself as a `NodeImpl`, enabling it to be used wherever a `NodeImpl` is required.
 func (n *ExpressPoint) NodeImplTrait() NodeImpl {
 	return n
 }
 
+// (AI GENERATED DESCRIPTION): Searches the ExpressPoint’s storage for a Data packet that satisfies the Interest’s CanBePrefix and MustBeFresh configuration and returns the cached Data if one is found.
 func (n *ExpressPoint) SearchCache(event *Event) enc.Wire {
 	// SearchCache can be triggered by both incoming Interest and outgoing Interest.
 	// To make the input unified, we set mustBeFresh and CanBePrefix here.
@@ -81,6 +85,7 @@ func (n *ExpressPoint) SearchCache(event *Event) enc.Wire {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Handles an incoming Interest by first checking the cache for a matching Data packet, validating the Interest’s signature (if any), and then dispatching the request to registered handlers to generate and reply with the appropriate Data.
 func (n *ExpressPoint) OnInterest(args ndn.InterestHandlerArgs, matching enc.Matching) {
 	node := n.Node
 	event := &Event{
@@ -361,6 +366,7 @@ func (n *ExpressPoint) NeedChan(
 	return ret
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new ExpressPoint node implementation, initializing it with default event targets and configuration flags for prefix handling, freshness, and storage behavior.
 func CreateExpressPoint(node *Node) NodeImpl {
 	return &ExpressPoint{
 		BaseNodeImpl: BaseNodeImpl{
@@ -383,6 +389,7 @@ func CreateExpressPoint(node *Node) NodeImpl {
 
 var ExpressPointDesc *NodeImplDesc
 
+// (AI GENERATED DESCRIPTION): Initializes and registers the ExpressPoint node descriptor, defining its properties, events and API functions (Need and NeedChan) in the node implementation registry.
 func initExpressPointDesc() {
 	ExpressPointDesc = &NodeImplDesc{
 		ClassName: "ExpressPoint",
@@ -486,6 +493,7 @@ func initExpressPointDesc() {
 	RegisterNodeImpl(ExpressPointDesc)
 }
 
+// (AI GENERATED DESCRIPTION): Returns the ExpressPoint as the requested type (ExpressPoint or BaseNodeImpl) or nil if the requested type is unsupported.
 func (n *ExpressPoint) CastTo(ptr any) any {
 	switch ptr.(type) {
 	case (*ExpressPoint):

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): Retrieves the NFD general status dataset, parses the returned data, and prints a formatted summary of the node’s runtime statistics to standard output.
 func (t *Tool) ExecStatusGeneral(_ *cobra.Command, args []string) {
 	t.Start()
 	defer t.Stop()

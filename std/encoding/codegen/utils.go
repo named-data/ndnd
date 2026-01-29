@@ -6,6 +6,7 @@ import (
 	"text/template"
 )
 
+// (AI GENERATED DESCRIPTION): Generates the Go code snippet that increments a length counter by the number of bytes required to encode the supplied type number in NDN’s variable‑length TLV format.
 func GenTypeNumLen(typeNum uint64) (string, error) {
 	var ret uint
 	switch {
@@ -21,6 +22,7 @@ func GenTypeNumLen(typeNum uint64) (string, error) {
 	return fmt.Sprintf("\tl += %d", ret), nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates Go source that writes a given type number into a buffer using the NDN TLV variable‑length encoding (1, 3, 5, or 9 bytes depending on the value).
 func GenEncodeTypeNum(typeNum uint64) (string, error) {
 	ret := ""
 	switch {
@@ -43,6 +45,7 @@ func GenEncodeTypeNum(typeNum uint64) (string, error) {
 	return ret, nil
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go code snippet that updates a length counter by adding the encoding length of a natural number field, using TLV encoding when `isTlv` is true and plain Nat encoding otherwise.
 func GenNaturalNumberLen(code string, isTlv bool) (string, error) {
 	var temp string
 	if isTlv {
@@ -56,6 +59,7 @@ func GenNaturalNumberLen(code string, isTlv bool) (string, error) {
 	return b.String(), err
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go code snippet that encodes a natural number into a buffer using either TLV or NATS encoding, updating the buffer position accordingly.
 func GenNaturalNumberEncode(code string, isTlv bool) (string, error) {
 	var temp string
 	if isTlv {
@@ -72,6 +76,7 @@ func GenNaturalNumberEncode(code string, isTlv bool) (string, error) {
 	return b.String(), err
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go snippet that reads a TLV number from a reader into the supplied variable and returns an ErrFailToParse on any read error.
 func GenTlvNumberDecode(code string) (string, error) {
 	const Temp = `{{.}}, err = reader.ReadTLNum()
 	if err != nil {
@@ -83,6 +88,7 @@ func GenTlvNumberDecode(code string) (string, error) {
 	return b.String(), err
 }
 
+// (AI GENERATED DESCRIPTION): Generates a Go code snippet that reads `l` bytes from a `reader`, assembles them into a `uint64`, and stores the result in the variable named by the supplied `code` string.
 func GenNaturalNumberDecode(code string) (string, error) {
 	const Temp = `{{.}} = uint64(0)
 	{
@@ -104,11 +110,13 @@ func GenNaturalNumberDecode(code string) (string, error) {
 	return b.String(), err
 }
 
+// (AI GENERATED DESCRIPTION): Generates a code snippet that appends the current segment length to the wire plan (`wirePlan = append(wirePlan, l)`) and resets the length counter (`l = 0`).
 func GenSwitchWirePlan() (string, error) {
 	return `wirePlan = append(wirePlan, l)
 	l = 0`, nil
 }
 
+// (AI GENERATED DESCRIPTION): Advances the wire index, resets the read position, and sets the current buffer to the next segment or nil if no more segments remain.
 func GenSwitchWire() (string, error) {
 	return `wireIdx ++
 	pos = 0

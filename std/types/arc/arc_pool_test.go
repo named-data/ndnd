@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests the ArcPool’s reference‑counting, reset, reuse, and release behavior for pooled objects.
 func TestArcPool(t *testing.T) {
 
 	pool := arc.NewArcPool(

@@ -22,6 +22,7 @@ type ToolSignCert struct {
 	Issuer string
 }
 
+// (AI GENERATED DESCRIPTION): Sets up the `sign-cert` CLI subcommand, adding flags for validity period, additional info, and issuer, and binds it to execute the `signCert` handler.
 func (t *ToolSignCert) configure(root *cobra.Command) {
 	cmd := &cobra.Command{
 		GroupID: "key",
@@ -47,6 +48,7 @@ file as both the signer key and the CSR.`,
 	root.AddCommand(cmd)
 }
 
+// (AI GENERATED DESCRIPTION): Signs a CSR read from standard input with a single key file and outputs the resulting PEM‑encoded certificate.
 func (t *ToolSignCert) signCert(_ *cobra.Command, args []string) {
 	keysFile, err := os.Open(args[0])
 	if err != nil {

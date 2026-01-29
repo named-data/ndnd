@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// (AI GENERATED DESCRIPTION): ExecRouteList fetches the router’s RIB status and prints each route’s prefix, next‑hop face, origin, cost, flags, and expiration time to standard output.
 func (t *Tool) ExecRouteList(_ *cobra.Command, args []string) {
 	t.Start()
 	defer t.Stop()
@@ -55,6 +56,7 @@ func (t *Tool) ExecRouteList(_ *cobra.Command, args []string) {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): ExecFibList retrieves the FIB status dataset, parses it, and prints each FIB entry along with its next‑hop face IDs and costs.
 func (t *Tool) ExecFibList(_ *cobra.Command, args []string) {
 	t.Start()
 	defer t.Stop()

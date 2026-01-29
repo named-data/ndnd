@@ -20,6 +20,7 @@ type DummyTimer struct {
 	lock sync.Mutex
 }
 
+// (AI GENERATED DESCRIPTION): Creates a new DummyTimer initialized to the Unix epoch (1970‑01‑01T00:00:00Z) with an empty event queue.
 func NewDummyTimer() *DummyTimer {
 	now, err := time.Parse(time.RFC3339, "1970-01-01T00:00:00Z")
 	if err != nil {
@@ -31,10 +32,12 @@ func NewDummyTimer() *DummyTimer {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Returns the time value stored in the DummyTimer instance.
 func (tm *DummyTimer) Now() time.Time {
 	return tm.now
 }
 
+// (AI GENERATED DESCRIPTION): Advances the dummy timer forward by the given duration, executes any scheduled events whose time has passed, and updates the internal event list in a thread‑safe manner.
 func (tm *DummyTimer) MoveForward(d time.Duration) {
 	events := func() []dummyEvent {
 		tm.lock.Lock()
@@ -62,6 +65,7 @@ func (tm *DummyTimer) MoveForward(d time.Duration) {
 	}()
 }
 
+// (AI GENERATED DESCRIPTION): Schedules a callback to run after a specified duration and returns a function that can cancel the scheduled event if it has not yet fired.
 func (tm *DummyTimer) Schedule(d time.Duration, f func()) func() error {
 	t := tm.now.Add(d)
 	tm.lock.Lock()
@@ -101,6 +105,7 @@ func (tm *DummyTimer) Schedule(d time.Duration, f func()) func() error {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Sleeps for the specified duration by scheduling a callback in the DummyTimer and blocking until that callback signals completion.
 func (tm *DummyTimer) Sleep(d time.Duration) {
 	ch := make(chan struct{})
 	tm.Schedule(d, func() {
@@ -110,6 +115,7 @@ func (tm *DummyTimer) Sleep(d time.Duration) {
 	<-ch
 }
 
+// (AI GENERATED DESCRIPTION): Returns a fixed 8‑byte nonce (0x01…0x08) for use by the dummy timer during testing.
 func (*DummyTimer) Nonce() []byte {
 	return []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 }

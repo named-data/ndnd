@@ -40,6 +40,7 @@ type Request struct {
 	Network string `schema:"network,omitempty"`
 }
 
+// (AI GENERATED DESCRIPTION): Applies default values to a Request, setting the server, transport, and ensuring the count is at least one when not provided.
 func (req *Request) applyDefaults() {
 	if req.Server == "" {
 		req.Server = DefaultServer
@@ -50,6 +51,7 @@ func (req *Request) applyDefaults() {
 	}
 }
 
+// (AI GENERATED DESCRIPTION): Builds a URL from the request's Server field, encoding the request's parameters into the query string and returning any parsing or encoding errors.
 func (req *Request) toURL() (u *url.URL, e error) {
 	if u, e = url.ParseRequestURI(req.Server); e != nil {
 		return nil, e

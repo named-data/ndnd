@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that an IntArray can be correctly serialized to a byte slice and parsed back, ensuring proper handling of both non‑empty and empty word slices.
 func TestIntArray(t *testing.T) {
 	tu.SetT(t)
 
@@ -30,6 +31,7 @@ func TestIntArray(t *testing.T) {
 	require.Equal(t, 0, len(f2.Words))
 }
 
+// (AI GENERATED DESCRIPTION): **TestNameArray** verifies that a `NameArray` is correctly serialized to a byte buffer via `Bytes()` and can be round‑tripped back to the original structure with `ParseNameArray`.
 func TestNameArray(t *testing.T) {
 	tu.SetT(t)
 
@@ -47,6 +49,7 @@ func TestNameArray(t *testing.T) {
 	require.Equal(t, f, *f2)
 }
 
+// (AI GENERATED DESCRIPTION): Serializes a Nested structure containing an optional Inner value to bytes and parses it back, ensuring both populated and nil cases round‑trip correctly.
 func TestNested(t *testing.T) {
 	tu.SetT(t)
 
@@ -69,6 +72,7 @@ func TestNested(t *testing.T) {
 	require.True(t, f2.Val == nil)
 }
 
+// (AI GENERATED DESCRIPTION): Tests that a NestedSeq struct is correctly serialized to bytes and parsed back, verifying the byte format for non‑empty and empty value lists.
 func TestNestedSeq(t *testing.T) {
 	tu.SetT(t)
 
@@ -97,6 +101,7 @@ func TestNestedSeq(t *testing.T) {
 	require.Equal(t, 0, len(f2.Vals))
 }
 
+// (AI GENERATED DESCRIPTION): Tests that `NestedWire` structs are correctly encoded to and decoded from binary wire format, covering nested inner wires, optional fields, and handling of empty or nil values.
 func TestNestedWire(t *testing.T) {
 	tu.SetT(t)
 

@@ -21,6 +21,47 @@ type certCacheEntry struct {
 	expiry time.Time
 }
 
+// CertListCache stores validated CertList Data packets keyed by prefix and full name.
+type CertListCache struct {
+	cache sync.Map
+}
+
+// NewCertListCache creates a new CertListCache.
+func NewCertListCache() *CertListCache {
+	return &CertListCache{}
+}
+
+// Get returns a cached CertList for the given prefix or full name.
+func (clc *CertListCache) Get(prefix enc.Name) (ndn.Data, bool) {
+	if v, ok := clc.cache.Load(prefix.TlvStr()); ok {
+		if data, ok := v.(ndn.Data); ok {
+			return data, true
+		}
+	}
+	return nil, false
+}
+
+// Put stores a CertList, preferring newer versions.
+func (clc *CertListCache) Put(anchorKeyName enc.Name, data ndn.Data) {
+	prefix, err := CertListPrefix(anchorKeyName)
+	if err != nil {
+		return
+	}
+	key := prefix.TlvStr()
+	if v, ok := clc.cache.Load(key); ok {
+		if old, ok := v.(ndn.Data); ok && !isCertListNewer(old, data) {
+			return
+		}
+	}
+	clc.cache.Store(key, data)
+	clc.cache.Store(data.Name().TlvStr(), data)
+}
+
+func isCertListNewer(old, new ndn.Data) bool {
+	return CertListVersion(new.Name()) > CertListVersion(old.Name())
+}
+
+// (AI GENERATED DESCRIPTION): Creates and returns a new, empty CertCache instance.
 func NewCertCache() *CertCache {
 	return &CertCache{}
 }
