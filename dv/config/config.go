@@ -17,6 +17,7 @@ const CostPfxInfinity = uint64(0xFFFFFFFF)
 
 // NlsrOrigin is the origin to use for local registration.
 const NlsrOrigin = uint64(mgmt.RouteOriginNLSR)
+const PrefixInsOrigin = uint64(mgmt.RouteOriginPrefixIns)
 
 var MulticastStrategy = enc.LOCALHOST.
 	Append(enc.NewGenericComponent("nfd")).
@@ -39,6 +40,12 @@ type Config struct {
 	KeyChainUri string `json:"keychain"`
 	// List of trust anchor full names.
 	TrustAnchors []string `json:"trust_anchors"`
+	// Path to trust schema for prefix insertion.
+	PrefixInsertionSchemaPath string `json:"prefix_insertion_schema"`
+	// URI specifying KeyChain location for prefix insertion verifier.
+	PrefixInsertionKeychainUri string `json:"prefix_insertion_keychain"`
+	// List of trust anchor full names for prefix insertion.
+	PrefixInsertionTrustAnchors []string `json:"prefix_insertion_trust_anchors"`
 	// List of permanent neighbors.
 	Neighbors []Neighbor `json:"neighbors"`
 
@@ -60,6 +67,8 @@ type Config struct {
 	mgmtPrefix enc.Name
 	// Trust anchor names
 	trustAnchorsN []enc.Name
+	// Prefix Insertion trust anchor names
+	prefixInsertionTrustAnchorsN []enc.Name
 }
 
 type Neighbor struct {
@@ -82,6 +91,8 @@ func DefaultConfig() *Config {
 		AdvertisementSyncInterval_ms: 5000,
 		RouterDeadInterval_ms:        30000,
 		KeyChainUri:                  "undefined",
+		PrefixInsertionSchemaPath:    "deny",
+		PrefixInsertionKeychainUri:   "undefined",
 	}
 }
 
@@ -136,6 +147,15 @@ func (c *Config) Parse() (err error) {
 			return err
 		}
 		c.trustAnchorsN = append(c.trustAnchorsN, name)
+	}
+
+	c.prefixInsertionTrustAnchorsN = make([]enc.Name, 0, len(c.PrefixInsertionTrustAnchors))
+	for _, anchor := range c.PrefixInsertionTrustAnchors {
+		name, err := enc.NameFromStr(anchor)
+		if err != nil {
+			return err
+		}
+		c.prefixInsertionTrustAnchorsN = append(c.prefixInsertionTrustAnchorsN, name)
 	}
 
 	// Advertisement sync and data prefixes
@@ -217,6 +237,10 @@ func (c *Config) RouterDeadInterval() time.Duration {
 // (AI GENERATED DESCRIPTION): Returns the slice of trust‑anchor names stored in the Config.
 func (c *Config) TrustAnchorNames() []enc.Name {
 	return c.trustAnchorsN
+}
+
+func (c *Config) PrefixInsertionTrustAnchorNames() []enc.Name {
+	return c.prefixInsertionTrustAnchorsN
 }
 
 // (AI GENERATED DESCRIPTION): Returns the raw byte slice representing the configuration schema.

@@ -167,6 +167,9 @@ type ValidateExtArgs struct {
 	CertNextHop optional.Optional[uint64]
 	// UseDataNameFwHint overrides trust config option.
 	UseDataNameFwHint optional.Optional[bool]
+	// Fetch function to use for fetching certificates.
+	// The fetcher MUST check the store for the certificate before fetching.
+	Fetch optional.Optional[func(enc.Name, *InterestConfig, ExpressCallbackFunc)]
 	// IgnoreValidity ignores validity period in the validation chain.
 	IgnoreValidity optional.Optional[bool]
 }
