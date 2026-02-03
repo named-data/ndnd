@@ -20,6 +20,7 @@ import (
 	ndn_sync "github.com/named-data/ndnd/std/sync"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
+	// "github.com/named-data/ndnd/pt"
 )
 
 const PrefixSnapThreshold = 50
