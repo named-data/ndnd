@@ -1,4 +1,4 @@
-package pt
+package pid
 
 import (
 	"slices"

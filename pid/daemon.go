@@ -1,4 +1,4 @@
-package pt
+package pid
 
 import (
 	"sync"
@@ -131,4 +131,61 @@ func (pid *PrefixDaemon) RemoveOnChange(idx uint64) {
 	pid.mu.Lock()
 	defer pid.mu.Unlock()
 	delete(pid.onChange, idx)
+}
+
+// forward APIs from PrefixTable
+// threadsafe as original caller used a mutex, to maintain existing assumptions
+
+// (AI GENERATED DESCRIPTION): Returns the literal string `"dv-prefix-daemon"` as the string representation of a PrefixDaemon instance.
+func (pid *PrefixDaemon) String() string {
+	return "dv-prefix-daemon"
+}
+
+
+// (AI GENERATED DESCRIPTION): Retrieves the PrefixTableRouter for a given name, creating a new router with an empty Prefixes map if one does not already exist.
+func (pid *PrefixDaemon) GetRouter(name enc.Name) *PrefixTableRouter {
+	pid.mu.Lock()
+	defer pid.mu.Unlock()
+
+	return pid.pfx.GetRouter(name)
+}
+
+// (AI GENERATED DESCRIPTION): Resets the PrefixTable by clearing all stored prefixes and broadcasting a reset operation to the network.
+func (pid *PrefixDaemon) Reset() {
+	pid.mu.Lock()
+	defer pid.mu.Unlock()
+
+	pid.pfx.Reset()
+}
+
+// (AI GENERATED DESCRIPTION): Registers or updates a local prefix announcement in the PrefixTable by adding/modifying a next‑hop entry, recomputes the entry’s cost, and publishes the entry if its cost changed.
+func (pid *PrefixDaemon) Announce(name enc.Name, face uint64, cost uint64) {
+	pid.mu.Lock()
+	defer pid.mu.Unlock()
+
+	pid.pfx.Announce(name, face, cost)
+}
+
+// (AI GENERATED DESCRIPTION): Removes a next‑hop for the specified name and face from the local prefix table and republishes the entry if its cost changes.
+func (pid *PrefixDaemon) Withdraw(name enc.Name, face uint64) {
+	pid.mu.Lock()
+	defer pid.mu.Unlock()
+
+	pid.pfx.Withdraw(name, face)
+}
+
+// Applies ops from a list. Returns if dirty.
+func (pid *PrefixDaemon) Apply(wire enc.Wire) (dirty bool) {
+	pid.mu.Lock()
+	defer pid.mu.Unlock()
+
+	return pid.pfx.Apply(wire)
+}
+
+// (AI GENERATED DESCRIPTION): Creates a wire‑encoded TLV PrefixOpList that resets the prefix table and lists all current prefixes (name, cost) for the local router.
+func (pid *PrefixDaemon) Snap() enc.Wire {
+	pid.mu.Lock()
+	defer pid.mu.Unlock()
+
+	return pid.pfx.Snap()
 }
