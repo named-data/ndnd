@@ -1,6 +1,6 @@
-# Named Data Networking Prefix Table
+# Named Data Networking Prefix Information Daemon
 
-ndn-pt is a daemon that handles the "prefix table", which is a mapping from name prefixes to the name of its exit router.
+ndn-pid is a daemon that handles the "prefix table", which is a mapping from name prefixes to the name of its exit router.
 
 eg (from Table 4.3 of publication 1):
 
