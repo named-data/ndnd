@@ -5,7 +5,6 @@ import (
 	"github.com/named-data/ndnd/dv/table"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
-	"github.com/named-data/ndnd/std/sync"
 )
 
 // postUpdateRib should be called after the RIB has been updated.
@@ -152,35 +151,5 @@ func (dv *Router) updatePrefixSubs() {
 	dv.mutex.Lock()
 	defer dv.mutex.Unlock()
 
-	// Get all prefixes from the RIB
-	for hash, router := range dv.rib.Entries() {
-		if router.Name().Equal(dv.config.RouterName()) {
-			continue
-		}
-
-		if _, ok := dv.pfxSubs[hash]; !ok {
-			log.Info(dv, "Router is now reachable", "name", router.Name())
-			dv.pfxSubs[hash] = router.Name()
-
-			dv.pfxSvs.SubscribePublisher(router.Name(), func(sp sync.SvsPub) {
-				dv.mutex.Lock()
-				defer dv.mutex.Unlock()
-
-				// Both snapshots and normal data are handled the same way
-				if dirty := dv.pfx.Apply(sp.Content); dirty {
-					// Update the local fib if prefix table changed
-					go dv.updateFib() // expensive
-				}
-			})
-		}
-	}
-
-	// Remove dead subscriptions
-	for hash, name := range dv.pfxSubs {
-		if !dv.rib.Has(name) {
-			log.Info(dv, "Router is now unreachable", "name", name)
-			dv.pfxSvs.UnsubscribePublisher(name)
-			delete(dv.pfxSubs, hash)
-		}
-	}
+	dv.pfx.UpdateFromRib(dv.rib)
 }
