@@ -40,6 +40,9 @@ func daemon(_ *cobra.Command, args []string) {
 	}
 	toolutils.ReadYaml(&config, args[0])
 	config.Fw.Core.BaseDir = filepath.Dir(args[0])
+	if config.Fw.Fw.RouterName == "" && config.Dv != nil && config.Dv.Router != "" {
+		config.Fw.Fw.RouterName = config.Dv.Router
+	}
 
 	// validate unix socket is enabled
 	if !config.Fw.Faces.Unix.Enabled {

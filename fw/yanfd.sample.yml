@@ -85,6 +85,8 @@ fw:
   queue_size: 1024
   # If true, face threads will be locked to processor cores
   lock_threads_to_cores: false
+  # Router name (if routing is configured)
+  router_name: ""
 
 mgmt:
   # Controls whether management over /localhop is enabled or disabled

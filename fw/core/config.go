@@ -115,6 +115,8 @@ type Config struct {
 		QueueSize int `json:"queue_size"`
 		// If true, face threads will be locked to processor cores
 		LockThreadsToCores bool `json:"lock_threads_to_cores"`
+		// Router name (if routing is configured)
+		RouterName string `json:"router_name"`
 	} `json:"fw"`
 
 	Mgmt struct {
@@ -216,6 +218,7 @@ func DefaultConfig() *Config {
 	c.Fw.Threads = 8
 	c.Fw.QueueSize = 1024
 	c.Fw.LockThreadsToCores = false
+	c.Fw.RouterName = ""
 
 	c.Mgmt.AllowLocalhop = false
 
