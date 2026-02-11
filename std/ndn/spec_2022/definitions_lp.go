@@ -40,9 +40,18 @@ type LpPacket struct {
 	NonDiscovery bool `tlv:"0x034C"`
 	//+field:wire
 	PrefixAnnouncement enc.Wire `tlv:"0x0350"`
+	//+field:struct:EgressRouter
+	EgressRouter *EgressRouter `tlv:"0x0359"`
+	//+field:binary
+	Bier []byte `tlv:"0x035a"`
 
 	//+field:wire
 	Fragment enc.Wire `tlv:"0x50"`
+}
+
+type EgressRouter struct {
+	//+field:name
+	Name enc.Name `tlv:"0x07"`
 }
 
 type NetworkNack struct {

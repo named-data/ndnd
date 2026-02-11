@@ -1477,6 +1477,8 @@ type FwLpPacketEncoder struct {
 
 	CachePolicy_encoder FwCachePolicyEncoder
 
+	EgressRouter_encoder FwEgressRouterEncoder
+
 	Fragment_length uint
 }
 
@@ -1484,6 +1486,8 @@ type FwLpPacketParsingContext struct {
 	Nack_context FwNetworkNackParsingContext
 
 	CachePolicy_context FwCachePolicyParsingContext
+
+	EgressRouter_context FwEgressRouterParsingContext
 }
 
 func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
@@ -1494,6 +1498,10 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 
 	if value.CachePolicy != nil {
 		encoder.CachePolicy_encoder.Init(value.CachePolicy)
+	}
+
+	if value.EgressRouter != nil {
+		encoder.EgressRouter_encoder.Init(value.EgressRouter)
 	}
 
 	if value.Fragment != nil {
@@ -1543,6 +1551,16 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 		l += 3
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
+	if value.EgressRouter != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.EgressRouter_encoder.Length).EncodingLength())
+		l += encoder.EgressRouter_encoder.Length
+	}
+	if value.Bier != nil {
+		l += 3
+		l += uint(enc.TLNum(len(value.Bier)).EncodingLength())
+		l += uint(len(value.Bier))
+	}
 	if value.Fragment != nil {
 		l += 1
 		l += uint(enc.TLNum(encoder.Fragment_length).EncodingLength())
@@ -1591,6 +1609,16 @@ func (encoder *FwLpPacketEncoder) Init(value *FwLpPacket) {
 		l += 3
 		l += uint(1 + enc.Nat(optval).EncodingLength())
 	}
+	if value.EgressRouter != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.EgressRouter_encoder.Length).EncodingLength())
+		l += encoder.EgressRouter_encoder.Length
+	}
+	if value.Bier != nil {
+		l += 3
+		l += uint(enc.TLNum(len(value.Bier)).EncodingLength())
+		l += uint(len(value.Bier))
+	}
 	if value.Fragment != nil {
 		l += 1
 		l += uint(enc.TLNum(encoder.Fragment_length).EncodingLength())
@@ -1612,6 +1640,8 @@ func (context *FwLpPacketParsingContext) Init() {
 	context.Nack_context.Init()
 
 	context.CachePolicy_context.Init()
+
+	context.EgressRouter_context.Init()
 
 }
 
@@ -1699,6 +1729,24 @@ func (encoder *FwLpPacketEncoder) EncodeInto(value *FwLpPacket, wire enc.Wire) {
 		pos += uint(1 + buf[pos])
 
 	}
+	if value.EgressRouter != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(857))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.EgressRouter_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.EgressRouter_encoder.Length > 0 {
+			encoder.EgressRouter_encoder.EncodeInto(value.EgressRouter, buf[pos:])
+			pos += encoder.EgressRouter_encoder.Length
+		}
+	}
+	if value.Bier != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(858))
+		pos += 3
+		pos += uint(enc.TLNum(len(value.Bier)).EncodeInto(buf[pos:]))
+		copy(buf[pos:], value.Bier)
+		pos += uint(len(value.Bier))
+	}
 	if value.Fragment != nil {
 		buf[pos] = byte(80)
 		pos += 1
@@ -1753,6 +1801,8 @@ func (context *FwLpPacketParsingContext) Parse(reader enc.WireView, ignoreCritic
 	var handled_NextHopFaceId bool = false
 	var handled_CachePolicy bool = false
 	var handled_CongestionMark bool = false
+	var handled_EgressRouter bool = false
+	var handled_Bier bool = false
 	var handled_Fragment bool = false
 
 	progress := -1
@@ -1937,6 +1987,19 @@ func (context *FwLpPacketParsingContext) Parse(reader enc.WireView, ignoreCritic
 						value.CongestionMark.Set(optval)
 					}
 				}
+			case 857:
+				if true {
+					handled = true
+					handled_EgressRouter = true
+					value.EgressRouter, err = context.EgressRouter_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 858:
+				if true {
+					handled = true
+					handled_Bier = true
+					value.Bier = make([]byte, l)
+					_, err = reader.ReadFull(value.Bier)
+				}
 			case 80:
 				if true {
 					handled = true
@@ -1987,6 +2050,12 @@ func (context *FwLpPacketParsingContext) Parse(reader enc.WireView, ignoreCritic
 	}
 	if !handled_CongestionMark && err == nil {
 		value.CongestionMark.Unset()
+	}
+	if !handled_EgressRouter && err == nil {
+		value.EgressRouter = nil
+	}
+	if !handled_Bier && err == nil {
+		value.Bier = nil
 	}
 	if !handled_Fragment && err == nil {
 		value.Fragment = nil
@@ -2281,6 +2350,142 @@ func (value *FwCachePolicy) Bytes() []byte {
 
 func ParseFwCachePolicy(reader enc.WireView, ignoreCritical bool) (*FwCachePolicy, error) {
 	context := FwCachePolicyParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type FwEgressRouterEncoder struct {
+	Length uint
+
+	Name_length uint
+}
+
+type FwEgressRouterParsingContext struct {
+}
+
+func (encoder *FwEgressRouterEncoder) Init(value *FwEgressRouter) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	encoder.Length = l
+
+}
+
+func (context *FwEgressRouterParsingContext) Init() {
+
+}
+
+func (encoder *FwEgressRouterEncoder) EncodeInto(value *FwEgressRouter, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+}
+
+func (encoder *FwEgressRouterEncoder) Encode(value *FwEgressRouter) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *FwEgressRouterParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*FwEgressRouter, error) {
+
+	var handled_Name bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &FwEgressRouter{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *FwEgressRouter) Encode() enc.Wire {
+	encoder := FwEgressRouterEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *FwEgressRouter) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseFwEgressRouter(reader enc.WireView, ignoreCritical bool) (*FwEgressRouter, error) {
+	context := FwEgressRouterParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }

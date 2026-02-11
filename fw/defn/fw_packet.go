@@ -93,6 +93,10 @@ type FwLpPacket struct {
 	CachePolicy *FwCachePolicy `tlv:"0x0334"`
 	//+field:natural:optional
 	CongestionMark optional.Optional[uint64] `tlv:"0x0340"`
+	//+field:struct:FwEgressRouter
+	EgressRouter *FwEgressRouter `tlv:"0x0359"`
+	//+field:binary
+	Bier []byte `tlv:"0x035a"`
 
 	//+field:wire
 	Fragment enc.Wire `tlv:"0x50"`
@@ -106,6 +110,11 @@ type FwNetworkNack struct {
 type FwCachePolicy struct {
 	//+field:natural
 	CachePolicyType uint64 `tlv:"0x0335"`
+}
+
+type FwEgressRouter struct {
+	//+field:name
+	Name enc.Name `tlv:"0x07"`
 }
 
 // (AI GENERATED DESCRIPTION): Returns the Name value (`NameV`) stored in a forwarded Interest packet.

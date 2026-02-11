@@ -2542,13 +2542,17 @@ type LpPacketEncoder struct {
 	CachePolicy_encoder CachePolicyEncoder
 
 	PrefixAnnouncement_length uint
-	Fragment_length           uint
+	EgressRouter_encoder      EgressRouterEncoder
+
+	Fragment_length uint
 }
 
 type LpPacketParsingContext struct {
 	Nack_context NetworkNackParsingContext
 
 	CachePolicy_context CachePolicyParsingContext
+
+	EgressRouter_context EgressRouterParsingContext
 }
 
 func (encoder *LpPacketEncoder) Init(value *LpPacket) {
@@ -2567,6 +2571,10 @@ func (encoder *LpPacketEncoder) Init(value *LpPacket) {
 			encoder.PrefixAnnouncement_length += uint(len(c))
 		}
 	}
+	if value.EgressRouter != nil {
+		encoder.EgressRouter_encoder.Init(value.EgressRouter)
+	}
+
 	if value.Fragment != nil {
 		encoder.Fragment_length = 0
 		for _, c := range value.Fragment {
@@ -2630,6 +2638,16 @@ func (encoder *LpPacketEncoder) Init(value *LpPacket) {
 		l += 3
 		l += uint(enc.TLNum(encoder.PrefixAnnouncement_length).EncodingLength())
 		l += encoder.PrefixAnnouncement_length
+	}
+	if value.EgressRouter != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.EgressRouter_encoder.Length).EncodingLength())
+		l += encoder.EgressRouter_encoder.Length
+	}
+	if value.Bier != nil {
+		l += 3
+		l += uint(enc.TLNum(len(value.Bier)).EncodingLength())
+		l += uint(len(value.Bier))
 	}
 	if value.Fragment != nil {
 		l += 1
@@ -2701,6 +2719,16 @@ func (encoder *LpPacketEncoder) Init(value *LpPacket) {
 			l = 0
 		}
 	}
+	if value.EgressRouter != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.EgressRouter_encoder.Length).EncodingLength())
+		l += encoder.EgressRouter_encoder.Length
+	}
+	if value.Bier != nil {
+		l += 3
+		l += uint(enc.TLNum(len(value.Bier)).EncodingLength())
+		l += uint(len(value.Bier))
+	}
 	if value.Fragment != nil {
 		l += 1
 		l += uint(enc.TLNum(encoder.Fragment_length).EncodingLength())
@@ -2722,6 +2750,8 @@ func (context *LpPacketParsingContext) Init() {
 	context.Nack_context.Init()
 
 	context.CachePolicy_context.Init()
+
+	context.EgressRouter_context.Init()
 
 }
 
@@ -2855,6 +2885,24 @@ func (encoder *LpPacketEncoder) EncodeInto(value *LpPacket, wire enc.Wire) {
 			}
 		}
 	}
+	if value.EgressRouter != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(857))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.EgressRouter_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.EgressRouter_encoder.Length > 0 {
+			encoder.EgressRouter_encoder.EncodeInto(value.EgressRouter, buf[pos:])
+			pos += encoder.EgressRouter_encoder.Length
+		}
+	}
+	if value.Bier != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(858))
+		pos += 3
+		pos += uint(enc.TLNum(len(value.Bier)).EncodeInto(buf[pos:]))
+		copy(buf[pos:], value.Bier)
+		pos += uint(len(value.Bier))
+	}
 	if value.Fragment != nil {
 		buf[pos] = byte(80)
 		pos += 1
@@ -2913,6 +2961,8 @@ func (context *LpPacketParsingContext) Parse(reader enc.WireView, ignoreCritical
 	var handled_TxSequence bool = false
 	var handled_NonDiscovery bool = false
 	var handled_PrefixAnnouncement bool = false
+	var handled_EgressRouter bool = false
+	var handled_Bier bool = false
 	var handled_Fragment bool = false
 
 	progress := -1
@@ -3156,6 +3206,19 @@ func (context *LpPacketParsingContext) Parse(reader enc.WireView, ignoreCritical
 					handled_PrefixAnnouncement = true
 					value.PrefixAnnouncement, err = reader.ReadWire(int(l))
 				}
+			case 857:
+				if true {
+					handled = true
+					handled_EgressRouter = true
+					value.EgressRouter, err = context.EgressRouter_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 858:
+				if true {
+					handled = true
+					handled_Bier = true
+					value.Bier = make([]byte, l)
+					_, err = reader.ReadFull(value.Bier)
+				}
 			case 80:
 				if true {
 					handled = true
@@ -3219,6 +3282,12 @@ func (context *LpPacketParsingContext) Parse(reader enc.WireView, ignoreCritical
 	if !handled_PrefixAnnouncement && err == nil {
 		value.PrefixAnnouncement = nil
 	}
+	if !handled_EgressRouter && err == nil {
+		value.EgressRouter = nil
+	}
+	if !handled_Bier && err == nil {
+		value.Bier = nil
+	}
 	if !handled_Fragment && err == nil {
 		value.Fragment = nil
 	}
@@ -3228,6 +3297,142 @@ func (context *LpPacketParsingContext) Parse(reader enc.WireView, ignoreCritical
 	}
 
 	return value, nil
+}
+
+type EgressRouterEncoder struct {
+	Length uint
+
+	Name_length uint
+}
+
+type EgressRouterParsingContext struct {
+}
+
+func (encoder *EgressRouterEncoder) Init(value *EgressRouter) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	encoder.Length = l
+
+}
+
+func (context *EgressRouterParsingContext) Init() {
+
+}
+
+func (encoder *EgressRouterEncoder) EncodeInto(value *EgressRouter, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+}
+
+func (encoder *EgressRouterEncoder) Encode(value *EgressRouter) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *EgressRouterParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*EgressRouter, error) {
+
+	var handled_Name bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &EgressRouter{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *EgressRouter) Encode() enc.Wire {
+	encoder := EgressRouterEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *EgressRouter) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseEgressRouter(reader enc.WireView, ignoreCritical bool) (*EgressRouter, error) {
+	context := EgressRouterParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
 }
 
 type NetworkNackEncoder struct {

@@ -564,3 +564,59 @@ func TestReadIntErrors(t *testing.T) {
 	))
 	require.Error(t, err)
 }
+
+// (AI GENERATED DESCRIPTION): Verifies that the EgressRouter LPv2 header encodes with TLV type 857 and round‑trips through packet parsing.
+func TestLpPacketEgressRouterEncodeDecode(t *testing.T) {
+	name, err := enc.NameFromStr("/r1")
+	require.NoError(t, err)
+
+	lp := &spec_2022.LpPacket{
+		EgressRouter: &spec_2022.EgressRouter{Name: name},
+		Fragment:     enc.Wire{[]byte{0x05, 0x00}},
+	}
+	pkt := &spec_2022.Packet{LpPacket: lp}
+
+	encoder := spec_2022.PacketEncoder{}
+	encoder.Init(pkt)
+	wire := encoder.Encode(pkt)
+
+	expected := []byte{
+		0x64, 0x0e, // LpPacket TLV
+		0xfd, 0x03, 0x59, 0x06, 0x07, 0x04, 0x08, 0x02, 0x72, 0x31, // EgressRouter(Name=/r1)
+		0x50, 0x02, 0x05, 0x00, // Fragment
+	}
+	require.Equal(t, expected, wire.Join())
+
+	parsed, _, err := spec_2022.ReadPacket(enc.NewWireView(wire))
+	require.NoError(t, err)
+	require.NotNil(t, parsed.LpPacket)
+	require.NotNil(t, parsed.LpPacket.EgressRouter)
+	require.True(t, parsed.LpPacket.EgressRouter.Name.Equal(name))
+	require.Equal(t, []byte{0x05, 0x00}, parsed.LpPacket.Fragment.Join())
+}
+
+// (AI GENERATED DESCRIPTION): Verifies that the BIER LPv2 header encodes with TLV type 858 and round‑trips through packet parsing.
+func TestLpPacketBierEncodeDecode(t *testing.T) {
+	lp := &spec_2022.LpPacket{
+		Bier:     []byte{0x01, 0x02, 0x03},
+		Fragment: enc.Wire{[]byte{0x05, 0x00}},
+	}
+	pkt := &spec_2022.Packet{LpPacket: lp}
+
+	encoder := spec_2022.PacketEncoder{}
+	encoder.Init(pkt)
+	wire := encoder.Encode(pkt)
+
+	expected := []byte{
+		0x64, 0x0b, // LpPacket TLV
+		0xfd, 0x03, 0x5a, 0x03, 0x01, 0x02, 0x03, // Bier bytes
+		0x50, 0x02, 0x05, 0x00, // Fragment
+	}
+	require.Equal(t, expected, wire.Join())
+
+	parsed, _, err := spec_2022.ReadPacket(enc.NewWireView(wire))
+	require.NoError(t, err)
+	require.NotNil(t, parsed.LpPacket)
+	require.Equal(t, []byte{0x01, 0x02, 0x03}, parsed.LpPacket.Bier)
+	require.Equal(t, []byte{0x05, 0x00}, parsed.LpPacket.Fragment.Join())
+}
