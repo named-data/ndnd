@@ -57,6 +57,8 @@ type ControlArgs struct {
 
 	//+field:name
 	Name enc.Name `tlv:"0x07"`
+	//+field:struct:EgressRecord
+	Egress *EgressRecord `tlv:"0xcc"`
 	//+field:natural:optional
 	FaceId optional.Optional[uint64] `tlv:"0x69"`
 	//+field:string:optional
@@ -289,6 +291,12 @@ type NextHopRecord struct {
 	Cost uint64 `tlv:"0x6a"`
 }
 
+// +tlv-model:dict
+type EgressRecord struct {
+	//+field:name
+	Name enc.Name `tlv:"0x07"`
+}
+
 type FibEntry struct {
 	//+field:name
 	Name enc.Name `tlv:"0x07"`
@@ -299,6 +307,20 @@ type FibEntry struct {
 type FibStatus struct {
 	//+field:sequence:*FibEntry:struct:FibEntry
 	Entries []*FibEntry `tlv:"0x80"`
+}
+
+type PibEntry struct {
+	//+field:name
+	Name enc.Name `tlv:"0x07"`
+	//+field:sequence:*EgressRecord:struct:EgressRecord
+	EgressRecords []*EgressRecord `tlv:"0x82"`
+	//+field:sequence:*NextHopRecord:struct:NextHopRecord
+	NextHopRecords []*NextHopRecord `tlv:"0x81"`
+}
+
+type PibStatus struct {
+	//+field:sequence:*PibEntry:struct:PibEntry
+	Entries []*PibEntry `tlv:"0x80"`
 }
 
 type StrategyChoice struct {

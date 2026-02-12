@@ -1,6 +1,6 @@
 /* YaNFD - Yet another NDN Forwarding Daemon
  *
- * Copyright (C) 2020-2022 Eric Newberry.
+ * Copyright (C) 2020-2026 Eric Newberry, Tianyuan Yu.
  *
  * This file is licensed under the terms of the MIT License, as found in LICENSE.md.
  */
@@ -59,6 +59,7 @@ func MakeMgmtThread() *Thread {
 	m.registerModule("cs", new(ContentStoreModule))
 	m.registerModule("faces", new(FaceModule))
 	m.registerModule("fib", new(FIBModule))
+	m.registerModule("pib", new(PIBModule))
 	m.registerModule("rib", new(RIBModule))
 	m.registerModule("status", new(ForwarderStatusModule))
 	m.registerModule("strategy-choice", new(StrategyChoiceModule))
@@ -84,9 +85,9 @@ func (m *Thread) Run() {
 
 	// Create and register Internal transport
 	m.face, m.transport = face.RegisterInternalTransport()
-	table.FibStrategyTable.InsertNextHopEnc(LOCAL_PREFIX, m.face.FaceID(), 0)
+	table.Pib.AddNextHopEnc(LOCAL_PREFIX, m.face.FaceID(), 0)
 	if core.C.Mgmt.AllowLocalhop {
-		table.FibStrategyTable.InsertNextHopEnc(NON_LOCAL_PREFIX, m.face.FaceID(), 0)
+		table.Pib.AddNextHopEnc(NON_LOCAL_PREFIX, m.face.FaceID(), 0)
 	}
 
 	for {

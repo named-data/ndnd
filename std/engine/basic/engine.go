@@ -673,9 +673,9 @@ func (e *Engine) SetCmdSec(signer ndn.Signer, validator func(enc.Name, enc.Wire,
 	e.cmdChecker = validator
 }
 
-// (AI GENERATED DESCRIPTION): Registers the supplied name prefix with the engine’s routing information base by issuing a RIB‑management command.
+// (AI GENERATED DESCRIPTION): Registers the supplied name prefix with the engine’s PIB by issuing a PIB add‑nexthop command.
 func (e *Engine) RegisterRoute(prefix enc.Name) error {
-	_, err := e.ExecMgmtCmd("rib", "register", &mgmt.ControlArgs{Name: prefix})
+	_, err := e.ExecMgmtCmd("pib", "add-nexthop", &mgmt.ControlArgs{Name: prefix})
 	if err != nil {
 		log.Error(e, "Failed to register prefix", "err", err, "name", prefix)
 		return err
@@ -685,9 +685,9 @@ func (e *Engine) RegisterRoute(prefix enc.Name) error {
 	return nil
 }
 
-// (AI GENERATED DESCRIPTION): Unregisters the specified NDN prefix from the Engine’s routing information base (RIB) by issuing a management command and logs the result.
+// (AI GENERATED DESCRIPTION): Unregisters the specified NDN prefix from the Engine’s PIB by issuing a PIB remove‑nexthop command and logs the result.
 func (e *Engine) UnregisterRoute(prefix enc.Name) error {
-	_, err := e.ExecMgmtCmd("rib", "unregister", &mgmt.ControlArgs{Name: prefix})
+	_, err := e.ExecMgmtCmd("pib", "remove-nexthop", &mgmt.ControlArgs{Name: prefix})
 	if err != nil {
 		log.Error(e, "Failed to unregister prefix", "err", err, "name", prefix)
 		return err

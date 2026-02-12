@@ -66,6 +66,33 @@ func Cmds() []*cobra.Command {
 		Args:  cobra.NoArgs,
 		Run:   t.ExecFibList,
 	}, {
+		Use:   "pib-list",
+		Short: "Print PIB entries",
+		Args:  cobra.NoArgs,
+		Run:   t.ExecPibList,
+	}, {
+		Use:   "pib-add-egress [params]",
+		Short: "Add an egress router to the PIB",
+		Args:  cobra.ArbitraryArgs,
+		Run:   cmd("pib", "add-egress", []string{}),
+	}, {
+		Use:   "pib-remove-egress [params]",
+		Short: "Remove an egress router from the PIB",
+		Args:  cobra.ArbitraryArgs,
+		Run:   cmd("pib", "remove-egress", []string{}),
+	}, {
+		Use:   "pib-add-nexthop [params]",
+		Short: "Add a nexthop to the PIB",
+		Args:  cobra.ArbitraryArgs,
+		Run: cmd("pib", "add-nexthop", []string{
+			"cost=0",
+		}),
+	}, {
+		Use:   "pib-remove-nexthop [params]",
+		Short: "Remove a nexthop from the PIB",
+		Args:  cobra.ArbitraryArgs,
+		Run:   cmd("pib", "remove-nexthop", []string{}),
+	}, {
 		Use:   "cs-info",
 		Short: "Print content store info",
 		Args:  cobra.NoArgs,

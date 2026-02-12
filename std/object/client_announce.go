@@ -36,54 +36,42 @@ func (c *Client) WithdrawPrefix(name enc.Name, onError func(error)) {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Announces a prefix to the network by registering it with the routing information base (RIB), optionally exposing it and setting its cost, and spacing the request with a short delay to accommodate NFD behavior.
+// (AI GENERATED DESCRIPTION): Announces a prefix to the network by registering it with the PIB (add‑nexthop), optionally setting its cost, and spacing the request with a short delay to accommodate NFD behavior.
 func (c *Client) announcePrefix_(args ndn.Announcement) {
 	announceMutex.Lock()
 	time.Sleep(1 * time.Millisecond) // thanks NFD
 	announceMutex.Unlock()
 
-	origin := optional.None[uint64]()
-	if args.Expose {
-		origin = optional.Some(uint64(mgmt_2022.RouteOriginClient))
-	}
-
-	_, err := c.engine.ExecMgmtCmd("rib", "register", &mgmt_2022.ControlArgs{
-		Name:   args.Name,
-		Origin: origin,
-		Cost:   optional.Some(uint64(args.Cost)),
+	_, err := c.engine.ExecMgmtCmd("pib", "add-nexthop", &mgmt_2022.ControlArgs{
+		Name: args.Name,
+		Cost: optional.Some(uint64(args.Cost)),
 	})
 	if err != nil {
-		log.Warn(c, "Failed to register route", "err", err)
+		log.Warn(c, "Failed to register prefix", "err", err)
 		if args.OnError != nil {
 			args.OnError(err)
 		}
 	} else {
-		log.Info(c, "Registered route", "name", args.Name)
+		log.Info(c, "Registered prefix", "name", args.Name)
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Withdraws a previously announced prefix from the local NFD’s RIB (optionally marking it as client‑originated) by issuing an “rib unregister” command and logs the result.
+// (AI GENERATED DESCRIPTION): Withdraws a previously announced prefix from the local PIB by issuing a “pib remove‑nexthop” command and logs the result.
 func (c *Client) withdrawPrefix_(args ndn.Announcement, onError func(error)) {
 	announceMutex.Lock()
 	time.Sleep(1 * time.Millisecond) // thanks NFD
 	announceMutex.Unlock()
 
-	origin := optional.None[uint64]()
-	if args.Expose {
-		origin = optional.Some(uint64(mgmt_2022.RouteOriginClient))
-	}
-
-	_, err := c.engine.ExecMgmtCmd("rib", "unregister", &mgmt_2022.ControlArgs{
-		Name:   args.Name,
-		Origin: origin,
+	_, err := c.engine.ExecMgmtCmd("pib", "remove-nexthop", &mgmt_2022.ControlArgs{
+		Name: args.Name,
 	})
 	if err != nil {
-		log.Warn(c, "Failed to unregister route", "err", err)
+		log.Warn(c, "Failed to unregister prefix", "err", err)
 		if onError != nil {
 			onError(err)
 		}
 	} else {
-		log.Info(c, "Unregistered route", "name", args.Name)
+		log.Info(c, "Unregistered prefix", "name", args.Name)
 	}
 }
 

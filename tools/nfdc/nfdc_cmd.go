@@ -188,6 +188,8 @@ func (n *Tool) convCmdArg(ctrlArgs *mgmt.ControlArgs, key string, val string) {
 	// route arguments
 	case "prefix":
 		ctrlArgs.Name = parseName(val)
+	case "egress":
+		ctrlArgs.Egress = &mgmt.EgressRecord{Name: parseName(val)}
 	case "cost":
 		ctrlArgs.Cost = optional.Some(parseUint(val))
 	case "origin":

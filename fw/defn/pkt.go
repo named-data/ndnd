@@ -24,4 +24,6 @@ type Pkt struct {
 
 	IncomingFaceID uint64
 	NextHopFaceID  optional.Optional[uint64]
+	EgressRouter   enc.Name
+	Bier           []byte
 }

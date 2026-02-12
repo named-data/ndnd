@@ -324,37 +324,96 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		lookupName = fhName
 	}
 
-	// Query the FIB for all possible nexthops
-	nexthops := table.FibStrategyTable.FindNextHopsEnc(lookupName)
+	// If EgressRouter is set and matches this router, forward to local app faces via PIB
+	var nextLocal []*table.PibNextHop
+	var nextNet []*table.FibNextHopEntry
+	if len(packet.EgressRouter) > 0 {
+		if routerName, ok := CfgRouterName(); ok && packet.EgressRouter.Equal(routerName) {
+			// PIB lookup for local forwarding / egress router checks.
+			pibEntry, pibFound := table.Pib.FindLongestPrefixEnc(lookupName)
+			if pibFound {
+				for i := range pibEntry.NextHops {
+					nh := &pibEntry.NextHops[i]
+					nextLocal = append(nextLocal, nh)
+					// t.processOutgoingInterest(packet, pitEntry, nh.FaceID, incomingFace.FaceID())
+				}
+			}
+		} else {
+			// Query the FIB for all possible nexthops
+			nextNet = append(nextNet, table.FibStrategyTable.FindNextHopsEnc(packet.EgressRouter)...)
+		}
+	} else {
+		// No EgressRouter: always forward to local app faces via PIB
+		pibEntry, pibFound := table.Pib.FindLongestPrefixEnc(lookupName)
+		if pibFound {
+			for i := range pibEntry.NextHops {
+				nextLocal = append(nextLocal, &pibEntry.NextHops[i])
+				// t.processOutgoingInterest(packet, pitEntry, nh.FaceID, incomingFace.FaceID())
+			}
+			for _, er := range pibEntry.EgressRouters {
+				nextNet = append(nextNet, table.FibStrategyTable.FindNextHopsEnc(er)...)
+			}
+		}
+	}
+	// // Query the FIB for all possible nexthops
+	// nexthops := table.FibStrategyTable.FindNextHopsEnc(lookupName)
 
 	// If the first component is /localhop, we do not forward interests received
 	// on non-local faces to non-local faces
 	localFacesOnly := incomingFace.Scope() != defn.Local && packet.Name.At(0).Equal(enc.LOCALHOP)
 
-	// Filter the nexthops that are allowed for this Interest
-	allowedNexthops := make([]*table.FibNextHopEntry, 0, len(nexthops))
-	for _, nexthop := range nexthops {
-		// Exclude incoming face
-		if nexthop.Nexthop == packet.IncomingFaceID {
-			continue
+	// If there are local nexthops, capture all traffic to local
+	// Only forward to network nexthop when there is no local nexthops
+	// Fix muliticast later
+	if len(nextLocal) > 0 {
+		// Filter the nexthops that are allowed for this Interest
+		allowedNexthops := make([]*table.PibNextHop, 0, len(nextLocal))
+		for _, nexthop := range nextLocal {
+			// Exclude incoming face
+			if nexthop.FaceID == packet.IncomingFaceID {
+				continue
+			}
+			// Exclude faces that have an in-record for this interest
+			// TODO: unclear where NFD dev guide specifies such behavior (if any)
+			if pitEntry.InRecords()[nexthop.FaceID] == nil {
+				allowedNexthops = append(allowedNexthops, nexthop)
+			}
+			core.Log.Trace(t, "Local Egress captures the Interest", "name", packet.Name)
 		}
 
-		// Exclude non-local faces for localhop enforcement
-		if localFacesOnly {
-			if face := dispatch.GetFace(nexthop.Nexthop); face != nil && face.Scope() != defn.Local {
+		if len(allowedNexthops) > 0 {
+			// TODO: we should have micro strategy in PIB to dispatch Interest, forget for now
+			t.processOutgoingInterest(packet, pitEntry, allowedNexthops[0].FaceID, incomingFace.FaceID())
+			return
+		}
+	} else if len(nextNet) > 0 {
+		// Filter the nexthops that are allowed for this Interest
+		allowedNexthops := make([]*table.FibNextHopEntry, 0, len(nextNet))
+		for _, nexthop := range nextNet {
+			// Exclude incoming face
+			if nexthop.Nexthop == packet.IncomingFaceID {
 				continue
+			}
+
+			// Exclude non-local faces for localhop enforcement
+			if localFacesOnly {
+				if face := dispatch.GetFace(nexthop.Nexthop); face != nil && face.Scope() != defn.Local {
+					continue
+				}
+			}
+
+			// Exclude faces that have an in-record for this interest
+			// TODO: unclear where NFD dev guide specifies such behavior (if any)
+			if pitEntry.InRecords()[nexthop.Nexthop] == nil {
+				allowedNexthops = append(allowedNexthops, nexthop)
 			}
 		}
 
-		// Exclude faces that have an in-record for this interest
-		// TODO: unclear where NFD dev guide specifies such behavior (if any)
-		if pitEntry.InRecords()[nexthop.Nexthop] == nil {
-			allowedNexthops = append(allowedNexthops, nexthop)
-		}
+		// Pass to strategy AfterReceiveInterest pipeline
+		strategy.AfterReceiveInterest(packet, pitEntry, incomingFace.FaceID(), allowedNexthops)
+	} else {
+		// NACK?
 	}
-
-	// Pass to strategy AfterReceiveInterest pipeline
-	strategy.AfterReceiveInterest(packet, pitEntry, incomingFace.FaceID(), allowedNexthops)
 }
 
 // (AI GENERATED DESCRIPTION): Forwards an Interest packet to the chosen outgoing face, updating the PIT entry’s out‑record, generating a PIT token, and enforcing HopLimit and anti‑loop rules before transmitting it.

@@ -175,12 +175,15 @@ func DictToStrategy(dict map[string]any) (*Strategy, error) {
 type ControlArgsEncoder struct {
 	Length uint
 
-	Name_length uint
+	Name_length    uint
+	Egress_encoder EgressRecordEncoder
 
 	Strategy_encoder StrategyEncoder
 }
 
 type ControlArgsParsingContext struct {
+	Egress_context EgressRecordParsingContext
+
 	Strategy_context StrategyParsingContext
 }
 
@@ -190,6 +193,9 @@ func (encoder *ControlArgsEncoder) Init(value *ControlArgs) {
 		for _, c := range value.Name {
 			encoder.Name_length += uint(c.EncodingLength())
 		}
+	}
+	if value.Egress != nil {
+		encoder.Egress_encoder.Init(value.Egress)
 	}
 
 	if value.Strategy != nil {
@@ -201,6 +207,11 @@ func (encoder *ControlArgsEncoder) Init(value *ControlArgs) {
 		l += 1
 		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
 		l += encoder.Name_length
+	}
+	if value.Egress != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Egress_encoder.Length).EncodingLength())
+		l += encoder.Egress_encoder.Length
 	}
 	if optval, ok := value.FaceId.Get(); ok {
 		l += 1
@@ -271,6 +282,8 @@ func (encoder *ControlArgsEncoder) Init(value *ControlArgs) {
 
 func (context *ControlArgsParsingContext) Init() {
 
+	context.Egress_context.Init()
+
 	context.Strategy_context.Init()
 
 }
@@ -285,6 +298,15 @@ func (encoder *ControlArgsEncoder) EncodeInto(value *ControlArgs, buf []byte) {
 		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
 		for _, c := range value.Name {
 			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.Egress != nil {
+		buf[pos] = byte(204)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Egress_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Egress_encoder.Length > 0 {
+			encoder.Egress_encoder.EncodeInto(value.Egress, buf[pos:])
+			pos += encoder.Egress_encoder.Length
 		}
 	}
 	if optval, ok := value.FaceId.Get(); ok {
@@ -421,6 +443,7 @@ func (encoder *ControlArgsEncoder) Encode(value *ControlArgs) enc.Wire {
 func (context *ControlArgsParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*ControlArgs, error) {
 
 	var handled_Name bool = false
+	var handled_Egress bool = false
 	var handled_FaceId bool = false
 	var handled_Uri bool = false
 	var handled_LocalUri bool = false
@@ -468,6 +491,12 @@ func (context *ControlArgsParsingContext) Parse(reader enc.WireView, ignoreCriti
 					handled_Name = true
 					delegate := reader.Delegate(int(l))
 					value.Name, err = delegate.ReadName()
+				}
+			case 204:
+				if true {
+					handled = true
+					handled_Egress = true
+					value.Egress, err = context.Egress_context.Parse(reader.Delegate(int(l)), ignoreCritical)
 				}
 			case 105:
 				if true {
@@ -796,6 +825,9 @@ func (context *ControlArgsParsingContext) Parse(reader enc.WireView, ignoreCriti
 	if !handled_Name && err == nil {
 		value.Name = nil
 	}
+	if !handled_Egress && err == nil {
+		value.Egress = nil
+	}
 	if !handled_FaceId && err == nil {
 		value.FaceId.Unset()
 	}
@@ -870,6 +902,9 @@ func (value *ControlArgs) ToDict() map[string]any {
 	if value.Name != nil {
 		dict["Name"] = value.Name
 	}
+	if value.Egress != nil {
+		dict["Egress"] = value.Egress.ToDict()
+	}
 	if optval, ok := value.FaceId.Get(); ok {
 		dict["FaceId"] = optval
 	}
@@ -929,6 +964,18 @@ func DictToControlArgs(dict map[string]any) (*ControlArgs, error) {
 		}
 	} else {
 		value.Name = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if vv, ok := dict["Egress"]; ok {
+		if v, ok := vv.(*EgressRecord); ok {
+			value.Egress = v
+		} else {
+			err = enc.ErrIncompatibleType{Name: "Egress", TypeNum: 204, ValType: "*EgressRecord", Value: vv}
+		}
+	} else {
+		value.Egress = nil
 	}
 	if err != nil {
 		return nil, err
@@ -5270,6 +5317,168 @@ func ParseNextHopRecord(reader enc.WireView, ignoreCritical bool) (*NextHopRecor
 	return context.Parse(reader, ignoreCritical)
 }
 
+type EgressRecordEncoder struct {
+	Length uint
+
+	Name_length uint
+}
+
+type EgressRecordParsingContext struct {
+}
+
+func (encoder *EgressRecordEncoder) Init(value *EgressRecord) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	encoder.Length = l
+
+}
+
+func (context *EgressRecordParsingContext) Init() {
+
+}
+
+func (encoder *EgressRecordEncoder) EncodeInto(value *EgressRecord, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+}
+
+func (encoder *EgressRecordEncoder) Encode(value *EgressRecord) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *EgressRecordParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*EgressRecord, error) {
+
+	var handled_Name bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &EgressRecord{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *EgressRecord) Encode() enc.Wire {
+	encoder := EgressRecordEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *EgressRecord) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseEgressRecord(reader enc.WireView, ignoreCritical bool) (*EgressRecord, error) {
+	context := EgressRecordParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+func (value *EgressRecord) ToDict() map[string]any {
+	dict := map[string]any{}
+	if value.Name != nil {
+		dict["Name"] = value.Name
+	}
+	return dict
+}
+
+func DictToEgressRecord(dict map[string]any) (*EgressRecord, error) {
+	value := &EgressRecord{}
+	var err error = nil
+	if vv, ok := dict["Name"]; ok {
+		if v, ok := vv.(enc.Name); ok {
+			value.Name = v
+		} else {
+			err = enc.ErrIncompatibleType{Name: "Name", TypeNum: 7, ValType: "Name", Value: vv}
+		}
+	} else {
+		value.Name = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
 type FibEntryEncoder struct {
 	Length uint
 
@@ -5702,6 +5911,540 @@ func (value *FibStatus) Bytes() []byte {
 
 func ParseFibStatus(reader enc.WireView, ignoreCritical bool) (*FibStatus, error) {
 	context := FibStatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PibEntryEncoder struct {
+	Length uint
+
+	Name_length              uint
+	EgressRecords_subencoder []struct {
+		EgressRecords_encoder EgressRecordEncoder
+	}
+	NextHopRecords_subencoder []struct {
+		NextHopRecords_encoder NextHopRecordEncoder
+	}
+}
+
+type PibEntryParsingContext struct {
+	EgressRecords_context  EgressRecordParsingContext
+	NextHopRecords_context NextHopRecordParsingContext
+}
+
+func (encoder *PibEntryEncoder) Init(value *PibEntry) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+	{
+		EgressRecords_l := len(value.EgressRecords)
+		encoder.EgressRecords_subencoder = make([]struct {
+			EgressRecords_encoder EgressRecordEncoder
+		}, EgressRecords_l)
+		for i := 0; i < EgressRecords_l; i++ {
+			pseudoEncoder := &encoder.EgressRecords_subencoder[i]
+			pseudoValue := struct {
+				EgressRecords *EgressRecord
+			}{
+				EgressRecords: value.EgressRecords[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.EgressRecords != nil {
+					encoder.EgressRecords_encoder.Init(value.EgressRecords)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	{
+		NextHopRecords_l := len(value.NextHopRecords)
+		encoder.NextHopRecords_subencoder = make([]struct {
+			NextHopRecords_encoder NextHopRecordEncoder
+		}, NextHopRecords_l)
+		for i := 0; i < NextHopRecords_l; i++ {
+			pseudoEncoder := &encoder.NextHopRecords_subencoder[i]
+			pseudoValue := struct {
+				NextHopRecords *NextHopRecord
+			}{
+				NextHopRecords: value.NextHopRecords[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.NextHopRecords != nil {
+					encoder.NextHopRecords_encoder.Init(value.NextHopRecords)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	if value.EgressRecords != nil {
+		for seq_i, seq_v := range value.EgressRecords {
+			pseudoEncoder := &encoder.EgressRecords_subencoder[seq_i]
+			pseudoValue := struct {
+				EgressRecords *EgressRecord
+			}{
+				EgressRecords: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.EgressRecords != nil {
+					l += 1
+					l += uint(enc.TLNum(encoder.EgressRecords_encoder.Length).EncodingLength())
+					l += encoder.EgressRecords_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.NextHopRecords != nil {
+		for seq_i, seq_v := range value.NextHopRecords {
+			pseudoEncoder := &encoder.NextHopRecords_subencoder[seq_i]
+			pseudoValue := struct {
+				NextHopRecords *NextHopRecord
+			}{
+				NextHopRecords: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.NextHopRecords != nil {
+					l += 1
+					l += uint(enc.TLNum(encoder.NextHopRecords_encoder.Length).EncodingLength())
+					l += encoder.NextHopRecords_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *PibEntryParsingContext) Init() {
+
+	context.EgressRecords_context.Init()
+	context.NextHopRecords_context.Init()
+}
+
+func (encoder *PibEntryEncoder) EncodeInto(value *PibEntry, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.EgressRecords != nil {
+		for seq_i, seq_v := range value.EgressRecords {
+			pseudoEncoder := &encoder.EgressRecords_subencoder[seq_i]
+			pseudoValue := struct {
+				EgressRecords *EgressRecord
+			}{
+				EgressRecords: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.EgressRecords != nil {
+					buf[pos] = byte(130)
+					pos += 1
+					pos += uint(enc.TLNum(encoder.EgressRecords_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.EgressRecords_encoder.Length > 0 {
+						encoder.EgressRecords_encoder.EncodeInto(value.EgressRecords, buf[pos:])
+						pos += encoder.EgressRecords_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.NextHopRecords != nil {
+		for seq_i, seq_v := range value.NextHopRecords {
+			pseudoEncoder := &encoder.NextHopRecords_subencoder[seq_i]
+			pseudoValue := struct {
+				NextHopRecords *NextHopRecord
+			}{
+				NextHopRecords: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.NextHopRecords != nil {
+					buf[pos] = byte(129)
+					pos += 1
+					pos += uint(enc.TLNum(encoder.NextHopRecords_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.NextHopRecords_encoder.Length > 0 {
+						encoder.NextHopRecords_encoder.EncodeInto(value.NextHopRecords, buf[pos:])
+						pos += encoder.NextHopRecords_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *PibEntryEncoder) Encode(value *PibEntry) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PibEntryParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PibEntry, error) {
+
+	var handled_Name bool = false
+	var handled_EgressRecords bool = false
+	var handled_NextHopRecords bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PibEntry{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			case 130:
+				if true {
+					handled = true
+					handled_EgressRecords = true
+					if value.EgressRecords == nil {
+						value.EgressRecords = make([]*EgressRecord, 0)
+					}
+					{
+						pseudoValue := struct {
+							EgressRecords *EgressRecord
+						}{}
+						{
+							value := &pseudoValue
+							value.EgressRecords, err = context.EgressRecords_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.EgressRecords = append(value.EgressRecords, pseudoValue.EgressRecords)
+					}
+					progress--
+				}
+			case 129:
+				if true {
+					handled = true
+					handled_NextHopRecords = true
+					if value.NextHopRecords == nil {
+						value.NextHopRecords = make([]*NextHopRecord, 0)
+					}
+					{
+						pseudoValue := struct {
+							NextHopRecords *NextHopRecord
+						}{}
+						{
+							value := &pseudoValue
+							value.NextHopRecords, err = context.NextHopRecords_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.NextHopRecords = append(value.NextHopRecords, pseudoValue.NextHopRecords)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+	if !handled_EgressRecords && err == nil {
+		// sequence - skip
+	}
+	if !handled_NextHopRecords && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PibEntry) Encode() enc.Wire {
+	encoder := PibEntryEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PibEntry) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePibEntry(reader enc.WireView, ignoreCritical bool) (*PibEntry, error) {
+	context := PibEntryParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PibStatusEncoder struct {
+	Length uint
+
+	Entries_subencoder []struct {
+		Entries_encoder PibEntryEncoder
+	}
+}
+
+type PibStatusParsingContext struct {
+	Entries_context PibEntryParsingContext
+}
+
+func (encoder *PibStatusEncoder) Init(value *PibStatus) {
+	{
+		Entries_l := len(value.Entries)
+		encoder.Entries_subencoder = make([]struct {
+			Entries_encoder PibEntryEncoder
+		}, Entries_l)
+		for i := 0; i < Entries_l; i++ {
+			pseudoEncoder := &encoder.Entries_subencoder[i]
+			pseudoValue := struct {
+				Entries *PibEntry
+			}{
+				Entries: value.Entries[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					encoder.Entries_encoder.Init(value.Entries)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.Entries != nil {
+		for seq_i, seq_v := range value.Entries {
+			pseudoEncoder := &encoder.Entries_subencoder[seq_i]
+			pseudoValue := struct {
+				Entries *PibEntry
+			}{
+				Entries: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					l += 1
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *PibStatusParsingContext) Init() {
+	context.Entries_context.Init()
+}
+
+func (encoder *PibStatusEncoder) EncodeInto(value *PibStatus, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Entries != nil {
+		for seq_i, seq_v := range value.Entries {
+			pseudoEncoder := &encoder.Entries_subencoder[seq_i]
+			pseudoValue := struct {
+				Entries *PibEntry
+			}{
+				Entries: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					buf[pos] = byte(128)
+					pos += 1
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
+						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
+						pos += encoder.Entries_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *PibStatusEncoder) Encode(value *PibStatus) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PibStatusParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PibStatus, error) {
+
+	var handled_Entries bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PibStatus{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 128:
+				if true {
+					handled = true
+					handled_Entries = true
+					if value.Entries == nil {
+						value.Entries = make([]*PibEntry, 0)
+					}
+					{
+						pseudoValue := struct {
+							Entries *PibEntry
+						}{}
+						{
+							value := &pseudoValue
+							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.Entries = append(value.Entries, pseudoValue.Entries)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Entries && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PibStatus) Encode() enc.Wire {
+	encoder := PibStatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PibStatus) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePibStatus(reader enc.WireView, ignoreCritical bool) (*PibStatus, error) {
+	context := PibStatusParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }

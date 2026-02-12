@@ -342,6 +342,15 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 			pkt.NextHopFaceID = LP.NextHopFaceId
 		}
 
+		// Egress router indication
+		if LP.EgressRouter != nil {
+			pkt.EgressRouter = LP.EgressRouter.Name
+		}
+		// Bier indication
+		if len(LP.Bier) > 0 {
+			pkt.Bier = LP.Bier
+		}
+
 		// No need to copy the pit token since it's already in its own buffer
 		// See the generated code for defn.FwLpPacket
 		pkt.PitToken = LP.PitToken
