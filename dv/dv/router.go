@@ -406,34 +406,4 @@ func (dv *Router) createPrefixTable() {
 	dv.pfx.OnChange(func() {
 		dv.updateFib()
 	})
-	// // Subscription list
-	// dv.pfxSubs = make(map[uint64]enc.Name)
-
-	// // SVS delivery agent
-	// var err error
-	// dv.pfxSvs, err = ndn_sync.NewSvsALO(ndn_sync.SvsAloOpts{
-	// 	Name: dv.config.RouterName(),
-	// 	Svs: ndn_sync.SvSyncOpts{
-	// 		Client:      dv.client,
-	// 		GroupPrefix: dv.config.PrefixTableGroupPrefix(),
-	// 		BootTime:    dv.advert.bootTime,
-	// 	},
-	// 	Snapshot: &ndn_sync.SnapshotNodeLatest{
-	// 		Client: dv.client,
-	// 		SnapMe: func(name enc.Name) (enc.Wire, error) {
-	// 			return dv.pfx.Snap(), nil
-	// 		},
-	// 		Threshold: PrefixSnapThreshold,
-	// 	},
-	// })
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// // Local prefix table
-	// dv.pfx = table.NewPrefixTable(dv.config, func(w enc.Wire) {
-	// 	if _, _, err := dv.pfxSvs.Publish(w); err != nil {
-	// 		log.Error(dv, "Failed to publish prefix table update", "err", err)
-	// 	}
-	// })
 }
