@@ -294,9 +294,9 @@ func (dv *Router) register() (err error) {
 	pfxs := []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
 		dv.config.AdvertisementDataPrefix(),
-		// TODO - expose sync prefix / data prefix
-		// dv.pfxSvs.SyncPrefix(),
-		// dv.pfxSvs.DataPrefix(),
+		// TODO - move this functionality inside of PID
+		dv.pfx.SyncPrefix(),
+		dv.pfx.DataPrefix(),
 		dv.config.MgmtPrefix(),
 	}
 	if dv.enablePrefixInsertion {
@@ -319,8 +319,8 @@ func (dv *Router) register() (err error) {
 	// Set strategy to multicast for sync prefixes
 	pfxs = []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
-		// TODO - expose sync prefix / data prefix for svs
-		// dv.pfxSvs.SyncPrefix(),
+		// TODO - move this functionality inside of PID
+		dv.pfx.SyncPrefix(),
 	}
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{

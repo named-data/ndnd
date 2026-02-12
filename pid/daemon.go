@@ -189,3 +189,12 @@ func (pid *PrefixDaemon) Snap() enc.Wire {
 
 	return pid.pfx.Snap()
 }
+
+// information for svs group, need to expose for now to register with mgmt
+func (pid *PrefixDaemon) SyncPrefix() enc.Name {
+	return pid.pfxSvs.SyncPrefix()
+}
+
+func (pid *PrefixDaemon) DataPrefix() enc.Name {
+	return pid.pfxSvs.DataPrefix()
+}
