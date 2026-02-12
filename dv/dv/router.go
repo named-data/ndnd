@@ -17,9 +17,9 @@ import (
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/keychain"
 	"github.com/named-data/ndnd/std/security/trust_schema"
-	ndn_sync "github.com/named-data/ndnd/std/sync"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
+	"github.com/named-data/ndnd/pid"
 )
 
 const PrefixSnapThreshold = 50
@@ -52,12 +52,8 @@ type Router struct {
 	// advertisement module
 	advert advertModule
 
-	// prefix table
-	pfx *table.PrefixTable
-	// prefix table svs instance
-	pfxSvs *ndn_sync.SvsALO
-	// prefix table svs subscriptions
-	pfxSubs map[uint64]enc.Name
+	// prefix table daemon
+	pfx *pid.PrefixDaemon
 
 	// neighbor table
 	neighbors *table.NeighborTable
@@ -208,9 +204,9 @@ func (dv *Router) Start() (err error) {
 		return err
 	}
 
-	// Start sync groups
-	dv.pfxSvs.Start()
-	defer dv.pfxSvs.Stop()
+	// Start prefix information daemon
+	dv.pfx.Start()
+	defer dv.pfx.Stop()
 
 	// Add self to the RIB and make initial advertisement
 	dv.rib.Set(dv.config.RouterName(), dv.config.RouterName(), 0)
@@ -298,8 +294,9 @@ func (dv *Router) register() (err error) {
 	pfxs := []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
 		dv.config.AdvertisementDataPrefix(),
-		dv.pfxSvs.SyncPrefix(),
-		dv.pfxSvs.DataPrefix(),
+		// TODO - move this functionality inside of PID
+		dv.pfx.SyncPrefix(),
+		dv.pfx.DataPrefix(),
 		dv.config.MgmtPrefix(),
 	}
 	if dv.enablePrefixInsertion {
@@ -322,7 +319,8 @@ func (dv *Router) register() (err error) {
 	// Set strategy to multicast for sync prefixes
 	pfxs = []enc.Name{
 		dv.config.AdvertisementSyncPrefix(),
-		dv.pfxSvs.SyncPrefix(),
+		// TODO - move this functionality inside of PID
+		dv.pfx.SyncPrefix(),
 	}
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
@@ -403,34 +401,9 @@ func (dv *Router) destroyFaces() {
 
 // (AI GENERATED DESCRIPTION): Initializes the router’s prefix table by creating a subscription map, setting up an SVS synchronization agent (with snapshot support) for publishing updates, and constructing a local prefix table that forwards changes to the SVS.
 func (dv *Router) createPrefixTable() {
-	// Subscription list
-	dv.pfxSubs = make(map[uint64]enc.Name)
-
-	// SVS delivery agent
-	var err error
-	dv.pfxSvs, err = ndn_sync.NewSvsALO(ndn_sync.SvsAloOpts{
-		Name: dv.config.RouterName(),
-		Svs: ndn_sync.SvSyncOpts{
-			Client:      dv.client,
-			GroupPrefix: dv.config.PrefixTableGroupPrefix(),
-			BootTime:    dv.advert.bootTime,
-		},
-		Snapshot: &ndn_sync.SnapshotNodeLatest{
-			Client: dv.client,
-			SnapMe: func(name enc.Name) (enc.Wire, error) {
-				return dv.pfx.Snap(), nil
-			},
-			Threshold: PrefixSnapThreshold,
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	// Local prefix table
-	dv.pfx = table.NewPrefixTable(dv.config, func(w enc.Wire) {
-		if _, _, err := dv.pfxSvs.Publish(w); err != nil {
-			log.Error(dv, "Failed to publish prefix table update", "err", err)
-		}
+	dv.pfx = pid.NewPrefixDaemon(dv.config, dv.client)
+	// TODO - handle cleanup logic for de-allocation (unsubing)
+	dv.pfx.OnChange(func() {
+		dv.updateFib()
 	})
 }
