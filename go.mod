@@ -11,8 +11,8 @@ require (
 	github.com/gorilla/schema v1.4.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/quic-go/quic-go v0.57.0
-	github.com/quic-go/webtransport-go v0.9.0
+	github.com/quic-go/quic-go v0.59.0
+	github.com/quic-go/webtransport-go v0.10.0
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.45.0
@@ -25,6 +25,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgraph-io/ristretto/v2 v2.3.0 // indirect
+	github.com/dunglas/httpsfv v1.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
