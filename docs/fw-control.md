@@ -94,6 +94,54 @@ ndnd fw route-remove prefix=/example face=6 origin=65
 
 The fib-list command prints the existing FIB entries.
 
+## `ndnd fw pib-list`
+
+The pib-list command prints the existing PIB entries.
+
+## `ndnd fw pib-add-egress`
+
+The pib-add-prefix command adds an egress router to a PIB entry. The supported arguments are:
+
+- `prefix=<prefix>` The name prefix of the PIB entry.
+- `egress=<egress-name>` The egress name
+
+```bash
+./ndnd fw pib-add-egress prefix=/example egress=/egress-name
+```
+
+## `ndnd fw pib-remove-egress`
+
+The pib-add-prefix command removes an egress router to a PIB entry. The supported arguments are:
+
+- `prefix=<prefix>` The name prefix of the PIB entry.
+- `egress=<egress-name>` The egress name
+
+```bash
+./ndnd fw pib-remove-egress prefix=/example egress=/egress-name
+```
+
+## `ndnd fw pib-add-nexthop`
+
+The pib-add-nexthop command adds a next hop to a PIB entry (for local forwarding). The supported arguments are:
+
+- `prefix=<prefix>`: The name prefix of the PIB entry.
+- `face=<face-id>|<face-uri>`: The next hop face ID to add (must be a valid face).
+
+```bash
+ndnd fw pib-add-nexthop prefix=/example face=6
+```
+
+## `ndnd fw pib-remove-nexthop`
+
+The pib-remove-nexthop command removes a nexthop from a PIB entry. The supported arguments are:
+
+- `prefix=<prefix>`: The name prefix of the PIB entry.
+- `face=<face-id>|<face-uri>`: The next hop face ID to remove.
+
+```bash
+ndnd fw pib-remove-nexthop prefix=/example face=6
+```
+
 ## `ndnd fw cs-info`
 
 The cs-info command prints information about the content store.
