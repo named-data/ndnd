@@ -1,0 +1,33 @@
+{
+  "ca-prefix": "/example",
+  "ca-info": "An example NDNCERT CA",
+  "max-validity-period": "1296000",
+  "max-suffix-length": "2",
+  "probe-parameters": [
+    {
+      "probe-parameter-key": "email"
+    }
+  ],
+  "supported-challenges": [
+    {
+      "challenge": "pin"
+    },
+    {
+      "challenge": "email"
+    }
+  ],
+  "redirect-to": [
+    {
+      "ca-prefix": "/ndn/edu/ucla",
+      "certificate": "Bv0BNQcwCANuZG4IA2VkdQgEdWNsYQgDS0VZCAgAdGt6D7S2VAgEc2VsZggJ/QAAAX5lZMOiFAkYAQIZBAA27oAVWzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABOKmvwHmK5t+MhMPgft4qmKC7YF9I6UM/o7GFa4BjZQknsqLvxdW2zIAF+iPPHJV0eVAijX6bYrQobuomiWZAY0WUBsBAxwhBx8IA25kbggDZWR1CAR1Y2xhCANLRVkICAB0a3oPtLZU/QD9Jv0A/g8xOTcwMDEwMVQwMDAwMDD9AP8PMjA0MjAxMTJUMDAxNjQ5F0cwRQIgBF/HS0j1DMo/dIILv/6IMUmMAhVtS3m97YgS8tsBhC0CIQCgEm0e6KoBCyV6PiueN9YW9zSSkdg8MLCxsyduP8tRsQ==",
+      "policy-type": "email",
+      "policy-param": "g.ucla.edu"
+    },
+    {
+      "ca-prefix": "/ndn/edu/ucla/cs",
+      "certificate": "Bv0BPgc0CANuZG4IA2VkdQgEdWNsYQgCY3MIA0tFWQgI27kFrpVyxUAIBHNlbGYICf0AAAF+ZZ/79xQJGAECGQQANu6AFVswWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASOLtEWMpMk8tPqPe0VY9SAYA0e969NNy5t0QeseNvr6AbYWQHBR4oa6Ymv3TRlQnyy+IzvKPte5suX/Qhtnjn2FlQbAQMcJQcjCANuZG4IA2VkdQgEdWNsYQgCY3MIA0tFWQgI27kFrpVyxUD9AP0m/QD+DzE5NzAwMTAxVDAwMDAwMP0A/w8yMDQyMDExMlQwMTIxMzAXSDBGAiEAm+aJbcmI0n37Qhear5fo//S02ZlDkmao8a7olSsElx8CIQDD8dZkYfD8xcvYl3vXm7G/NSXFrnrRqxC7NR/4r4swbw==",
+      "policy-type": "email",
+      "policy-param": "cs.ucla.edu"
+    }
+  ]
+}
