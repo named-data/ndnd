@@ -53,7 +53,11 @@ func (d *Data) SigNonce() []byte {
 
 // (AI GENERATED DESCRIPTION): Returns the signature timestamp of the Data packet (currently unimplemented and returns nil).
 func (d *Data) SigTime() *time.Time {
-	return nil
+	if d.SignatureInfo != nil && d.SignatureInfo.SignatureTime.IsSet() {
+		return utils.IdPtr(time.UnixMilli(d.SignatureInfo.SignatureTime.Unwrap().Milliseconds()))
+	} else {
+		return nil
+	}
 }
 
 // (AI GENERATED DESCRIPTION): Sets the Data packet’s SignatureInfo.SignatureTime to the given time (converted to a millisecond duration) or clears the field if the argument is nil.
@@ -262,6 +266,11 @@ func (Spec) MakeData(name enc.Name, config *ndn.DataConfig, content enc.Wire, si
 	if config == nil {
 		return nil, ndn.ErrInvalidValue{Item: "Data.DataConfig", Value: nil}
 	}
+
+	if !config.SigTime.IsSet() {
+		config.SigTime = optional.Some(time.Duration(time.Now().UnixMilli()) * time.Millisecond)
+	}
+
 	finalBlock := []byte(nil)
 	if fbid, ok := config.FinalBlockID.Get(); ok {
 		finalBlock = fbid.Bytes()
@@ -289,6 +298,7 @@ func (Spec) MakeData(name enc.Name, config *ndn.DataConfig, content enc.Wire, si
 
 		data.SignatureInfo = &SignatureInfo{
 			SignatureType: uint64(signer.Type()),
+			SignatureTime: config.SigTime,
 		}
 
 		if key := signer.KeyLocator(); key != nil {

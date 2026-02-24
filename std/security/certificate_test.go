@@ -191,3 +191,22 @@ func TestEncodeDecodeCertList(t *testing.T) {
 	_, err = sec.DecodeCertList(enc.Wire{[]byte{0x01, 0x02}})
 	require.Error(t, err)
 }
+
+func TestApendCertList(t *testing.T) {
+	tu.SetT(t)
+	n1 := tu.NoErr(enc.NameFromStr("/ndn/alice/KEY/aa/self/v=1"))
+	n2 := tu.NoErr(enc.NameFromStr("/ndn/alice/KEY/bb/ndn/v=2"))
+
+	wire, err := sec.EncodeCertList([]enc.Name{n1})
+	require.NoError(t, err)
+	decoded, err := sec.DecodeCertList(wire)
+	require.NoError(t, err)
+	require.Equal(t, []enc.Name{n1}, decoded)
+
+	wire2, err2 := sec.AppendCertList(wire, []enc.Name{n2})
+	require.NoError(t, err2)
+
+	decoded, err = sec.DecodeCertList(wire2)
+	require.NoError(t, err)
+	require.Equal(t, []enc.Name{n1, n2}, decoded)
+}
