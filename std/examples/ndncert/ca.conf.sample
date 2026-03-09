@@ -10,10 +10,7 @@
   ],
   "supported-challenges": [
     {
-      "challenge": "pin"
-    },
-    {
-      "challenge": "email"
+      "challenge": "dns"
     }
   ],
   "redirect-to": [

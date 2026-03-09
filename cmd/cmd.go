@@ -44,6 +44,7 @@ func init() {
 
 	CmdNDNd.AddGroup(&cobra.Group{ID: "sec", Title: "Security Tools"})
 	CmdNDNd.AddCommand(sec.CmdSec())
+	CmdNDNd.AddCommand(sec.CmdCertServer())
 	CmdNDNd.AddCommand(sec.CmdCertCli())
 
 	CmdNDNd.AddGroup(&cobra.Group{ID: "tools", Title: "Debug Tools"})

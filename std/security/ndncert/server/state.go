@@ -21,11 +21,11 @@ type RequestState struct {
 	CaPrefix  enc.Name
 	Status    uint64
 
-	ChallengeType     string
-	ChallengeStatus   string
-	ChallengeAttempts int
+	ChallengeType        string
+	ChallengeStatus      string
+	ChallengeAttempts    int
 	MaxChallengeAttempts int
-	ChallengeState    map[string][]byte
+	ChallengeState       map[string][]byte
 
 	CertRequest       enc.Wire
 	RequestedCertName enc.Name
