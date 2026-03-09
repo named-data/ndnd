@@ -440,9 +440,9 @@ func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 	// Bail if the data is a cert and is not fresh
 	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
 		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.Data) {
-			fmt.Println("CERT IS EXPIRED: " + args.Data.Name().String())
+			// fmt.Println("CERT IS EXPIRED: " + args.Data.Name().String())
 			if keyLocator.IsPrefix(args.Data.Name()) || tc.isTrustedAnchorKey(keyLocator) {
-				fmt.Println("EXPLORE CERT LIST: " + keyLocator.String() + " " + args.Data.Name().String())
+				fmt.Println("EXPLORE CERT LIST: " + args.Data.Name().String())
 				anchorKeyName, err := KeyNameFromLocator(keyLocator)
 				if err != nil {
 					args.Callback(false, fmt.Errorf("invalid anchor key locator: %w", err))

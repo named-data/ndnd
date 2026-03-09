@@ -1048,8 +1048,6 @@ func TestTrustConfigLvsInter(t *testing.T) {
 func TestExpiredRootWithCertList(t *testing.T) {
 	tu.SetT(t)
 
-	// TODO: TEST CASE EXPECTED TO FAIL! Adjust testcase such that signing happens during valid period.
-
 	store := storage.NewMemoryStore()
 	tcTestKeyChain = keychain.NewKeyChainMem(store)
 	// Use intra-domain schema with root-to-root signing support
@@ -1064,7 +1062,7 @@ func TestExpiredRootWithCertList(t *testing.T) {
 
 	now := time.Now()
 	nb := now
-	na := now.Add(time.Hour)
+	na := now.Add(time.Second * 5)
 	n := func(s string) enc.Name { return tu.NoErr(enc.NameFromStr(s)) }
 
 	// Expired root (old root)
@@ -1074,8 +1072,8 @@ func TestExpiredRootWithCertList(t *testing.T) {
 		Signer:    expiredRootSigner,
 		Data:      expiredRootKeyData,
 		IssuerId:  enc.NewGenericComponent("self"),
-		NotBefore: now.Add(-3 * time.Hour), // Expired 3 hours ago
-		NotAfter:  now.Add(-1 * time.Hour), // Expired 1 hour ago
+		NotBefore: now,                      // Expired 3 hours ago
+		NotAfter:  now.Add(time.Second * 7), // Expired 1 hour ago
 	}))
 	expiredRootCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(expiredRootCertWire))
 	network[expiredRootCertData.Name().String()] = expiredRootCertWire
@@ -1089,7 +1087,7 @@ func TestExpiredRootWithCertList(t *testing.T) {
 		Data:      newRootKeyData,
 		IssuerId:  enc.NewGenericComponent("self"),
 		NotBefore: nb,
-		NotAfter:  na,
+		NotAfter:  now.Add(time.Second * 17),
 	}))
 	newRootCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(newRootCertWire))
 	network[newRootCertData.Name().String()] = newRootCertWire
@@ -1102,16 +1100,9 @@ func TestExpiredRootWithCertList(t *testing.T) {
 		Data:      expiredRootKeyData, // Certificate for expired root's key
 		IssuerId:  enc.NewGenericComponent("root"),
 		NotBefore: nb,
-		NotAfter:  na,
+		NotAfter:  now.Add(time.Second * 15),
 	}))
 	preAnchorData2, _, _ := spec.Spec{}.ReadData(enc.NewWireView(preAnchorWire2))
-	// network[preAnchorData2.Name().String()] = preAnchorWire2
-	// keychain2.InsertCert(preAnchorWire2.Join())
-
-	fmt.Println("EXPIRED ROOT KEY: " + expiredRootKeyData.Name().String())
-	fmt.Println("EXPIRED ROOT CERT: " + expiredRootCertData.Name().String())
-	fmt.Println("NEW ROOT CERT: " + newRootCertData.Name().String())
-	fmt.Println("PRE ANCHOR DATA 2: " + preAnchorData2.Name().String())
 
 	// CertList for expired root pointing to preAnchor
 	// This CertList is signed by the new root itself (even though expired)
@@ -1119,13 +1110,11 @@ func TestExpiredRootWithCertList(t *testing.T) {
 	listPrefix2 := tu.NoErr(sec.CertListPrefix(expiredRootSigner.KeyName()))
 	listName2 := listPrefix2.Append(enc.NewVersionComponent(uint64(now.UnixMicro())))
 	listWireEnc2 := tu.NoErr(spec.Spec{}.MakeData(listName2, &ndn.DataConfig{
-		Freshness:    optional.Some(time.Minute),
+		Freshness:    optional.Some(time.Second * 19),
 		SigNotBefore: optional.Some(nb),
 		SigNotAfter:  optional.Some(na),
 	}, listContent2, expiredRootSigner)) // Signed by expired root
 	listData2, _, _ := spec.Spec{}.ReadData(enc.NewWireView(listWireEnc2.Wire))
-	// network[listData2.Name().String()] = listWireEnc2.Wire
-	fmt.Println("LIST DATA 2: " + listData2.Name().String())
 
 	// Owner <= testbed
 	ownerSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/root/owner"))))
@@ -1199,25 +1188,13 @@ func TestExpiredRootWithCertList(t *testing.T) {
 	network[ownerCertData.Name().String()] = ownerCertWire
 
 	type stage struct {
+		preprocess    func()
+		postprocess   func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire)
 		name          string
 		add           map[string]enc.Wire
 		expectAnchor  bool
 		expectData    bool
 		expectErrPart string
-	}
-
-	stages := []stage{
-		{
-			name: "certlist ok",
-			add: map[string]enc.Wire{
-				listData2.Name().String():      listWireEnc2.Wire,
-				preAnchorData2.Name().String(): preAnchorWire2,
-				listData.Name().String():       listWireEnc.Wire,
-				preAnchorData.Name().String():  preAnchorWire,
-			},
-			expectAnchor: true,
-			expectData:   true,
-		},
 	}
 
 	validateOnce := func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire) (bool, error) {
@@ -1243,7 +1220,47 @@ func TestExpiredRootWithCertList(t *testing.T) {
 		return res.v, res.err
 	}
 
+	stages := []stage{
+		{
+			preprocess: func() {
+				return
+			},
+			name: "normal chaincertlist ok",
+			add: map[string]enc.Wire{
+				listData2.Name().String():      listWireEnc2.Wire,
+				preAnchorData2.Name().String(): preAnchorWire2,
+				listData.Name().String():       listWireEnc.Wire,
+				preAnchorData.Name().String():  preAnchorWire,
+			},
+			expectAnchor: true,
+			expectData:   true,
+			postprocess: func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire) {
+				return
+			},
+		},
+		{
+			preprocess: func() {
+				time.Sleep(time.Second * 9)
+			},
+			name: "epxired chain certlist ok",
+			add: map[string]enc.Wire{
+				listData2.Name().String():      listWireEnc2.Wire,
+				preAnchorData2.Name().String(): preAnchorWire2,
+				listData.Name().String():       listWireEnc.Wire,
+				preAnchorData.Name().String():  preAnchorWire,
+			},
+			expectAnchor: true,
+			expectData:   true,
+			postprocess: func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire) {
+
+				return
+			},
+		},
+	}
+
 	for _, st := range stages {
+		st.preprocess()
+
 		t.Run(st.name, func(t *testing.T) {
 			store := storage.NewMemoryStore()
 			tcTestKeyChain = keychain.NewKeyChainMem(store)
@@ -1280,6 +1297,9 @@ func TestExpiredRootWithCertList(t *testing.T) {
 					require.Contains(t, anchorErr.Error(), st.expectErrPart)
 				}
 			}
+
+			st.postprocess(trust, dataPkt, dataSigCov)
 		})
+
 	}
 }
