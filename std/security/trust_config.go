@@ -61,8 +61,7 @@ func NewTrustConfig(keyChain ndn.KeyChain, schema ndn.TrustSchema, roots []enc.N
 	// Check if all roots are present in the keychain
 	for _, root := range roots {
 		if certBytes, _ := keyChain.Store().Get(root, false); len(certBytes) == 0 {
-			continue // TODO: Make this more robust
-			// return nil, fmt.Errorf("trust anchor not found in keychain: %s", root)
+			return nil, fmt.Errorf("trust anchor not found in keychain: %s", root)
 		} else {
 			certData, _, err := spec.Spec{}.ReadData(enc.NewBufferView(certBytes))
 			if err != nil {

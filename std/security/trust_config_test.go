@@ -1072,7 +1072,7 @@ func TestSignatureTimeValidationValidFlows(t *testing.T) {
 		Signer:    expiredRootSigner,
 		Data:      expiredRootKeyData,
 		IssuerId:  enc.NewGenericComponent("self"),
-		NotBefore: now,                      // Expired 3 hours ago
+		NotBefore: nb,                       // Expired 3 hours ago
 		NotAfter:  now.Add(time.Second * 7), // Expired 1 hour ago
 	}))
 	expiredRootCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(expiredRootCertWire))
@@ -1192,6 +1192,7 @@ func TestSignatureTimeValidationValidFlows(t *testing.T) {
 		postprocess   func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire)
 		name          string
 		add           map[string]enc.Wire
+		kcInsert      []enc.Wire
 		trustAnchors  []enc.Name
 		expectAnchor  bool
 		expectData    bool
@@ -1231,6 +1232,7 @@ func TestSignatureTimeValidationValidFlows(t *testing.T) {
 				listData.Name().String():      listWireEnc.Wire,
 				preAnchorData.Name().String(): preAnchorWire,
 			},
+			kcInsert:     []enc.Wire{expiredRootCertWire, newRootCertWire},
 			trustAnchors: []enc.Name{expiredRootCertData.Name(), newRootCertData.Name()},
 			expectAnchor: true,
 			expectData:   true,
@@ -1249,6 +1251,7 @@ func TestSignatureTimeValidationValidFlows(t *testing.T) {
 				listData.Name().String():       listWireEnc.Wire,
 				preAnchorData.Name().String():  preAnchorWire,
 			},
+			kcInsert:     []enc.Wire{newRootCertWire},
 			trustAnchors: []enc.Name{newRootCertData.Name()},
 			expectAnchor: true,
 			expectData:   true,
@@ -1267,6 +1270,7 @@ func TestSignatureTimeValidationValidFlows(t *testing.T) {
 				listData.Name().String():       listWireEnc.Wire,
 				preAnchorData.Name().String():  preAnchorWire,
 			},
+			kcInsert:     []enc.Wire{newRootCertWire},
 			trustAnchors: []enc.Name{newRootCertData.Name()},
 			expectAnchor: true,
 			expectData:   true,
@@ -1288,7 +1292,10 @@ func TestSignatureTimeValidationValidFlows(t *testing.T) {
 			for k, v := range st.add {
 				network[k] = v
 			}
-			require.NoError(t, kc.InsertCert(newRootCertWire.Join()))
+
+			for _, w := range st.kcInsert {
+				require.NoError(t, kc.InsertCert(w.Join()))
+			}
 			trust, err := sec.NewTrustConfig(kc, schema, st.trustAnchors)
 			require.NoError(t, err)
 
