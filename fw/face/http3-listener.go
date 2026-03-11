@@ -65,7 +65,7 @@ func NewHTTP3Listener(cfg HTTP3ListenerConfig) (*HTTP3Listener, error) {
 	l.mux.HandleFunc("/ndn", l.handler)
 
 	l.server = &webtransport.Server{
-		H3: http3.Server{
+		H3: &http3.Server{
 			Addr: cfg.addr(),
 			TLSConfig: &tls.Config{
 				Certificates: []tls.Certificate{cert},
