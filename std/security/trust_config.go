@@ -145,6 +145,111 @@ type TrustConfigValidateArgs struct {
 	UseSignatureTime optional.Optional[bool]
 }
 
+func (tc *TrustConfig) ValidateProvidedCertHelper(args TrustConfigValidateArgs, dataName enc.Name, certName enc.Name) {
+	// Check schema if the key is allowed
+	if args.crossSchemaIsValid {
+		// continue
+	} else if tc.schema.Check(dataName, certName) {
+		// continue
+	} else if args.Data.CrossSchema() != nil {
+		tc.validateCrossSchema(TrustConfigValidateArgs{
+			Data:       args.Data,
+			DataSigCov: args.DataSigCov,
+
+			Fetch: args.Fetch,
+			Callback: func(valid bool, err error) {
+				if valid && err == nil {
+					// Continue validation with cross schema
+					args.crossSchemaIsValid = true
+					tc.Validate(args)
+				} else {
+					args.Callback(valid, fmt.Errorf("cross schema: %w", err))
+				}
+			},
+			OverrideName:   args.OverrideName,
+			IgnoreValidity: args.IgnoreValidity,
+			cert:           args.cert,
+			depth:          args.depth,
+		})
+		return
+	} else {
+		args.Callback(false, fmt.Errorf("trust schema mismatch: %s signed by %s", dataName, certName))
+		return
+	}
+
+	// Validate signature on data
+	valid, err := signer.ValidateData(args.Data, args.DataSigCov, args.cert)
+	if !valid {
+		args.Callback(false, fmt.Errorf("signature is invalid"))
+		return
+	}
+	if err != nil {
+		args.Callback(false, fmt.Errorf("signature validate error: %w", err))
+		return
+	}
+
+	// Check if the certificate was already validated.
+	// Since all roots are in cache, this breaks the recursion.
+	if args.certIsValid {
+		args.Callback(true, nil)
+		return
+	}
+
+	// This should never happen, but just in case
+	if len(args.certSigCov) == 0 {
+		args.Callback(false, fmt.Errorf("cert sig covered is nil: %s", certName))
+		return
+	}
+
+	// Monkey patch the callback to store the cert in
+	// keychain and cache if the validation passes.
+	origCallback := args.Callback
+	args.Callback = func(valid bool, err error) {
+		if valid && err == nil {
+			// Cache is thread safe
+			tc.certCache.Put(args.cert)
+
+			// Keychain is not thread safe for inserts
+			if len(args.certRaw) > 0 {
+				tc.mutex.Lock()
+				err := tc.keychain.InsertCert(args.certRaw.Join())
+				tc.mutex.Unlock()
+				if err != nil { // broken keychain
+					log.Error(tc, "Failed to insert certificate to keychain", "name", args.cert.Name(), "err", err)
+				}
+			}
+		} else {
+			log.Warn(tc, "Received invalid certificate", "name", args.cert.Name(), "err", err)
+		}
+
+		origCallback(valid, err) // continue bubbling up result
+	}
+
+	// Recursively validate the certificate
+	tc.Validate(TrustConfigValidateArgs{
+		Data:       args.cert,
+		DataSigCov: args.certSigCov,
+
+		Fetch:          args.Fetch,
+		Callback:       args.Callback,
+		OverrideName:   nil,
+		IgnoreValidity: args.IgnoreValidity,
+		origDataName:   args.origDataName,
+
+		cert:        nil,
+		certSigCov:  nil,
+		certRaw:     nil,
+		certIsValid: false,
+
+		crossSchemaIsValid: false,
+
+		UseSignatureTime: args.UseSignatureTime,
+
+		depth: args.depth,
+	})
+	return
+}
+
 // Validate validates a Data packet using a fetch API.
 func (tc *TrustConfig) ValidateWithExpiry(args TrustConfigValidateArgs) {
 	if args.Data == nil {
@@ -208,105 +313,7 @@ func (tc *TrustConfig) ValidateWithExpiry(args TrustConfigValidateArgs) {
 			return
 		}
 
-		// Check schema if the key is allowed
-		if args.crossSchemaIsValid {
-			// continue
-		} else if tc.schema.Check(dataName, certName) {
-			// continue
-		} else if args.Data.CrossSchema() != nil {
-			tc.validateCrossSchema(TrustConfigValidateArgs{
-				Data:       args.Data,
-				DataSigCov: args.DataSigCov,
-
-				Fetch: args.Fetch,
-				Callback: func(valid bool, err error) {
-					if valid && err == nil {
-						// Continue validation with cross schema
-						args.crossSchemaIsValid = true
-						tc.ValidateWithExpiry(args)
-					} else {
-						args.Callback(valid, fmt.Errorf("cross schema: %w", err))
-					}
-				},
-				OverrideName:   args.OverrideName,
-				IgnoreValidity: args.IgnoreValidity,
-				cert:           args.cert,
-				depth:          args.depth,
-			})
-			return
-		} else {
-			args.Callback(false, fmt.Errorf("trust schema mismatch: %s signed by %s", dataName, certName))
-			return
-		}
-
-		// Validate signature on data
-		valid, err := signer.ValidateData(args.Data, args.DataSigCov, args.cert)
-		if !valid {
-			args.Callback(false, fmt.Errorf("signature is invalid"))
-			return
-		}
-		if err != nil {
-			args.Callback(false, fmt.Errorf("signature validate error: %w", err))
-			return
-		}
-
-		// Check if the certificate was already validated.
-		// Since all roots are in cache, this breaks the recursion.
-		if args.certIsValid {
-			args.Callback(true, nil)
-			return
-		}
-
-		// This should never happen, but just in case
-		if len(args.certSigCov) == 0 {
-			args.Callback(false, fmt.Errorf("cert sig covered is nil: %s", certName))
-			return
-		}
-
-		// Monkey patch the callback to store the cert in
-		// keychain and cache if the validation passes.
-		origCallback := args.Callback
-		args.Callback = func(valid bool, err error) {
-			if valid && err == nil {
-				// Cache is thread safe
-				tc.certCache.Put(args.cert)
-
-				// Keychain is not thread safe for inserts
-				if len(args.certRaw) > 0 {
-					tc.mutex.Lock()
-					err := tc.keychain.InsertCert(args.certRaw.Join())
-					tc.mutex.Unlock()
-					if err != nil { // broken keychain
-						log.Error(tc, "Failed to insert certificate to keychain", "name", args.cert.Name(), "err", err)
-					}
-				}
-			} else {
-				log.Warn(tc, "Received invalid certificate", "name", args.cert.Name(), "err", err)
-			}
-
-			origCallback(valid, err) // continue bubbling up result
-		}
-
-		// Recursively validate the certificate
-		tc.ValidateWithExpiry(TrustConfigValidateArgs{
-			Data:       args.cert,
-			DataSigCov: args.certSigCov,
-
-			Fetch:          args.Fetch,
-			Callback:       args.Callback,
-			OverrideName:   nil,
-			IgnoreValidity: args.IgnoreValidity,
-			origDataName:   args.origDataName,
-
-			cert:        nil,
-			certSigCov:  nil,
-			certRaw:     nil,
-			certIsValid: false,
-
-			crossSchemaIsValid: false,
-
-			depth: args.depth,
-		})
+		tc.ValidateProvidedCertHelper(args, dataName, certName)
 		return
 	}
 
@@ -394,7 +401,6 @@ func (tc *TrustConfig) ValidateWithExpiry(args TrustConfigValidateArgs) {
 	args.Fetch(keyLocator, fetchCfg, cb)
 }
 
-// TODO: See if we can create a helper function to handle the overlapping logic from both flows
 // Validate validates a Data packet using a fetch API.
 func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 	if args.Data == nil {
@@ -436,12 +442,10 @@ func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 		return
 	}
 
-	// Bail if the data is a cert and is not fresh
+	// If the certificate is expired and is a trust anchor, explore the cert list
 	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
 		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.Data) {
-			// fmt.Println("CERT IS EXPIRED: " + args.Data.Name().String())
 			if keyLocator.IsPrefix(args.Data.Name()) || tc.isTrustedAnchorKey(keyLocator) {
-				fmt.Println("EXPLORE CERT LIST: " + args.Data.Name().String())
 				anchorKeyName, err := KeyNameFromLocator(keyLocator)
 				if err != nil {
 					args.Callback(false, fmt.Errorf("invalid anchor key locator: %w", err))
@@ -480,7 +484,6 @@ func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 		sigTime := args.Data.Signature().SigTime()
 
 		if sigTime != nil {
-
 			if args.cert.Signature() == nil {
 				args.Callback(false, fmt.Errorf("data was signed during an invalid period of certificate [no signature]: %s", args.cert.Name()))
 				return
@@ -493,110 +496,11 @@ func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 			}
 			if val, ok := cert_notAfter.Get(); !ok || sigTime.After(val) {
 				args.Callback(false, fmt.Errorf("data was signed during an invalid period of certificate [signed after]: %s", args.cert.Name()))
-
 				return
 			}
 		}
 
-		// Check schema if the key is allowed
-		if args.crossSchemaIsValid {
-			// continue
-		} else if tc.schema.Check(dataName, certName) {
-			// continue
-		} else if args.Data.CrossSchema() != nil {
-			tc.validateCrossSchema(TrustConfigValidateArgs{
-				Data:       args.Data,
-				DataSigCov: args.DataSigCov,
-
-				Fetch: args.Fetch,
-				Callback: func(valid bool, err error) {
-					if valid && err == nil {
-						// Continue validation with cross schema
-						args.crossSchemaIsValid = true
-						tc.ValidateWithSignatureTime(args)
-					} else {
-						args.Callback(valid, fmt.Errorf("cross schema: %w", err))
-					}
-				},
-				OverrideName:   args.OverrideName,
-				IgnoreValidity: args.IgnoreValidity,
-				cert:           args.cert,
-				depth:          args.depth,
-			})
-			return
-		} else {
-			args.Callback(false, fmt.Errorf("trust schema mismatch: %s signed by %s", dataName, certName))
-			return
-		}
-
-		// Validate signature on data
-		valid, err := signer.ValidateData(args.Data, args.DataSigCov, args.cert)
-		if !valid {
-			args.Callback(false, fmt.Errorf("signature is invalid"))
-			return
-		}
-		if err != nil {
-			args.Callback(false, fmt.Errorf("signature validate error: %w", err))
-			return
-		}
-
-		// Check if the certificate was already validated.
-		// Since all roots are in cache, this breaks the recursion.
-		if args.certIsValid {
-			args.Callback(true, nil)
-			return
-		}
-
-		// This should never happen, but just in case
-		if len(args.certSigCov) == 0 {
-			args.Callback(false, fmt.Errorf("cert sig covered is nil: %s", certName))
-			return
-		}
-
-		// Monkey patch the callback to store the cert in
-		// keychain and cache if the validation passes.
-		origCallback := args.Callback
-		args.Callback = func(valid bool, err error) {
-			if valid && err == nil {
-				// Cache is thread safe
-				tc.certCache.Put(args.cert)
-
-				// Keychain is not thread safe for inserts
-				if len(args.certRaw) > 0 {
-					tc.mutex.Lock()
-					err := tc.keychain.InsertCert(args.certRaw.Join())
-					tc.mutex.Unlock()
-					if err != nil { // broken keychain
-						log.Error(tc, "Failed to insert certificate to keychain", "name", args.cert.Name(), "err", err)
-					}
-				}
-			} else {
-				log.Warn(tc, "Received invalid certificate", "name", args.cert.Name(), "err", err)
-			}
-
-			origCallback(valid, err) // continue bubbling up result
-		}
-
-		// Recursively validate the certificate
-		tc.ValidateWithSignatureTime(TrustConfigValidateArgs{
-			Data:       args.cert,
-			DataSigCov: args.certSigCov,
-
-			Fetch:          args.Fetch,
-			Callback:       args.Callback,
-			OverrideName:   nil,
-			IgnoreValidity: args.IgnoreValidity,
-			origDataName:   args.origDataName,
-
-			cert:        nil,
-			certSigCov:  nil,
-			certRaw:     nil,
-			certIsValid: false,
-
-			crossSchemaIsValid: false,
-
-			depth: args.depth,
-		})
+		tc.ValidateProvidedCertHelper(args, dataName, certName)
 		return
 	}
 
