@@ -250,6 +250,92 @@ func (tc *TrustConfig) ValidateProvidedCertHelper(args TrustConfigValidateArgs, 
 	return
 }
 
+func (tc *TrustConfig) ValidateFetchHelper(args TrustConfigValidateArgs, keyLocator enc.Name) {
+	// Handle self-signed certificate (potential trust anchor).
+	if keyLocator.IsPrefix(args.Data.Name()) {
+		tc.handleSelfSignedCert(args, keyLocator)
+		return
+	}
+
+	// Reset all cert fields, this is just for extra safety
+	// The code below might seem to have a lot of redundancy - this is intentional.
+	args.cert = nil
+	args.certSigCov = nil
+	args.certRaw = nil
+	args.certIsValid = false
+	args.crossSchemaIsValid = false
+
+	// Check the validated memcache for the certificate
+	if cachedCert, ok := tc.certCache.Get(keyLocator); ok {
+		// The cache always checks the expiry of the cert
+		args.cert = cachedCert
+		args.certIsValid = true
+
+		// Continue validation with cached cert
+		tc.Validate(args)
+		return
+	}
+
+	// Attach forwarding hint if needed
+	var fwHint []enc.Name = nil
+	if args.UseDataNameFwHint.GetOr(tc.UseDataNameFwHint) {
+		fwHint = []enc.Name{args.origDataName}
+	}
+
+	// Cert not found, attempt to fetch from network
+	fetchCfg := &ndn.InterestConfig{
+		CanBePrefix:    true,
+		MustBeFresh:    true,
+		ForwardingHint: fwHint,
+	}
+	triedLocal := false
+	var cb ndn.ExpressCallbackFunc
+	cb = func(res ndn.ExpressCallbackArgs) {
+		if res.Error == nil && res.Result != ndn.InterestResultData {
+			res.Error = fmt.Errorf("failed to fetch certificate (%s) with result: %s", keyLocator, res.Result)
+		}
+
+		if res.Error != nil {
+			args.Callback(false, res.Error)
+			return // failed to fetch cert
+		}
+
+		// Bail if not a certificate
+		if t, ok := res.Data.ContentType().Get(); !ok || t != ndn.ContentTypeKey {
+			if res.IsLocal && !triedLocal {
+				triedLocal = true
+				if res.Data != nil {
+					_ = tc.keychain.Store().Remove(res.Data.Name())
+				}
+				args.Fetch(keyLocator, fetchCfg, cb)
+				return
+			}
+			args.Callback(false, fmt.Errorf("non-certificate in chain: %s", res.Data.Name()))
+			return
+		}
+
+		// Bail if the fetched cert is not fresh and not using signature time flow
+		if !args.UseSignatureTime.GetOr(false) && !args.IgnoreValidity.GetOr(false) && CertIsExpired(res.Data) {
+			args.Callback(false, fmt.Errorf("certificate is expired: %s", res.Data.Name()))
+			return
+		}
+
+		// Fetched cert is fresh
+		log.Debug(tc, "Fetched certificate from network", "cert", res.Data.Name())
+
+		// Call again with the fetched cert
+		args.cert = res.Data
+		args.certSigCov = res.SigCovered
+		args.certRaw = utils.If(!res.IsLocal, res.RawData, nil) // prevent double insert
+		args.certIsValid = false
+
+		// Continue validation with fetched cert
+		tc.Validate(args)
+	}
+	args.Fetch(keyLocator, fetchCfg, cb)
+	return
+}
+
 // Validate validates a Data packet using a fetch API.
 func (tc *TrustConfig) ValidateWithExpiry(args TrustConfigValidateArgs) {
 	if args.Data == nil {
@@ -317,91 +403,11 @@ func (tc *TrustConfig) ValidateWithExpiry(args TrustConfigValidateArgs) {
 		return
 	}
 
-	// Handle self-signed certificate (potential trust anchor).
-	if keyLocator.IsPrefix(args.Data.Name()) {
-		tc.handleSelfSignedCert(args, keyLocator)
-		return
-	}
-
-	// Reset all cert fields, this is just for extra safety
-	// The code below might seem to have a lot of redundancy - this is intentional.
-	args.cert = nil
-	args.certSigCov = nil
-	args.certRaw = nil
-	args.certIsValid = false
-	args.crossSchemaIsValid = false
-
-	// Check the validated memcache for the certificate
-	if cachedCert, ok := tc.certCache.Get(keyLocator); ok {
-		// The cache always checks the expiry of the cert
-		args.cert = cachedCert
-		args.certIsValid = true
-
-		// Continue validation with cached cert
-		tc.ValidateWithExpiry(args)
-		return
-	}
-
-	// Attach forwarding hint if needed
-	var fwHint []enc.Name = nil
-	if args.UseDataNameFwHint.GetOr(tc.UseDataNameFwHint) {
-		fwHint = []enc.Name{args.origDataName}
-	}
-
-	// Cert not found, attempt to fetch from network
-	fetchCfg := &ndn.InterestConfig{
-		CanBePrefix:    true,
-		MustBeFresh:    true,
-		ForwardingHint: fwHint,
-	}
-	triedLocal := false
-	var cb ndn.ExpressCallbackFunc
-	cb = func(res ndn.ExpressCallbackArgs) {
-		if res.Error == nil && res.Result != ndn.InterestResultData {
-			res.Error = fmt.Errorf("failed to fetch certificate (%s) with result: %s", keyLocator, res.Result)
-		}
-
-		if res.Error != nil {
-			args.Callback(false, res.Error)
-			return // failed to fetch cert
-		}
-
-		// Bail if not a certificate
-		if t, ok := res.Data.ContentType().Get(); !ok || t != ndn.ContentTypeKey {
-			if res.IsLocal && !triedLocal {
-				triedLocal = true
-				if res.Data != nil {
-					_ = tc.keychain.Store().Remove(res.Data.Name())
-				}
-				args.Fetch(keyLocator, fetchCfg, cb)
-				return
-			}
-			args.Callback(false, fmt.Errorf("non-certificate in chain: %s", res.Data.Name()))
-			return
-		}
-
-		// Bail if the fetched cert is not fresh
-		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(res.Data) {
-			args.Callback(false, fmt.Errorf("certificate is expired: %s", res.Data.Name()))
-			return
-		}
-
-		// Fetched cert is fresh
-		log.Debug(tc, "Fetched certificate from network", "cert", res.Data.Name())
-
-		// Call again with the fetched cert
-		args.cert = res.Data
-		args.certSigCov = res.SigCovered
-		args.certRaw = utils.If(!res.IsLocal, res.RawData, nil) // prevent double insert
-		args.certIsValid = false
-
-		// Continue validation with fetched cert
-		tc.ValidateWithExpiry(args)
-	}
-	args.Fetch(keyLocator, fetchCfg, cb)
+	tc.ValidateFetchHelper(args, keyLocator)
+	return
 }
 
-// Validate validates a Data packet using a fetch API.
+// Validate validates a Data packet using signature time flow
 func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 	if args.Data == nil {
 		args.Callback(false, fmt.Errorf("data is nil"))
@@ -504,84 +510,11 @@ func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 		return
 	}
 
-	// Handle self-signed certificate (potential trust anchor).
-	if keyLocator.IsPrefix(args.Data.Name()) {
-		tc.handleSelfSignedCert(args, keyLocator)
-		return
-	}
-
-	// Reset all cert fields, this is just for extra safety
-	// The code below might seem to have a lot of redundancy - this is intentional.
-	args.cert = nil
-	args.certSigCov = nil
-	args.certRaw = nil
-	args.certIsValid = false
-	args.crossSchemaIsValid = false
-
-	// Check the validated memcache for the certificate
-	if cachedCert, ok := tc.certCache.Get(keyLocator); ok {
-		// The cache always checks the expiry of the cert
-		args.cert = cachedCert
-		args.certIsValid = true
-
-		// Continue validation with cached cert
-		tc.ValidateWithSignatureTime(args)
-		return
-	}
-
-	// Attach forwarding hint if needed
-	var fwHint []enc.Name = nil
-	if args.UseDataNameFwHint.GetOr(tc.UseDataNameFwHint) {
-		fwHint = []enc.Name{args.origDataName}
-	}
-
-	// Cert not found, attempt to fetch from network
-	fetchCfg := &ndn.InterestConfig{
-		CanBePrefix:    true,
-		MustBeFresh:    true,
-		ForwardingHint: fwHint,
-	}
-	triedLocal := false
-	var cb ndn.ExpressCallbackFunc
-	cb = func(res ndn.ExpressCallbackArgs) {
-		if res.Error == nil && res.Result != ndn.InterestResultData {
-			res.Error = fmt.Errorf("failed to fetch certificate (%s) with result: %s", keyLocator, res.Result)
-		}
-
-		if res.Error != nil {
-			args.Callback(false, res.Error)
-			return // failed to fetch cert
-		}
-
-		// Bail if not a certificate
-		if t, ok := res.Data.ContentType().Get(); !ok || t != ndn.ContentTypeKey {
-			if res.IsLocal && !triedLocal {
-				triedLocal = true
-				if res.Data != nil {
-					_ = tc.keychain.Store().Remove(res.Data.Name())
-				}
-				args.Fetch(keyLocator, fetchCfg, cb)
-				return
-			}
-			args.Callback(false, fmt.Errorf("non-certificate in chain: %s", res.Data.Name()))
-			return
-		}
-
-		// Fetched cert is fresh
-		log.Debug(tc, "Fetched certificate from network", "cert", res.Data.Name())
-
-		// Call again with the fetched cert
-		args.cert = res.Data
-		args.certSigCov = res.SigCovered
-		args.certRaw = utils.If(!res.IsLocal, res.RawData, nil) // prevent double insert
-		args.certIsValid = false
-
-		// Continue validation with fetched cert
-		tc.ValidateWithSignatureTime(args)
-	}
-	args.Fetch(keyLocator, fetchCfg, cb)
+	tc.ValidateFetchHelper(args, keyLocator)
+	return
 }
 
+// Validate validates a Data packet using the appropriate flow based on the UseSignatureTime flag
 func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	if args.UseSignatureTime.GetOr(false) {
 		tc.ValidateWithSignatureTime(args)
