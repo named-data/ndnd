@@ -212,15 +212,3 @@ func AppendCertList(content enc.Wire, names []enc.Name) (enc.Wire, error) {
 
 	return EncodeCertList(newList)
 }
-
-// AppendCertList appends a certificate name list to a certificate list by creating a new certificate list
-func FetchAndAppendCertList(content enc.Wire, names []enc.Name) (enc.Wire, error) {
-	certList, err := DecodeCertList(content)
-	if err != nil {
-		return nil, err
-	}
-
-	newList := append(certList, names...)
-
-	return EncodeCertList(newList)
-}

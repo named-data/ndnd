@@ -1045,15 +1045,11 @@ func TestTrustConfigLvsInter(t *testing.T) {
 	testTrustConfigInter(t, schemaInter)
 }
 
-func testSignatureTimeValidationHelper(t *testing.T, schema *trust_schema.LvsSchema) {
-	return
-}
-
 func TestSignatureTimeValidationFlows(t *testing.T) {
 	tu.SetT(t)
 
 	// Use intra-domain schema with root-to-root signing support
-	// This schema is the same as TRUST_CONFIG_INTRA_LVS but allows roots to sign each other
+	// This schema is the same as TRUST_CONFIG_INTER_LVS but allows roots to sign each other
 	schema, err := trust_schema.NewLvsSchema(TRUST_CONFIG_INTER_LVS)
 	require.NoError(t, err)
 
@@ -1303,9 +1299,9 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 		},
 		{
 			preprocess: func() {
-				// Remove the certlist and certificate from the network to simulate a fully expired chainz
-				network[expiredRootCertListData.Name().String()] = nil
-				network[expiredRootVerifCertData.Name().String()] = nil
+				// Remove the certlist and certificate from the network to simulate a fully expired chain
+				delete(network, expiredRootCertListData.Name().String())
+				delete(network, expiredRootVerifCertData.Name().String())
 			},
 			name:         "expired chain no certlist not ok",
 			add:          map[string]enc.Wire{listData.Name().String(): listWireEnc.Wire, preAnchorData.Name().String(): preAnchorWire},

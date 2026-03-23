@@ -192,7 +192,7 @@ func TestEncodeDecodeCertList(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestApendCertList(t *testing.T) {
+func TestAppendCertList(t *testing.T) {
 	tu.SetT(t)
 	n1 := tu.NoErr(enc.NameFromStr("/ndn/alice/KEY/aa/self/v=1"))
 	n2 := tu.NoErr(enc.NameFromStr("/ndn/alice/KEY/bb/ndn/v=2"))

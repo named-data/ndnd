@@ -51,7 +51,7 @@ func (d *Data) SigNonce() []byte {
 	return nil
 }
 
-// (AI GENERATED DESCRIPTION): Returns the signature timestamp of the Data packet (currently unimplemented and returns nil).
+// (AI GENERATED DESCRIPTION): Returns the signature timestamp of the Data packet if present, else returns nil.
 func (d *Data) SigTime() *time.Time {
 	if d.SignatureInfo != nil && d.SignatureInfo.SignatureTime.IsSet() {
 		return utils.IdPtr(time.UnixMilli(d.SignatureInfo.SignatureTime.Unwrap().Milliseconds()))

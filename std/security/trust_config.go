@@ -145,7 +145,7 @@ type TrustConfigValidateArgs struct {
 	UseSignatureTime optional.Optional[bool]
 }
 
-func (tc *TrustConfig) ValidateProvidedCertHelper(args TrustConfigValidateArgs, dataName enc.Name, certName enc.Name) {
+func (tc *TrustConfig) validateProvidedCertHelper(args TrustConfigValidateArgs, dataName enc.Name, certName enc.Name) {
 	// Check schema if the key is allowed
 	if args.crossSchemaIsValid {
 		// continue
@@ -170,6 +170,8 @@ func (tc *TrustConfig) ValidateProvidedCertHelper(args TrustConfigValidateArgs, 
 			IgnoreValidity: args.IgnoreValidity,
 			cert:           args.cert,
 			depth:          args.depth,
+
+			UseSignatureTime: args.UseSignatureTime,
 		})
 		return
 	} else {
@@ -250,7 +252,7 @@ func (tc *TrustConfig) ValidateProvidedCertHelper(args TrustConfigValidateArgs, 
 	return
 }
 
-func (tc *TrustConfig) ValidateFetchHelper(args TrustConfigValidateArgs, keyLocator enc.Name) {
+func (tc *TrustConfig) validateFetchHelper(args TrustConfigValidateArgs, keyLocator enc.Name) {
 	// Handle self-signed certificate (potential trust anchor).
 	if keyLocator.IsPrefix(args.Data.Name()) {
 		tc.handleSelfSignedCert(args, keyLocator)
@@ -399,11 +401,11 @@ func (tc *TrustConfig) ValidateWithExpiry(args TrustConfigValidateArgs) {
 			return
 		}
 
-		tc.ValidateProvidedCertHelper(args, dataName, certName)
+		tc.validateProvidedCertHelper(args, dataName, certName)
 		return
 	}
 
-	tc.ValidateFetchHelper(args, keyLocator)
+	tc.validateFetchHelper(args, keyLocator)
 	return
 }
 
@@ -504,13 +506,16 @@ func (tc *TrustConfig) ValidateWithSignatureTime(args TrustConfigValidateArgs) {
 				args.Callback(false, fmt.Errorf("data was signed during an invalid period of certificate [signed after]: %s", args.cert.Name()))
 				return
 			}
+		} else {
+			args.Callback(false, fmt.Errorf("No Signature Time: data was not signed during the certificate validity period: %s", args.cert.Name()))
+			return
 		}
 
-		tc.ValidateProvidedCertHelper(args, dataName, certName)
+		tc.validateProvidedCertHelper(args, dataName, certName)
 		return
 	}
 
-	tc.ValidateFetchHelper(args, keyLocator)
+	tc.validateFetchHelper(args, keyLocator)
 	return
 }
 
