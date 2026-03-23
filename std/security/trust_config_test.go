@@ -1285,7 +1285,7 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 			preprocess: func() {
 				time.Sleep(time.Second * 9) // Wait for expiration
 			},
-			name: "epxired chain certlist ok",
+			name: "expired chain certlist ok",
 			add: map[string]enc.Wire{
 				expiredRootCertListData.Name().String():  expiredRootCertListWire.Wire,
 				expiredRootVerifCertData.Name().String(): expiredRootVerifCertWire,
