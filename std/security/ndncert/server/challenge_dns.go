@@ -14,6 +14,8 @@ import (
 type ChallengeDnsHandler struct {
 	// override for testing, nil = net.LookupTXT
 	DNSResolver func(domain string) ([]string, error)
+	// MockDNS skips actual DNS verification (for demo/testing)
+	MockDNS bool
 }
 
 func (h *ChallengeDnsHandler) HandleChallenge(params ndncert.ParamMap, state *RequestState) (ndncert.ParamMap, string, error) {
@@ -44,6 +46,13 @@ func (h *ChallengeDnsHandler) HandleChallenge(params ndncert.ParamMap, state *Re
 		conf, ok := params[ndncert.KwConfirmation]
 		if !ok || string(conf) != "ready" {
 			return nil, "", fmt.Errorf("expected confirmation=ready")
+		}
+
+		// MockDNS: skip verification entirely
+		if h.MockDNS {
+			fmt.Printf("NDNCERT DNS (mock): auto-verifying domain\n")
+			state.Status = StatusSuccess
+			return nil, "", nil
 		}
 
 		domainBytes, _ := state.GetChallengeStateValue("domain")

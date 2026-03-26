@@ -32,6 +32,8 @@ type CaServer struct {
 	// TODO: remove for final version, DNSResolver is only useful for testing with mock dns records
 	// 	if nil then net.LookupTXT is used
 	DNSResolver func(domain string) ([]string, error)
+	// MockDNS skips DNS verification entirely (for demo/testing)
+	MockDNS bool
 }
 
 func NewCaServer(engine ndn.Engine, config *CaConfig, caCertWire enc.Wire, signer ndn.Signer) (*CaServer, error) {
@@ -271,15 +273,11 @@ func (ca *CaServer) onNew(args ndn.InterestHandlerArgs) {
 	state.AeadCounter = ndncert.NewAeadCounter()
 	state.Status = StatusBeforeChallenge
 
-	selectedChallenge := ""
-	for _, ch := range ca.config.SupportedChallenges {
-		if ch.Name == ndncert.KwDns {
-			selectedChallenge = ch.Name
-			break
-		}
+	// advertise all supported challenges; client picks one in CHALLENGE
+	challengeNames := make([]string, len(ca.config.SupportedChallenges))
+	for i, ch := range ca.config.SupportedChallenges {
+		challengeNames[i] = ch.Name
 	}
-
-	state.ChallengeType = selectedChallenge
 
 	if err := ca.storage.Put(requestID, state); err != nil {
 		ca.sendError(args, 100, "internal error")
@@ -290,7 +288,7 @@ func (ca *CaServer) onNew(args ndn.InterestHandlerArgs) {
 		EcdhPub:   caEcdhKey.PublicKey().Bytes(),
 		Salt:      salt,
 		ReqId:     requestID,
-		Challenge: []string{selectedChallenge},
+		Challenge: challengeNames,
 	}
 
 	cfg := &ndn.DataConfig{
@@ -351,13 +349,30 @@ func (ca *CaServer) onChallenge(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	params, err := ca.decryptChallengeParams(appParam, state)
+	challengeName, params, err := ca.decryptChallengeParams(appParam, state)
 	if err != nil {
 		ca.sendError(args, 10, fmt.Sprintf("failed to decrypt parameters: %v", err))
 		return
 	}
 
-	// route to the rigt challenge handler
+	// on first CHALLENGE, client selects the challenge type
+	if state.Status == StatusBeforeChallenge && challengeName != "" {
+		// validate that CA supports this challenge
+		supported := false
+		for _, ch := range ca.config.SupportedChallenges {
+			if ch.Name == challengeName {
+				supported = true
+				break
+			}
+		}
+		if !supported {
+			ca.sendError(args, 11, fmt.Sprintf("unsupported challenge: %s", challengeName))
+			return
+		}
+		state.ChallengeType = challengeName
+	}
+
+	// route to the right challenge handler
 	var responseParams ndncert.ParamMap
 	var challengeStatus string
 	var challengeErr error
@@ -368,6 +383,7 @@ func (ca *CaServer) onChallenge(args ndn.InterestHandlerArgs) {
 	case ndncert.KwDns:
 		handler := &ChallengeDnsHandler{
 			DNSResolver: ca.DNSResolver,
+			MockDNS:     ca.MockDNS,
 		}
 		responseParams, challengeStatus, challengeErr = handler.HandleChallenge(params, state)
 		fmt.Printf("INFO: DNS challenge result: status=%s, success=%v\n", challengeStatus, state.Status == StatusSuccess)
@@ -545,11 +561,12 @@ func (ca *CaServer) sendError(args ndn.InterestHandlerArgs, code uint64, info st
 	args.Reply(data.Wire)
 }
 
-// decryptChallengeParams decrypts CHALLENGE request parameters using AEAD
-func (ca *CaServer) decryptChallengeParams(encParams enc.Wire, state *RequestState) (ndncert.ParamMap, error) {
+// decryptChallengeParams decrypts CHALLENGE request parameters using AEAD.
+// Returns the selected challenge name and parameter map.
+func (ca *CaServer) decryptChallengeParams(encParams enc.Wire, state *RequestState) (string, ndncert.ParamMap, error) {
 	cipherMsg, err := tlv.ParseCipherMsg(enc.NewWireView(encParams), false)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse cipher message: %w", err)
+		return "", nil, fmt.Errorf("failed to parse cipher message: %w", err)
 	}
 
 	var aeadMsg ndncert.AeadMessage
@@ -557,16 +574,16 @@ func (ca *CaServer) decryptChallengeParams(encParams enc.Wire, state *RequestSta
 	// decrypt w/ request ID as additional data
 	plaintext, err := ndncert.AeadDecrypt(state.AesKey, aeadMsg, state.RequestID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt: %w", err)
+		return "", nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
 
 	// parse decrypted ChallengeReq
 	chReq, err := tlv.ParseChallengeReq(enc.NewWireView(enc.Wire{plaintext}), false)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse challenge request: %w", err)
+		return "", nil, fmt.Errorf("failed to parse challenge request: %w", err)
 	}
 
-	return chReq.Params, nil
+	return chReq.Challenge, chReq.Params, nil
 }
 
 // encryptChallengeResponse encrypts a full ChallengeRes structure using AEAD

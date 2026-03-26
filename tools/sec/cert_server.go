@@ -89,10 +89,7 @@ func (c *CertServer) run(_ *cobra.Command, args []string) {
 
 	if c.mockDNS {
 		log.Warn(c, "Mock DNS enabled -- do not use in production")
-		caServer.DNSResolver = func(domain string) ([]string, error) {
-			log.Debug(c, "mock dns", "domain", domain)
-			return []string{"mock-token-any"}, nil
-		}
+		caServer.MockDNS = true
 	}
 
 	if err := caServer.Start(); err != nil {
