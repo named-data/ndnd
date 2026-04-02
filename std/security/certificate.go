@@ -65,6 +65,7 @@ func SignCert(args SignCertArgs) (enc.Wire, error) {
 		Freshness:    optional.Some(time.Hour),
 		SigNotBefore: optional.Some(args.NotBefore),
 		SigNotAfter:  optional.Some(args.NotAfter),
+		SigTime:      optional.Some(time.Duration(time.Now().UnixMilli()) * time.Millisecond),
 		CrossSchema:  args.CrossSchema,
 	}
 	signer := sig.AsContextSigner(args.Signer)
@@ -198,4 +199,16 @@ func DecodeCertList(content enc.Wire) ([]enc.Name, error) {
 		return nil, ndn.ErrInvalidValue{Item: "CertList", Value: "empty"}
 	}
 	return names, nil
+}
+
+// AppendCertList appends a certificate name list to a certificate list by creating a new certificate list
+func AppendCertList(content enc.Wire, names []enc.Name) (enc.Wire, error) {
+	certList, err := DecodeCertList(content)
+	if err != nil {
+		return nil, err
+	}
+
+	newList := append(certList, names...)
+
+	return EncodeCertList(newList)
 }

@@ -1044,3 +1044,323 @@ func TestTrustConfigLvsInter(t *testing.T) {
 
 	testTrustConfigInter(t, schemaInter)
 }
+
+func TestSignatureTimeValidationFlows(t *testing.T) {
+	tu.SetT(t)
+
+	// Use intra-domain schema with root-to-root signing support
+	// This schema is the same as TRUST_CONFIG_INTER_LVS but allows roots to sign each other
+	schema, err := trust_schema.NewLvsSchema(TRUST_CONFIG_INTER_LVS)
+	require.NoError(t, err)
+
+	clear(tcTestNetwork)
+	tcTestT = t
+	network := tcTestNetwork
+
+	now := time.Now()
+	nb := now
+	na := now.Add(time.Second * 5)
+	n := func(s string) enc.Name { return tu.NoErr(enc.NameFromStr(s)) }
+
+	// Expired root (old root)
+	expiredRootSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/root"))))
+	expiredRootKeyData := tu.NoErr(signer.MarshalSecretToData(expiredRootSigner))
+	expiredRootCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    expiredRootSigner,
+		Data:      expiredRootKeyData,
+		IssuerId:  enc.NewGenericComponent("self"),
+		NotBefore: nb,
+		NotAfter:  now.Add(time.Second * 7), // Expires in 7 seconds
+	}))
+	expiredRootCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(expiredRootCertWire))
+	network[expiredRootCertData.Name().String()] = expiredRootCertWire
+
+	// New root (replacement root)
+	newRootSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/root"))))
+	newRootKeyData := tu.NoErr(signer.MarshalSecretToData(newRootSigner))
+	newRootCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    newRootSigner,
+		Data:      newRootKeyData,
+		IssuerId:  enc.NewGenericComponent("self"),
+		NotBefore: nb,
+		NotAfter:  now.Add(time.Second * 17),
+	}))
+	newRootCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(newRootCertWire))
+	network[newRootCertData.Name().String()] = newRootCertWire
+
+	// PreAnchor: replacement certificate for expired root's key, signed by new root
+	// This certificate verifies/authorizes the expired root's key
+	expiredRootVerifCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    newRootSigner,      // Signed by new root
+		Data:      expiredRootKeyData, // Certificate for expired root's key
+		IssuerId:  enc.NewGenericComponent("root"),
+		NotBefore: nb,
+		NotAfter:  now.Add(time.Second * 15),
+	}))
+	expiredRootVerifCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(expiredRootVerifCertWire))
+
+	// CertList for expired root pointing to preAnchor
+	// This CertList is signed by the expired root itself
+	expiredRootCertListContent := tu.NoErr(sec.EncodeCertList([]enc.Name{expiredRootVerifCertData.Name()}))
+	expiredRootCertListPrefix := tu.NoErr(sec.CertListPrefix(expiredRootSigner.KeyName()))
+	expiredRootCertListName := expiredRootCertListPrefix.Append(enc.NewVersionComponent(uint64(now.UnixMicro())))
+	expiredRootCertListWire := tu.NoErr(spec.Spec{}.MakeData(expiredRootCertListName, &ndn.DataConfig{
+		Freshness:    optional.Some(time.Second * 19),
+		SigNotBefore: optional.Some(nb),
+		SigNotAfter:  optional.Some(na),
+	}, expiredRootCertListContent, expiredRootSigner)) // Signed by expired root
+	expiredRootCertListData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(expiredRootCertListWire.Wire))
+
+	// Owner <= testbed
+	ownerSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/root/owner"))))
+	ownerKeyData := tu.NoErr(signer.MarshalSecretToData(ownerSigner))
+	ownerCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    expiredRootSigner,
+		Data:      ownerKeyData,
+		IssuerId:  enc.NewGenericComponent("root"),
+		NotBefore: nb,
+		NotAfter:  na,
+	}))
+	ownerCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(ownerCertWire))
+
+	// Workspace anchor (cert)
+	anchorSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/app"))))
+	anchorKeyData := tu.NoErr(signer.MarshalSecretToData(anchorSigner))
+	anchorCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    anchorSigner,
+		Data:      anchorKeyData,
+		IssuerId:  enc.NewGenericComponent("self"),
+		NotBefore: nb,
+		NotAfter:  na,
+	}))
+	anchorCertData, anchorSigCov, _ := spec.Spec{}.ReadData(enc.NewWireView(anchorCertWire))
+
+	// Workspace preanchor (precert)
+	preAnchorWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    ownerSigner,
+		Data:      anchorKeyData,
+		IssuerId:  enc.NewGenericComponent("owner"),
+		NotBefore: nb,
+		NotAfter:  na,
+	}))
+	preAnchorData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(preAnchorWire))
+
+	listContent := tu.NoErr(sec.EncodeCertList([]enc.Name{preAnchorData.Name()}))
+	listPrefix := tu.NoErr(sec.CertListPrefix(anchorSigner.KeyName()))
+	listName := listPrefix.Append(enc.NewVersionComponent(uint64(time.Now().UnixMicro())))
+	listWireEnc := tu.NoErr(spec.Spec{}.MakeData(listName, &ndn.DataConfig{
+		Freshness:    optional.Some(time.Minute),
+		SigNotBefore: optional.Some(nb),
+		SigNotAfter:  optional.Some(na),
+	}, listContent, anchorSigner))
+	listData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(listWireEnc.Wire))
+
+	userSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/app/user/alice"))))
+	userKeyData := tu.NoErr(signer.MarshalSecretToData(userSigner))
+	userCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    anchorSigner,
+		Data:      userKeyData,
+		IssuerId:  enc.NewGenericComponent("app"),
+		NotBefore: nb,
+		NotAfter:  na,
+	}))
+	userCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(userCertWire))
+
+	// User data
+	payload := enc.Wire{[]byte{0x01}}
+	dataWire := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/data"), &ndn.DataConfig{
+		Freshness: optional.Some(time.Minute),
+	}, payload, userSigner))
+	dataPkt, dataSigCov, _ := spec.Spec{}.ReadData(enc.NewWireView(dataWire.Wire))
+
+	// User data with invalid signature time
+	sigTimeBeforeUserCert := optional.Some(time.Duration(now.Add(-time.Hour).UnixMilli()) * time.Millisecond)
+	dataWireInvalidSigTime := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/data"), &ndn.DataConfig{
+		Freshness: optional.Some(time.Minute),
+		SigTime:   sigTimeBeforeUserCert,
+	}, payload, userSigner))
+	dataPktInvalidSigTime, dataSigCovInvalidSigTime, _ := spec.Spec{}.ReadData(enc.NewWireView(dataWireInvalidSigTime.Wire))
+
+	require.True(t, schema.Check(anchorCertData.Name(), anchorCertData.Name()))
+	require.True(t, schema.Check(preAnchorData.Name(), ownerCertData.Name()))
+	require.True(t, schema.Check(listData.Name(), anchorCertData.Name()))
+	require.True(t, schema.Check(userCertData.Name(), anchorCertData.Name()))
+	require.True(t, schema.Check(dataPkt.Name(), userCertData.Name()))
+	require.True(t, schema.Check(dataPktInvalidSigTime.Name(), userCertData.Name()))
+
+	network[anchorCertData.Name().String()] = anchorCertWire
+	network[userCertData.Name().String()] = userCertWire
+	network[ownerCertData.Name().String()] = ownerCertWire
+
+	type stage struct {
+		preprocess    func()
+		name          string
+		add           map[string]enc.Wire
+		kcInsert      []enc.Wire
+		trustAnchors  []enc.Name
+		data          ndn.Data
+		dataSigCov    enc.Wire
+		expectAnchor  bool
+		expectData    bool
+		expectErrPart string
+	}
+
+	validateOnce := func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire) (bool, error) {
+		tcTestFetchCount = 0
+		done := make(chan struct {
+			v   bool
+			err error
+		}, 1)
+		trust.Validate(sec.TrustConfigValidateArgs{
+			Data:       data,
+			DataSigCov: sigCov,
+			Fetch:      fetchFun,
+			Callback: func(valid bool, err error) {
+				done <- struct {
+					v   bool
+					err error
+				}{v: valid, err: err}
+			},
+
+			UseSignatureTime: optional.Some(true),
+		})
+		res := <-done
+		return res.v, res.err
+	}
+
+	stages := []stage{
+		// Validate flows before the expired root is replaced
+		{
+			preprocess: func() {
+				return
+			},
+			name: "normal no certlist ok",
+			add: map[string]enc.Wire{
+				listData.Name().String():      listWireEnc.Wire,
+				preAnchorData.Name().String(): preAnchorWire,
+			},
+			kcInsert:     []enc.Wire{expiredRootCertWire, newRootCertWire},
+			trustAnchors: []enc.Name{expiredRootCertData.Name(), newRootCertData.Name()},
+			expectAnchor: true,
+			expectData:   true,
+		},
+		{
+			preprocess: func() {
+				return
+			},
+			name: "normal chain certlist ok",
+			add: map[string]enc.Wire{
+				expiredRootCertListData.Name().String():  expiredRootCertListWire.Wire,
+				expiredRootVerifCertData.Name().String(): expiredRootVerifCertWire,
+				listData.Name().String():                 listWireEnc.Wire,
+				preAnchorData.Name().String():            preAnchorWire,
+			},
+			kcInsert:     []enc.Wire{newRootCertWire},
+			trustAnchors: []enc.Name{newRootCertData.Name()},
+			expectAnchor: true,
+			expectData:   true,
+		},
+		{
+			preprocess: func() {
+				return
+			},
+			name: "data signed when user cert invalid",
+			add: map[string]enc.Wire{
+				expiredRootCertListData.Name().String():  expiredRootCertListWire.Wire,
+				expiredRootVerifCertData.Name().String(): expiredRootVerifCertWire,
+				listData.Name().String():                 listWireEnc.Wire,
+				preAnchorData.Name().String():            preAnchorWire,
+			},
+			kcInsert:      []enc.Wire{expiredRootCertWire, newRootCertWire},
+			trustAnchors:  []enc.Name{expiredRootCertData.Name(), newRootCertData.Name()},
+			data:          dataPktInvalidSigTime,
+			dataSigCov:    dataSigCovInvalidSigTime,
+			expectAnchor:  true,
+			expectData:    false,
+			expectErrPart: "signed during an invalid period",
+		},
+
+		// Validate flows after the expired root is replaced
+		{
+			preprocess: func() {
+				time.Sleep(time.Second * 9) // Wait for expiration
+			},
+			name: "expired chain certlist ok",
+			add: map[string]enc.Wire{
+				expiredRootCertListData.Name().String():  expiredRootCertListWire.Wire,
+				expiredRootVerifCertData.Name().String(): expiredRootVerifCertWire,
+				listData.Name().String():                 listWireEnc.Wire,
+				preAnchorData.Name().String():            preAnchorWire,
+			},
+			kcInsert:     []enc.Wire{newRootCertWire},
+			trustAnchors: []enc.Name{newRootCertData.Name()},
+			expectAnchor: true,
+			expectData:   true,
+		},
+		{
+			preprocess: func() {
+				// Remove the certlist and certificate from the network to simulate a fully expired chain
+				delete(network, expiredRootCertListData.Name().String())
+				delete(network, expiredRootVerifCertData.Name().String())
+			},
+			name:         "expired chain no certlist not ok",
+			add:          map[string]enc.Wire{listData.Name().String(): listWireEnc.Wire, preAnchorData.Name().String(): preAnchorWire},
+			kcInsert:     []enc.Wire{newRootCertWire},
+			trustAnchors: []enc.Name{newRootCertData.Name()},
+			expectAnchor: false,
+			expectData:   false,
+		},
+	}
+
+	for _, st := range stages {
+		st.preprocess()
+
+		t.Run(st.name, func(t *testing.T) {
+			store := storage.NewMemoryStore()
+			tcTestKeyChain = keychain.NewKeyChainMem(store)
+			kc := tcTestKeyChain
+
+			for k, v := range st.add {
+				network[k] = v
+			}
+
+			for _, w := range st.kcInsert {
+				require.NoError(t, kc.InsertCert(w.Join()))
+			}
+			trust, err := sec.NewTrustConfig(kc, schema, st.trustAnchors)
+			require.NoError(t, err)
+
+			validateData := dataPkt
+			validateSigCov := dataSigCov
+			if st.data != nil {
+				validateData = st.data
+				validateSigCov = st.dataSigCov
+			}
+
+			// Validate anchor cert first, then user data.
+			anchorValid, anchorErr := validateOnce(trust, anchorCertData, anchorSigCov)
+			dataValid, dataErr := validateOnce(trust, validateData, validateSigCov)
+			if st.expectData {
+				require.True(t, dataValid)
+				require.NoError(t, dataErr)
+			} else {
+				require.False(t, dataValid)
+				require.Error(t, dataErr)
+				if st.expectErrPart != "" {
+					require.Contains(t, dataErr.Error(), st.expectErrPart)
+				}
+			}
+
+			if st.expectAnchor {
+				require.True(t, anchorValid)
+				require.NoError(t, anchorErr)
+			} else {
+				require.False(t, anchorValid)
+				require.Error(t, anchorErr)
+				if st.expectErrPart != "" {
+					require.Contains(t, anchorErr.Error(), st.expectErrPart)
+				}
+			}
+		})
+	}
+}
