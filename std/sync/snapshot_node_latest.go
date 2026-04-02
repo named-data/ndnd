@@ -117,19 +117,45 @@ func (s *SnapshotNodeLatest) snapName(node enc.Name, boot uint64) enc.Name {
 
 // fetchSnap fetches the latest snapshot for a remote node.
 func (s *SnapshotNodeLatest) fetchSnap(node enc.Name, boot uint64) {
+	s.fetchSnapWithRetry(node, boot, 0)
+}
+
+func (s *SnapshotNodeLatest) fetchSnapWithRetry(node enc.Name, boot uint64, attempt int) {
+	const maxRetries = 5
+	const baseDelay = 500 * time.Millisecond
+
 	// Discover the latest snapshot
 	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
 		Name:           s.snapName(node, boot),
 		IgnoreValidity: s.IgnoreValidity,
 		Callback: func(cstate ndn.ConsumeState) {
-			if cstate.Error() != nil {
-				// Do not try too fast in case NFD returns NACK
-				time.AfterFunc(2*time.Second, func() {
-					s.handleSnap(node, boot, cstate)
+			if cstate.Error() != nil && attempt < maxRetries {
+				delay := baseDelay * time.Duration(1<<attempt)
+				if delay > 5*time.Second {
+					delay = 5 * time.Second
+				}
+				log.Warn(s, "Snapshot fetch failed; retrying",
+					"node", node,
+					"boot", boot,
+					"attempt", attempt+1,
+					"delay", delay,
+					"err", cstate.Error(),
+				)
+				time.AfterFunc(delay, func() {
+					s.fetchSnapWithRetry(node, boot, attempt+1)
 				})
-			} else {
-				s.handleSnap(node, boot, cstate)
+				return
 			}
+
+			if cstate.Error() != nil && attempt >= maxRetries {
+				log.Warn(s, "Snapshot fetch failed; giving up",
+					"node", node,
+					"boot", boot,
+					"attempts", attempt+1,
+					"err", cstate.Error(),
+				)
+			}
+			s.handleSnap(node, boot, cstate)
 		},
 	})
 }

@@ -3,6 +3,7 @@ package security
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
@@ -345,6 +346,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		ForwardingHint: fwHint,
 	}
 	triedLocal := false
+	const maxFetchRetries = 5
+	const baseDelay = 500 * time.Millisecond
+
+	var doFetch func()
 	var cb ndn.ExpressCallbackFunc
 	cb = func(res ndn.ExpressCallbackArgs) {
 		if res.Error == nil && res.Result != ndn.InterestResultData {
@@ -363,7 +368,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 				if res.Data != nil {
 					_ = tc.keychain.Store().Remove(res.Data.Name())
 				}
-				args.Fetch(keyLocator, fetchCfg, cb)
+				doFetch()
 				return
 			}
 			args.Callback(false, fmt.Errorf("non-certificate in chain: %s", res.Data.Name()))
@@ -388,7 +393,34 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		// Continue validation with fetched cert
 		tc.Validate(args)
 	}
-	args.Fetch(keyLocator, fetchCfg, cb)
+	attempt := 0
+	doFetch = func() {
+		attempt++
+		args.Fetch(keyLocator, fetchCfg, func(res ndn.ExpressCallbackArgs) {
+			if res.Error != nil || res.Result != ndn.InterestResultData {
+				if res.Error == nil && res.Result != ndn.InterestResultData {
+					res.Error = fmt.Errorf("failed to fetch certificate (%s) with result: %s", keyLocator, res.Result)
+				}
+
+				if attempt <= maxFetchRetries {
+					delay := baseDelay * time.Duration(1<<(attempt-1))
+					if delay > 5*time.Second {
+						delay = 5 * time.Second
+					}
+					log.Warn(tc, "Certificate fetch failed; retrying",
+						"cert", keyLocator,
+						"attempt", attempt,
+						"delay", delay,
+						"err", res.Error,
+					)
+					time.AfterFunc(delay, doFetch)
+					return
+				}
+			}
+			cb(res)
+		})
+	}
+	doFetch()
 }
 
 // (AI GENERATED DESCRIPTION): Validates the cross‑schema signed Data packet by parsing its embedded schema, checking its validity period, ensuring it authorizes the original certificate, and recursively validating the cross‑schema’s signature against the trust configuration.
