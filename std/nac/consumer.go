@@ -8,6 +8,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/types/optional"
+	"github.com/named-data/ndnd/std/utils"
 )
 
 // Consumer fetches NAC keys over NDN and decrypts content.
@@ -38,8 +39,8 @@ func (c *Consumer) FetchKEK(kekName string) (*KeyEncryptionKey, error) {
 
 	ch := make(chan ndn.ExpressCallbackArgs, 1)
 	interest, err := c.engine.Spec().MakeInterest(name, &ndn.InterestConfig{
-		CanBePrefix: true,
-		Lifetime:    optional.Some(4 * time.Second),
+		Lifetime: optional.Some(4 * time.Second),
+		Nonce:    utils.ConvertNonce(c.engine.Timer().Nonce()),
 	}, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make KEK interest: %w", err)
@@ -73,8 +74,8 @@ func (c *Consumer) FetchEncryptedKDK(kdkForName string) ([]byte, error) {
 
 	ch := make(chan ndn.ExpressCallbackArgs, 1)
 	interest, err := c.engine.Spec().MakeInterest(name, &ndn.InterestConfig{
-		CanBePrefix: true,
-		Lifetime:    optional.Some(4 * time.Second),
+		Lifetime: optional.Some(4 * time.Second),
+		Nonce:    utils.ConvertNonce(c.engine.Timer().Nonce()),
 	}, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make KDK interest: %w", err)

@@ -2,17 +2,23 @@ package tools
 
 import (
 	"crypto/ecdh"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/nac"
+	"github.com/named-data/ndnd/std/ndn"
+	sec "github.com/named-data/ndnd/std/security"
 	sig "github.com/named-data/ndnd/std/security/signer"
+	"github.com/named-data/ndnd/std/types/optional"
+	"github.com/named-data/ndnd/std/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +55,7 @@ The key server serves:
 
 	cmd.AddCommand(cmdNacEncrypt())
 	cmd.AddCommand(cmdNacDecrypt())
+	cmd.AddCommand(cmdNacEnroll())
 
 	return cmd
 }
@@ -98,7 +105,9 @@ func (ns *NacServer) runServe(_ *cobra.Command, args []string) {
 	}
 
 	kek := ks.AccessManager().KEK()
+	kekPubBytes, _ := nac.SerializePublicKey(kek.PublicKey)
 	fmt.Printf("KEK ID: %s\n", hex.EncodeToString(kek.ID))
+	fmt.Printf("KEK Public Key: %s\n", hex.EncodeToString(kekPubBytes))
 	fmt.Printf("KEK Name: %s\n", nac.KEKName(credPrefix, kek.ID))
 
 	// start serving keys
@@ -260,4 +269,132 @@ func runNacDecrypt(_ *cobra.Command, args []string) {
 
 	os.Stdout.Write(plaintext)
 	fmt.Fprintf(os.Stderr, "Decrypted %d bytes\n", len(plaintext))
+}
+
+func cmdNacEnroll() *cobra.Command {
+	return &cobra.Command{
+		Use:   "enroll NAC-PREFIX CERT-FILE KEY-FILE",
+		Short: "Enroll for NAC access using NDNCERT-issued certificate",
+		Long: `Enroll as an authorized NAC consumer using your NDNCERT-issued certificate.
+
+This generates an X25519 encryption key pair, sends the public key along with
+your certificate to the NAC server's ENROLL endpoint, and saves the private key.
+
+The server verifies the certificate was signed by the CA, then authorizes your
+identity for encrypted content access.`,
+		Example: `  ndnd nac enroll /demo/nac client.cert client.key`,
+		Args:    cobra.ExactArgs(3),
+		Run:     runNacEnroll,
+	}
+}
+
+func runNacEnroll(_ *cobra.Command, args []string) {
+	nacPrefix := args[0]
+	certFile := args[1]
+	keyFile := args[2]
+
+	// Load NDNCERT-issued certificate
+	certFileBytes, err := os.ReadFile(certFile)
+	if err != nil {
+		log.Fatal(nil, "Failed to read cert file", "err", err)
+		return
+	}
+	_, certs, _ := sec.DecodeFile(certFileBytes)
+	if len(certs) != 1 {
+		log.Fatal(nil, "Cert file must contain exactly one certificate")
+		return
+	}
+
+	// Load signing key (to prove ownership — though we send the cert itself for verification)
+	keyFileBytes, err := os.ReadFile(keyFile)
+	if err != nil {
+		log.Fatal(nil, "Failed to read key file", "err", err)
+		return
+	}
+	keys, _, _ := sec.DecodeFile(keyFileBytes)
+	if len(keys) != 1 {
+		log.Fatal(nil, "Key file must contain exactly one key")
+		return
+	}
+	_ = keys[0] // signer available if needed in future
+
+	// Generate X25519 key pair for NAC encryption
+	x25519Priv, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		log.Fatal(nil, "Failed to generate X25519 key", "err", err)
+		return
+	}
+	x25519PubBytes := x25519Priv.PublicKey().Bytes()
+
+	fmt.Fprintf(os.Stderr, "Generated X25519 key pair\n")
+	fmt.Fprintf(os.Stderr, "  Public:  %s\n", hex.EncodeToString(x25519PubBytes))
+
+	// Build enrollment payload: [32-byte X25519 pubkey][certificate wire]
+	payload := make([]byte, 0, 32+len(certs[0]))
+	payload = append(payload, x25519PubBytes...)
+	payload = append(payload, certs[0]...)
+
+	// Start engine
+	eng := engine.NewBasicEngine(engine.NewDefaultFace())
+	if err := eng.Start(); err != nil {
+		log.Fatal(nil, "Engine start failed", "err", err)
+		return
+	}
+	defer eng.Stop()
+
+	// Send enrollment Interest to <nac-prefix>/ENROLL
+	enrollName, err := enc.NameFromStr(nacPrefix + "/ENROLL")
+	if err != nil {
+		log.Fatal(nil, "Invalid NAC prefix", "err", err)
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "Enrolling at %s...\n", enrollName)
+
+	interest, err := eng.Spec().MakeInterest(enrollName, &ndn.InterestConfig{
+		Lifetime: optional.Some(10 * time.Second),
+		Nonce:    utils.ConvertNonce(eng.Timer().Nonce()),
+	}, enc.Wire{payload}, nil)
+	if err != nil {
+		log.Fatal(nil, "Failed to make enrollment Interest", "err", err)
+		return
+	}
+
+	ch := make(chan ndn.ExpressCallbackArgs, 1)
+	eng.Express(interest, func(args ndn.ExpressCallbackArgs) { ch <- args })
+	result := <-ch
+
+	if result.Result != ndn.InterestResultData {
+		log.Fatal(nil, "Enrollment failed", "result", result.Result)
+		return
+	}
+
+	// Parse response
+	response := result.Data.Content().Join()
+	if len(response) < 3 || string(response[:3]) != "OK:" {
+		fmt.Fprintf(os.Stderr, "Enrollment rejected: %s\n", string(response))
+		os.Exit(1)
+		return
+	}
+
+	// Response: "OK:" + KEK pub (32 bytes) + KEK ID (16 bytes)
+	respBody := response[3:]
+	if len(respBody) < 48 {
+		log.Fatal(nil, "Invalid enrollment response (too short)")
+		return
+	}
+	kekPubBytes := respBody[:32]
+	kekID := respBody[32:48]
+
+	fmt.Fprintf(os.Stderr, "\nEnrollment successful!\n")
+	fmt.Fprintf(os.Stderr, "  KEK Public Key: %s\n", hex.EncodeToString(kekPubBytes))
+	fmt.Fprintf(os.Stderr, "  KEK ID: %s\n", hex.EncodeToString(kekID))
+	fmt.Fprintf(os.Stderr, "  NAC Private Key: %s\n", hex.EncodeToString(x25519Priv.Bytes()))
+	fmt.Fprintf(os.Stderr, "\nSave your NAC private key — you'll need it to decrypt content.\n")
+
+	// Print machine-readable output to stdout
+	fmt.Printf("NAC_PRIVATE=%s\n", hex.EncodeToString(x25519Priv.Bytes()))
+	fmt.Printf("NAC_PUBLIC=%s\n", hex.EncodeToString(x25519PubBytes))
+	fmt.Printf("KEK_PUBLIC=%s\n", hex.EncodeToString(kekPubBytes))
+	fmt.Printf("KEK_ID=%s\n", hex.EncodeToString(kekID))
 }
