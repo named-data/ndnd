@@ -9,13 +9,17 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
+	"github.com/named-data/ndnd/std/nac"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/ndncert/server"
+	sig "github.com/named-data/ndnd/std/security/signer"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/spf13/cobra"
 )
 
 type CertServer struct {
-	mockDNS bool
+	mockDNS    bool
+	nacPrefix  string
 }
 
 func CmdCertServer() *cobra.Command {
@@ -31,6 +35,8 @@ func CmdCertServer() *cobra.Command {
 
 	cmd.Flags().BoolVar(&srv.mockDNS, "mock-dns", false,
 		"Mock DNS lookups (testing only)")
+	cmd.Flags().StringVar(&srv.nacPrefix, "nac", "",
+		"Enable NAC key server at this credential prefix (e.g., /demo/nac)")
 
 	return cmd
 }
@@ -105,11 +111,49 @@ func (c *CertServer) run(_ *cobra.Command, args []string) {
 	if c.mockDNS {
 		fmt.Fprintf(os.Stderr, "  *** mock DNS enabled ***\n")
 	}
+
+	// Start NAC key server if --nac is set
+	if c.nacPrefix != "" {
+		nacKeyName, _ := enc.NameFromStr(c.nacPrefix + "/KEY/nac-server")
+		nacSigner, err := sig.KeygenEd25519(nacKeyName)
+		if err != nil {
+			log.Fatal(c, "Failed to generate NAC signer", "err", err)
+			return
+		}
+
+		nacServer, err := nac.NewKeyServer(ndnEngine, nacSigner, c.nacPrefix)
+		if err != nil {
+			log.Fatal(c, "Failed to create NAC server", "err", err)
+			return
+		}
+
+		// Register CA cert so enrollment can verify client certificates
+		caCertData, _, err := spec.Spec{}.ReadData(enc.NewBufferView(caCerts[0]))
+		if err != nil {
+			log.Fatal(c, "Failed to parse CA cert for NAC", "err", err)
+			return
+		}
+		nacServer.RegisterCACert(caCertData)
+
+		if err := nacServer.Start(); err != nil {
+			log.Fatal(c, "NAC server start failed", "err", err)
+			return
+		}
+		defer nacServer.Stop()
+
+		kek := nacServer.AccessManager().KEK()
+		kekPubBytes, _ := nac.SerializePublicKey(kek.PublicKey)
+		fmt.Fprintf(os.Stderr, "\nNAC key server running: %s\n", c.nacPrefix)
+		fmt.Fprintf(os.Stderr, "  KEK ID: %x\n", kek.ID)
+		fmt.Fprintf(os.Stderr, "  KEK Public Key: %x\n", kekPubBytes)
+		fmt.Fprintf(os.Stderr, "  Enrollment: %s/ENROLL\n", c.nacPrefix)
+	}
+
 	fmt.Fprintf(os.Stderr, "\nCtrl+C to stop\n\n")
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	<-sig
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
 
 	log.Info(c, "Shutting down")
 }
