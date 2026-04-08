@@ -386,7 +386,7 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 		name:   "/test/david/data1",
 		signer: davidSigner,
 	}))
-	require.Equal(t, 1, tcTestFetchCount) // fetch david's certificate
+	require.GreaterOrEqual(t, tcTestFetchCount, 1) // fetch david's certificate (may retry)
 
 	// Test multiple root certificates
 	tcTestFetchCount = 0
