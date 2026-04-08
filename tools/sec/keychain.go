@@ -26,7 +26,7 @@ func (t *ToolKeychain) configure(cmd *cobra.Command) {
 	cmd.AddCommand(&cobra.Command{
 		GroupID: "keychain",
 		Use:     "key-list KEYCHAIN-URI",
-		Short:   "List keys in a keychain",
+		Short:   "List keys and certs in a keychain",
 		Run:     t.List,
 		Args:    cobra.ExactArgs(1),
 		Example: `  ndnd sec key-list dir:///safe/keys`,
@@ -76,7 +76,7 @@ and the default key of the identity will be exported.`,
 	})
 }
 
-// (AI GENERATED DESCRIPTION): Lists all identities and their keys in the keychain at the given path, printing each identity name followed by the names of its keys.
+// Lists all identities, their keys, and the associated certs in the keychain at the given URI, printing each identity name followed by the names of its keys, then its names of its certs
 func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
@@ -89,6 +89,9 @@ func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 		fmt.Printf("%s\n", id.Name())
 		for _, key := range id.Keys() {
 			fmt.Printf("==> %s\n", key.KeyName())
+			for _, cert := range key.UniqueCerts() {
+				fmt.Printf("    ==> %s\n", cert)
+			}
 		}
 	}
 }
