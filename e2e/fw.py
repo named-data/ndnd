@@ -29,12 +29,16 @@ class NDNd_FW(Application):
                 'log_level': logLevel,
             },
             'faces': {
+                # Higher queue to reduce drops in large CI topologies.
+                'queue_size': 8192,
                 'unix': {
                     'socket_path': self.sockFile,
                 },
             },
             'fw': {
                 'threads': threads,
+                # Higher queue to reduce drops in large CI topologies.
+                'queue_size': 8192,
                 # Two-phase PET forwarding needs the local router identity.
                 'router_name': f'{network}/{node.name}',
                 # BIER bit index for this router (-1 = disabled)
