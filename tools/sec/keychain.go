@@ -74,6 +74,16 @@ and the default key of the identity will be exported.`,
 		Example: `  ndnd sec key-export dir:///safe/keys /alice`,
 		Run:     t.Export,
 	})
+
+	cmd.AddCommand(&cobra.Command{
+		GroupID: "keychain",
+		Use:     "cert-export KEYCHAIN-URI CERT-NAME",
+		Short:   "Export a certificate from a keychain",
+		Long: `Export the specified certificate from a keychain.`,
+		Args:    cobra.ExactArgs(2),
+		Example: `  ndnd sec cert-export dir:///safe/keys /alice/KEY/~%E8t%A5%A3V%88%81/NA/v=0`,
+		Run:     t.ExportCert,
+	})
 }
 
 // Lists all identities, their keys, and the associated certs in the keychain at the given URI, printing each identity name followed by the names of its keys, then its names of its certs
@@ -96,7 +106,7 @@ func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Imports keychain entries from standard input into the keychain named by the first argument, storing them in a memory-based keychain.
+// Imports keychain entries from standard input into the keychain named by the first argument
 func (*ToolKeychain) Import(_ *cobra.Command, args []string) {
 	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
@@ -120,7 +130,7 @@ func (*ToolKeychain) Import(_ *cobra.Command, args []string) {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Exports a specified key (or an identity’s default key) from a keychain, PEM‑encodes its secret key, and writes it to standard output.
+// Exports a specified key (or an identity’s default key) from a keychain, PEM‑encodes its secret key, and writes it to standard output.
 func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 	name, err := enc.NameFromStr(args[1])
 	if err != nil {
@@ -135,7 +145,7 @@ func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 		os.Exit(1)
 		return
 	}
-
+	
 	keyName := name
 	id, err := security.GetIdentityFromKeyName(name)
 	if err != nil { // not a key name
@@ -206,6 +216,37 @@ func (*ToolKeychain) DeleteKey(_ *cobra.Command, args []string) {
 		fmt.Fprintf(os.Stderr, "Failed to delete key: %s\n", err)
 		os.Exit(1)
 	}
+}
+
+// Exports a specified certificate from a keychain, PEM‑encodes it, and writes it to standard output.
+func (*ToolKeychain) ExportCert(_ *cobra.Command, args []string) {
+	name, err := enc.NameFromStr(args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid certificate name: %s\n", args[1])
+		os.Exit(1)
+		return
+	}
+
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	wire, err := kc.Store().Get(name.Prefix(-1), true)
+	if err != nil || wire == nil {
+		fmt.Fprintf(os.Stderr, "Certificate not found: %s\n", name)
+	}
+
+	out, err := security.PemEncode(enc.Wire{wire}.Join())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to convert certificate to text: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	os.Stdout.Write(out)
 }
 
 // DeleteCert removes a certificate from the keychain.
