@@ -29,19 +29,19 @@ ndnd sec sign-cert alice.key < alice.key > alice.cert
 # Generate a key for /ndn/bob and create a certificate signed by /ndn/alice
 # Sets the issuer field to ALICE
 ndnd sec keygen /ndn/bob rsa 2048 > bob.key
-ndnd sec sign-cert -issuer ALICE alice.key < bob.key > bob1.cert
+ndnd sec sign-cert --issuer ALICE alice.key < bob.key > bob1.cert
 
 # Create a certificate with a defined validity period
-ndnd sec sign-cert -issuer ALICE -start 20150101000000 -end 20350101000000 alice.key < bob.key > bob2.cert
+ndnd sec sign-cert --issuer ALICE --start 20150101000000 --end 20350101000000 alice.key < bob.key > bob2.cert
 
 # Re-sign the public key in a certificate (or CSR) with a provided key
 ndnd sec keygen /ndn/carol ed25519 > carol.key
-ndnd sec sign-cert -issuer CAROL carol.key < bob1.cert > bob3.cert
+ndnd sec sign-cert --issuer CAROL carol.key < bob1.cert > bob3.cert
 ```
 
 ## `ndnd sec key-list`
 
-List all keys in the keychain.
+List all keys and certs in the keychain.
 
 ```bash
 # List all keys in the keychain directory /etc/app/keys
@@ -81,6 +81,15 @@ Delete a key (and its certificates) from the keychain.
 ```bash
 # Delete a specific key from the keychain
 ndnd sec key-delete dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E
+```
+
+## `ndnd sec cert-export`
+
+Export a certificate from the keychain.
+
+```bash
+# Export a specific certificate from a keychain
+ndnd sec cert-delete dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E/self/v=1
 ```
 
 ## `ndnd sec cert-delete`
