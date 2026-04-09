@@ -79,7 +79,6 @@ and the default key of the identity will be exported.`,
 		GroupID: "keychain",
 		Use:     "cert-export KEYCHAIN-URI CERT-NAME",
 		Short:   "Export a certificate from a keychain",
-		Long: `Export the specified certificate from a keychain.`,
 		Args:    cobra.ExactArgs(2),
 		Example: `  ndnd sec cert-export dir:///safe/keys /alice/KEY/~%E8t%A5%A3V%88%81/NA/v=0`,
 		Run:     t.ExportCert,
@@ -145,7 +144,7 @@ func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 		os.Exit(1)
 		return
 	}
-	
+
 	keyName := name
 	id, err := security.GetIdentityFromKeyName(name)
 	if err != nil { // not a key name
