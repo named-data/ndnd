@@ -1,50 +1,47 @@
 package nac
 
-// EncryptedContent: encrypted content packet
 type EncryptedContent struct {
-	Name             string // <content-name>/FOR/<ck-name>
-	EncryptedPayload []byte // output of SymEncrypt(ck, plaintext)
+	CKName           string // CK name for discovery (will be embedded in TLV later)
+	EncryptedPayload []byte // SymEncrypt(ck, plaintext)
 }
 
-// EncryptedCK: encrypted content key packet
 type EncryptedCK struct {
-	Name             string // <ck-name>/FOR/<kek-name>
-	EncryptedPayload []byte // output of AsymEncrypt(kek, ck.Key)
+	Name             string // <data-prefix>/CK/<ck-id>/ENCRYPTED-BY/<kek-name>
+	EncryptedPayload []byte // AsymEncrypt(kek, ck.Key)
 }
 
-// Encryptor: producer side encryption, takes plaintext+KEK, produces encrypted content + encrypted CK
-
+// Encryptor: producer-side encryption using NAC key hierarchy.
 type Encryptor struct {
-	dataPrefix string            // /alice/samples/documents
-	credPrefix string            // /alice/read/documents
-	kek        *KeyEncryptionKey // fetched from access manager (via NDN Interest)
+	dataPrefix   string
+	accessPrefix string
+	dataset      string
+	kek          *KeyEncryptionKey
 }
 
-// NewEncryptor: creates encryptor, kek is passed directly for now (fetched via Interest)
-func NewEncryptor(dataPrefix, credentialPrefix string, kek *KeyEncryptionKey) *Encryptor {
+func NewEncryptor(dataPrefix, accessPrefix, dataset string, kek *KeyEncryptionKey) *Encryptor {
 	return &Encryptor{
-		dataPrefix: dataPrefix,
-		credPrefix: credentialPrefix,
-		kek:        kek,
+		dataPrefix:   dataPrefix,
+		accessPrefix: accessPrefix,
+		dataset:      dataset,
+		kek:          kek,
 	}
 }
 
-// Encrypt: encrypts content item, generates fresh CK
+// Encrypt encrypts content, generating a fresh CK per invocation.
 func (e *Encryptor) Encrypt(contentName string, plaintext []byte) (*EncryptedContent, *EncryptedCK, error) {
 	ck, err := NewContentKey()
 	if err != nil {
 		return nil, nil, err
 	}
-	// encrypt content
+
 	encPayload, err := SymEncrypt(ck.Key, plaintext)
 	if err != nil {
 		return nil, nil, err
 	}
-	// build encrypted content packet
+
 	ckName := ContentKeyName(e.dataPrefix, ck.ID)
-	// fmt.Printf("ckName=%s contentName=%s\n", ckName, contentName)
 	encContent := &EncryptedContent{
-		Name:             EncryptedDataName(contentName, ckName),
+		CKName:           ckName,
 		EncryptedPayload: encPayload,
 	}
 
@@ -53,10 +50,9 @@ func (e *Encryptor) Encrypt(contentName string, plaintext []byte) (*EncryptedCon
 		return nil, nil, err
 	}
 
-	// build encrypted CK packet
-	kekName := KEKName(e.credPrefix, e.kek.ID)
+	kekName := KEKName(e.accessPrefix, e.dataset, e.kek.ID)
 	encCK := &EncryptedCK{
-		Name:             EncryptedDataName(ckName, kekName),
+		Name:             CKEncryptedName(e.dataPrefix, ck.ID, kekName),
 		EncryptedPayload: encCKPayload,
 	}
 

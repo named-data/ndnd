@@ -30,7 +30,7 @@ func NewConsumer(engine ndn.Engine, consumerKeyName string, privateKey *ecdh.Pri
 }
 
 // FetchKEK fetches the public Key Encryption Key from the network.
-// kekName is the full NDN name: <credential-prefix>/E-KEY/<key-id>
+// kekName: <access-prefix>/NAC/<dataset>/KEK/<key-id>
 func (c *Consumer) FetchKEK(kekName string) (*KeyEncryptionKey, error) {
 	name, err := enc.NameFromStr(kekName)
 	if err != nil {
@@ -65,7 +65,7 @@ func (c *Consumer) FetchKEK(kekName string) (*KeyEncryptionKey, error) {
 }
 
 // FetchEncryptedKDK fetches the encrypted KDK for this consumer from the network.
-// kdkForName is: <kdk-name>/FOR/<consumer-key-name>
+// kdkForName: <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<consumer-key-name>
 func (c *Consumer) FetchEncryptedKDK(kdkForName string) ([]byte, error) {
 	name, err := enc.NameFromStr(kdkForName)
 	if err != nil {

@@ -1,48 +1,55 @@
 package nac
 
-import "crypto/ecdh"
+import (
+	"crypto/ecdh"
+	"strings"
+)
 
-// AccessManager: controls read access for a credential namespace
-// idk if this lives on system controller, producer, or what but there must be some entity that gens the KEK/KDK pair, holds the KDK private keys, allows producers to fetch KEK and consumers to fetch encrpyted KDK
-// it does:
-//   - gens KEK/KDK pair
-//   - publishes KEK openly
-//   - distributes per consumer encrypted KDKs
-//
-// https://named-data.net/wp-content/uploads/2016/02/ndn-0034-2-nac.pdf - 4.4.2 pg 6
+// AccessManager controls read access for a namespace.
+// Generates KEK/KDK pair, publishes KEK openly, distributes per-consumer encrypted KDKs.
+// ref: https://named-data.net/wp-content/uploads/2016/02/ndn-0034-2-nac.pdf - 4.4.2 pg 6
 type AccessManager struct {
-	credentialPrefix string
-	kek              *KeyEncryptionKey
-	kdk              *KeyDecryptionKey
-	members          map[string][]byte // consumer keyname ->encrypted KDK bytes
+	accessPrefix string
+	dataset      string
+	kek          *KeyEncryptionKey
+	kdk          *KeyDecryptionKey
+	members      map[string][]byte // consumer keyname -> encrypted KDK bytes
 }
 
-// NewAccessManager: creates access manager
-func NewAccessManager(credentialPrefix string) (*AccessManager, error) {
+// NewAccessManager creates an access manager for <accessPrefix>/NAC/<dataset>.
+func NewAccessManager(accessPrefix, dataset string) (*AccessManager, error) {
 	kek, kdk, err := NewKeyPair()
 	if err != nil {
 		return nil, err
 	}
 	return &AccessManager{
-		credentialPrefix: credentialPrefix,
-		kek:              kek,
-		kdk:              kdk,
-		members:          make(map[string][]byte),
+		accessPrefix: accessPrefix,
+		dataset:      dataset,
+		kek:          kek,
+		kdk:          kdk,
+		members:      make(map[string][]byte),
 	}, nil
 }
 
-// KEK: returns pub encryption key
 func (am *AccessManager) KEK() *KeyEncryptionKey {
 	return am.kek
 }
 
-// CredentialPrefix: returns NDN credential prefix
-func (am *AccessManager) CredentialPrefix() string {
-	return am.credentialPrefix
+func (am *AccessManager) AccessPrefix() string {
+	return am.accessPrefix
 }
 
-// AddMember: auths a consumer to decrypt content under this credential
+func (am *AccessManager) Dataset() string {
+	return am.dataset
+}
+
+func normalizeKeyName(name string) string {
+	return strings.TrimPrefix(name, "/")
+}
+
+// AddMember authorizes a consumer to decrypt content under this namespace.
 func (am *AccessManager) AddMember(consumerKeyName string, consumerPubKey *ecdh.PublicKey) error {
+	consumerKeyName = normalizeKeyName(consumerKeyName)
 	kdkBytes, err := SerializePrivateKey(am.kdk.PrivateKey)
 	if err != nil {
 		return err
@@ -58,21 +65,19 @@ func (am *AccessManager) AddMember(consumerKeyName string, consumerPubKey *ecdh.
 	return nil
 }
 
-// GetEncryptedKDK: returns encrypted KDK blob for a consumer OR (nil, false) if  unauthorized
+// GetEncryptedKDK returns encrypted KDK blob for a consumer, or (nil, false) if unauthorized.
 func (am *AccessManager) GetEncryptedKDK(consumerKeyName string) ([]byte, bool) {
-	blob, ok := am.members[consumerKeyName]
+	blob, ok := am.members[normalizeKeyName(consumerKeyName)]
 	return blob, ok
 }
 
-// GetEncryptedKDKName: NDN name for a consumer's  KDK packet -> <kdk-name>/FOR/<consumerKeyName>
-// (pg 7)
+// GetEncryptedKDKName: <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<consumer-key-name>
 func (am *AccessManager) GetEncryptedKDKName(consumerKeyName string) string {
-	kdkName := KDKName(am.credentialPrefix, am.kdk.ID)
-	return EncryptedDataName(kdkName, consumerKeyName)
+	return EncryptedKDKName(am.accessPrefix, am.dataset, am.kdk.ID, normalizeKeyName(consumerKeyName))
 }
 
-// IsAuthorized: has a consumer been added as a member?
+// IsAuthorized checks if a consumer has been added as a member.
 func (am *AccessManager) IsAuthorized(consumerKeyName string) bool {
-	_, ok := am.members[consumerKeyName]
+	_, ok := am.members[normalizeKeyName(consumerKeyName)]
 	return ok
 }

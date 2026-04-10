@@ -19,10 +19,11 @@ import (
 )
 
 type CatChunks struct {
-	nacKey    string // hex X25519 private key for NAC decryption
-	nacCred   string // NAC credential prefix (for KDK fetch)
-	nacKeyID  string // hex KEK ID (for constructing KDK name)
-	nacIdent  string // consumer key name (NDNCERT identity)
+	nacKey     string // hex X25519 private key for NAC decryption
+	nacAccess  string // NAC access prefix (for KDK fetch)
+	nacDataset string // NAC dataset name
+	nacKeyID   string // hex KEK ID (for constructing KDK name)
+	nacIdent   string // consumer key name (NDNCERT identity)
 }
 
 // (AI GENERATED DESCRIPTION): Creates a Cobra command that retrieves the data object for a given name prefix and writes its content to standard output.
@@ -44,7 +45,8 @@ then decrypts the content before writing to stdout.`,
 	}
 
 	cmd.Flags().StringVar(&cc.nacKey, "nac-key", "", "NAC X25519 private key (hex) for decryption")
-	cmd.Flags().StringVar(&cc.nacCred, "nac-cred", "", "NAC credential prefix (for KDK fetch)")
+	cmd.Flags().StringVar(&cc.nacAccess, "nac-access", "", "NAC access prefix (for KDK fetch)")
+	cmd.Flags().StringVar(&cc.nacDataset, "nac-dataset", "default", "NAC dataset name")
 	cmd.Flags().StringVar(&cc.nacKeyID, "nac-kek-id", "", "NAC KEK ID (hex, for constructing KDK name)")
 	cmd.Flags().StringVar(&cc.nacIdent, "nac-ident", "", "Consumer key name (NDNCERT identity)")
 
@@ -115,8 +117,8 @@ func (cc *CatChunks) run(_ *cobra.Command, args []string) {
 
 	// If NAC decryption is enabled
 	if cc.nacKey != "" {
-		if cc.nacCred == "" || cc.nacKeyID == "" || cc.nacIdent == "" {
-			log.Fatal(cc, "--nac-cred, --nac-kek-id, and --nac-ident are required with --nac-key")
+		if cc.nacAccess == "" || cc.nacKeyID == "" || cc.nacIdent == "" {
+			log.Fatal(cc, "--nac-access, --nac-kek-id, and --nac-ident are required with --nac-key")
 			return
 		}
 
@@ -156,8 +158,7 @@ func (cc *CatChunks) run(_ *cobra.Command, args []string) {
 		fmt.Fprintf(os.Stderr, "Encrypted CK: %d bytes\n", len(encCKBytes))
 
 		// Fetch the encrypted KDK from the NAC server
-		kdkName := nac.KDKName(cc.nacCred, kekID)
-		kdkForName := nac.EncryptedDataName(kdkName, cc.nacIdent)
+		kdkForName := nac.EncryptedKDKName(cc.nacAccess, cc.nacDataset, kekID, cc.nacIdent)
 		fmt.Fprintf(os.Stderr, "Fetching KDK from %s...\n", kdkForName)
 
 		kdkNdnName, _ := enc.NameFromStr(kdkForName)

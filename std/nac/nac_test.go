@@ -81,7 +81,7 @@ func TestAsymEncryptDecrypt(t *testing.T) {
 
 func TestFullEncryptionChain(t *testing.T) {
 	// Setup: Access Manager generates KEK/KDK
-	am, err := NewAccessManager("/test/read/docs")
+	am, err := NewAccessManager("/test", "docs")
 	if err != nil {
 		t.Fatalf("NewAccessManager failed: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestFullEncryptionChain(t *testing.T) {
 	}
 
 	// Producer encrypts content
-	encryptor := NewEncryptor("/test/data", "/test/read/docs", am.KEK())
+	encryptor := NewEncryptor("/test/data", "/test", "docs", am.KEK())
 	plaintext := []byte("This is a secret document that only authorized consumers can read.")
 
 	encContent, encCK, err := encryptor.Encrypt("/test/data/doc1", plaintext)
@@ -125,7 +125,7 @@ func TestFullEncryptionChain(t *testing.T) {
 }
 
 func TestUnauthorizedConsumer(t *testing.T) {
-	am, _ := NewAccessManager("/test/read/docs")
+	am, _ := NewAccessManager("/test", "docs")
 
 	// Unauthorized consumer
 	_, ok := am.GetEncryptedKDK("/test/eve/KEY/xyz")
@@ -139,7 +139,7 @@ func TestUnauthorizedConsumer(t *testing.T) {
 }
 
 func TestMultipleConsumers(t *testing.T) {
-	am, _ := NewAccessManager("/test/read/docs")
+	am, _ := NewAccessManager("/test", "docs")
 
 	curve := ecdh.X25519()
 
@@ -160,7 +160,7 @@ func TestMultipleConsumers(t *testing.T) {
 	}
 
 	// Encrypt
-	encryptor := NewEncryptor("/test/data", "/test/read/docs", am.KEK())
+	encryptor := NewEncryptor("/test/data", "/test", "docs", am.KEK())
 	plaintext := []byte("shared secret")
 	encContent, encCK, _ := encryptor.Encrypt("/test/data/doc1", plaintext)
 
@@ -205,14 +205,19 @@ func TestMultipleConsumers(t *testing.T) {
 }
 
 func TestNaming(t *testing.T) {
-	kekName := KEKName("/alice/read/docs", []byte{0x01, 0x02})
-	if kekName != "/alice/read/docs/E-KEY/0102" {
+	kekName := KEKName("/alice", "docs", []byte{0x01, 0x02})
+	if kekName != "/alice/NAC/docs/KEK/0102" {
 		t.Errorf("Unexpected KEK name: %s", kekName)
 	}
 
-	kdkName := KDKName("/alice/read/docs", []byte{0x01, 0x02})
-	if kdkName != "/alice/read/docs/D-KEY/0102" {
+	kdkName := KDKName("/alice", "docs", []byte{0x01, 0x02})
+	if kdkName != "/alice/NAC/docs/KDK/0102" {
 		t.Errorf("Unexpected KDK name: %s", kdkName)
+	}
+
+	encKdkName := EncryptedKDKName("/alice", "docs", []byte{0x01, 0x02}, "/bob/KEY/b1")
+	if encKdkName != "/alice/NAC/docs/KDK/0102/ENCRYPTED-BY/bob/KEY/b1" {
+		t.Errorf("Unexpected encrypted KDK name: %s", encKdkName)
 	}
 
 	ckName := ContentKeyName("/alice/data", []byte{0xAB, 0xCD})
@@ -220,19 +225,19 @@ func TestNaming(t *testing.T) {
 		t.Errorf("Unexpected CK name: %s", ckName)
 	}
 
-	encName := EncryptedDataName("/alice/data/doc1", "/alice/data/CK/abcd")
-	if encName != "/alice/data/doc1/FOR//alice/data/CK/abcd" {
-		t.Errorf("Unexpected encrypted data name: %s", encName)
+	ckEncName := CKEncryptedName("/alice/data", []byte{0xAB, 0xCD}, kekName)
+	if ckEncName != "/alice/data/CK/abcd/ENCRYPTED-BY/alice/NAC/docs/KEK/0102" {
+		t.Errorf("Unexpected CK encrypted name: %s", ckEncName)
 	}
 
-	content, key, err := ParseEncryptedDataName(encName)
+	base, key, err := ParseEncryptedByName(encKdkName)
 	if err != nil {
-		t.Fatalf("ParseEncryptedDataName failed: %v", err)
+		t.Fatalf("ParseEncryptedByName failed: %v", err)
 	}
-	if content != "/alice/data/doc1" {
-		t.Errorf("Unexpected content name: %s", content)
+	if base != "/alice/NAC/docs/KDK/0102" {
+		t.Errorf("Unexpected base name: %s", base)
 	}
-	if key != "/alice/data/CK/abcd" {
+	if key != "bob/KEY/b1" {
 		t.Errorf("Unexpected key name: %s", key)
 	}
 }

@@ -18,9 +18,10 @@ import (
 )
 
 type PutChunks struct {
-	expose  bool
-	nacKek  string // hex KEK public key
-	nacCred string // NAC credential prefix
+	expose     bool
+	nacKek     string // hex KEK public key
+	nacAccess  string // NAC access prefix
+	nacDataset string // NAC dataset name
 }
 
 // (AI GENERATED DESCRIPTION): Creates a Cobra command that publishes data chunks read from standard input under a specified name prefix, optionally registering the prefix with the client origin.
@@ -40,7 +41,8 @@ This tool expects data from the standard input.`,
 
 	cmd.Flags().BoolVar(&pc.expose, "expose", false, "Use client origin for prefix registration")
 	cmd.Flags().StringVar(&pc.nacKek, "nac-kek", "", "NAC KEK public key (hex) for encryption")
-	cmd.Flags().StringVar(&pc.nacCred, "nac-cred", "", "NAC credential prefix (required with --nac-kek)")
+	cmd.Flags().StringVar(&pc.nacAccess, "nac-access", "", "NAC access prefix (required with --nac-kek)")
+	cmd.Flags().StringVar(&pc.nacDataset, "nac-dataset", "default", "NAC dataset name")
 	return cmd
 }
 
@@ -91,8 +93,8 @@ func (pc *PutChunks) run(_ *cobra.Command, args []string) {
 	// If NAC encryption is enabled, encrypt the content before publishing
 	var encCKContent enc.Wire
 	if pc.nacKek != "" {
-		if pc.nacCred == "" {
-			log.Fatal(pc, "--nac-cred is required when using --nac-kek")
+		if pc.nacAccess == "" {
+			log.Fatal(pc, "--nac-access is required when using --nac-kek")
 			return
 		}
 
@@ -108,8 +110,8 @@ func (pc *PutChunks) run(_ *cobra.Command, args []string) {
 		}
 
 		kek := &nac.KeyEncryptionKey{PublicKey: pubKey, ID: make([]byte, 16)}
-		copy(kek.ID, kekBytes[:16]) // use first 16 bytes of pubkey as ID for naming
-		encryptor := nac.NewEncryptor(args[0], pc.nacCred, kek)
+		copy(kek.ID, kekBytes[:16])
+		encryptor := nac.NewEncryptor(args[0], pc.nacAccess, pc.nacDataset, kek)
 
 		encContent, encCK, err := encryptor.Encrypt(args[0]+"/data", content.Join())
 		if err != nil {

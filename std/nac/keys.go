@@ -13,17 +13,16 @@ type ContentKey struct {
 	Key []byte // 32-byte AES-256 key
 }
 
-// KeyEncryptionKey: X25519 pub key tobe published by Access Manager, producers fetch this so they can wrap Content Keys w/ ECIES
-// NOTE: NDN name pattern is /<credential-prefix>/E-KEY/<hex(ID)>
-// https://named-data.net/wp-content/uploads/2016/02/ndn-0034-2-nac.pdf - pg 6
+// KeyEncryptionKey: X25519 pub key published by Access Manager, producers fetch to wrap Content Keys via ECIES.
+// NDN name: <access-prefix>/NAC/<dataset>/KEK/<hex(ID)>
 type KeyEncryptionKey struct {
 	ID        []byte          // 16 random bytes
 	PublicKey *ecdh.PublicKey // 32 byte X25519 pub key
 }
 
-// KeyDecryptionKey: X25519 private key held by the Access Manager, NEVER published in plaintext (encrypted per-consumer w/ AsymEncrypt (ECIES))
-// NDN name pattern: /<credential-prefix>/D-KEY/<hex(ID)>
-// https://named-data.net/wp-content/uploads/2016/02/ndn-0034-2-nac.pdf - pg 6
+// KeyDecryptionKey: X25519 private key held by the Access Manager, never published plaintext.
+// Encrypted per-consumer via ECIES and served at:
+// <access-prefix>/NAC/<dataset>/KDK/<hex(ID)>/ENCRYPTED-BY/<member-key-name>
 type KeyDecryptionKey struct {
 	ID         []byte           // same ID as corresponding KEK
 	PrivateKey *ecdh.PrivateKey // 32 byte X25519 private key

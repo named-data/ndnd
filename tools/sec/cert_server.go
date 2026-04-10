@@ -20,6 +20,7 @@ import (
 type CertServer struct {
 	mockDNS    bool
 	nacPrefix  string
+	nacDataset string
 }
 
 func CmdCertServer() *cobra.Command {
@@ -36,7 +37,9 @@ func CmdCertServer() *cobra.Command {
 	cmd.Flags().BoolVar(&srv.mockDNS, "mock-dns", false,
 		"Mock DNS lookups (testing only)")
 	cmd.Flags().StringVar(&srv.nacPrefix, "nac", "",
-		"Enable NAC key server at this credential prefix (e.g., /demo/nac)")
+		"Enable NAC key server at this access prefix (e.g., /demo)")
+	cmd.Flags().StringVar(&srv.nacDataset, "nac-dataset", "default",
+		"NAC dataset name for namespace scoping")
 
 	return cmd
 }
@@ -121,13 +124,12 @@ func (c *CertServer) run(_ *cobra.Command, args []string) {
 			return
 		}
 
-		nacServer, err := nac.NewKeyServer(ndnEngine, nacSigner, c.nacPrefix)
+		nacServer, err := nac.NewKeyServer(ndnEngine, nacSigner, c.nacPrefix, c.nacDataset)
 		if err != nil {
 			log.Fatal(c, "Failed to create NAC server", "err", err)
 			return
 		}
 
-		// Register CA cert so enrollment can verify client certificates
 		caCertData, _, err := spec.Spec{}.ReadData(enc.NewBufferView(caCerts[0]))
 		if err != nil {
 			log.Fatal(c, "Failed to parse CA cert for NAC", "err", err)
@@ -143,10 +145,11 @@ func (c *CertServer) run(_ *cobra.Command, args []string) {
 
 		kek := nacServer.AccessManager().KEK()
 		kekPubBytes, _ := nac.SerializePublicKey(kek.PublicKey)
-		fmt.Fprintf(os.Stderr, "\nNAC key server running: %s\n", c.nacPrefix)
+		nacNs := c.nacPrefix + "/NAC/" + c.nacDataset
+		fmt.Fprintf(os.Stderr, "\nNAC key server running: %s\n", nacNs)
 		fmt.Fprintf(os.Stderr, "  KEK ID: %x\n", kek.ID)
 		fmt.Fprintf(os.Stderr, "  KEK Public Key: %x\n", kekPubBytes)
-		fmt.Fprintf(os.Stderr, "  Enrollment: %s/ENROLL\n", c.nacPrefix)
+		fmt.Fprintf(os.Stderr, "  Enrollment: %s/ENROLL\n", nacNs)
 	}
 
 	fmt.Fprintf(os.Stderr, "\nCtrl+C to stop\n\n")

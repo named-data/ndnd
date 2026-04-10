@@ -6,61 +6,76 @@ import (
 	"strings"
 )
 
-// NAC utilities to construct and parse NDN names
+// NAC naming conventions (aligned with NAC spec):
 //
-// names look like:
-//   encrypted content:  <content-name>/FOR/<ck-name>
-//   encrypted CK:       <ck-name>/FOR/<kek-name>
-//   encrypted KDK:      <kdk-name>/FOR/<consumer-key-name>
+//   KEK:       <access-prefix>/NAC/<dataset>/KEK/<key-id>
+//   KDK:       <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<member-key-name>
+//   CK:        <data-prefix>/CK/<ck-id>/ENCRYPTED-BY/<access-prefix>/NAC/<dataset>/KEK/<key-id>
+//   content:   <content-name> (encrypted payload, CK name embedded in TLV)
 
-// KEKName: builds NDN name for kek => <credential-prefix>/E-KEY/<hex-key-id>
-func KEKName(credentialPrefix string, keyID []byte) string {
-	return credentialPrefix + "/E-KEY/" + hex.EncodeToString(keyID)
+// KEKName: <access-prefix>/NAC/<dataset>/KEK/<hex-key-id>
+func KEKName(accessPrefix, dataset string, keyID []byte) string {
+	return accessPrefix + "/NAC/" + dataset + "/KEK/" + hex.EncodeToString(keyID)
 }
 
-// KDKName: builds NDN name for kdk => <credential-prefix>/D-KEY/<hex-key-id>
-func KDKName(credentialPrefix string, keyID []byte) string {
-	return credentialPrefix + "/D-KEY/" + hex.EncodeToString(keyID)
+// KDKName: <access-prefix>/NAC/<dataset>/KDK/<hex-key-id>
+func KDKName(accessPrefix, dataset string, keyID []byte) string {
+	return accessPrefix + "/NAC/" + dataset + "/KDK/" + hex.EncodeToString(keyID)
 }
 
-// ContentKeyName: builds NDN name for a ck => <data-prefix>/CK/<hex-ck-id>
+// EncryptedKDKName: <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<member-key-name>
+func EncryptedKDKName(accessPrefix, dataset string, keyID []byte, memberKeyName string) string {
+	return KDKName(accessPrefix, dataset, keyID) + "/ENCRYPTED-BY/" + strings.TrimPrefix(memberKeyName, "/")
+}
+
+// ContentKeyName: <data-prefix>/CK/<hex-ck-id>
 func ContentKeyName(dataPrefix string, ckID []byte) string {
 	return dataPrefix + "/CK/" + hex.EncodeToString(ckID)
 }
 
-// EncryptedDataName: builds the /FOR/ formated name to link encrypted data to the key that encrypted it
-func EncryptedDataName(contentName, encryptingKeyName string) string {
-	return contentName + "/FOR/" + encryptingKeyName
+// CKEncryptedName: <data-prefix>/CK/<ck-id>/ENCRYPTED-BY/<kek-name>
+func CKEncryptedName(dataPrefix string, ckID []byte, kekName string) string {
+	return ContentKeyName(dataPrefix, ckID) + "/ENCRYPTED-BY/" + strings.TrimPrefix(kekName, "/")
 }
 
-// ConsumerKeyName: builds NDN name for consumer's identity key => <consumer-id>/KEY/<hex-key-id>
+// ConsumerKeyName: <consumer-id>/KEY/<hex-key-id>
 func ConsumerKeyName(consumerIdentity string, keyID []byte) string {
 	return consumerIdentity + "/KEY/" + hex.EncodeToString(keyID)
 }
 
-// ParseEncryptedDataName: gets content name + encrypting key name
-func ParseEncryptedDataName(name string) (contentName, keyName string, err error) {
-	idx := strings.Index(name, "/FOR/")
+// ParseEncryptedByName: splits on /ENCRYPTED-BY/
+func ParseEncryptedByName(name string) (baseName, keyName string, err error) {
+	idx := strings.Index(name, "/ENCRYPTED-BY/")
 	if idx == -1 {
-		return "", "", fmt.Errorf("no /FOR/ in name: %s", name)
+		return "", "", fmt.Errorf("no /ENCRYPTED-BY/ in name: %s", name)
 	}
-	return name[:idx], name[idx+len("/FOR/"):], nil
+	return name[:idx], name[idx+len("/ENCRYPTED-BY/"):], nil
 }
 
-// ParseKEKName: gets credential prefix + hex key id from a KEK name
-func ParseKEKName(name string) (credentialPrefix, keyIDHex string, err error) {
-	idx := strings.Index(name, "/E-KEY/")
-	if idx == -1 {
-		return "", "", fmt.Errorf("no /E-KEY/ in name: %s", name)
+// ParseKEKName: extracts access prefix, dataset, and key ID from a KEK name
+func ParseKEKName(name string) (accessPrefix, dataset, keyIDHex string, err error) {
+	nacIdx := strings.Index(name, "/NAC/")
+	if nacIdx == -1 {
+		return "", "", "", fmt.Errorf("no /NAC/ in name: %s", name)
 	}
-	return name[:idx], name[idx+len("/E-KEY/"):], nil
+	rest := name[nacIdx+len("/NAC/"):]
+	kekIdx := strings.Index(rest, "/KEK/")
+	if kekIdx == -1 {
+		return "", "", "", fmt.Errorf("no /KEK/ in name: %s", name)
+	}
+	return name[:nacIdx], rest[:kekIdx], rest[kekIdx+len("/KEK/"):], nil
 }
 
-// ParseKDKName: gets credential prefix + hex key id from a KDK name
-func ParseKDKName(name string) (credentialPrefix, keyIDHex string, err error) {
-	idx := strings.Index(name, "/D-KEY/")
-	if idx == -1 {
-		return "", "", fmt.Errorf("no /D-KEY/ in name: %s", name)
+// ParseKDKName: extracts access prefix, dataset, and key ID from a KDK name
+func ParseKDKName(name string) (accessPrefix, dataset, keyIDHex string, err error) {
+	nacIdx := strings.Index(name, "/NAC/")
+	if nacIdx == -1 {
+		return "", "", "", fmt.Errorf("no /NAC/ in name: %s", name)
 	}
-	return name[:idx], name[idx+len("/D-KEY/"):], nil
+	rest := name[nacIdx+len("/NAC/"):]
+	kdkIdx := strings.Index(rest, "/KDK/")
+	if kdkIdx == -1 {
+		return "", "", "", fmt.Errorf("no /KDK/ in name: %s", name)
+	}
+	return name[:nacIdx], rest[:kdkIdx], rest[kdkIdx+len("/KDK/"):], nil
 }

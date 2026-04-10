@@ -25,6 +25,7 @@ import (
 type NacServer struct {
 	flags struct {
 		members []string
+		dataset string
 	}
 }
 
@@ -38,19 +39,20 @@ func CmdNac() *cobra.Command {
 
 	ns := NacServer{}
 	serveCmd := &cobra.Command{
-		Use:   "serve CREDENTIAL-PREFIX",
+		Use:   "serve ACCESS-PREFIX",
 		Short: "Run NAC key server",
 		Long: `Run the NAC key server that serves KEK (public) and encrypted KDKs (per-consumer).
 
 Members are specified as consumer-key-name:hex-public-key pairs.
-The key server serves:
-  - KEK at <credential-prefix>/E-KEY/<key-id>  (public, any producer can fetch)
-  - KDK at <credential-prefix>/D-KEY/<key-id>/FOR/<consumer>  (authorized consumers only)`,
+The key server registers at <access-prefix>/NAC/<dataset> and serves:
+  - KEK at <access-prefix>/NAC/<dataset>/KEK/<key-id>
+  - KDK at <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<consumer>`,
 		Args:    cobra.ExactArgs(1),
 		Run:     ns.runServe,
-		Example: `  ndnd nac serve /alice/read/documents --member "/alice/KEY/abc123:0a1b2c..."`,
+		Example: `  ndnd nac serve /alice --dataset documents --member "/alice/KEY/abc123:0a1b2c..."`,
 	}
 	serveCmd.Flags().StringArrayVar(&ns.flags.members, "member", nil, "Authorized member as 'consumer-key-name:hex-x25519-pubkey'")
+	serveCmd.Flags().StringVar(&ns.flags.dataset, "dataset", "default", "Dataset name for NAC namespace scoping")
 	cmd.AddCommand(serveCmd)
 
 	cmd.AddCommand(cmdNacEncrypt())
@@ -65,9 +67,9 @@ func (ns *NacServer) String() string {
 }
 
 func (ns *NacServer) runServe(_ *cobra.Command, args []string) {
-	credPrefix := args[0]
+	accessPrefix := args[0]
+	dataset := ns.flags.dataset
 
-	// ctart NDN engine
 	app := engine.NewBasicEngine(engine.NewDefaultFace())
 	if err := app.Start(); err != nil {
 		log.Fatal(ns, "Unable to start engine", "err", err)
@@ -75,22 +77,19 @@ func (ns *NacServer) runServe(_ *cobra.Command, args []string) {
 	}
 	defer app.Stop()
 
-	// create a signer for signing Data packets
-	keyName, _ := enc.NameFromStr(credPrefix + "/KEY/nac-server")
+	keyName, _ := enc.NameFromStr(accessPrefix + "/KEY/nac-server")
 	signer, err := sig.KeygenEd25519(keyName)
 	if err != nil {
 		log.Fatal(ns, "Unable to generate signing key", "err", err)
 		return
 	}
 
-	// create key server
-	ks, err := nac.NewKeyServer(app, signer, credPrefix)
+	ks, err := nac.NewKeyServer(app, signer, accessPrefix, dataset)
 	if err != nil {
 		log.Fatal(ns, "Unable to create key server", "err", err)
 		return
 	}
 
-	// add members
 	for _, memberSpec := range ns.flags.members {
 		consumerKeyName, pubKey, err := parseMemberSpec(memberSpec)
 		if err != nil {
@@ -108,7 +107,7 @@ func (ns *NacServer) runServe(_ *cobra.Command, args []string) {
 	kekPubBytes, _ := nac.SerializePublicKey(kek.PublicKey)
 	fmt.Printf("KEK ID: %s\n", hex.EncodeToString(kek.ID))
 	fmt.Printf("KEK Public Key: %s\n", hex.EncodeToString(kekPubBytes))
-	fmt.Printf("KEK Name: %s\n", nac.KEKName(credPrefix, kek.ID))
+	fmt.Printf("KEK Name: %s\n", nac.KEKName(accessPrefix, dataset, kek.ID))
 
 	// start serving keys
 	if err := ks.Start(); err != nil {
@@ -148,22 +147,26 @@ func parseMemberSpec(spec string) (string, *ecdh.PublicKey, error) {
 }
 
 func cmdNacEncrypt() *cobra.Command {
-	return &cobra.Command{
-		Use:   "encrypt KEK-PUB-HEX CREDENTIAL-PREFIX DATA-PREFIX",
+	var dataset string
+	cmd := &cobra.Command{
+		Use:   "encrypt KEK-PUB-HEX ACCESS-PREFIX DATA-PREFIX",
 		Short: "Encrypt stdin with NAC",
 		Long: `Encrypt data from stdin using NAC.
 Outputs encrypted content, encrypted CK, and CK name to files.`,
 		Args: cobra.ExactArgs(3),
-		Run:  runNacEncrypt,
+		Run: func(cmd *cobra.Command, args []string) {
+			runNacEncrypt(cmd, args, dataset)
+		},
 	}
+	cmd.Flags().StringVar(&dataset, "dataset", "default", "Dataset name for NAC namespace scoping")
+	return cmd
 }
 
-func runNacEncrypt(_ *cobra.Command, args []string) {
+func runNacEncrypt(_ *cobra.Command, args []string, dataset string) {
 	pubKeyHex := args[0]
-	credPrefix := args[1]
+	accessPrefix := args[1]
 	dataPrefix := args[2]
 
-	// parse KEK public key
 	pubKeyBytes, err := hex.DecodeString(pubKeyHex)
 	if err != nil {
 		log.Fatal(nil, "Invalid KEK hex", "err", err)
@@ -176,9 +179,8 @@ func runNacEncrypt(_ *cobra.Command, args []string) {
 	}
 
 	kek := &nac.KeyEncryptionKey{PublicKey: pubKey}
-	encryptor := nac.NewEncryptor(dataPrefix, credPrefix, kek)
+	encryptor := nac.NewEncryptor(dataPrefix, accessPrefix, dataset, kek)
 
-	// read plaintext from stdin
 	plaintext, err := os.ReadFile("/dev/stdin")
 	if err != nil {
 		log.Fatal(nil, "Failed to read stdin", "err", err)
@@ -192,13 +194,10 @@ func runNacEncrypt(_ *cobra.Command, args []string) {
 		return
 	}
 
-	// write encrypted content
 	if err := os.WriteFile("enc-content.bin", encContent.EncryptedPayload, 0644); err != nil {
 		log.Fatal(nil, "Failed to write encrypted content", "err", err)
 		return
 	}
-
-	// write encrypted CK
 	if err := os.WriteFile("enc-ck.bin", encCK.EncryptedPayload, 0644); err != nil {
 		log.Fatal(nil, "Failed to write encrypted CK", "err", err)
 		return
@@ -206,8 +205,8 @@ func runNacEncrypt(_ *cobra.Command, args []string) {
 
 	fmt.Fprintf(os.Stderr, "Encrypted content: enc-content.bin (%d bytes)\n", len(encContent.EncryptedPayload))
 	fmt.Fprintf(os.Stderr, "Encrypted CK: enc-ck.bin (%d bytes)\n", len(encCK.EncryptedPayload))
-	fmt.Fprintf(os.Stderr, "Content name: %s\n", encContent.Name)
-	fmt.Fprintf(os.Stderr, "CK name: %s\n", encCK.Name)
+	fmt.Fprintf(os.Stderr, "CK name: %s\n", encContent.CKName)
+	fmt.Fprintf(os.Stderr, "CK encrypted name: %s\n", encCK.Name)
 }
 
 func cmdNacDecrypt() *cobra.Command {
@@ -272,26 +271,30 @@ func runNacDecrypt(_ *cobra.Command, args []string) {
 }
 
 func cmdNacEnroll() *cobra.Command {
-	return &cobra.Command{
-		Use:   "enroll NAC-PREFIX CERT-FILE KEY-FILE",
+	var dataset string
+	cmd := &cobra.Command{
+		Use:   "enroll ACCESS-PREFIX CERT-FILE KEY-FILE",
 		Short: "Enroll for NAC access using NDNCERT-issued certificate",
 		Long: `Enroll as an authorized NAC consumer using your NDNCERT-issued certificate.
 
-This generates an X25519 encryption key pair, sends the public key along with
-your certificate to the NAC server's ENROLL endpoint, and saves the private key.
-
-The server verifies the certificate was signed by the CA, then authorizes your
-identity for encrypted content access.`,
-		Example: `  ndnd nac enroll /demo/nac client.cert client.key`,
+Sends enrollment Interest to <access-prefix>/NAC/<dataset>/ENROLL with X25519
+public key and certificate. Server verifies cert was CA-signed, then authorizes
+the consumer for encrypted content access.`,
+		Example: `  ndnd nac enroll /demo --dataset sensor-data client.cert client.key`,
 		Args:    cobra.ExactArgs(3),
-		Run:     runNacEnroll,
+		Run: func(cmd *cobra.Command, args []string) {
+			runNacEnroll(cmd, args, dataset)
+		},
 	}
+	cmd.Flags().StringVar(&dataset, "dataset", "default", "Dataset name for NAC namespace scoping")
+	return cmd
 }
 
-func runNacEnroll(_ *cobra.Command, args []string) {
-	nacPrefix := args[0]
+func runNacEnroll(_ *cobra.Command, args []string, dataset string) {
+	accessPrefix := args[0]
 	certFile := args[1]
 	keyFile := args[2]
+	nacPrefix := accessPrefix + "/NAC/" + dataset
 
 	// Load NDNCERT-issued certificate
 	certFileBytes, err := os.ReadFile(certFile)

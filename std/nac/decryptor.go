@@ -58,17 +58,8 @@ func (d *Decryptor) Decrypt(
 	return plaintext, nil
 }
 
-// CKNameFromContent: gets CK name from encrypted content packet
-//
-//	consumer uses this to build the Interest for fetching the encrypted CK
-func CKNameFromContent(encContent *EncryptedContent) (string, error) {
-	_, ckName, err := ParseEncryptedDataName(encContent.Name)
-	return ckName, err
-}
-
-// KDKNameForConsumer: constructs NDN name of the encrypted KDK this consumer should fetch
-// result: <kdk-name>/FOR/<consumer-key-name>
-func (d *Decryptor) KDKNameForConsumer(credentialPrefix string, kdkKeyID []byte) string {
-	kdkName := KDKName(credentialPrefix, kdkKeyID)
-	return EncryptedDataName(kdkName, d.consumerKeyName)
+// KDKNameForConsumer constructs the encrypted KDK name this consumer should fetch:
+// <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<consumer-key-name>
+func (d *Decryptor) KDKNameForConsumer(accessPrefix, dataset string, kdkKeyID []byte) string {
+	return EncryptedKDKName(accessPrefix, dataset, kdkKeyID, d.consumerKeyName)
 }
