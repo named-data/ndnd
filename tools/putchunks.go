@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/hex"
 	"io"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
+	"github.com/named-data/ndnd/std/nac"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object"
 	"github.com/named-data/ndnd/std/object/storage"
@@ -16,7 +18,9 @@ import (
 )
 
 type PutChunks struct {
-	expose bool
+	expose  bool
+	nacKek  string // hex KEK public key
+	nacCred string // NAC credential prefix
 }
 
 // (AI GENERATED DESCRIPTION): Creates a Cobra command that publishes data chunks read from standard input under a specified name prefix, optionally registering the prefix with the client origin.
@@ -35,6 +39,8 @@ This tool expects data from the standard input.`,
 	}
 
 	cmd.Flags().BoolVar(&pc.expose, "expose", false, "Use client origin for prefix registration")
+	cmd.Flags().StringVar(&pc.nacKek, "nac-kek", "", "NAC KEK public key (hex) for encryption")
+	cmd.Flags().StringVar(&pc.nacCred, "nac-cred", "", "NAC credential prefix (required with --nac-kek)")
 	return cmd
 }
 
@@ -82,6 +88,42 @@ func (pc *PutChunks) run(_ *cobra.Command, args []string) {
 		}
 	}
 
+	// If NAC encryption is enabled, encrypt the content before publishing
+	var encCKContent enc.Wire
+	if pc.nacKek != "" {
+		if pc.nacCred == "" {
+			log.Fatal(pc, "--nac-cred is required when using --nac-kek")
+			return
+		}
+
+		kekBytes, err := hex.DecodeString(pc.nacKek)
+		if err != nil {
+			log.Fatal(pc, "Invalid KEK hex", "err", err)
+			return
+		}
+		pubKey, err := nac.DeserializePublicKey(kekBytes)
+		if err != nil {
+			log.Fatal(pc, "Invalid KEK public key", "err", err)
+			return
+		}
+
+		kek := &nac.KeyEncryptionKey{PublicKey: pubKey, ID: make([]byte, 16)}
+		copy(kek.ID, kekBytes[:16]) // use first 16 bytes of pubkey as ID for naming
+		encryptor := nac.NewEncryptor(args[0], pc.nacCred, kek)
+
+		encContent, encCK, err := encryptor.Encrypt(args[0]+"/data", content.Join())
+		if err != nil {
+			log.Fatal(pc, "NAC encryption failed", "err", err)
+			return
+		}
+
+		content = enc.Wire{encContent.EncryptedPayload}
+		encCKContent = enc.Wire{encCK.EncryptedPayload}
+		log.Info(pc, "Content encrypted with NAC",
+			"content_bytes", len(encContent.EncryptedPayload),
+			"ck_bytes", len(encCK.EncryptedPayload))
+	}
+
 	// produce object
 	vname, err := cli.Produce(ndn.ProduceArgs{
 		Name:    name.WithVersion(enc.VersionUnixMicro),
@@ -90,6 +132,20 @@ func (pc *PutChunks) run(_ *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal(pc, "Unable to produce object", "err", err)
 		return
+	}
+
+	// If NAC, also publish the encrypted CK under <prefix>/CK
+	if encCKContent != nil {
+		ckName := name.Append(enc.NewGenericComponent("CK"))
+		_, err := cli.Produce(ndn.ProduceArgs{
+			Name:    ckName.WithVersion(enc.VersionUnixMicro),
+			Content: encCKContent,
+		})
+		if err != nil {
+			log.Fatal(pc, "Unable to produce encrypted CK", "err", err)
+			return
+		}
+		log.Info(pc, "Encrypted CK published", "name", ckName)
 	}
 
 	content = nil // gc

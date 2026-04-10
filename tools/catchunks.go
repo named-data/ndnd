@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"time"
@@ -8,28 +9,46 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
+	"github.com/named-data/ndnd/std/nac"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object"
 	"github.com/named-data/ndnd/std/object/storage"
+	"github.com/named-data/ndnd/std/types/optional"
+	"github.com/named-data/ndnd/std/utils"
 	"github.com/spf13/cobra"
 )
 
-type CatChunks struct{}
+type CatChunks struct {
+	nacKey    string // hex X25519 private key for NAC decryption
+	nacCred   string // NAC credential prefix (for KDK fetch)
+	nacKeyID  string // hex KEK ID (for constructing KDK name)
+	nacIdent  string // consumer key name (NDNCERT identity)
+}
 
 // (AI GENERATED DESCRIPTION): Creates a Cobra command that retrieves the data object for a given name prefix and writes its content to standard output.
 func CmdCatChunks() *cobra.Command {
 	cc := CatChunks{}
 
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		GroupID: "tools",
 		Use:     "cat PREFIX",
 		Short:   "Retrieve object under a name prefix",
 		Long: `Retrieve an object with the specified name.
-The object contents are written to stdout on success.`,
+The object contents are written to stdout on success.
+
+With NAC flags, also fetches the encrypted content key and KDK,
+then decrypts the content before writing to stdout.`,
 		Args:    cobra.ExactArgs(1),
 		Example: `  ndnd cat /my/example/data > data.bin`,
 		Run:     cc.run,
 	}
+
+	cmd.Flags().StringVar(&cc.nacKey, "nac-key", "", "NAC X25519 private key (hex) for decryption")
+	cmd.Flags().StringVar(&cc.nacCred, "nac-cred", "", "NAC credential prefix (for KDK fetch)")
+	cmd.Flags().StringVar(&cc.nacKeyID, "nac-kek-id", "", "NAC KEK ID (hex, for constructing KDK name)")
+	cmd.Flags().StringVar(&cc.nacIdent, "nac-ident", "", "Consumer key name (NDNCERT identity)")
+
+	return cmd
 }
 
 // (AI GENERATED DESCRIPTION): Returns the literal string `"cat"` as the textual representation of a `CatChunks` instance.
@@ -88,16 +107,95 @@ func (cc *CatChunks) run(_ *cobra.Command, args []string) {
 		return
 	}
 
-	// write object to stdout
-	byteCount := 0
+	// Collect content bytes
+	var contentBytes []byte
 	for _, chunk := range state.Content() {
-		os.Stdout.Write(chunk)
-		byteCount += len(chunk)
+		contentBytes = append(contentBytes, chunk...)
 	}
+
+	// If NAC decryption is enabled
+	if cc.nacKey != "" {
+		if cc.nacCred == "" || cc.nacKeyID == "" || cc.nacIdent == "" {
+			log.Fatal(cc, "--nac-cred, --nac-kek-id, and --nac-ident are required with --nac-key")
+			return
+		}
+
+		privKeyBytes, err := hex.DecodeString(cc.nacKey)
+		if err != nil {
+			log.Fatal(cc, "Invalid NAC private key hex", "err", err)
+			return
+		}
+		privKey, err := nac.DeserializePrivateKey(privKeyBytes)
+		if err != nil {
+			log.Fatal(cc, "Invalid NAC X25519 private key", "err", err)
+			return
+		}
+		kekID, err := hex.DecodeString(cc.nacKeyID)
+		if err != nil {
+			log.Fatal(cc, "Invalid KEK ID hex", "err", err)
+			return
+		}
+
+		// Fetch the encrypted CK from <prefix>/CK
+		ckName := name.Append(enc.NewGenericComponent("CK"))
+		fmt.Fprintf(os.Stderr, "Fetching encrypted CK from %s...\n", ckName)
+		ckDone := make(chan ndn.ConsumeState)
+		cli.ConsumeExt(ndn.ConsumeExtArgs{
+			Name:     ckName,
+			Callback: func(s ndn.ConsumeState) { ckDone <- s },
+		})
+		ckState := <-ckDone
+		if ckState.Error() != nil {
+			log.Fatal(cc, "Failed to fetch encrypted CK", "err", ckState.Error())
+			return
+		}
+		var encCKBytes []byte
+		for _, chunk := range ckState.Content() {
+			encCKBytes = append(encCKBytes, chunk...)
+		}
+		fmt.Fprintf(os.Stderr, "Encrypted CK: %d bytes\n", len(encCKBytes))
+
+		// Fetch the encrypted KDK from the NAC server
+		kdkName := nac.KDKName(cc.nacCred, kekID)
+		kdkForName := nac.EncryptedDataName(kdkName, cc.nacIdent)
+		fmt.Fprintf(os.Stderr, "Fetching KDK from %s...\n", kdkForName)
+
+		kdkNdnName, _ := enc.NameFromStr(kdkForName)
+		kdkCh := make(chan ndn.ExpressCallbackArgs, 1)
+		kdkInterest, _ := app.Spec().MakeInterest(kdkNdnName, &ndn.InterestConfig{
+			Lifetime: optional.Some(10 * time.Second),
+			Nonce:    utils.ConvertNonce(app.Timer().Nonce()),
+		}, nil, nil)
+		app.Express(kdkInterest, func(args ndn.ExpressCallbackArgs) { kdkCh <- args })
+		kdkResult := <-kdkCh
+		if kdkResult.Result != ndn.InterestResultData {
+			log.Fatal(cc, "Failed to fetch KDK", "result", kdkResult.Result)
+			return
+		}
+		encKDKBytes := kdkResult.Data.Content().Join()
+		fmt.Fprintf(os.Stderr, "Encrypted KDK: %d bytes\n", len(encKDKBytes))
+
+		// Decrypt the chain: KDK -> CK -> content
+		decryptor := nac.NewDecryptor(cc.nacIdent, privKey)
+		plaintext, err := decryptor.Decrypt(
+			&nac.EncryptedContent{EncryptedPayload: contentBytes},
+			&nac.EncryptedCK{EncryptedPayload: encCKBytes},
+			encKDKBytes,
+		)
+		if err != nil {
+			log.Fatal(cc, "NAC decryption failed", "err", err)
+			return
+		}
+		contentBytes = plaintext
+		fmt.Fprintf(os.Stderr, "Decrypted: %d bytes\n", len(plaintext))
+	}
+
+	// write to stdout
+	os.Stdout.Write(contentBytes)
 
 	// statistics
 	fmt.Fprintf(os.Stderr, "Object fetched %s\n", state.Name())
-	fmt.Fprintf(os.Stderr, "Content: %d bytes\n", byteCount)
+	fmt.Fprintf(os.Stderr, "Content: %d bytes\n", len(contentBytes))
 	fmt.Fprintf(os.Stderr, "Time taken: %s\n", t2.Sub(t1))
-	fmt.Fprintf(os.Stderr, "Throughput: %f Mbit/s\n", float64(byteCount*8)/t2.Sub(t1).Seconds()/1e6)
+	fmt.Fprintf(os.Stderr, "Throughput: %f Mbit/s\n", float64(len(contentBytes)*8)/t2.Sub(t1).Seconds()/1e6)
 }
