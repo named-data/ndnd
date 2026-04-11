@@ -96,7 +96,7 @@ func (ns *NacServer) runServe(_ *cobra.Command, args []string) {
 			log.Fatal(ns, "Invalid member spec", "spec", memberSpec, "err", err)
 			return
 		}
-		if err := ks.AccessManager().AddMember(consumerKeyName, pubKey); err != nil {
+		if err := ks.AddMember(consumerKeyName, pubKey); err != nil {
 			log.Fatal(ns, "Failed to add member", "member", consumerKeyName, "err", err)
 			return
 		}

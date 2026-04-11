@@ -43,6 +43,10 @@ func (am *AccessManager) Dataset() string {
 	return am.dataset
 }
 
+func (am *AccessManager) KDKID() []byte {
+	return am.kdk.ID
+}
+
 func normalizeKeyName(name string) string {
 	return strings.TrimPrefix(name, "/")
 }

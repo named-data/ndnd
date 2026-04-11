@@ -1,6 +1,7 @@
 package nac
 
 import (
+	"crypto/ecdh"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -8,31 +9,30 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	"github.com/named-data/ndnd/std/object/storage"
 	sig "github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
 )
 
-// KeyServer serves NAC keys over NDN.
+// key server for NAC - pre-produces signed KEK/KDK data packets and serves
+// them from an in-memory store so routers can cache them
 //
-// It exposes:
-//   - KEK publicly at <access-prefix>/NAC/<dataset>/KEK/<key-id>
-//   - Encrypted KDKs at <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<member>
-//   - Enrollment at <access-prefix>/NAC/<dataset>/ENROLL
-//
-// The key server wraps an AccessManager and attaches NDN Interest handlers.
+//   KEK at <access-prefix>/NAC/<dataset>/KEK/<key-id>
+//   KDK at <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<member>
+//   ENROLL at <access-prefix>/NAC/<dataset>/ENROLL
 type KeyServer struct {
 	engine ndn.Engine
 	signer ndn.Signer
 	am     *AccessManager
+	store  *storage.MemoryStore
 
 	nacPrefix enc.Name // <access-prefix>/NAC/<dataset>
 
-	// issuedCerts maps key name prefix to certificate Data.
-	// Used to verify enrollment request signatures.
+	// ca certs for verifying enrollment signatures, keyed by key name
 	issuedCerts map[string]ndn.Data
 }
 
-// NewKeyServer creates a NAC key server for <accessPrefix>/NAC/<dataset>.
+// creates a NAC key server for <accessPrefix>/NAC/<dataset>
 func NewKeyServer(engine ndn.Engine, signer ndn.Signer, accessPrefix, dataset string) (*KeyServer, error) {
 	am, err := NewAccessManager(accessPrefix, dataset)
 	if err != nil {
@@ -49,22 +49,22 @@ func NewKeyServer(engine ndn.Engine, signer ndn.Signer, accessPrefix, dataset st
 		engine:      engine,
 		signer:      signer,
 		am:          am,
+		store:       storage.NewMemoryStore(),
 		nacPrefix:   prefix,
 		issuedCerts: make(map[string]ndn.Data),
 	}, nil
 }
 
-// AccessManager returns the underlying access manager.
+// returns the underlying access manager
 func (ks *KeyServer) AccessManager() *AccessManager {
 	return ks.am
 }
 
-// RegisterCACert registers a CA certificate as a trust anchor for verifying
-// enrollment requests. Client certificates must be signed by one of these CAs.
-// The cert is indexed by its key name (cert name minus issuer and version).
+// register a CA cert as trust anchor for enrollment verification
+// indexed by key name (cert name minus issuer and version)
 func (ks *KeyServer) RegisterCACert(cert ndn.Data) {
-	// Store by the key name (cert name minus issuer + version)
-	// e.g., /demo/KEY/<id> from /demo/KEY/<id>/NA/v=...
+	// store by key name (cert name minus issuer + version)
+	// eg /demo/KEY/<id> from /demo/KEY/<id>/NA/v=...
 	keyName := cert.Name()
 	if len(keyName) >= 2 {
 		keyName = keyName[:len(keyName)-2]
@@ -73,22 +73,23 @@ func (ks *KeyServer) RegisterCACert(cert ndn.Data) {
 	fmt.Printf("NAC KeyServer: registered CA cert: %s\n", keyName)
 }
 
-// Start registers NDN routes and attaches Interest handlers.
+// pre-produce KEK, register routes, attach handlers
 func (ks *KeyServer) Start() error {
+	// produce KEK once at startup
+	if err := ks.produceKEK(); err != nil {
+		return fmt.Errorf("failed to produce KEK: %w", err)
+	}
+
 	if err := ks.engine.RegisterRoute(ks.nacPrefix); err != nil {
 		return fmt.Errorf("failed to register route: %w", err)
 	}
 
-	kekPrefix := ks.nacPrefix.Append(enc.NewGenericComponent("KEK"))
-	if err := ks.engine.AttachHandler(kekPrefix, ks.onKEKInterest); err != nil {
-		return fmt.Errorf("failed to attach KEK handler: %w", err)
+	// one handler serves everything from the store
+	if err := ks.engine.AttachHandler(ks.nacPrefix, ks.onFetch); err != nil {
+		return fmt.Errorf("failed to attach fetch handler: %w", err)
 	}
 
-	kdkPrefix := ks.nacPrefix.Append(enc.NewGenericComponent("KDK"))
-	if err := ks.engine.AttachHandler(kdkPrefix, ks.onKDKInterest); err != nil {
-		return fmt.Errorf("failed to attach KDK handler: %w", err)
-	}
-
+	// enroll is dynamic - produces new KDK packets on demand
 	enrollPrefix := ks.nacPrefix.Append(enc.NewGenericComponent("ENROLL"))
 	if err := ks.engine.AttachHandler(enrollPrefix, ks.onEnrollInterest); err != nil {
 		return fmt.Errorf("failed to attach ENROLL handler: %w", err)
@@ -99,50 +100,75 @@ func (ks *KeyServer) Start() error {
 }
 
 func (ks *KeyServer) Stop() error {
-	ks.engine.DetachHandler(ks.nacPrefix.Append(enc.NewGenericComponent("KEK")))
-	ks.engine.DetachHandler(ks.nacPrefix.Append(enc.NewGenericComponent("KDK")))
+	ks.engine.DetachHandler(ks.nacPrefix)
 	ks.engine.DetachHandler(ks.nacPrefix.Append(enc.NewGenericComponent("ENROLL")))
 	return nil
 }
 
-// onKEKInterest handles Interest for the public KEK.
-// Interest name: <access-prefix>/NAC/<dataset>/KEK/<key-id>
-func (ks *KeyServer) onKEKInterest(args ndn.InterestHandlerArgs) {
+// sign and store the KEK data packet
+func (ks *KeyServer) produceKEK() error {
 	kek := ks.am.KEK()
-	pubKeyBytes := kek.PublicKey.Bytes()
+	kekNameStr := KEKName(ks.am.AccessPrefix(), ks.am.Dataset(), kek.ID)
+	kekName, err := enc.NameFromStr(kekNameStr)
+	if err != nil {
+		return fmt.Errorf("invalid KEK name: %w", err)
+	}
 
-	cfg := &ndn.DataConfig{
+	data, err := ks.engine.Spec().MakeData(kekName, &ndn.DataConfig{
 		ContentType: optional.Some(ndn.ContentTypeKey),
 		Freshness:   optional.Some(time.Hour),
-	}
-
-	data, err := ks.engine.Spec().MakeData(
-		args.Interest.Name(),
-		cfg,
-		enc.Wire{pubKeyBytes},
-		ks.signer,
-	)
+	}, enc.Wire{kek.PublicKey.Bytes()}, ks.signer)
 	if err != nil {
-		fmt.Printf("NAC KeyServer: failed to create KEK response: %v\n", err)
-		return
+		return fmt.Errorf("failed to sign KEK: %w", err)
 	}
 
-	args.Reply(data.Wire)
+	return ks.store.Put(kekName, data.Wire.Join())
 }
 
-// onEnrollInterest handles NAC enrollment requests.
-//
-// The client sends an Interest to <access-prefix>/NAC/<dataset>/ENROLL with AppParam
-// containing: [32 bytes X25519 public key] [certificate wire bytes]
-//
-// The server:
-//  1. Splits AppParam into X25519 key (first 32 bytes) and certificate (rest)
-//  2. Parses the certificate and verifies it was signed by the CA
-//  3. Extracts the consumer identity from the certificate name
-//  4. Registers the X25519 key as an authorized NAC member
-//
-// This ties NDNCERT identity to NAC access: only clients with CA-issued
-// certificates can enroll for encrypted content access.
+func (ks *KeyServer) produceKDK(consumerKeyName string) error {
+	encKDK, ok := ks.am.GetEncryptedKDK(consumerKeyName)
+	if !ok {
+		return fmt.Errorf("consumer not authorized: %s", consumerKeyName)
+	}
+
+	kdkNameStr := EncryptedKDKName(
+		ks.am.AccessPrefix(), ks.am.Dataset(), ks.am.KDKID(), consumerKeyName,
+	)
+	kdkName, err := enc.NameFromStr(kdkNameStr)
+	if err != nil {
+		return fmt.Errorf("invalid KDK name: %w", err)
+	}
+
+	data, err := ks.engine.Spec().MakeData(kdkName, &ndn.DataConfig{
+		ContentType: optional.Some(ndn.ContentTypeKey),
+		Freshness:   optional.Some(time.Hour),
+	}, enc.Wire{encKDK}, ks.signer)
+	if err != nil {
+		return fmt.Errorf("failed to sign KDK: %w", err)
+	}
+
+	return ks.store.Put(kdkName, data.Wire.Join())
+}
+
+// AddMember authorizes a consumer and produces their signed KDK Data packet.
+func (ks *KeyServer) AddMember(consumerKeyName string, consumerPubKey *ecdh.PublicKey) error {
+	if err := ks.am.AddMember(consumerKeyName, consumerPubKey); err != nil {
+		return err
+	}
+	return ks.produceKDK(normalizeKeyName(consumerKeyName))
+}
+
+// serve pre-produced packets from the store
+func (ks *KeyServer) onFetch(args ndn.InterestHandlerArgs) {
+	data, err := ks.store.Get(args.Interest.Name(), args.Interest.CanBePrefix())
+	if err != nil || data == nil {
+		return
+	}
+	args.Reply(enc.Wire{data})
+}
+
+// handle enrollment - client sends [32B x25519 pubkey][cert wire] to ENROLL
+// server verifies cert against CA, authorizes consumer, produces KDK packet
 func (ks *KeyServer) onEnrollInterest(args ndn.InterestHandlerArgs) {
 	fmt.Printf("NAC ENROLL: handler invoked for %s\n", args.Interest.Name())
 	appParam := args.Interest.AppParam()
@@ -154,7 +180,7 @@ func (ks *KeyServer) onEnrollInterest(args ndn.InterestHandlerArgs) {
 
 	payload := appParam.Join()
 
-	// AppParam format: [32-byte X25519 pubkey][certificate wire]
+	// [32-byte x25519 pubkey][certificate wire]
 	if len(payload) < 33 {
 		fmt.Println("NAC ENROLL: AppParam too short")
 		ks.replyEnrollError(args, "AppParam too short")
@@ -164,7 +190,7 @@ func (ks *KeyServer) onEnrollInterest(args ndn.InterestHandlerArgs) {
 	x25519PubBytes := payload[:32]
 	certWireBytes := payload[32:]
 
-	// Parse the X25519 public key
+	// parse x25519 pubkey
 	consumerPubKey, err := DeserializePublicKey(x25519PubBytes)
 	if err != nil {
 		fmt.Printf("NAC ENROLL: invalid X25519 key: %v\n", err)
@@ -172,7 +198,7 @@ func (ks *KeyServer) onEnrollInterest(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	// Parse the client's certificate
+	// parse client cert
 	clientCert, sigCovered, err := spec.Spec{}.ReadData(enc.NewBufferView(certWireBytes))
 	if err != nil {
 		fmt.Printf("NAC ENROLL: failed to parse certificate: %v\n", err)
@@ -182,8 +208,7 @@ func (ks *KeyServer) onEnrollInterest(args ndn.InterestHandlerArgs) {
 
 	fmt.Printf("NAC ENROLL: request from %s\n", clientCert.Name())
 
-	// Verify the certificate was signed by our CA
-	// Look up the CA cert that matches the signer key name
+	// verify cert was signed by a registered CA
 	signerKeyName := clientCert.Signature().KeyName()
 	caCert, ok := ks.issuedCerts[signerKeyName.String()]
 	if !ok {
@@ -199,16 +224,14 @@ func (ks *KeyServer) onEnrollInterest(args ndn.InterestHandlerArgs) {
 		return
 	}
 
-	// Derive consumer key name from the certificate
-	// Certificate name: /demo/emmettlsc.com/KEY/<id>/NDNCERT/v=...
-	// Key name (strip issuer + version): /demo/emmettlsc.com/KEY/<id>
+	// derive consumer key name from cert (strip issuer + version suffix)
 	consumerKeyName := clientCert.Name()
 	if len(consumerKeyName) >= 2 {
 		consumerKeyName = consumerKeyName[:len(consumerKeyName)-2]
 	}
 
-	// Add as authorized member
-	if err := ks.am.AddMember(consumerKeyName.String(), consumerPubKey); err != nil {
+	// authorize and produce KDK data packet
+	if err := ks.AddMember(consumerKeyName.String(), consumerPubKey); err != nil {
 		fmt.Printf("NAC ENROLL: failed to add member: %v\n", err)
 		ks.replyEnrollError(args, "enrollment failed")
 		return
@@ -217,11 +240,11 @@ func (ks *KeyServer) onEnrollInterest(args ndn.InterestHandlerArgs) {
 	fmt.Printf("NAC ENROLL: SUCCESS - enrolled %s (X25519 pub: %s)\n",
 		consumerKeyName, hex.EncodeToString(x25519PubBytes))
 
-	// Reply with success + KEK public key so client knows the encryption key
+	// reply with KEK pub + ID so client can encrypt
 	kek := ks.am.KEK()
 	kekPubBytes := kek.PublicKey.Bytes()
 	kekIDBytes := kek.ID
-	// Response: "OK:" + KEK pub (32 bytes) + KEK ID (16 bytes)
+	// "OK:" + KEK pub (32 bytes) + KEK ID (16 bytes)
 	response := append([]byte("OK:"), kekPubBytes...)
 	response = append(response, kekIDBytes...)
 
@@ -257,40 +280,3 @@ func (ks *KeyServer) replyEnrollError(args ndn.InterestHandlerArgs, msg string) 
 	args.Reply(data.Wire)
 }
 
-// onKDKInterest handles Interest for encrypted KDKs.
-// Interest name: <access-prefix>/NAC/<dataset>/KDK/<key-id>/ENCRYPTED-BY/<consumer-key-name>
-func (ks *KeyServer) onKDKInterest(args ndn.InterestHandlerArgs) {
-	name := args.Interest.Name()
-
-	// Parse the consumer key name from the /ENCRYPTED-BY/ component
-	nameStr := name.String()
-	_, consumerKeyName, err := ParseEncryptedByName(nameStr)
-	if err != nil {
-		fmt.Printf("NAC KeyServer: invalid KDK Interest name: %s\n", nameStr)
-		return
-	}
-
-	// Look up the encrypted KDK for this consumer
-	encKDK, ok := ks.am.GetEncryptedKDK(consumerKeyName)
-	if !ok {
-		fmt.Printf("NAC KeyServer: unauthorized consumer: %s\n", consumerKeyName)
-		return // Silently drop - unauthorized consumer gets no response
-	}
-
-	cfg := &ndn.DataConfig{
-		Freshness: optional.Some(time.Hour),
-	}
-
-	data, err := ks.engine.Spec().MakeData(
-		args.Interest.Name(),
-		cfg,
-		enc.Wire{encKDK},
-		ks.signer,
-	)
-	if err != nil {
-		fmt.Printf("NAC KeyServer: failed to create KDK response: %v\n", err)
-		return
-	}
-
-	args.Reply(data.Wire)
-}
