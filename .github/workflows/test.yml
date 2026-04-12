@@ -90,18 +90,9 @@ jobs:
       - name: Run e2e tests
         run: make e2e
 
-      - name: Collect minindn logs on failure
-        if: failure()
-        run: |
-          if [ -d /tmp/minindn ]; then
-            tar -czf /tmp/minindn-logs.tgz -C /tmp minindn
-          else
-            echo "No /tmp/minindn directory found"
-          fi
-
-      - name: Upload minindn logs
+      - name: Upload minindn logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: minindn-logs
-          path: /tmp/minindn-logs.tgz
+          path: /tmp/minindn
