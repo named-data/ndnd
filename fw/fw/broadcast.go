@@ -69,24 +69,63 @@ func (s *BroadcastStrategy) AfterReceiveMulticastInterest(
 	core.Log.Trace(s, "Broadcast multicast dispatch",
 		"name", packet.Name,
 		"deliveredToLocal", deliveredToLocal,
+		"petEgress", len(petEntry.EgressRouters),
+		"petNextHops", len(petEntry.NextHops),
 	)
+
 	seen := make(map[uint64]struct{})
-	for _, entry := range table.FibStrategyTable.GetAllFIBEntries() {
-		for _, nextHop := range entry.GetNextHops() {
-			if _, ok := seen[nextHop.Nexthop]; ok {
-				continue
-			}
-			seen[nextHop.Nexthop] = struct{}{}
+	sent := 0
 
-			if nextHop.Nexthop == packet.IncomingFaceID {
+	for _, egress := range petEntry.EgressRouters {
+		nextHops := table.FibStrategyTable.FindNextHopsEnc(egress)
+		core.Log.Trace(s, "Resolved broadcast PET egress",
+			"name", packet.Name,
+			"egress", egress,
+			"fibNextHops", len(nextHops),
+		)
+
+		for _, nextHop := range nextHops {
+			faceID := nextHop.Nexthop
+			if _, ok := seen[faceID]; ok {
+				continue
+			}
+			seen[faceID] = struct{}{}
+
+			if faceID == packet.IncomingFaceID {
+				core.Log.Trace(s, "Skipping broadcast face: incoming face",
+					"name", packet.Name,
+					"faceid", faceID,
+					"egress", egress,
+				)
 				continue
 			}
 
-			if pitEntry.InRecords()[nextHop.Nexthop] != nil {
+			if pitEntry.InRecords()[faceID] != nil {
+				core.Log.Trace(s, "Skipping broadcast face: already pending",
+					"name", packet.Name,
+					"faceid", faceID,
+					"egress", egress,
+				)
 				continue
 			}
-			s.SendInterest(packet, pitEntry, nextHop.Nexthop, inFace)
+
+			core.Log.Trace(s, "Broadcast forwarding Interest",
+				"name", packet.Name,
+				"faceid", faceID,
+				"egress", egress,
+			)
+			if s.SendInterest(packet, pitEntry, faceID, inFace) {
+				sent++
+			}
 		}
+	}
+
+	if sent == 0 {
+		core.Log.Warn(s, "Broadcast multicast had no eligible PET-scoped nexthops",
+			"name", packet.Name,
+			"deliveredToLocal", deliveredToLocal,
+			"petEgress", len(petEntry.EgressRouters),
+		)
 	}
 }
 
