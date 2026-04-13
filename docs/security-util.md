@@ -89,7 +89,7 @@ Export a certificate from the keychain.
 
 ```bash
 # Export a specific certificate from a keychain
-ndnd sec cert-delete dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E/self/v=1
+ndnd sec cert-export dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E/self/v=1
 ```
 
 ## `ndnd sec cert-delete`
