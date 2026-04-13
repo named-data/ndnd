@@ -233,7 +233,15 @@ func (*ToolKeychain) ExportCert(_ *cobra.Command, args []string) {
 		return
 	}
 
-	wire, err := kc.Store().Get(name.Prefix(-1), true)
+	if name.At(-1).String() == "v=0" {
+		name = name.Prefix(-1)
+	}
+
+	wire, err := kc.Store().Get(name, false)
+	if err == nil && wire == nil {
+		wire, err = kc.Store().Get(name, true)
+	}
+
 	if err != nil || wire == nil {
 		fmt.Fprintf(os.Stderr, "Certificate not found: %s\n", name)
 		os.Exit(1)
