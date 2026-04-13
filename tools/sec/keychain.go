@@ -233,6 +233,10 @@ func (*ToolKeychain) ExportCert(_ *cobra.Command, args []string) {
 		return
 	}
 
+	if name.At(-1).Typ == enc.TypeImplicitSha256DigestComponent {
+		name = name.Prefix(-1)
+	}
+
 	if name.At(-1).String() == "v=0" {
 		name = name.Prefix(-1)
 	}
