@@ -236,6 +236,8 @@ func (*ToolKeychain) ExportCert(_ *cobra.Command, args []string) {
 	wire, err := kc.Store().Get(name.Prefix(-1), true)
 	if err != nil || wire == nil {
 		fmt.Fprintf(os.Stderr, "Certificate not found: %s\n", name)
+		os.Exit(1)
+		return
 	}
 
 	out, err := security.PemEncode(enc.Wire{wire}.Join())
