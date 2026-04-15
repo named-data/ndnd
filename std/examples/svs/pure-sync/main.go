@@ -16,12 +16,6 @@ import (
 
 // (AI GENERATED DESCRIPTION): Launches an SVSync client that announces the `/ndn/svs` prefix and publishes a new sequence number for the supplied node name every three seconds.
 func main() {
-	// Before running this example, make sure the strategy is correctly setup
-	// to multicast for the sync prefix. For example, using the following:
-	//
-	//   ndnd fw strategy-set prefix=/ndn/svs/32=svs strategy=/localhost/nfd/strategy/multicast
-	//
-
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <name>", os.Args[0])
 		os.Exit(1)
@@ -64,7 +58,11 @@ func main() {
 	})
 
 	// Announce group prefix route
-	client.AnnouncePrefix(ndn.Announcement{Name: group})
+	client.AnnouncePrefix(ndn.Announcement{
+		Expose:    true,
+		Name:      group,
+		Multicast: true,
+	})
 	defer client.WithdrawPrefix(group, nil)
 
 	err = svsync.Start()
