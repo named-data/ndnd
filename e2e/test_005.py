@@ -30,7 +30,7 @@ def _wait_for_log_message(node, log_path: str, expected_msg: str, deadline: floa
         match = node.cmd(f"grep -F '{expected_msg}' {log_path} | tail -1").strip()
         if match:
             return match
-        time.sleep(0.2)
+        time.sleep(0.05)
     return None
 
 
@@ -38,8 +38,9 @@ def scenario(ndn: Minindn, network="/minindn"):
     """
     BIER SVS test using the std/examples alo-latest application.
 
-    Starts a alo-latest chat instance on 8 chatter nodes and sends a message
-    from one node. Then it verifies that all nodes receive the message.
+    Starts alo-latest chat instances on 8 chatter nodes, sends two messages
+    from each of two producers, and verifies that all consumers receive all
+    four messages.
     """
 
     _require_alo_latest()
@@ -59,14 +60,14 @@ def scenario(ndn: Minindn, network="/minindn"):
     dv_util.populate_bift(hosts, bier_map, network=network)
 
     chatters = random.sample(sorted(hosts, key=lambda h: h.name), min(8, len(hosts)))
-    producer = chatters[0]
-    consumers = chatters[1:]
+    producers = chatters[:2]
+    consumers = chatters[2:]
     sync_prefix = "/ndn/svs/32=svs"
     procs = {}
     logs = {}
 
     info(
-        f"Starting alo-latest on {len(chatters)} chatters; producer={producer.name}, "
+        f"Starting alo-latest on {len(chatters)} chatters; producers={[node.name for node in producers]}, "
         f"consumers={[node.name for node in consumers]}\n"
     )
     for node in chatters:
@@ -90,25 +91,30 @@ def scenario(ndn: Minindn, network="/minindn"):
     # replicated everywhere so the first publication uses the BIER path.
     dv_util.wait_prefix_pet_ready({node: {sync_prefix} for node in hosts}, deadline=180)
 
-    msg = f"svs-msg-from-{producer.name}"
-    info(f"Publishing test message from {producer.name}: {msg}\n")
-    procs[producer].stdin.write(msg + "\n")
-    procs[producer].stdin.flush()
+    expected_messages = []
+    for producer in producers:
+        for idx in range(2):
+            msg = f"svs-msg-from-{producer.name}-{idx}"
+            expected_messages.append((producer, msg))
+            info(f"Publishing test message from {producer.name}: {msg}\n")
+            procs[producer].stdin.write(msg + "\n")
+            procs[producer].stdin.flush()
 
     failures = []
     beginning = time.time()
-    deadline = beginning + 90
+    deadline = beginning + 120
     def test_consumer(consumer):
-        received = _wait_for_log_message(consumer, logs[consumer], msg, deadline)
-        elapsed = time.time() - beginning
-        if received is None:
-            failures.append(
-                f"{consumer.name} did not receive {msg!r}\n"
-                f"log tail:\n{consumer.cmd(f'tail -40 {logs[consumer]} 2>/dev/null || true')}"
-            )
-            info(f"  [FAIL] t={elapsed:.2f} {consumer.name}\n")
-        else:
-            info(f"  [OK]   t={elapsed:.2f} {consumer.name}: {received}\n")
+        for producer, msg in expected_messages:
+            received = _wait_for_log_message(consumer, logs[consumer], msg, deadline)
+            elapsed = time.time() - beginning
+            if received is None:
+                failures.append(
+                    f"{consumer.name} did not receive {msg!r} from {producer.name}\n"
+                    f"log tail:\n{consumer.cmd(f'tail -80 {logs[consumer]} 2>/dev/null || true')}"
+                )
+                info(f"  [FAIL] t={elapsed:.2f} {consumer.name}: missing {msg}\n")
+            else:
+                info(f"  [OK]   t={elapsed:.2f} {consumer.name}: {received}\n")
 
     threads = []
     for consumer in consumers:
@@ -129,9 +135,9 @@ def scenario(ndn: Minindn, network="/minindn"):
 
     if failures:
         raise Exception(
-            f"alo-latest SVS smoke test failed: {len(failures)}/{len(consumers)} consumers\n"
+            f"alo-latest SVS test failed: {len(failures)} missing deliveries across {len(consumers)} consumers\n"
             + "\n".join(failures)
             + dv_util.dump_bier_logs(chatters, label="alo-latest")
         )
 
-    info("alo-latest SVS smoke test passed: all consumers received the publication\n")
+    info("alo-latest SVS test passed: all consumers received both producers' messages\n")
