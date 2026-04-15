@@ -70,7 +70,7 @@ def scenario(ndn: Minindn, network="/minindn"):
         f"consumers={[node.name for node in consumers]}\n"
     )
     for node in chatters:
-        log_path = f"/tmp/alo-latest-{node.name}.log"
+        log_path = f"/tmp/minindn/{node.name}/alo-latest.log"
         logs[node] = log_path
         node.cmd(f"rm -f {log_path}")
         procs[node] = node.popen(
