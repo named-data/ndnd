@@ -75,7 +75,7 @@ func Cmds() []*cobra.Command {
 		Short: "Register a router BFR-ID",
 		Args:  cobra.ArbitraryArgs,
 		Run: cmd("bift", "register", []string{
-			"cost=0",
+			"index=0",
 		}),
 	}, {
 		Use:   "bift-rebuild",

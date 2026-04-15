@@ -190,6 +190,8 @@ func (n *Tool) convCmdArg(ctrlArgs *mgmt.ControlArgs, key string, val string) {
 		ctrlArgs.Name = parseName(val)
 	case "egress":
 		ctrlArgs.Egress = &mgmt.EgressRecord{Name: parseName(val)}
+	case "index":
+		ctrlArgs.Cost = optional.Some(parseUint(val))
 	case "cost":
 		ctrlArgs.Cost = optional.Some(parseUint(val))
 	case "origin":
