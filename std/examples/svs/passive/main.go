@@ -66,7 +66,11 @@ func main() {
 	})
 
 	// Announce group prefix route
-	client.AnnouncePrefix(ndn.Announcement{Name: group})
+	client.AnnouncePrefix(ndn.Announcement{
+		Expose:    true,
+		Name:      group,
+		Multicast: true,
+	})
 	defer client.WithdrawPrefix(group, nil)
 
 	err = svsync.Start()

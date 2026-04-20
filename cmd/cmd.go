@@ -51,7 +51,6 @@ func init() {
 	CmdNDNd.AddCommand(tools.CmdPingServer())
 	CmdNDNd.AddCommand(tools.CmdCatChunks())
 	CmdNDNd.AddCommand(tools.CmdPutChunks())
-	CmdNDNd.AddCommand(tools.CmdSvsChat())
 }
 
 // (AI GENERATED DESCRIPTION): Creates the top‑level “fw” command for managing the NDN Forwarding Daemon, adding a “run” subcommand to start the daemon and a set of “nfdc” control subcommands for configuring it.

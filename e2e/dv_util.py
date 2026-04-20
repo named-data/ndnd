@@ -94,7 +94,7 @@ def populate_bift(nodes: list[Node], bier_map: dict, network=DEFAULT_NETWORK):
     for node in nodes:
         for router, idx in bier_map.items():
             router_name = f'{network}/{router.name}'
-            node.cmd(f'ndnd fw bift-register prefix="{router_name}" cost={idx}')
+            node.cmd(f'ndnd fw bift-register prefix="{router_name}" index={idx}')
         node.cmd('ndnd fw bift-rebuild')
     info('BIFT populated on all nodes\n')
 

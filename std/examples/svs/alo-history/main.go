@@ -34,12 +34,6 @@ func main() {
 	// The SnapshotNodeHistory strategy will deliver all publications since the
 	// node bootstrapped. This strategy is useful when the application cannot
 	// take a snapshot of its state, and the publication history is important.
-	//
-	// Before running this example, make sure the strategy is correctly setup
-	// to multicast for the sync prefix. For example, using the following:
-	//
-	//   ndnd fw strategy-set prefix=/ndn/svs/32=svs strategy=/localhost/nfd/strategy/multicast
-	//
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <name>", os.Args[0])
 		os.Exit(1)
@@ -137,13 +131,18 @@ func main() {
 	})
 
 	// Announce our name prefixes to the network
-	for _, route := range []enc.Name{
-		svsalo.SyncPrefix(),
-		svsalo.DataPrefix(),
-	} {
-		client.AnnouncePrefix(ndn.Announcement{Name: route})
-		defer client.WithdrawPrefix(route, nil)
-	}
+	client.AnnouncePrefix(ndn.Announcement{
+		Name:      svsalo.SyncPrefix(),
+		Expose:    true,
+		Multicast: true,
+	})
+	defer client.WithdrawPrefix(svsalo.SyncPrefix(), nil)
+
+	client.AnnouncePrefix(ndn.Announcement{
+		Name:   svsalo.DataPrefix(),
+		Expose: true,
+	})
+	defer client.WithdrawPrefix(svsalo.DataPrefix(), nil)
 
 	if err = svsalo.Start(); err != nil {
 		log.Error(nil, "Unable to start SVS ALO", "err", err)

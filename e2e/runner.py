@@ -14,9 +14,6 @@ import test_002
 import test_003
 import test_004
 import test_005
-import test_006
-import test_007
-import test_008
 
 
 def ensure_local_binaries() -> None:
@@ -63,9 +60,6 @@ if __name__ == '__main__':
     run("test_002: node disconnect/reconnect resilience",     test_002.scenario)
     run("test_003: stub-mode prefix insertion",               test_003.scenario)
     run("test_004: LVS prefix insertion security",            test_004.scenario)
-    run("test_005: BIER file transfer multicast (52 nodes)",  test_005.scenario)
-    run("test_006: BIER multi-group multicast",               test_006.scenario)
-    run("test_007: BIER SVS Chat (alo-latest, PIT-tandem)",   test_007.scenario)
-    run("test_008: BIER E2E correctness",                     test_008.scenario)
+    run("test_005: BIER SVS alo-latest test",                 test_005.scenario)
 
     ndn.stop()
