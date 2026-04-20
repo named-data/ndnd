@@ -83,6 +83,7 @@ A full configuration example can be found in [fw/yanfd.sample.yml](fw/yanfd.samp
 Note that the default configuration may require root privileges to bind to multicast interfaces.
 
 Once started, you can use the [forwarder control](docs/fw-control.md) tool to manage faces and routes.
+For BIER-specific operator guidance (efficient multicast interest support), see [docs/bier.md](docs/bier.md).
 
 ## 📡 Distance Vector Router
 
