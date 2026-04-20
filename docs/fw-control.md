@@ -98,6 +98,29 @@ The fib-list command prints the existing FIB entries.
 
 The pet-list command prints the existing PET entries.
 
+## `ndnd fw bift-register`
+
+The bift-register command registers a router name with a BFR-ID in the Bit Index
+Forwarding Table (BIFT). The supported arguments are:
+
+- `prefix=<router-name>`: The router name to register.
+- `index=<bfr-id>`: The BFR-ID to assign to the router (default=`0`).
+
+```bash
+# Register router /ndn/router/A with BFR-ID 1
+ndnd fw bift-register prefix=/ndn/router/A index=1
+```
+
+## `ndnd fw bift-rebuild`
+
+The bift-rebuild command rebuilds the BIFT forwarding state from the current FIB
+and PET contents.
+
+```bash
+# Rebuild the BIFT after updating routes or PET entries
+ndnd fw bift-rebuild
+```
+
 ## `ndnd fw pet-add-egress`
 
 The pet-add-egress command adds an egress router to a PET entry. The supported arguments are:
