@@ -125,11 +125,16 @@ ndnd fw bift-rebuild
 
 The pet-add-egress command adds an egress router to a PET entry. The supported arguments are:
 
-- `prefix=<prefix>` The name prefix of the PET entry.
-- `egress=<egress-name>` The egress name
+- `prefix=<prefix>`: The name prefix of the PET entry.
+- `egress=<egress-name>`: The egress router name.
+- `multicast=<true|false>`: Whether the egress should be marked for multicast interest forwarding (default=`false`).
 
 ```bash
-./ndnd fw pet-add-egress prefix=/example egress=/egress-name
+# Add a unicast egress to a PET entry
+ndnd fw pet-add-egress prefix=/example egress=/egress-name
+
+# Add a multicast egress to a PET entry
+ndnd fw pet-add-egress prefix=/example egress=/egress-name multicast=true
 ```
 
 ## `ndnd fw pet-remove-egress`
