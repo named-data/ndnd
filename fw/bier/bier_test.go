@@ -248,6 +248,57 @@ func TestBiftConstruction(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("Status", func(t *testing.T) {
+		snapshot := &bier.BiftState{}
+		r0 := enc.Name{enc.NewGenericComponent("router0")}
+		r1 := enc.Name{enc.NewGenericComponent("router1")}
+		r5 := enc.Name{enc.NewGenericComponent("router5")}
+
+		snapshot.RegisterRouter(r5, 5)
+		snapshot.RegisterRouter(r1, 1)
+		snapshot.RegisterRouter(r0, 0)
+		snapshot.UpdateNextHop(5, 200)
+		snapshot.UpdateNextHop(1, 100)
+		snapshot.UpdateNextHop(0, 100)
+		snapshot.RebuildFbm()
+
+		status := snapshot.Status()
+		if len(status.Entries) != 3 {
+			t.Fatalf("Expected 3 status entries, got %d", len(status.Entries))
+		}
+		if status.Entries[0].BfrId != 0 || status.Entries[1].BfrId != 1 || status.Entries[2].BfrId != 5 {
+			t.Fatalf("Status entries not sorted by BFR-ID: %+v", status.Entries)
+		}
+		if status.Entries[0].RouterName != r0.String() {
+			t.Fatalf("Unexpected router name for index 0: got %s want %s", status.Entries[0].RouterName, r0)
+		}
+		if len(status.Entries[0].NextHops) != 1 || status.Entries[0].NextHops[0] != 100 {
+			t.Fatalf("Unexpected next-hops for index 0: %+v", status.Entries[0].NextHops)
+		}
+		if len(status.Entries[0].FbmBits) != 2 || status.Entries[0].FbmBits[0] != 0 || status.Entries[0].FbmBits[1] != 1 {
+			t.Fatalf("Unexpected F-BM bits for index 0: %+v", status.Entries[0].FbmBits)
+		}
+		if len(status.Entries[2].NextHops) != 1 || status.Entries[2].NextHops[0] != 200 {
+			t.Fatalf("Unexpected next-hops for index 5: %+v", status.Entries[2].NextHops)
+		}
+		if len(status.Entries[2].FbmBits) != 1 || status.Entries[2].FbmBits[0] != 5 {
+			t.Fatalf("Unexpected F-BM bits for index 5: %+v", status.Entries[2].FbmBits)
+		}
+
+		if len(status.Neighbors) != 2 {
+			t.Fatalf("Expected 2 BIFT neighbors, got %d", len(status.Neighbors))
+		}
+		if status.Neighbors[0].FaceID != 100 || status.Neighbors[1].FaceID != 200 {
+			t.Fatalf("Neighbors not sorted by face ID: %+v", status.Neighbors)
+		}
+		if len(status.Neighbors[0].FbmBits) != 2 || status.Neighbors[0].FbmBits[0] != 0 || status.Neighbors[0].FbmBits[1] != 1 {
+			t.Fatalf("Unexpected neighbor F-BM bits for face 100: %+v", status.Neighbors[0].FbmBits)
+		}
+		if len(status.Neighbors[1].FbmBits) != 1 || status.Neighbors[1].FbmBits[0] != 5 {
+			t.Fatalf("Unexpected neighbor F-BM bits for face 200: %+v", status.Neighbors[1].FbmBits)
+		}
+	})
 }
 
 // TestBierReplicationMask tests the replication mask computation

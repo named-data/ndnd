@@ -11,4 +11,6 @@ fw:
   bier_index: 3
 ```
 
-Currently, on each router in a BIER-enabled network, operator must run `ndnd fw bift-register prefix=<router-name> index=<bfr-id>` for every `(router-name, bfr-id)` that exists in the network, then build the BIFT (BIER state representing forwarding trees) using `ndnd fw bift-rebuild`
+Currently, on each router in a BIER-enabled network, operator must run `ndnd fw bift-register prefix=<router-name> index=<bfr-id>` for every `(router-name, bfr-id)` that exists in the network, then build the BIFT (BIER state representing forwarding trees) using `ndnd fw bift-rebuild`.
+
+To inspect the resulting forwarding state, use `ndnd fw bift-list`.

@@ -26,6 +26,27 @@ type BiftEntry struct {
 	Fbm        []byte   // Forwarding Bit Mask for this neighbor
 }
 
+// BiftStatusEntry is a JSON-friendly snapshot of one BIFT entry.
+type BiftStatusEntry struct {
+	BfrId      int      `json:"bfr_id"`
+	RouterName string   `json:"router_name"`
+	NextHops   []uint64 `json:"next_hops"`
+	FbmBits    []int    `json:"fbm_bits"`
+}
+
+// BiftStatusNeighbor is a JSON-friendly snapshot of one BIFT neighbor entry.
+type BiftStatusNeighbor struct {
+	FaceID  uint64 `json:"face_id"`
+	FbmBits []int  `json:"fbm_bits"`
+}
+
+// BiftStatus is a JSON-friendly snapshot of the current BIFT state.
+type BiftStatus struct {
+	BierIndex int                  `json:"bier_index"`
+	Entries   []BiftStatusEntry    `json:"entries"`
+	Neighbors []BiftStatusNeighbor `json:"neighbors"`
+}
+
 // Bift is the global Bit Index Forwarding Table.
 var Bift = &BiftState{}
 
@@ -235,6 +256,69 @@ func (b *BiftState) BuildFromFib() {
 	}
 
 	b.RebuildFbm()
+}
+
+func bitPositions(bs []byte) []int {
+	positions := make([]int, 0)
+	for byteIdx, value := range bs {
+		if value == 0 {
+			continue
+		}
+		for bitIdx := 0; bitIdx < 8; bitIdx++ {
+			if value&(1<<uint(bitIdx)) != 0 {
+				positions = append(positions, (byteIdx*8)+bitIdx)
+			}
+		}
+	}
+	return positions
+}
+
+// Status returns a deterministic snapshot of the current BIFT state.
+func (b *BiftState) Status() BiftStatus {
+	b.mu.RLock()
+	entries := make([]*BiftEntry, 0, len(b.entries))
+	for _, entry := range b.entries {
+		cloned := *entry
+		cloned.RouterName = entry.RouterName.Clone()
+		cloned.Fbm = BierClone(entry.Fbm)
+		entries = append(entries, &cloned)
+	}
+	b.mu.RUnlock()
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].BfrId < entries[j].BfrId
+	})
+
+	status := BiftStatus{
+		BierIndex: CfgBierIndex(),
+		Entries:   make([]BiftStatusEntry, 0, len(entries)),
+	}
+	for _, entry := range entries {
+		nextHops := make([]uint64, 0, 1)
+		if entry.NextHop > 0 {
+			nextHops = append(nextHops, entry.NextHop)
+		}
+		status.Entries = append(status.Entries, BiftStatusEntry{
+			BfrId:      entry.BfrId,
+			RouterName: entry.RouterName.String(),
+			NextHops:   nextHops,
+			FbmBits:    bitPositions(entry.Fbm),
+		})
+	}
+
+	neighbors := b.GetNeighborEntries()
+	sort.Slice(neighbors, func(i, j int) bool {
+		return neighbors[i].FaceID < neighbors[j].FaceID
+	})
+	status.Neighbors = make([]BiftStatusNeighbor, 0, len(neighbors))
+	for _, neighbor := range neighbors {
+		status.Neighbors = append(status.Neighbors, BiftStatusNeighbor{
+			FaceID:  neighbor.FaceID,
+			FbmBits: bitPositions(neighbor.Fbm),
+		})
+	}
+
+	return status
 }
 
 // GetRouterBfrId returns the BFR-ID for a given router name.

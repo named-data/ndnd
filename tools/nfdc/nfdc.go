@@ -19,7 +19,7 @@ func Cmds() []*cobra.Command {
 		}
 	}
 
-	return []*cobra.Command{{
+	cmds := []*cobra.Command{{
 		Use:   "status",
 		Short: "Print general status",
 		Args:  cobra.NoArgs,
@@ -65,23 +65,13 @@ func Cmds() []*cobra.Command {
 		Short: "Print FIB entries",
 		Args:  cobra.NoArgs,
 		Run:   t.ExecFibList,
-	}, {
+	}}
+	cmds = append(cmds, t.BiftCmds()...)
+	cmds = append(cmds, []*cobra.Command{{
 		Use:   "pet-list",
 		Short: "Print Prefix Egress Table (PET) entries",
 		Args:  cobra.NoArgs,
 		Run:   t.ExecPetList,
-	}, {
-		Use:   "bift-register [params]",
-		Short: "Register a router BFR-ID",
-		Args:  cobra.ArbitraryArgs,
-		Run: cmd("bift", "register", []string{
-			"index=0",
-		}),
-	}, {
-		Use:   "bift-rebuild",
-		Short: "Rebuild BIFT from FIB/PET",
-		Args:  cobra.NoArgs,
-		Run:   cmd("bift", "rebuild", []string{}),
 	}, {
 		Use:   "pet-add-egress [params]",
 		Short: "Add an egress router to the Prefix Egress Table (PET)",
@@ -124,7 +114,8 @@ func Cmds() []*cobra.Command {
 		Short: "Unset strategy choice",
 		Args:  cobra.ArbitraryArgs,
 		Run:   cmd("strategy-choice", "unset", []string{}),
-	}}
+	}}...)
+	return cmds
 }
 
 type Tool struct {

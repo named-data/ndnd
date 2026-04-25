@@ -12,12 +12,19 @@ from fw import NDNd_FW
 import dv_util
 
 
-def _require_alo_latest() -> None:
-    alo_bin_path = Path.cwd() / ".bin" / "alo-latest"
-    if not alo_bin_path.exists():
-        raise RuntimeError(
-            f"alo-latest not found at {alo_bin_path}; build it with `make examples`"
-        )
+def _ensure_alo_latest() -> Path:
+    repo_root = Path(__file__).resolve().parent.parent
+    alo_bin_path = repo_root / ".bin" / "alo-latest"
+    if alo_bin_path.exists():
+        return alo_bin_path
+
+    info("Building local alo-latest binary for test_005\n")
+    alo_bin_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.check_call(
+        ["go", "build", "-o", str(alo_bin_path), "./std/examples/svs/alo-latest"],
+        cwd=repo_root,
+    )
+    return alo_bin_path
 
 
 def _assign_bier_indices(hosts):
@@ -43,7 +50,7 @@ def scenario(ndn: Minindn, network="/minindn"):
     four messages.
     """
 
-    _require_alo_latest()
+    alo_bin_path = _ensure_alo_latest()
 
     hosts = ndn.net.hosts
     if len(hosts) < 4:
@@ -80,7 +87,7 @@ def scenario(ndn: Minindn, network="/minindn"):
                 "-lc",
                 (
                     f'export HOME="/tmp/minindn/{node.name}"; '
-                    f'exec alo-latest /{node.name} > "{log_path}" 2>&1'
+                    f'exec "{alo_bin_path}" /{node.name} > "{log_path}" 2>&1'
                 ),
             ],
             stdin=subprocess.PIPE,

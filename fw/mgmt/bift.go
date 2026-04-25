@@ -8,8 +8,11 @@
 package mgmt
 
 import (
+	"encoding/json"
+
 	"github.com/named-data/ndnd/fw/bier"
 	"github.com/named-data/ndnd/fw/core"
+	enc "github.com/named-data/ndnd/std/encoding"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	"github.com/named-data/ndnd/std/types/optional"
 )
@@ -49,6 +52,8 @@ func (b *BiftModule) handleIncomingInterest(interest *Interest) {
 		b.registerRouter(interest)
 	case "rebuild":
 		b.rebuild(interest)
+	case "list":
+		b.list(interest)
 	default:
 		b.manager.sendCtrlResp(interest, 501, "Unknown verb", nil)
 		return
@@ -92,4 +97,22 @@ func (b *BiftModule) rebuild(interest *Interest) {
 	core.Log.Info(b, "Rebuilt BIFT from FIB")
 
 	b.manager.sendCtrlResp(interest, 200, "OK", &mgmt.ControlArgs{})
+}
+
+func (b *BiftModule) list(interest *Interest) {
+	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
+		// Ignore because contains version and/or segment components
+		return
+	}
+
+	status, err := json.Marshal(bier.Bift.Status())
+	if err != nil {
+		b.manager.sendCtrlResp(interest, 500, "Unable to encode BIFT status", nil)
+		return
+	}
+
+	name := LOCAL_PREFIX.
+		Append(enc.NewGenericComponent("bift")).
+		Append(enc.NewGenericComponent("list"))
+	b.manager.sendStatusDataset(interest, name, enc.Wire{status})
 }

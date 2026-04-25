@@ -94,6 +94,11 @@ ndnd fw route-remove prefix=/example face=6 origin=65
 
 The fib-list command prints the existing FIB entries.
 
+## `ndnd fw bift-list`
+
+The bift-list command prints the current Bit Index Forwarding Table (BIFT)
+entries, including each router's BFR-ID, next-hop face ID, and forwarding bit mask.
+
 ## `ndnd fw pet-list`
 
 The pet-list command prints the existing PET entries.
