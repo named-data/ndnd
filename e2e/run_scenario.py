@@ -10,6 +10,7 @@ from pathlib import Path
 
 from mininet.log import info, setLogLevel
 from minindn.minindn import Minindn
+from minindn.util import MiniNDNCLI
 
 
 def ensure_local_ndnd(repo_root: Path) -> None:
@@ -60,6 +61,8 @@ def main():
         info(f"Scenario completed in: {time.time()-start:.2f}s\n")
         info("===================================================\n")
 
+        if os.getenv("MININDN_CLI"):
+            MiniNDNCLI(ndn.net)
         for cleanup in reversed(ndn.cleanups):
             cleanup()
     finally:

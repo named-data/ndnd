@@ -26,6 +26,7 @@ class NDNd_DV(Application):
         prefix_insertion_keychain='inherit',
         prefix_insertion_trust_anchors=None,
         prefix_insertion_trust_schema=None,
+        prefix_egre_state_replicate=None,
     ):
         Application.__init__(self, node)
         self.network = network
@@ -70,6 +71,8 @@ class NDNd_DV(Application):
                 'neighbors': list(self.neighbors()),
             }
         }
+        if prefix_egre_state_replicate is not None:
+            config['dv']['prefix_egre_state_replicate'] = prefix_egre_state_replicate
 
         self.config = f'{self.homeDir}/dv.config.json'
         with open(self.config, 'w') as f:
