@@ -82,6 +82,7 @@ func NewPrefixModule(
 			GroupPrefix:     config.PrefixEgreStatePrefix(),
 			PeriodicTimeout: config.PrefixSyncInterval(),
 		},
+		MulticastPrefix: enc.Name{enc.LOCALHOP},
 		Snapshot: &ndn_sync.SnapshotNodeLatest{
 			Client: objectClient,
 			SnapMe: func(name enc.Name) (enc.Wire, error) {

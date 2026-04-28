@@ -30,7 +30,7 @@ def scenario(ndn: Minindn, network='/minindn'):
     cat_requests = [(cat_node, random.choice(put_nodes)) for cat_node in cat_nodes]
     put_prefixes = {f"{network}/{node.name}/test" for node in put_nodes}
     control_prefixes = {
-        f"{network}/32=DV/32=PES/32=svs",
+        f"/localhop{network}/32=DV/32=PES/32=svs",
         f"/localhop{network}/32=DV/32=ADS/32=PSV",
     }
 

@@ -529,6 +529,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			"lookup", lookupName,
 			"petFound", petFound,
 			"localHop", isLocalHop,
+			"localFacesOnly", localFacesOnly,
 			"bier", len(packet.Bier),
 			"mcastStrategy", multicastStrategyName,
 		)
@@ -541,6 +542,13 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 				t.processOutgoingInterest(packet, pitEntry, localHop.FaceID, incomingFace.FaceID())
 				deliveredToLocal = true
 			}
+		}
+		if localFacesOnly {
+			core.Log.Trace(t, "Multicast /localhop restricted to local faces",
+				"name", packet.Name,
+				"deliveredToLocal", deliveredToLocal,
+			)
+			return
 		}
 		strategy := t.strategies[multicastStrategyName.Hash()]
 		strategy.AfterReceiveMulticastInterest(packet, pitEntry, incomingFace.FaceID(), petEntry, deliveredToLocal)
