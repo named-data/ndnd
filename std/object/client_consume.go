@@ -130,8 +130,8 @@ func (c *Client) fetchMetadata(
 				return
 			}
 			c.ValidateExt(ndn.ValidateExtArgs{
-				Data:           args.Data,
-				SigCovered:     args.SigCovered,
+				Data:       args.Data,
+				SigCovered: args.SigCovered,
 				Callback: func(valid bool, err error) {
 					// validate with trust config
 					if !valid {
@@ -183,8 +183,8 @@ func (c *Client) fetchDataByPrefix(
 				return
 			}
 			c.ValidateExt(ndn.ValidateExtArgs{
-				Data:           args.Data,
-				SigCovered:     args.SigCovered,
+				Data:       args.Data,
+				SigCovered: args.SigCovered,
 				Callback: func(valid bool, err error) {
 					if !valid {
 						callback(nil, fmt.Errorf("%w: validate by prefix failed: %w", ndn.ErrSecurity, err))

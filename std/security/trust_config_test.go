@@ -89,9 +89,9 @@ var tcTestKeyChain ndn.KeyChain = nil
 var tcTestFetchCount int = 0
 
 type ValidateSyncOptions struct {
-	name           string
-	signer         ndn.Signer
-	crossSchema    enc.Wire
+	name        string
+	signer      ndn.Signer
+	crossSchema enc.Wire
 }
 
 // Helper to validate a packet synchronously
@@ -789,8 +789,8 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 	network[eveCertData.Name().String()] = eveCertWire
 	require.False(t, validateCerts(eveCertData, eveSigCov))
 	require.False(t, validateSync(ValidateSyncOptions{
-		name:           "/test/eve/data1",
-		signer:         eveSigner,
+		name:   "/test/eve/data1",
+		signer: eveSigner,
 	}))
 }
 
