@@ -1145,22 +1145,22 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 	}, listContent, anchorSigner))
 	listData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(listWireEnc.Wire))
 
-	userSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/app/user/alice"))))
-	userKeyData := tu.NoErr(signer.MarshalSecretToData(userSigner))
-	userCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+	aliceSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/app/user/alice"))))
+	aliceKeyData := tu.NoErr(signer.MarshalSecretToData(aliceSigner))
+	aliceCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
 		Signer:    anchorSigner,
-		Data:      userKeyData,
+		Data:      aliceKeyData,
 		IssuerId:  enc.NewGenericComponent("app"),
 		NotBefore: nb,
 		NotAfter:  na,
 	}))
-	userCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(userCertWire))
+	aliceCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
 
 	// User data
 	payload := enc.Wire{[]byte{0x01}}
 	dataWire := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/data"), &ndn.DataConfig{
 		Freshness: optional.Some(time.Minute),
-	}, payload, userSigner))
+	}, payload, aliceSigner))
 	dataPkt, dataSigCov, _ := spec.Spec{}.ReadData(enc.NewWireView(dataWire.Wire))
 
 	// User data with invalid signature time
@@ -1168,18 +1168,51 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 	dataWireInvalidSigTime := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/data"), &ndn.DataConfig{
 		Freshness: optional.Some(time.Minute),
 		SigTime:   sigTimeBeforeUserCert,
-	}, payload, userSigner))
+	}, payload, aliceSigner))
 	dataPktInvalidSigTime, dataSigCovInvalidSigTime, _ := spec.Spec{}.ReadData(enc.NewWireView(dataWireInvalidSigTime.Wire))
 
+	bobSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/app/user/bob"))))
+	bobKeyData := tu.NoErr(signer.MarshalSecretToData(bobSigner))
+	bobCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    anchorSigner,
+		Data:      bobKeyData,
+		IssuerId:  enc.NewGenericComponent("app"),
+		NotBefore: nb,
+		NotAfter:  na,
+	}))
+	bobCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(bobCertWire))
+	network[bobCertData.Name().String()] = bobCertWire
+
+	abInvite, err := trust_schema.SignCrossSchema(trust_schema.SignCrossSchemaArgs{
+		Name:   sname("/app/user/alice/32=INVITE/app/user/bob/v=1"),
+		Signer: aliceSigner,
+		Content: trust_schema.CrossSchemaContent{
+			SimpleSchemaRules: []*trust_schema.SimpleSchemaRule{{
+				NamePrefix: sname("/app/user/alice/app/bob"),
+				KeyLocator: &spec.KeyLocator{Name: sname("/app/bob/KEY")}, // any key from bob
+			}},
+		},
+		NotBefore: time.Now().Add(time.Second * 7),
+		NotAfter:  time.Now().Add(time.Second * 12),
+	})
+	require.NoError(t, err)
+
+	dataWireInvalidSigTimeCrossSchema := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/app/bob/data"), &ndn.DataConfig{
+		Freshness:   optional.Some(time.Minute),
+		SigTime:     optional.Some(time.Duration(now.UnixMilli()) * time.Millisecond),
+		CrossSchema: abInvite,
+	}, payload, bobSigner))
+	dataPktInvalidSigTimeCrossSchema, dataSigCovInvalidSigTimeCrossSchema, _ := spec.Spec{}.ReadData(enc.NewWireView(dataWireInvalidSigTimeCrossSchema.Wire))
+	
 	require.True(t, schema.Check(anchorCertData.Name(), anchorCertData.Name()))
 	require.True(t, schema.Check(preAnchorData.Name(), ownerCertData.Name()))
 	require.True(t, schema.Check(listData.Name(), anchorCertData.Name()))
-	require.True(t, schema.Check(userCertData.Name(), anchorCertData.Name()))
-	require.True(t, schema.Check(dataPkt.Name(), userCertData.Name()))
-	require.True(t, schema.Check(dataPktInvalidSigTime.Name(), userCertData.Name()))
+	require.True(t, schema.Check(aliceCertData.Name(), anchorCertData.Name()))
+	require.True(t, schema.Check(dataPkt.Name(), aliceCertData.Name()))
+	require.True(t, schema.Check(dataPktInvalidSigTime.Name(), aliceCertData.Name()))
 
 	network[anchorCertData.Name().String()] = anchorCertWire
-	network[userCertData.Name().String()] = userCertWire
+	network[aliceCertData.Name().String()] = aliceCertWire
 	network[ownerCertData.Name().String()] = ownerCertWire
 
 	type stage struct {
@@ -1268,6 +1301,25 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 			expectAnchor:  true,
 			expectData:    false,
 			expectErrPart: "data not signed during validity period",
+		},
+		{
+			preprocess: func() {
+				return
+			},
+			name: "data signed when cross schema invalid",
+			add: map[string]enc.Wire{
+				expiredRootCertListData.Name().String():  expiredRootCertListWire.Wire,
+				expiredRootVerifCertData.Name().String(): expiredRootVerifCertWire,
+				listData.Name().String():                 listWireEnc.Wire,
+				preAnchorData.Name().String():            preAnchorWire,
+			},
+			kcInsert:      []enc.Wire{expiredRootCertWire, newRootCertWire},
+			trustAnchors:  []enc.Name{expiredRootCertData.Name(), newRootCertData.Name()},
+			data:          dataPktInvalidSigTimeCrossSchema,
+			dataSigCov:    dataSigCovInvalidSigTimeCrossSchema,
+			expectAnchor:  true,
+			expectData:    false,
+			expectErrPart: "cross schema signature time invalid",
 		},
 
 		// Validate flows after the expired root is replaced
