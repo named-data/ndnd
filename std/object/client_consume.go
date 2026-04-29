@@ -64,7 +64,7 @@ func (c *Client) consumeObject(state *ConsumeState) {
 		// if metadata fetching is disabled, just attempt to fetch one segment
 		// with the prefix, then get the versioned name from the segment.
 		if state.args.NoMetadata {
-			c.fetchDataByPrefix(name, state.args.TryStore, state.args.IgnoreValidity.GetOr(false),
+			c.fetchDataByPrefix(name, state.args.TryStore,
 				func(data ndn.Data, err error) {
 					if err != nil {
 						state.finalizeError(err)
@@ -81,7 +81,7 @@ func (c *Client) consumeObject(state *ConsumeState) {
 		}
 
 		// fetch RDR metadata for this object
-		c.fetchMetadata(name, state.args.TryStore, state.args.IgnoreValidity.GetOr(false),
+		c.fetchMetadata(name, state.args.TryStore,
 			func(meta *rdr.MetaData, err error) {
 				if err != nil {
 					state.finalizeError(err)
@@ -107,7 +107,6 @@ func (c *Client) consumeObjectWithMeta(state *ConsumeState, meta *rdr.MetaData) 
 func (c *Client) fetchMetadata(
 	name enc.Name,
 	tryStore bool,
-	ignoreValidity bool,
 	callback func(meta *rdr.MetaData, err error),
 ) {
 	log.Debug(c, "Fetching object metadata", "name", name)
@@ -133,7 +132,6 @@ func (c *Client) fetchMetadata(
 			c.ValidateExt(ndn.ValidateExtArgs{
 				Data:           args.Data,
 				SigCovered:     args.SigCovered,
-				IgnoreValidity: optional.Some(ignoreValidity),
 				Callback: func(valid bool, err error) {
 					// validate with trust config
 					if !valid {
@@ -162,7 +160,6 @@ func (c *Client) fetchMetadata(
 func (c *Client) fetchDataByPrefix(
 	name enc.Name,
 	tryStore bool,
-	ignoreValidity bool,
 	callback func(data ndn.Data, err error),
 ) {
 	log.Debug(c, "Fetching data with prefix", "name", name)
@@ -188,7 +185,6 @@ func (c *Client) fetchDataByPrefix(
 			c.ValidateExt(ndn.ValidateExtArgs{
 				Data:           args.Data,
 				SigCovered:     args.SigCovered,
-				IgnoreValidity: optional.Some(ignoreValidity),
 				Callback: func(valid bool, err error) {
 					if !valid {
 						callback(nil, fmt.Errorf("%w: validate by prefix failed: %w", ndn.ErrSecurity, err))

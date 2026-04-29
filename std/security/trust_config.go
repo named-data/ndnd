@@ -120,8 +120,6 @@ type TrustConfigValidateArgs struct {
 	Callback func(bool, error)
 	// OverrideName is an override for the data name (advanced usage).
 	OverrideName enc.Name
-	// ignore ValidityPeriod in the valication chain
-	IgnoreValidity optional.Optional[bool]
 	// origDataName is the original data name being verified.
 	origDataName enc.Name
 
@@ -233,10 +231,9 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 						args.Callback(valid, fmt.Errorf("cross schema: %w", err))
 					}
 				},
-				OverrideName:   args.OverrideName,
-				IgnoreValidity: args.IgnoreValidity,
-				cert:           args.cert,
-				depth:          args.depth,
+				OverrideName: args.OverrideName,
+				cert:         args.cert,
+				depth:        args.depth,
 
 				UseSignatureTime: args.UseSignatureTime,
 			})
@@ -299,11 +296,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			Data:       args.cert,
 			DataSigCov: args.certSigCov,
 
-			Fetch:          args.Fetch,
-			Callback:       args.Callback,
-			OverrideName:   nil,
-			IgnoreValidity: args.IgnoreValidity,
-			origDataName:   args.origDataName,
+			Fetch:        args.Fetch,
+			Callback:     args.Callback,
+			OverrideName: nil,
+			origDataName: args.origDataName,
 
 			cert:        nil,
 			certSigCov:  nil,
@@ -454,10 +450,9 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 		Data:       crossData,
 		DataSigCov: crossDataSigCov,
 
-		Fetch:          args.Fetch,
-		Callback:       args.Callback,
-		OverrideName:   dataName, // original data
-		IgnoreValidity: args.IgnoreValidity,
+		Fetch:        args.Fetch,
+		Callback:     args.Callback,
+		OverrideName: dataName, // original data
 
 		depth: args.depth,
 
@@ -688,9 +683,8 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 				}
 				tc.tryListedCerts(args, names, idx+1)
 			},
-			IgnoreValidity: args.args.IgnoreValidity,
-			origDataName:   args.args.origDataName,
-			depth:          args.args.depth,
+			origDataName: args.args.origDataName,
+			depth:        args.args.depth,
 
 			UseSignatureTime: args.args.UseSignatureTime,
 		})
@@ -708,7 +702,7 @@ func ValidateSigTime(data ndn.Data, cert ndn.Data) bool {
 	if sigTime == nil {
 		return true
 	}
-	
+
 	notBefore, notAfter := cert.Signature().Validity()
 	if val, ok := notBefore.Get(); !ok || sigTime.Before(val) {
 		return true
