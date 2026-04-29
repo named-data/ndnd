@@ -1277,7 +1277,7 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 			dataSigCov:    dataSigCovInvalidSigTime,
 			expectAnchor:  true,
 			expectData:    false,
-			expectErrPart: "signed during an invalid period",
+			expectErrPart: "data not signed during validity period",
 		},
 
 		// Validate flows after the expired root is replaced
