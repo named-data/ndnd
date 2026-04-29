@@ -1203,7 +1203,7 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 		CrossSchema: abInvite,
 	}, payload, bobSigner))
 	dataPktInvalidSigTimeCrossSchema, dataSigCovInvalidSigTimeCrossSchema, _ := spec.Spec{}.ReadData(enc.NewWireView(dataWireInvalidSigTimeCrossSchema.Wire))
-	
+
 	require.True(t, schema.Check(anchorCertData.Name(), anchorCertData.Name()))
 	require.True(t, schema.Check(preAnchorData.Name(), ownerCertData.Name()))
 	require.True(t, schema.Check(listData.Name(), anchorCertData.Name()))
