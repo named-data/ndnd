@@ -206,7 +206,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		if args.UseSignatureTime.GetOr(false) && ValidateSigTime(args.Data, args.cert) {
+		if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) {
 			args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
 			return
 		}
@@ -416,7 +416,7 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	// Check validity period of the cross schema
 	if args.UseSignatureTime.GetOr(false) {
 		// Cross schema was valid at signature time
-		if ValidateSigTime(args.Data, crossData) {
+		if !ValidateSigTime(args.Data, crossData) {
 			args.Callback(false, fmt.Errorf("cross schema signature time invalid: %s", crossData.Name()))
 			return
 		}
@@ -694,22 +694,22 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 // Returns true if signature time is within certificate validity period
 func ValidateSigTime(data ndn.Data, cert ndn.Data) bool {
 	if cert.Signature() == nil {
-		return true
+		return false
 	}
 
 	sigTime := data.Signature().SigTime()
 
 	if sigTime == nil {
-		return true
+		return false
 	}
 
 	notBefore, notAfter := cert.Signature().Validity()
 	if val, ok := notBefore.Get(); !ok || sigTime.Before(val) {
-		return true
+		return false
 	}
 	if val, ok := notAfter.Get(); !ok || sigTime.After(val) {
-		return true
+		return false
 	}
 
-	return false
+	return true
 }
