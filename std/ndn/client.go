@@ -129,8 +129,8 @@ type ConsumeExtArgs struct {
 	OnProgress func(status ConsumeState)
 	// NoMetadata disables fetching RDR metadata (advanced usage).
 	NoMetadata bool
-	// IgnoreValidity ignores validity period in the validation chain
-	IgnoreValidity optional.Optional[bool]
+	// UseSignatureTime checks validity period using signature time
+	UseSignatureTime optional.Optional[bool]
 }
 
 // ExpressRArgs are the arguments for the express retry API.
@@ -167,8 +167,8 @@ type ValidateExtArgs struct {
 	CertNextHop optional.Optional[uint64]
 	// UseDataNameFwHint overrides trust config option.
 	UseDataNameFwHint optional.Optional[bool]
-	// IgnoreValidity ignores validity period in the validation chain.
-	IgnoreValidity optional.Optional[bool]
+	// UseSignatureTime checks validity with signature time
+	UseSignatureTime optional.Optional[bool]
 }
 
 // Announcement are the arguments for the announce prefix API.

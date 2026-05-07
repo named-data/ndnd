@@ -119,11 +119,6 @@ func (kc *keyChainState) insertCert(wire []byte) error {
 		return ndn.ErrInvalidValue{Item: "certificate name"}
 	}
 
-	// Check if certificate is valid
-	if sec.CertIsExpired(data) {
-		return ndn.ErrInvalidValue{Item: "certificate expiry"}
-	}
-
 	// Check if certificate already exists
 	for _, existing := range kc.certNames {
 		if existing.Equal(name) {

@@ -286,9 +286,9 @@ func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *Consume
 // The notable exception here is when there is a timeout, which has a separate goroutine.
 func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeState) {
 	s.client.ValidateExt(ndn.ValidateExtArgs{
-		Data:           args.Data,
-		SigCovered:     args.SigCovered,
-		IgnoreValidity: state.args.IgnoreValidity,
+		Data:             args.Data,
+		SigCovered:       args.SigCovered,
+		UseSignatureTime: state.args.UseSignatureTime,
 		Callback: func(valid bool, err error) {
 			if !valid {
 				state.finalizeError(fmt.Errorf("%w: validate seg failed: %w", ndn.ErrSecurity, err))

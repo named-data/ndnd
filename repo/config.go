@@ -17,8 +17,6 @@ type Config struct {
 	KeyChainUri string `json:"keychain"`
 	// List of trust anchor full names.
 	TrustAnchors []string `json:"trust_anchors"`
-	// IgnoreValidity skips validity period checks when fetching remote data (e.g. SVS snapshots).
-	IgnoreValidity bool `json:"ignore_validity"`
 
 	// NameN is the parsed name of the repo service.
 	NameN enc.Name
