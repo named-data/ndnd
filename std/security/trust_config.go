@@ -704,7 +704,7 @@ func ValidateSigTime(data ndn.Data, cert ndn.Data) bool {
 	for _, nameString := range exceptionNameStrings {
 		name, _ := enc.NameFromStr(nameString)
 		if cert.Name().Equal(name) {
-			return true
+			return CertIsExpired(cert)
 		}
 	}
 
