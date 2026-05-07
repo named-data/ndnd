@@ -697,6 +697,17 @@ func ValidateSigTime(data ndn.Data, cert ndn.Data) bool {
 		return false
 	}
 
+	exceptionNameStrings := []string{
+		"/ndn/edu/ucla/KEY/%2F%0D%23x%03%E5%FFC/NA/v=1770689778343",
+		"/ndn/KEY/%27%C4%B2%2A%9F%7B%81%27/ndn/v=1651246789556",
+	}
+	for _, nameString := range exceptionNameStrings {
+		name, _ := enc.NameFromStr(nameString)
+		if cert.Name().Equal(name) {
+			return true
+		}
+	}
+
 	sigTime := data.Signature().SigTime()
 
 	if sigTime == nil {
