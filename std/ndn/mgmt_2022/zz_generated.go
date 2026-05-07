@@ -6068,6 +6068,10 @@ func (encoder *PetEntryEncoder) Init(value *PetEntry) {
 			}
 		}
 	}
+	if value.Multicast {
+		l += 1
+		l += 1
+	}
 	encoder.Length = l
 
 }
@@ -6076,6 +6080,7 @@ func (context *PetEntryParsingContext) Init() {
 
 	context.EgressRecords_context.Init()
 	context.NextHopRecords_context.Init()
+
 }
 
 func (encoder *PetEntryEncoder) EncodeInto(value *PetEntry, buf []byte) {
@@ -6140,6 +6145,12 @@ func (encoder *PetEntryEncoder) EncodeInto(value *PetEntry, buf []byte) {
 			}
 		}
 	}
+	if value.Multicast {
+		buf[pos] = byte(144)
+		pos += 1
+		buf[pos] = byte(0)
+		pos += 1
+	}
 }
 
 func (encoder *PetEntryEncoder) Encode(value *PetEntry) enc.Wire {
@@ -6157,6 +6168,7 @@ func (context *PetEntryParsingContext) Parse(reader enc.WireView, ignoreCritical
 	var handled_Name bool = false
 	var handled_EgressRecords bool = false
 	var handled_NextHopRecords bool = false
+	var handled_Multicast bool = false
 
 	progress := -1
 	_ = progress
@@ -6230,6 +6242,13 @@ func (context *PetEntryParsingContext) Parse(reader enc.WireView, ignoreCritical
 					}
 					progress--
 				}
+			case 144:
+				if true {
+					handled = true
+					handled_Multicast = true
+					value.Multicast = true
+					err = reader.Skip(int(l))
+				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
 					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
@@ -6256,6 +6275,9 @@ func (context *PetEntryParsingContext) Parse(reader enc.WireView, ignoreCritical
 	}
 	if !handled_NextHopRecords && err == nil {
 		// sequence - skip
+	}
+	if !handled_Multicast && err == nil {
+		value.Multicast = false
 	}
 
 	if err != nil {

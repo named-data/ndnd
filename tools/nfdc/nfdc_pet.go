@@ -46,7 +46,12 @@ func (t *Tool) ExecPetList(_ *cobra.Command, _ []string) {
 			nexthops = append(nexthops, fmt.Sprintf("faceid=%d (cost=%d)", record.FaceId, record.Cost))
 		}
 
-		fmt.Printf("  %s egress={%s} nexthops={%s}\n",
-			entry.Name, strings.Join(egressList, ", "), strings.Join(nexthops, ", "))
+		multicastStr := ""
+		if entry.Multicast {
+			multicastStr = " [multicast]"
+		}
+
+		fmt.Printf("  %s egress={%s} nexthops={%s}%s\n",
+			entry.Name, strings.Join(egressList, ", "), strings.Join(nexthops, ", "), multicastStr)
 	}
 }

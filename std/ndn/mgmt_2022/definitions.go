@@ -318,6 +318,8 @@ type PetEntry struct {
 	EgressRecords []*EgressRecord `tlv:"0x82"`
 	//+field:sequence:*NextHopRecord:struct:NextHopRecord
 	NextHopRecords []*NextHopRecord `tlv:"0x81"`
+	//+field:bool
+	Multicast bool `tlv:"0x90"`
 }
 
 type PetStatus struct {
