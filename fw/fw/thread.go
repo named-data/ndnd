@@ -221,88 +221,135 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		panic("processIncomingInterest called with non-Interest packet")
 	}
 
-	// Already asserted that this is an Interest in link service
-	// Get incoming face
 	incomingFace := dispatch.GetFace(packet.IncomingFaceID)
 	if incomingFace == nil {
 		core.Log.Error(t, "Interest has non-existent incoming face", "faceid", packet.IncomingFaceID, "name", packet.Name)
 		return
 	}
 
-	if interest.HopLimitV != nil {
-		core.Log.Trace(t, "HopLimit check", "name", packet.Name, "hoplimit", *interest.HopLimitV)
-		if *interest.HopLimitV == 0 {
-			return
-		}
-		*interest.HopLimitV -= 1
-	}
-
-	// Log PIT token (if any)
-	core.Log.Trace(t, "OnIncomingInterest", "name", packet.Name, "faceid", incomingFace.FaceID(), "pittoken", len(packet.PitToken))
-
-	// Check if violates /localhost
-	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOST) {
-		core.Log.Warn(t, "Interest from non-local face violates /localhost scope", "name", packet.Name, "faceid", incomingFace.FaceID())
+	if !t.validateHopLimitAndScope(interest, packet, incomingFace) {
 		return
 	}
 
-	// Update counter
 	t.nInInterests.Add(1)
 
-	// Check for forwarding hint and, if present, determine if reaching producer region (and then strip forwarding hint)
-	isReachingProducerRegion := true
-	var fhName enc.Name = nil
-	hint := interest.ForwardingHintV
-	if hint != nil && len(hint.Names) > 0 {
-		isReachingProducerRegion = false
-		for _, fh := range hint.Names {
-			if table.NetworkRegion.IsProducer(fh) {
-				isReachingProducerRegion = true
-				break
-			} else if fhName == nil {
-				fhName = fh
-			}
-		}
-		if isReachingProducerRegion {
-			// TODO: Drop the forwarding hint for now.
-			// No way without re-encoding Interest for now.
-			fhName = nil
-		}
-	}
+	fhName := t.processForwardingHint(interest)
 
-	// Drop packet if no nonce is found
-	if !interest.NonceV.IsSet() {
-		core.Log.Debug(t, "Interest is missing Nonce", "name", packet.Name)
+	if !t.validateNonce(interest, packet) {
 		return
 	}
 
-	// Check if packet is in dead nonce list
-	if exists := t.deadNonceList.Find(interest.NameV, interest.NonceV.Unwrap()); exists {
-		core.Log.Debug(t, "Interest is looping (DNL)", "name", packet.Name, "nonce", interest.NonceV.Unwrap())
-		return
-	}
-
-	// Check if any matching PIT entries (and if duplicate)
 	pitEntry, isDuplicate := t.pitCS.InsertInterest(interest, fhName, incomingFace.FaceID())
 	if isDuplicate {
-		// Interest loop - since we don't use Nacks, just drop
 		core.Log.Debug(t, "Interest is looping (PIT)", "name", packet.Name)
 		return
 	}
 
-	// Use forwarding hint if present
 	lookupName := interest.Name()
 	if fhName != nil {
 		lookupName = fhName
 	}
 
-	routerName, routerNameSet := CfgRouterName()
+	pipeline, petEntry, petFound := t.determinePipeline(packet, lookupName)
 
-	isLocalHop := lookupName.At(0).Equal(enc.LOCALHOP)
+	inRecord, isAlreadyPending, prevNonce := pitEntry.InsertInRecord(
+		interest, incomingFace.FaceID(), packet.PitToken)
+
+	if isAlreadyPending {
+		core.Log.Trace(t, "Interest is already pending", "name", packet.Name)
+		// Add the previous nonce to the dead nonce list to prevent further looping
+		// TODO: review this design, not specified in NFD dev guide
+		t.deadNonceList.Insert(interest.Name(), prevNonce)
+	}
+
+	if t.tryContentStoreHit(interest, packet, pitEntry, pipeline, isAlreadyPending) {
+		return
+	}
+
+	if inRecord.ExpirationTime.After(pitEntry.ExpirationTime()) {
+		table.UpdateExpirationTimer(pitEntry, inRecord.ExpirationTime)
+	}
+
+	if t.tryNextHopForward(packet, pitEntry, incomingFace.FaceID()) {
+		return
+	}
+
+	petLocalHops := t.collectPetLocalHops(packet, pipeline, lookupName, pitEntry, petEntry, petFound)
+	localFacesOnly := incomingFace.Scope() != defn.Local && lookupName.At(0).Equal(enc.LOCALHOP)
+
+	if pipeline.isUnicast() {
+		t.handleUnicastPipeline(packet, pitEntry, incomingFace.FaceID(), pipeline, petLocalHops, petEntry, petFound, localFacesOnly)
+		return
+	}
+
+	if pipeline.isMulticast() {
+		t.handleMulticastPipeline(packet, pitEntry, incomingFace.FaceID(), pipeline, petLocalHops, petEntry, petFound, lookupName, localFacesOnly)
+	}
+}
+
+func (t *Thread) validateHopLimitAndScope(interest *defn.FwInterest, packet *defn.Pkt, incomingFace dispatch.Face) bool {
+	if interest.HopLimitV != nil {
+		core.Log.Trace(t, "HopLimit check", "name", packet.Name, "hoplimit", *interest.HopLimitV)
+		if *interest.HopLimitV == 0 {
+			return false
+		}
+		*interest.HopLimitV -= 1
+	}
+
+	core.Log.Trace(t, "OnIncomingInterest", "name", packet.Name, "faceid", incomingFace.FaceID(), "pittoken", len(packet.PitToken))
+
+	// Check if violates /localhost
+	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOST) {
+		core.Log.Warn(t, "Interest from non-local face violates /localhost scope", "name", packet.Name, "faceid", incomingFace.FaceID())
+		return false
+	}
+	return true
+}
+
+func (t *Thread) processForwardingHint(interest *defn.FwInterest) enc.Name {
+	hint := interest.ForwardingHintV
+	if hint == nil || len(hint.Names) == 0 {
+		return nil
+	}
+
+	isReachingProducerRegion := false
+	var fhName enc.Name
+	for _, fh := range hint.Names {
+		if table.NetworkRegion.IsProducer(fh) {
+			isReachingProducerRegion = true
+			break
+		} else if fhName == nil {
+			fhName = fh
+		}
+	}
+	if isReachingProducerRegion {
+		return nil
+	}
+	return fhName
+}
+
+func (t *Thread) validateNonce(interest *defn.FwInterest, packet *defn.Pkt) bool {
+	// Drop packet if no nonce is found
+	if !interest.NonceV.IsSet() {
+		core.Log.Debug(t, "Interest is missing Nonce", "name", packet.Name)
+		return false
+	}
+
+	// Check if packet is in dead nonce list
+	if exists := t.deadNonceList.Find(interest.NameV, interest.NonceV.Unwrap()); exists {
+		core.Log.Debug(t, "Interest is looping (DNL)", "name", packet.Name, "nonce", interest.NonceV.Unwrap())
+		return false
+	}
+	return true
+}
+
+func (t *Thread) determinePipeline(packet *defn.Pkt, lookupName enc.Name) (forwardPipeline, table.PetEntry, bool) {
 	var pipeline forwardPipeline
 	var petEntry table.PetEntry
 	var petFound bool
-	petLookup := false
+
+	routerName, routerNameSet := CfgRouterName()
+
 	if bier.IsBierEnabled() && len(packet.Bier) > 0 {
 		if bier.BierGetBit(bier.BierClone(packet.Bier), bier.CfgBierIndex()) {
 			pipeline = fwMulticastEgress
@@ -316,7 +363,6 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			pipeline = fwUnicastTransit
 		}
 	} else {
-		petLookup = true
 		petEntry, petFound = table.Pet.FindLongestPrefixEnc(lookupName)
 		if petFound && petEntry.Multicast {
 			pipeline = fwMulticastIngress
@@ -324,6 +370,8 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			pipeline = fwUnicastIngress
 		}
 	}
+
+	isLocalHop := lookupName.At(0).Equal(enc.LOCALHOP)
 	core.Log.Trace(t, "Interest pipeline decision",
 		"name", packet.Name,
 		"lookup", lookupName,
@@ -334,227 +382,209 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		"bier", len(packet.Bier) > 0,
 	)
 
-	// Add in-record and determine if already pending
-	// this looks like custom interest again, but again can be changed without much issue?
-	inRecord, isAlreadyPending, prevNonce := pitEntry.InsertInRecord(
-		interest, incomingFace.FaceID(), packet.PitToken)
+	return pipeline, petEntry, petFound
+}
 
-	if isAlreadyPending {
-		core.Log.Trace(t, "Interest is already pending", "name", packet.Name)
-
-		// Add the previous nonce to the dead nonce list to prevent further looping
-		// TODO: review this design, not specified in NFD dev guide
-		t.deadNonceList.Insert(interest.Name(), prevNonce)
-	} else {
-		core.Log.Trace(t, "Interest is not pending", "name", packet.Name)
+func (t *Thread) tryContentStoreHit(interest *defn.FwInterest, packet *defn.Pkt, pitEntry table.PitEntry, pipeline forwardPipeline, isAlreadyPending bool) bool {
+	if !pipeline.isUnicast() || isAlreadyPending || !t.pitCS.IsCsServing() {
+		return false
 	}
 
-	// Check CS for matching entry
-	if pipeline.isUnicast() && !isAlreadyPending && t.pitCS.IsCsServing() {
-		csEntry := t.pitCS.FindMatchingDataFromCS(interest)
-		if csEntry != nil {
-			// Update counters
-			t.nCsHits.Add(1)
+	csEntry := t.pitCS.FindMatchingDataFromCS(interest)
+	if csEntry == nil {
+		t.nCsMisses.Add(1)
+		return false
+	}
 
-			// Parse the cached data packet and replace in the pending one
-			// This is not the fastest way to do it, but simplifies everything
-			// significantly. We can optimize this later.
-			csData, csWire, err := csEntry.Copy()
-			if csData != nil && csWire != nil {
-				// Mark PIT entry as expired
-				table.UpdateExpirationTimer(pitEntry, time.Now())
+	t.nCsHits.Add(1)
 
-				// Create the pending packet structure
-				packet.EgressRouter = nil
-				packet.L3.Data = csData
-				packet.L3.Interest = nil
-				packet.Raw = enc.Wire{csWire}
-				packet.Name = csData.NameV
-				t.afterContentStoreHit(packet, pitEntry, incomingFace.FaceID())
-				return
-			} else if err != nil {
-				core.Log.Error(t, "Error copying CS entry", "err", err)
-			} else {
-				core.Log.Error(t, "Error copying CS entry", "err", "csData is nil")
-			}
+	csData, csWire, err := csEntry.Copy()
+	if csData == nil || csWire == nil {
+		if err != nil {
+			core.Log.Error(t, "Error copying CS entry", "err", err)
 		} else {
-			// Update counters
-			t.nCsMisses.Add(1)
+			core.Log.Error(t, "Error copying CS entry", "err", "csData is nil")
 		}
+		return false
 	}
 
-	// Update PIT entry expiration timer
-	if inRecord.ExpirationTime.After(pitEntry.ExpirationTime()) {
-		table.UpdateExpirationTimer(pitEntry, inRecord.ExpirationTime)
+	table.UpdateExpirationTimer(pitEntry, time.Now())
+
+	packet.EgressRouter = nil
+	packet.L3.Data = csData
+	packet.L3.Interest = nil
+	packet.Raw = enc.Wire{csWire}
+	packet.Name = csData.NameV
+	t.afterContentStoreHit(packet, pitEntry, packet.IncomingFaceID)
+	return true
+}
+
+func (t *Thread) tryNextHopForward(packet *defn.Pkt, pitEntry table.PitEntry, inFace uint64) bool {
+	hop, ok := packet.NextHopFaceID.Get()
+	if !ok {
+		return false
 	}
 
-	// If NextHopFaceId set, forward to that face (if it exists) or drop
-	if hop, ok := packet.NextHopFaceID.Get(); ok {
-		if face := dispatch.GetFace(hop); face != nil {
-			core.Log.Trace(t, "NextHopFaceId is set for Interest", "name", packet.Name)
-			t.processOutgoingInterest(packet, pitEntry, hop, incomingFace.FaceID())
-		} else {
-			core.Log.Info(t, "Non-existent face specified in NextHopFaceId for Interest",
-				"name", packet.Name, "faceid", hop)
+	if face := dispatch.GetFace(hop); face != nil {
+		core.Log.Trace(t, "NextHopFaceId is set for Interest", "name", packet.Name)
+		t.processOutgoingInterest(packet, pitEntry, hop, inFace)
+		return true
+	}
+
+	core.Log.Info(t, "Non-existent face specified in NextHopFaceId for Interest",
+		"name", packet.Name, "faceid", hop)
+	return true
+}
+
+func (t *Thread) collectPetLocalHops(packet *defn.Pkt, pipeline forwardPipeline, lookupName enc.Name, pitEntry table.PitEntry, petEntry table.PetEntry, petFound bool) []*table.PetNextHop {
+	if !pipeline.isIngressEgress() {
+		return nil
+	}
+
+	if !petFound {
+		petEntry, petFound = table.Pet.FindLongestPrefixEnc(lookupName)
+	}
+
+	if !petFound {
+		return nil
+	}
+
+	petLocalHops := make([]*table.PetNextHop, 0, len(petEntry.NextHops))
+	for i := range petEntry.NextHops {
+		nexthop := &petEntry.NextHops[i]
+		if nexthop.FaceID == packet.IncomingFaceID {
+			continue
 		}
+		if pitEntry.InRecords()[nexthop.FaceID] != nil {
+			continue
+		}
+		petLocalHops = append(petLocalHops, nexthop)
+	}
+	return petLocalHops
+}
+
+func (t *Thread) handleUnicastPipeline(packet *defn.Pkt, pitEntry table.PitEntry, inFace uint64, pipeline forwardPipeline, petLocalHops []*table.PetNextHop, petEntry table.PetEntry, petFound bool, localFacesOnly bool) {
+	isLocalHop := packet.Name.At(0).Equal(enc.LOCALHOP)
+	core.Log.Trace(t, "Unicast pipeline",
+		"name", packet.Name,
+		"lookup", packet.Name,
+		"petFound", petFound,
+		"localHop", isLocalHop,
+		"localFacesOnly", localFacesOnly,
+	)
+
+	if len(petLocalHops) > 0 {
+		core.Log.Trace(t, "Local Egress captures the Interest", "name", packet.Name)
+		packet.EgressRouter = nil
+		t.processOutgoingInterest(packet, pitEntry, petLocalHops[0].FaceID, inFace)
 		return
 	}
 
-	var petLocalHops []*table.PetNextHop
+	nextNet := t.collectNetworkNextHops(packet, petEntry, petFound)
 
-	if pipeline.isIngressEgress() {
-		// perform cached pet lookup
-		if !petLookup {
-			petEntry, petFound = table.Pet.FindLongestPrefixEnc(lookupName)
-			petLookup = true
-		}
-
-		if petFound {
-			petLocalHops = make([]*table.PetNextHop, 0, len(petEntry.NextHops))
-			for i := range petEntry.NextHops {
-				nexthop := &petEntry.NextHops[i]
-				// Exclude incoming face
-				if nexthop.FaceID == packet.IncomingFaceID {
-					continue
-				}
-				// Exclude faces that have an in-record for this interest
-				// TODO: unclear where NFD dev guide specifies such behavior (if any)
-				if pitEntry.InRecords()[nexthop.FaceID] != nil {
-					continue
-				}
-				petLocalHops = append(petLocalHops, nexthop)
-			}
-		}
+	if len(nextNet) == 0 {
+		core.Log.Trace(t, "Unicast forwarding: no PET and no FIB nexthops",
+			"name", packet.Name,
+			"lookup", packet.Name,
+			"pipeline", pipeline,
+			"isLocalHop", isLocalHop,
+		)
 	}
 
-	localFacesOnly := incomingFace.Scope() != defn.Local && isLocalHop
+	allowedNetNexthops := t.filterAllowedNexthops(packet, inFace, nextNet, localFacesOnly, pitEntry)
 
-	// Unicast Delivery making use of FIB -> FIBStrategy -> unicast delivery
-	if pipeline.isUnicast() {
-		core.Log.Trace(t, "Unicast pipeline",
+	if len(allowedNetNexthops) > 0 {
+		core.Log.Trace(t, "Unicast forward",
 			"name", packet.Name,
-			"lookup", lookupName,
-			"petFound", petFound,
-			"localHop", isLocalHop,
+			"allowedNet", len(allowedNetNexthops),
 			"localFacesOnly", localFacesOnly,
 		)
-		// Deliver to local faces if there exist such legal local faces
-		if len(petLocalHops) > 0 {
-			core.Log.Trace(t, "Local Egress captures the Interest", "name", packet.Name)
-			packet.EgressRouter = nil
-			// TODO: micro-strategy dispatch per PIT in-record
-			t.processOutgoingInterest(packet, pitEntry, petLocalHops[0].FaceID, incomingFace.FaceID())
-			return
-		}
+		strategy := t.strategies[defn.BEST_ROUTE_STRATEGY.Hash()]
+		strategy.AfterReceiveInterest(packet, pitEntry, inFace, allowedNetNexthops)
+	}
+}
 
-		// FIB lookup to get the next network hops
-		nextNet := make([]StrategyCandidateHop, 0)
-		if len(packet.EgressRouter) > 0 {
-			for _, nextHop := range table.FibStrategyTable.FindNextHopsEnc(packet.EgressRouter) {
+func (t *Thread) collectNetworkNextHops(packet *defn.Pkt, petEntry table.PetEntry, petFound bool) []StrategyCandidateHop {
+	var nextNet []StrategyCandidateHop
+
+	if len(packet.EgressRouter) > 0 {
+		for _, nextHop := range table.FibStrategyTable.FindNextHopsEnc(packet.EgressRouter) {
+			nextNet = append(nextNet, StrategyCandidateHop{
+				HopEntry:     nextHop,
+				EgressRouter: packet.EgressRouter,
+			})
+		}
+	} else if petFound {
+		for _, er := range petEntry.EgressRouters {
+			for _, nextHop := range table.FibStrategyTable.FindNextHopsEnc(er) {
 				nextNet = append(nextNet, StrategyCandidateHop{
 					HopEntry:     nextHop,
-					EgressRouter: packet.EgressRouter,
+					EgressRouter: er,
 				})
 			}
-		} else if petFound {
-			for _, er := range petEntry.EgressRouters {
-				for _, nextHop := range table.FibStrategyTable.FindNextHopsEnc(er) {
-					nextNet = append(nextNet, StrategyCandidateHop{
-						HopEntry:     nextHop,
-						EgressRouter: er,
-					})
-				}
-			}
-		}
-
-		if len(nextNet) == 0 {
-			core.Log.Trace(t, "Unicast forwarding: no PET and no FIB nexthops",
-				"name", packet.Name,
-				"lookup", lookupName,
-				"pipeline", pipeline,
-				"isLocalHop", isLocalHop,
-			)
-		}
-
-		// Filter network FIB nexthops.
-		allowedNetNexthops := make([]StrategyCandidateHop, 0, len(nextNet))
-
-		for _, nexthop := range nextNet {
-			// Exclude incoming face
-			if nexthop.HopEntry.Nexthop == packet.IncomingFaceID {
-				continue
-			}
-
-			// Exclude non-local faces for localhop enforcement
-			if localFacesOnly {
-				if face := dispatch.GetFace(nexthop.HopEntry.Nexthop); face != nil && face.Scope() != defn.Local {
-					continue
-				}
-			}
-
-			// Exclude faces that have an in-record for this interest
-			// TODO: unclear where NFD dev guide specifies such behavior (if any)
-			if pitEntry.InRecords()[nexthop.HopEntry.Nexthop] != nil {
-				continue
-			}
-
-			allowedNetNexthops = append(allowedNetNexthops, nexthop)
-		}
-
-		if len(allowedNetNexthops) > 0 {
-			core.Log.Trace(t, "Unicast forward",
-				"name", packet.Name,
-				"allowedNet", len(allowedNetNexthops),
-				"localFacesOnly", localFacesOnly,
-			)
-			// Forward using a unicast strategy from FibStrategyTable
-			// Below does a FibStrategyTable lookup, but we only have one strategy rn
-			// so we manually use bestRouteStrategy for testing
-			// strategyName := table.FibStrategyTable.FindStrategyEnc(interest.Name())
-			// strategy := t.strategies[strategyName.Hash()]
-			bestRouteStrategy := t.strategies[defn.BEST_ROUTE_STRATEGY.Hash()]
-			strategy := bestRouteStrategy
-			strategy.AfterReceiveInterest(packet, pitEntry, incomingFace.FaceID(), allowedNetNexthops)
-		} else {
-			// NACK?
-			return
 		}
 	}
 
-	// Multicast delivery making use of BIFT -> MulticastStrategyTable -> multicast delivery
-	// Currently just overrides /localhop to a broadcast override and manual BIER code
-	if pipeline.isMulticast() {
-		multicastStrategyName := table.MulticastStrategyTable.FindStrategyEnc(lookupName)
-		core.Log.Trace(t, "Multicast pipeline",
-			"name", packet.Name,
-			"lookup", lookupName,
-			"petFound", petFound,
-			"localHop", isLocalHop,
-			"localFacesOnly", localFacesOnly,
-			"bier", len(packet.Bier),
-			"mcastStrategy", multicastStrategyName,
-		)
-		deliveredToLocal := false
-		if len(petLocalHops) > 0 {
-			core.Log.Trace(t, "Local Egress captures the Interest", "name", packet.Name)
-			// In multicast, we deliver to all local faces unlike in unicast
-			for _, localHop := range petLocalHops {
-				packet.EgressRouter = nil
-				t.processOutgoingInterest(packet, pitEntry, localHop.FaceID, incomingFace.FaceID())
-				deliveredToLocal = true
+	return nextNet
+}
+
+func (t *Thread) filterAllowedNexthops(packet *defn.Pkt, inFace uint64, nextNet []StrategyCandidateHop, localFacesOnly bool, pitEntry table.PitEntry) []StrategyCandidateHop {
+	allowedNetNexthops := make([]StrategyCandidateHop, 0, len(nextNet))
+
+	for _, nexthop := range nextNet {
+		if nexthop.HopEntry.Nexthop == inFace {
+			continue
+		}
+
+		if localFacesOnly {
+			if face := dispatch.GetFace(nexthop.HopEntry.Nexthop); face != nil && face.Scope() != defn.Local {
+				continue
 			}
 		}
-		if localFacesOnly {
-			core.Log.Trace(t, "Multicast /localhop restricted to local faces",
-				"name", packet.Name,
-				"deliveredToLocal", deliveredToLocal,
-			)
-			return
+
+		if pitEntry.InRecords()[nexthop.HopEntry.Nexthop] != nil {
+			continue
 		}
-		strategy := t.strategies[multicastStrategyName.Hash()]
-		strategy.AfterReceiveMulticastInterest(packet, pitEntry, incomingFace.FaceID(), petEntry, deliveredToLocal)
+
+		allowedNetNexthops = append(allowedNetNexthops, nexthop)
+	}
+
+	return allowedNetNexthops
+}
+
+func (t *Thread) handleMulticastPipeline(packet *defn.Pkt, pitEntry table.PitEntry, inFace uint64, pipeline forwardPipeline, petLocalHops []*table.PetNextHop, petEntry table.PetEntry, petFound bool, lookupName enc.Name, localFacesOnly bool) {
+	isLocalHop := lookupName.At(0).Equal(enc.LOCALHOP)
+	multicastStrategyName := table.MulticastStrategyTable.FindStrategyEnc(lookupName)
+	core.Log.Trace(t, "Multicast pipeline",
+		"name", packet.Name,
+		"lookup", lookupName,
+		"petFound", petFound,
+		"localHop", isLocalHop,
+		"localFacesOnly", localFacesOnly,
+		"bier", len(packet.Bier),
+		"mcastStrategy", multicastStrategyName,
+	)
+
+	deliveredToLocal := false
+	if len(petLocalHops) > 0 {
+		core.Log.Trace(t, "Local Egress captures the Interest", "name", packet.Name)
+		for _, localHop := range petLocalHops {
+			packet.EgressRouter = nil
+			t.processOutgoingInterest(packet, pitEntry, localHop.FaceID, inFace)
+			deliveredToLocal = true
+		}
+	}
+
+	if localFacesOnly {
+		core.Log.Trace(t, "Multicast /localhop restricted to local faces",
+			"name", packet.Name,
+			"deliveredToLocal", deliveredToLocal,
+		)
 		return
 	}
+
+	strategy := t.strategies[multicastStrategyName.Hash()]
+	strategy.AfterReceiveMulticastInterest(packet, pitEntry, inFace, petEntry, deliveredToLocal)
 }
 
 func (t *Thread) afterContentStoreHit(
