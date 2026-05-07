@@ -444,6 +444,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			packet.EgressRouter = nil
 			// TODO: micro-strategy dispatch per PIT in-record
 			t.processOutgoingInterest(packet, pitEntry, petLocalHops[0].FaceID, incomingFace.FaceID())
+			return
 		}
 
 		// FIB lookup to get the next network hops
