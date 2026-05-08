@@ -58,6 +58,7 @@ func (r *RepoSvs) Start() (err error) {
 			Threshold:        r.cmd.HistorySnapshot.Threshold,
 			IsRepo:           true,
 			UseSignatureTime: optional.Some(true),
+			IgnoreValidity:   optional.Some(r.config.IgnoreValidity),
 		}
 	}
 
@@ -79,6 +80,7 @@ func (r *RepoSvs) Start() (err error) {
 			PeriodicTimeout:   365 * 24 * time.Hour, // basically never
 			Passive:           true,
 			UseSignatureTime:  optional.Some(true),
+			IgnoreValidity:    optional.Some(r.config.IgnoreValidity),
 		},
 		Snapshot:        snapshot,
 		MulticastPrefix: multicastPrefix,

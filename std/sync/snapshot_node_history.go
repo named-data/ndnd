@@ -46,6 +46,8 @@ type SnapshotNodeHistory struct {
 	IsRepo bool
 	// UseSignatureTime checks validity period using signature time
 	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 	// repoKnown is the known snapshot sequence number.
 	repoKnown SvMap[uint64]
 
@@ -164,6 +166,7 @@ func (s *SnapshotNodeHistory) fetchIndex(node enc.Name, boot uint64, known uint6
 	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
 		Name:             s.idxName(node, boot),
 		UseSignatureTime: s.UseSignatureTime,
+		IgnoreValidity:   s.IgnoreValidity,
 		Callback: func(cstate ndn.ConsumeState) {
 			go s.handleIndex(node, boot, known, cstate)
 		},
@@ -212,6 +215,7 @@ func (s *SnapshotNodeHistory) handleIndex(node enc.Name, boot uint64, known uint
 			s.Client.ConsumeExt(ndn.ConsumeExtArgs{
 				Name:             snapName,
 				UseSignatureTime: s.UseSignatureTime,
+				IgnoreValidity:   s.IgnoreValidity,
 				Callback:         func(cstate ndn.ConsumeState) { snapC <- cstate },
 			})
 

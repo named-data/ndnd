@@ -131,6 +131,8 @@ type ConsumeExtArgs struct {
 	NoMetadata bool
 	// UseSignatureTime checks validity period using signature time
 	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 // ExpressRArgs are the arguments for the express retry API.
@@ -169,6 +171,8 @@ type ValidateExtArgs struct {
 	UseDataNameFwHint optional.Optional[bool]
 	// UseSignatureTime checks validity with signature time
 	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 // Announcement are the arguments for the announce prefix API.

@@ -200,6 +200,7 @@ func (r *Repo) fetchSecurityConfig(name enc.Name) (*tlv.SecurityConfigObject, er
 		Name:             name,
 		TryStore:         true,
 		UseSignatureTime: optional.Some(true),
+		IgnoreValidity:   optional.Some(r.config.IgnoreValidity),
 		Callback: func(state ndn.ConsumeState) {
 			wire = append(wire, state.Content()...)
 			if state.Error() != nil {

@@ -89,9 +89,10 @@ var tcTestKeyChain ndn.KeyChain = nil
 var tcTestFetchCount int = 0
 
 type ValidateSyncOptions struct {
-	name        string
-	signer      ndn.Signer
-	crossSchema enc.Wire
+	name           string
+	signer         ndn.Signer
+	crossSchema    enc.Wire
+	ignoreValidity bool
 }
 
 // Helper to validate a packet synchronously
@@ -113,12 +114,13 @@ func validateSync(opts ValidateSyncOptions) bool {
 			ch <- valid
 			close(ch)
 		},
+		IgnoreValidity: optional.Some(opts.ignoreValidity),
 	})
 	return <-ch
 }
 
 // Helper to validate certificates
-func validateCerts(certData ndn.Data, certDataSigCov enc.Wire) bool {
+func validateCerts(certData ndn.Data, certDataSigCov enc.Wire, ignoreValidity bool) bool {
 	ch := make(chan bool)
 	go tcTestTrustConfig.Validate(sec.TrustConfigValidateArgs{
 		Data:       certData,
@@ -129,6 +131,7 @@ func validateCerts(certData ndn.Data, certDataSigCov enc.Wire) bool {
 			ch <- valid
 			close(ch)
 		},
+		IgnoreValidity: optional.Some(ignoreValidity),
 	})
 	return <-ch
 }
@@ -787,10 +790,17 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 	tcTestT.Log(eveSigner.KeyLocator().String())
 	eveCertWire, eveCertData, eveSigCov := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(eveSigner)), expiredOpts)
 	network[eveCertData.Name().String()] = eveCertWire
-	require.False(t, validateCerts(eveCertData, eveSigCov))
+	require.False(t, validateCerts(eveCertData, eveSigCov, false))
+	require.True(t, validateCerts(eveCertData, eveSigCov, true))
 	require.False(t, validateSync(ValidateSyncOptions{
-		name:   "/test/eve/data1",
-		signer: eveSigner,
+		name:           "/test/eve/data1",
+		signer:         eveSigner,
+		ignoreValidity: false,
+	}))
+	require.True(t, validateSync(ValidateSyncOptions{
+		name:           "/test/eve/data2",
+		signer:         eveSigner,
+		ignoreValidity: true,
 	}))
 }
 

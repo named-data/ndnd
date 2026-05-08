@@ -289,6 +289,7 @@ func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeSt
 		Data:             args.Data,
 		SigCovered:       args.SigCovered,
 		UseSignatureTime: state.args.UseSignatureTime,
+		IgnoreValidity:   state.args.IgnoreValidity,
 		Callback: func(valid bool, err error) {
 			if !valid {
 				state.finalizeError(fmt.Errorf("%w: validate seg failed: %w", ndn.ErrSecurity, err))

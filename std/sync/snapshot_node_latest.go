@@ -35,6 +35,8 @@ type SnapshotNodeLatest struct {
 	Threshold uint64
 	// UseSignatureTime checks validity period using signature time
 	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 
 	// pss is the struct from the svs layer.
 	pss snapPsState
@@ -121,6 +123,7 @@ func (s *SnapshotNodeLatest) fetchSnap(node enc.Name, boot uint64) {
 	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
 		Name:             s.snapName(node, boot),
 		UseSignatureTime: s.UseSignatureTime,
+		IgnoreValidity:   s.IgnoreValidity,
 		Callback: func(cstate ndn.ConsumeState) {
 			if cstate.Error() != nil {
 				// Do not try too fast in case NFD returns NACK

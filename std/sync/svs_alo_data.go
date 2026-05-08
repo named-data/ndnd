@@ -119,6 +119,7 @@ func (s *SvsALO) consumeObject(node enc.Name, boot uint64, seq uint64) {
 	s.client.ConsumeExt(ndn.ConsumeExtArgs{
 		Name:             fetchName,
 		UseSignatureTime: s.opts.Svs.UseSignatureTime,
+		IgnoreValidity:   s.opts.Svs.IgnoreValidity,
 		Callback: func(status ndn.ConsumeState) {
 			s.mutex.Lock()
 			defer s.mutex.Unlock()

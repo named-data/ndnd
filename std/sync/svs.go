@@ -71,6 +71,8 @@ type SvSyncOpts struct {
 	Passive bool
 	// UseSignatureTime checks validity period using signature time
 	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 type SvSyncUpdate struct {
@@ -527,6 +529,7 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 		Data:             data,
 		SigCovered:       sigCov,
 		UseSignatureTime: s.o.UseSignatureTime,
+		IgnoreValidity:   s.o.IgnoreValidity,
 		Callback: func(valid bool, err error) {
 			if !valid || err != nil {
 				log.Warn(s, "SvSync failed to validate signature", "name", data.Name(), "valid", valid, "err", err)
