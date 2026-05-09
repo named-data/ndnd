@@ -331,6 +331,26 @@ func (dv *Router) execMgmtRetry(module, cmd string, args *mgmt.ControlArgs) {
 	}
 }
 
+// updatePesSyncPrefix updates the PES sync prefix PET entry with all routers as egress for BIER delivery.
+func (dv *Router) updatePesSyncPrefix() {
+	pfx := dv.pfx.SyncPrefix()
+	// First, remove existing egress entries for this prefix
+	for _, router := range dv.rib.Entries() {
+		dv.execMgmtRetry("pet", "remove-egress", &mgmt.ControlArgs{
+			Name:   pfx,
+			Egress: &mgmt.EgressRecord{Name: router.Name().Clone()},
+		})
+	}
+	// Then add all routers as egress
+	for _, router := range dv.rib.Entries() {
+		dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
+			Name:      pfx,
+			Egress:    &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Multicast: true,
+		})
+	}
+}
+
 // createFaces creates faces to all neighbors.
 func (dv *Router) createFaces() {
 	neighborsPrefix := enc.LOCALHOP.Append(enc.NewGenericComponent("neighbors"))

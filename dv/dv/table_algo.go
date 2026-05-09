@@ -14,6 +14,8 @@ import (
 func (dv *Router) postUpdateRib() {
 	dv.updateFib()
 	dv.advert.generate()
+	// Update PES sync prefix with all routers as egress for BIER delivery.
+	dv.updatePesSyncPrefix()
 }
 
 // updateRib computes the RIB chnages for this neighbor
