@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ExecPrefixCmd executes a prefix management command against the DV prefix egress state.
+// ExecPrefixCmd executes a prefix management command against the DV prefix state.
 func (t *Tool) ExecPrefixCmd(_ *cobra.Command, cmd string, args []string, defaults []string) {
 	t.Start()
 	defer t.Stop()

@@ -62,8 +62,8 @@ type Config struct {
 	PrefixInsertionTrustSchemaPath string `json:"prefix_insertion_trust_schema"`
 	// List of permanent neighbors.
 	Neighbors []Neighbor `json:"neighbors"`
-	// Replicate Prefix Egress State into forwarder PET.
-	PrefixEgreStateReplicate bool `json:"prefix_egre_state_replicate"`
+	// Replicate Prefix State into forwarder PET.
+	PrefixStateReplicate bool `json:"prefix_egre_state_replicate"`
 	// Directory that contains the loaded config file.
 	ConfigDir string `json:"-"`
 
@@ -120,7 +120,7 @@ func DefaultConfig() *Config {
 		PrefixInsertionKeychainUri:     "",
 		TrustSchemaPath:                "",
 		PrefixInsertionTrustSchemaPath: "",
-		PrefixEgreStateReplicate:       true,
+		PrefixStateReplicate:       true,
 	}
 }
 
@@ -246,7 +246,7 @@ func (c *Config) Parse() (err error) {
 	// Prefix sync prefix
 	c.pfxSyncGroupPfxN = c.networkNameN.
 		Append(enc.NewKeywordComponent("DV")).
-		Append(enc.NewKeywordComponent("PES"))
+		Append(enc.NewKeywordComponent("PSD"))
 
 	// Local prefixes to NFD
 	c.mgmtPrefix = enc.LOCALHOST.
@@ -285,13 +285,13 @@ func (c *Config) AdvertisementDataPrefix() enc.Name {
 	return c.advDataPfxN
 }
 
-// PrefixEgreStatePrefix returns the prefix egress state sync prefix.
-func (c *Config) PrefixEgreStatePrefix() enc.Name {
+// PrefixStatePrefix returns the prefix state sync prefix.
+func (c *Config) PrefixStatePrefix() enc.Name {
 	return c.pfxSyncGroupPfxN
 }
 
-func (c *Config) PrefixEgreStateReplicationEnabled() bool {
-	return c.PrefixEgreStateReplicate
+func (c *Config) PrefixStateReplicationEnabled() bool {
+	return c.PrefixStateReplicate
 }
 
 // (AI GENERATED DESCRIPTION): Returns the management prefix stored in the Config object.

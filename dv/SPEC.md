@@ -13,7 +13,7 @@ This page describes the protocol specification of NDN Distance Vector Routing (n
    router-specific State Vector Sync group (*Advertisement Sync* group).
 
 1. All routers join a global *Prefix Sync* SVS group to synchronize the
-   global prefix egress state, which contains the mapping of prefixes to
+   global prefix state database, which contains the mapping of prefixes to
    routers that can reach them.
 
 ## 2. Format and Naming
@@ -23,9 +23,9 @@ Advertisement Broadcast Interest  = /localhop/<network>/32=DV/32=ADS/32=ACT
 Advertisement Broadcast Interest  = /localhop/<network>/32=DV/32=ADS/32=PSV
 Advertisement Broadcast Data      = /localhop/<router>/32=DV/32=ADV/32=SYNC
 Advertisement Data                = /localhop/<router>/32=DV/32=ADV/t=<boot>/v=<seq>
-Prefix Group SVS                  = /localhop/<network>/32=DV/32=PES/32=svs
-Prefix Data                       = /<network>/32=DV/32=PES/<router>/t=<boot>/seq=<seq>/v=0
-Prefix Snapshot                   = /<network>/32=DV/32=PES/<router>/t=<boot>/32=SNAP/v=<seq>
+Prefix Group SVS                  = /<network>/32=DV/32=PSD/32=svs
+Prefix Data                       = /<network>/32=DV/32=PSD/<router>/t=<boot>/seq=<seq>/v=0
+Prefix Snapshot                   = /<network>/32=DV/32=PSD/<router>/t=<boot>/32=SNAP/v=<seq>
 
 <router>  = router's unique name in the network
 <network> = globally unique network prefix
@@ -151,7 +151,7 @@ for n in neighbors:
 
 ### Prefix Sync
 
-Each router maintains a global prefix egress state that maps prefixes to routers that can reach them.
+Each router maintains a global prefix state database that maps prefixes to routers that can reach them.
 
 1. When any router makes a change to their local prefix list, it increments the
    sequence number for the *Prefix Sync* group, and publishes a `PrefixOpList`
@@ -167,9 +167,9 @@ Each router maintains a global prefix egress state that maps prefixes to routers
 
 ### FIB Computation
 
-The FIB is configured based on the RIB state and the global prefix egress state.
+The FIB is configured based on the RIB state and the global prefix state.
 
-1. For each prefix in the global prefix egress state, the router selects the lowest-cost
+1. For each prefix in the global prefix state, the router selects the lowest-cost
    next-hop interface from the RIB state and installs a FIB entry.
 
 1. If the prefix is not reachable, any existing FIB entry is removed.

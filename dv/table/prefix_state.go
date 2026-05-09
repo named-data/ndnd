@@ -11,14 +11,14 @@ import (
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 )
 
-type PrefixEgreState struct {
+type PrefixState struct {
 	config  *config.Config
 	publish func(enc.Wire)
-	routers map[uint64]*PrefixEgreStateRouter
-	me      *PrefixEgreStateRouter
+	routers map[uint64]*PrefixStateRouter
+	me      *PrefixStateRouter
 }
 
-type PrefixEgreStateRouter struct {
+type PrefixStateRouter struct {
 	Name     enc.Name
 	Prefixes map[string]*PrefixEntry
 }
@@ -51,28 +51,28 @@ type PrefixNextHop struct {
 	Cost uint64
 }
 
-// NewPrefixEgreState creates the local prefix egress state table.
-func NewPrefixEgreState(config *config.Config, publish func(enc.Wire)) *PrefixEgreState {
-	pt := &PrefixEgreState{
+// NewPrefixState creates the local prefix state table.
+func NewPrefixState(config *config.Config, publish func(enc.Wire)) *PrefixState {
+	pt := &PrefixState{
 		config:  config,
 		publish: publish,
-		routers: make(map[uint64]*PrefixEgreStateRouter),
+		routers: make(map[uint64]*PrefixStateRouter),
 		me:      nil,
 	}
 	pt.me = pt.GetRouter(config.RouterName())
 	return pt
 }
 
-func (pt *PrefixEgreState) String() string {
-	return "prefix-egress-state"
+func (pt *PrefixState) String() string {
+	return "prefix-state"
 }
 
 // GetRouter returns the state for a router, creating it if needed.
-func (pt *PrefixEgreState) GetRouter(name enc.Name) *PrefixEgreStateRouter {
+func (pt *PrefixState) GetRouter(name enc.Name) *PrefixStateRouter {
 	hash := name.Hash()
 	router := pt.routers[hash]
 	if router == nil {
-		router = &PrefixEgreStateRouter{
+		router = &PrefixStateRouter{
 			Name:     name.Clone(),
 			Prefixes: make(map[string]*PrefixEntry),
 		}
@@ -81,7 +81,7 @@ func (pt *PrefixEgreState) GetRouter(name enc.Name) *PrefixEgreStateRouter {
 	return router
 }
 
-func (pt *PrefixEgreState) Reset() {
+func (pt *PrefixState) Reset() {
 	log.Info(pt, "Reset table")
 	clear(pt.me.Prefixes)
 
@@ -95,7 +95,7 @@ func (pt *PrefixEgreState) Reset() {
 // Announce updates or creates a local prefix with an optional validity period.
 // Use face=0 and cost=0 for route-only semantics.
 // multicast=true marks this as a Sync group prefix (vs. a producer prefix).
-func (pt *PrefixEgreState) Announce(name enc.Name, face uint64, cost uint64, multicast bool, validity *spec.ValidityPeriod) {
+func (pt *PrefixState) Announce(name enc.Name, face uint64, cost uint64, multicast bool, validity *spec.ValidityPeriod) {
 	hash := name.TlvStr()
 	entry := pt.me.Prefixes[hash]
 	publishAdd := false
@@ -146,7 +146,7 @@ func (pt *PrefixEgreState) Announce(name enc.Name, face uint64, cost uint64, mul
 }
 
 // Withdraw removes a local next hop and removes the prefix when no next hops remain.
-func (pt *PrefixEgreState) Withdraw(name enc.Name, face uint64) {
+func (pt *PrefixState) Withdraw(name enc.Name, face uint64) {
 	if face == 0 {
 		log.Info(pt, "Local withdraw", "name", name)
 		hash := name.TlvStr()
@@ -186,7 +186,7 @@ func (pt *PrefixEgreState) Withdraw(name enc.Name, face uint64) {
 }
 
 // Publishes the update to the network.
-func (pt *PrefixEgreState) publishAdd(hash string) {
+func (pt *PrefixState) publishAdd(hash string) {
 	entry := pt.me.Prefixes[hash]
 	if entry == nil {
 		return // never
@@ -203,7 +203,7 @@ func (pt *PrefixEgreState) publishAdd(hash string) {
 	pt.publish(op.Encode())
 }
 
-func (pt *PrefixEgreState) publishRemoveEntry(entry *PrefixEntry) {
+func (pt *PrefixState) publishRemoveEntry(entry *PrefixEntry) {
 	if entry == nil {
 		return // never
 	}
@@ -216,7 +216,7 @@ func (pt *PrefixEgreState) publishRemoveEntry(entry *PrefixEntry) {
 }
 
 // Applies ops from a list. Returns if dirty.
-func (pt *PrefixEgreState) Apply(wire enc.Wire) (dirty bool) {
+func (pt *PrefixState) Apply(wire enc.Wire) (dirty bool) {
 	ops, err := tlv.ParsePrefixOpList(enc.NewWireView(wire), true)
 	if err != nil {
 		log.Warn(pt, "Failed to parse PrefixOpList", "err", err)
@@ -255,7 +255,7 @@ func (pt *PrefixEgreState) Apply(wire enc.Wire) (dirty bool) {
 	return dirty
 }
 
-func (pt *PrefixEgreState) Snap() enc.Wire {
+func (pt *PrefixState) Snap() enc.Wire {
 	snap := tlv.PrefixOpList{
 		EgressRouter:  &tlv.Destination{Name: pt.config.RouterName()},
 		PrefixOpReset: true,
@@ -274,7 +274,7 @@ func (pt *PrefixEgreState) Snap() enc.Wire {
 }
 
 // SnapshotEntries returns a point-in-time copy of all known prefix entries.
-func (pt *PrefixEgreState) SnapshotEntries() []PrefixSnapshotEntry {
+func (pt *PrefixState) SnapshotEntries() []PrefixSnapshotEntry {
 	entries := make([]PrefixSnapshotEntry, 0)
 	for _, router := range pt.routers {
 		for _, entry := range router.Prefixes {
@@ -292,8 +292,8 @@ func (pt *PrefixEgreState) SnapshotEntries() []PrefixSnapshotEntry {
 	return entries
 }
 
-// EntryCount returns total prefix entries across all known routers in PES.
-func (pt *PrefixEgreState) EntryCount() int {
+// EntryCount returns total prefix entries across all known routers in PSD.
+func (pt *PrefixState) EntryCount() int {
 	count := 0
 	for _, router := range pt.routers {
 		count += len(router.Prefixes)
@@ -322,7 +322,7 @@ func (entry *PrefixEntry) IsValidAt(now time.Time) bool {
 
 // PruneExpired removes expired prefix entries and returns removed tuples.
 // For local entries, corresponding remove updates are also published.
-func (pt *PrefixEgreState) PruneExpired(now time.Time) (expired []ExpiredPrefix, dirty bool) {
+func (pt *PrefixState) PruneExpired(now time.Time) (expired []ExpiredPrefix, dirty bool) {
 	expired = make([]ExpiredPrefix, 0)
 
 	for _, router := range pt.routers {

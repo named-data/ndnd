@@ -68,7 +68,7 @@ func (t *Tool) RunDvStatus(_ *cobra.Command, args []string) {
 	p.Print("routerName", status.RouterName.Name)
 	p.Print("networkName", status.NetworkName.Name)
 	p.Print("nRibEntries", status.NRibEntries)
-	p.Print("nPesEntries", status.NPesEntries)
+	p.Print("nPsdEntries", status.NPsdEntries)
 	p.Print("nNeighbors", status.NNeighbors)
 	p.Print("nFibEntries", status.NFibEntries)
 }

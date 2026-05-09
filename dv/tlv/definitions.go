@@ -74,7 +74,7 @@ type Status struct {
 	//+field:natural
 	NFibEntries uint64 `tlv:"0x19B"`
 	//+field:natural
-	NPesEntries uint64 `tlv:"0x19D"`
+	NPsdEntries uint64 `tlv:"0x19D"`
 }
 
 type PrefixInsertion struct {

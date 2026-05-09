@@ -51,7 +51,7 @@ func (dv *Router) mgmtOnStatus(args ndn.InterestHandlerArgs) {
 			NRibEntries: uint64(dv.rib.Size()),
 			NNeighbors:  uint64(dv.neighbors.Size()),
 			NFibEntries: uint64(dv.fib.Size()),
-			NPesEntries: uint64(dv.pfx.EntryCount()),
+			NPsdEntries: uint64(dv.pfx.EntryCount()),
 		}
 	}()
 
@@ -70,7 +70,7 @@ func (dv *Router) mgmtOnStatus(args ndn.InterestHandlerArgs) {
 	args.Reply(data.Wire)
 }
 
-// Received prefix egress state Interest
+// Received prefix state Interest
 func (dv *Router) mgmtOnPrefix(args ndn.InterestHandlerArgs) {
 	const (
 		cmdAnnounce = "announce"
@@ -298,7 +298,7 @@ func (dv *Router) mgmtOnPrefix(args ndn.InterestHandlerArgs) {
 		dv.mutex.Unlock()
 
 		res.Val.StatusCode = 200
-		res.Val.StatusText = "Prefix egress state command successful"
+		res.Val.StatusText = "Prefix state command successful"
 		res.Val.Params = responseParams
 	case cmdWithdraw:
 		if len(interestName) != mgmtPrefixLen+4 {
@@ -337,7 +337,7 @@ func (dv *Router) mgmtOnPrefix(args ndn.InterestHandlerArgs) {
 		dv.mutex.Unlock()
 
 		res.Val.StatusCode = 200
-		res.Val.StatusText = "Prefix egress state command successful"
+		res.Val.StatusText = "Prefix state command successful"
 		res.Val.Params = &mgmt.ControlArgs{Name: name}
 		if faceID != 0 {
 			res.Val.Params.FaceId = optional.Some(faceID)

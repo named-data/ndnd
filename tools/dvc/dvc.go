@@ -24,21 +24,21 @@ func Cmds() []*cobra.Command {
 		Run:   t.RunDvStatus,
 	}, {
 		Use:   "prefix-announce [params]",
-		Short: "Announce a prefix in the DV prefix egress state (non-expiring by default)",
+		Short: "Announce a prefix in the DV prefix state (non-expiring by default)",
 		Args:  cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			t.ExecPrefixCmd(cmd, "announce", args, []string{})
 		},
 	}, {
 		Use:   "prefix-withdraw [params]",
-		Short: "Withdraw a prefix from the DV prefix egress state",
+		Short: "Withdraw a prefix from the DV prefix state",
 		Args:  cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			t.ExecPrefixCmd(cmd, "withdraw", args, []string{})
 		},
 	}, {
 		Use:   "prefix-list",
-		Short: "List prefix egress state entries",
+		Short: "List prefix state entries",
 		Args:  cobra.NoArgs,
 		Run: func(_ *cobra.Command, _ []string) {
 			t.Start()

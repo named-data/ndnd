@@ -23,12 +23,12 @@ import (
 
 type PrefixModule struct {
 	mu                 sync.Mutex
-	pfx                *table.PrefixEgreState
+	pfx                *table.PrefixState
 	pfxSvs             *ndn_sync.SvsALO
 	nfdc               *nfdc.NfdMgmtThread
 	client             ndn.Client
 	insertionTrust     *sec.TrustConfig
-	replicatePes       bool
+	replicatePsd       bool
 	pfxGroup           enc.Name
 	insertPrefix       enc.Name
 	pfxSeen            map[uint64]enc.Name
@@ -66,7 +66,7 @@ func NewPrefixModule(
 	insertionTrust *sec.TrustConfig,
 	nfdcThread *nfdc.NfdMgmtThread,
 ) *PrefixModule {
-	var ptable *table.PrefixEgreState
+	var ptable *table.PrefixState
 
 	// Subscription List
 	pfxSubs := make(map[uint64]enc.Name)
@@ -74,12 +74,12 @@ func NewPrefixModule(
 	petPrefixes := make(map[uint64]map[string]enc.Name)
 	seenPrefixVersions := make(map[string]uint64)
 
-	// SVS delivery agent for syncing prefix egress state across all NDN routers.
+	// SVS delivery agent for syncing prefix state across all NDN routers.
 	pfxSvs, err := ndn_sync.NewSvsALO(ndn_sync.SvsAloOpts{
 		Name: config.RouterName(),
 		Svs: ndn_sync.SvSyncOpts{
 			Client:          objectClient,
-			GroupPrefix:     config.PrefixEgreStatePrefix(),
+			GroupPrefix:     config.PrefixStatePrefix(),
 			PeriodicTimeout: config.PrefixSyncInterval(),
 		},
 		Snapshot: &ndn_sync.SnapshotNodeLatest{
@@ -94,10 +94,10 @@ func NewPrefixModule(
 		panic(err)
 	}
 
-	// Local prefix egress state.
-	ptable = table.NewPrefixEgreState(config, func(w enc.Wire) {
+	// Local prefix state.
+	ptable = table.NewPrefixState(config, func(w enc.Wire) {
 		if _, _, err := pfxSvs.Publish(w); err != nil {
-			log.Error(ptable, "Failed to publish prefix egress state update", "err", err)
+			log.Error(ptable, "Failed to publish prefix state update", "err", err)
 		}
 	})
 
@@ -108,8 +108,8 @@ func NewPrefixModule(
 		nfdc:           nfdcThread,
 		client:         objectClient,
 		insertionTrust: insertionTrust,
-		replicatePes:   config.PrefixEgreStateReplicationEnabled(),
-		pfxGroup:       config.PrefixEgreStatePrefix().Clone(),
+		replicatePsd:   config.PrefixStateReplicationEnabled(),
+		pfxGroup:       config.PrefixStatePrefix().Clone(),
 		insertPrefix: enc.LOCALHOP.
 			Append(enc.NewGenericComponent("route")).
 			Append(enc.NewGenericComponent("insert")),
@@ -122,8 +122,8 @@ func NewPrefixModule(
 		routerName:         config.RouterName(),
 	}
 	pfxSvs.SetOnPublisher(pfxModule.onPublisher)
-	if !pfxModule.replicatePes {
-		log.Warn(pfxModule, "Prefix egress state replication to PET is disabled")
+	if !pfxModule.replicatePsd {
+		log.Warn(pfxModule, "Prefix state replication to PET is disabled")
 	}
 	if pfxModule.insertionTrust == nil {
 		panic("prefix insertion trust configuration must not be nil")
@@ -165,7 +165,7 @@ func (pfx *PrefixModule) onPublisher(name enc.Name) {
 	}
 	pfx.mu.Unlock()
 
-	if shouldInstall && pfx.replicatePes {
+	if shouldInstall && pfx.replicatePsd {
 		if pfx.nfdc != nil {
 			route := pfx.pfxGroup.Append(name...)
 			pfx.nfdc.Exec(nfdc.NfdMgmtCmd{
@@ -198,7 +198,7 @@ func (pfx *PrefixModule) onPublisher(name enc.Name) {
 	}
 }
 
-// forward APIs from PrefixEgreState
+// forward APIs from PrefixState
 // threadsafe as original caller used a mutex, to maintain existing assumptions
 
 // (AI GENERATED DESCRIPTION): Returns the literal string `"prefix-daemon"` as the string representation of a PrefixModule instance.
@@ -206,15 +206,15 @@ func (pfx *PrefixModule) String() string {
 	return "prefix-daemon"
 }
 
-// (AI GENERATED DESCRIPTION): Retrieves the PrefixEgreStateRouter for a given name, creating a new router with an empty Prefixes map if one does not already exist.
-func (pfx *PrefixModule) GetRouter(name enc.Name) *table.PrefixEgreStateRouter {
+// (AI GENERATED DESCRIPTION): Retrieves the PrefixStateRouter for a given name, creating a new router with an empty Prefixes map if one does not already exist.
+func (pfx *PrefixModule) GetRouter(name enc.Name) *table.PrefixStateRouter {
 	pfx.mu.Lock()
 	defer pfx.mu.Unlock()
 
 	return pfx.pfx.GetRouter(name)
 }
 
-// Reset clears local prefix egress state and publishes a reset update.
+// Reset clears local prefix state and publishes a reset update.
 func (pfx *PrefixModule) Reset() {
 	pfx.mu.Lock()
 	petOps := pfx.resetRouterPet(pfx.routerName)
@@ -224,7 +224,7 @@ func (pfx *PrefixModule) Reset() {
 	pfx.applyPetOps(petOps)
 }
 
-// Announce adds or updates a local prefix in prefix egress state.
+// Announce adds or updates a local prefix in prefix state.
 // Use face=0 and cost=0 for route-only semantics.
 func (pfx *PrefixModule) Announce(name enc.Name, face uint64, cost uint64, multicast bool, validity *spec.ValidityPeriod) {
 	pfx.announce(name, face, cost, multicast, validity)
@@ -247,7 +247,7 @@ func (pfx *PrefixModule) announce(name enc.Name, face uint64, cost uint64, multi
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Removes a next‑hop for the specified name and face from the local prefix egress state and republishes the entry if its cost changes.
+// (AI GENERATED DESCRIPTION): Removes a next‑hop for the specified name and face from the local prefix state and republishes the entry if its cost changes.
 func (pfx *PrefixModule) Withdraw(name enc.Name, face uint64) {
 	pfx.mu.Lock()
 	petOps := make([]petEgressOp, 0)
@@ -286,7 +286,7 @@ func (pfx *PrefixModule) Apply(wire enc.Wire) (dirty bool) {
 	return dirty
 }
 
-// (AI GENERATED DESCRIPTION): Creates a wire‑encoded TLV PrefixOpList that resets the prefix egress state and lists all current prefixes for the local router.
+// (AI GENERATED DESCRIPTION): Creates a wire‑encoded TLV PrefixOpList that resets the prefix state and lists all current prefixes for the local router.
 func (pfx *PrefixModule) Snap() enc.Wire {
 	pfx.mu.Lock()
 	defer pfx.mu.Unlock()
@@ -413,7 +413,7 @@ func (pfx *PrefixModule) removeRouterPrefixPet(router enc.Name, prefix enc.Name)
 }
 
 func (pfx *PrefixModule) applyPetOps(ops []petEgressOp) {
-	if !pfx.replicatePes || pfx.nfdc == nil || len(ops) == 0 {
+	if !pfx.replicatePsd || pfx.nfdc == nil || len(ops) == 0 {
 		return
 	}
 

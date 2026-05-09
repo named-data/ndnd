@@ -48,7 +48,7 @@ type Router struct {
 	// advertisement module
 	advert advertModule
 
-	// prefix egress state daemon
+	// prefix state daemon
 	pfx *PrefixModule
 	// neighbor table
 	neighbors *table.NeighborTable
@@ -139,7 +139,7 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		objDir:   storage.NewMemoryFifoDir(32), // keep last few advertisements
 	}
 
-	// Create prefix egress state daemon.
+	// Create prefix state daemon.
 	dv.pfx = NewPrefixModule(dv.config, dv.client, insertionTrust, dv.nfdc)
 
 	// Create DV tables
@@ -199,7 +199,7 @@ func (dv *Router) Start() (err error) {
 	dv.rib.Set(dv.config.RouterName(), dv.config.RouterName(), 0)
 	dv.advert.generate()
 
-	// Initialize prefix egress state
+	// Initialize prefix state
 	dv.pfx.Reset()
 
 	for {
@@ -331,8 +331,8 @@ func (dv *Router) execMgmtRetry(module, cmd string, args *mgmt.ControlArgs) {
 	}
 }
 
-// updatePesSyncPrefix updates the PES sync prefix PET entry with all routers as egress for BIER delivery.
-func (dv *Router) updatePesSyncPrefix() {
+// updatePsdSyncPrefix updates the PSD sync prefix PET entry with all routers as egress for BIER delivery.
+func (dv *Router) updatePsdSyncPrefix() {
 	pfx := dv.pfx.SyncPrefix()
 	// First, remove existing egress entries for this prefix
 	for _, router := range dv.rib.Entries() {

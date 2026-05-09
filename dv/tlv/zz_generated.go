@@ -1464,7 +1464,7 @@ func (encoder *StatusEncoder) Init(value *Status) {
 	l += 3
 	l += uint(1 + enc.Nat(value.NFibEntries).EncodingLength())
 	l += 3
-	l += uint(1 + enc.Nat(value.NPesEntries).EncodingLength())
+	l += uint(1 + enc.Nat(value.NPsdEntries).EncodingLength())
 	encoder.Length = l
 
 }
@@ -1528,7 +1528,7 @@ func (encoder *StatusEncoder) EncodeInto(value *Status, buf []byte) {
 	binary.BigEndian.PutUint16(buf[pos+1:], uint16(413))
 	pos += 3
 
-	buf[pos] = byte(enc.Nat(value.NPesEntries).EncodeInto(buf[pos+1:]))
+	buf[pos] = byte(enc.Nat(value.NPsdEntries).EncodeInto(buf[pos+1:]))
 	pos += uint(1 + buf[pos])
 }
 
@@ -1550,7 +1550,7 @@ func (context *StatusParsingContext) Parse(reader enc.WireView, ignoreCritical b
 	var handled_NRibEntries bool = false
 	var handled_NNeighbors bool = false
 	var handled_NFibEntries bool = false
-	var handled_NPesEntries bool = false
+	var handled_NPsdEntries bool = false
 
 	progress := -1
 	_ = progress
@@ -1661,8 +1661,8 @@ func (context *StatusParsingContext) Parse(reader enc.WireView, ignoreCritical b
 			case 413:
 				if true {
 					handled = true
-					handled_NPesEntries = true
-					value.NPesEntries = uint64(0)
+					handled_NPsdEntries = true
+					value.NPsdEntries = uint64(0)
 					{
 						for i := 0; i < int(l); i++ {
 							x := byte(0)
@@ -1673,7 +1673,7 @@ func (context *StatusParsingContext) Parse(reader enc.WireView, ignoreCritical b
 								}
 								break
 							}
-							value.NPesEntries = uint64(value.NPesEntries<<8) | uint64(x)
+							value.NPsdEntries = uint64(value.NPsdEntries<<8) | uint64(x)
 						}
 					}
 				}
@@ -1713,8 +1713,8 @@ func (context *StatusParsingContext) Parse(reader enc.WireView, ignoreCritical b
 	if !handled_NFibEntries && err == nil {
 		err = enc.ErrSkipRequired{Name: "NFibEntries", TypeNum: 411}
 	}
-	if !handled_NPesEntries && err == nil {
-		err = enc.ErrSkipRequired{Name: "NPesEntries", TypeNum: 413}
+	if !handled_NPsdEntries && err == nil {
+		err = enc.ErrSkipRequired{Name: "NPsdEntries", TypeNum: 413}
 	}
 
 	if err != nil {
