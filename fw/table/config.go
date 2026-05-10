@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
-	"github.com/named-data/ndnd/fw/defn"
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
@@ -36,20 +35,6 @@ func Initialize() {
 		newFibStrategyTableHashTable(core.C.Tables.Fib.Hashtable.M)
 	case "nametree":
 		newFibStrategyTableTree()
-	default:
-		core.Log.Fatal(nil, "Unknown FIB table algorithm", "algo", core.C.Tables.Fib.Algorithm)
-	}
-
-	// Create Multicast strategy table
-	defaultMulticastStrategy := defn.BROADCAST_STRATEGY
-	if core.C.Fw.BierIndex >= 0 {
-		defaultMulticastStrategy = defn.BIER_STRATEGY
-	}
-	switch core.C.Tables.Fib.Algorithm {
-	case "hashtable":
-		newMulticastStrategyTableHashTable(core.C.Tables.Fib.Hashtable.M, defaultMulticastStrategy)
-	case "nametree":
-		newMulticastStrategyTableTree(defaultMulticastStrategy)
 	default:
 		core.Log.Fatal(nil, "Unknown FIB table algorithm", "algo", core.C.Tables.Fib.Algorithm)
 	}

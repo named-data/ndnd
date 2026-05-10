@@ -554,7 +554,6 @@ func (t *Thread) filterAllowedNexthops(packet *defn.Pkt, inFace uint64, nextNet 
 
 func (t *Thread) handleMulticastPipeline(packet *defn.Pkt, pitEntry table.PitEntry, inFace uint64, pipeline forwardPipeline, petLocalHops []*table.PetNextHop, petEntry table.PetEntry, petFound bool, lookupName enc.Name, localFacesOnly bool) {
 	isLocalHop := lookupName.At(0).Equal(enc.LOCALHOP)
-	multicastStrategyName := table.MulticastStrategyTable.FindStrategyEnc(lookupName)
 	core.Log.Trace(t, "Multicast pipeline",
 		"name", packet.Name,
 		"lookup", lookupName,
@@ -562,7 +561,6 @@ func (t *Thread) handleMulticastPipeline(packet *defn.Pkt, pitEntry table.PitEnt
 		"localHop", isLocalHop,
 		"localFacesOnly", localFacesOnly,
 		"bier", len(packet.Bier),
-		"mcastStrategy", multicastStrategyName,
 	)
 
 	deliveredToLocal := false
@@ -583,8 +581,28 @@ func (t *Thread) handleMulticastPipeline(packet *defn.Pkt, pitEntry table.PitEnt
 		return
 	}
 
-	strategy := t.strategies[multicastStrategyName.Hash()]
-	strategy.AfterReceiveMulticastInterest(packet, pitEntry, inFace, petEntry, deliveredToLocal)
+	// BIER forwarding for multicast
+	if !petFound || len(petEntry.EgressRouters) == 0 {
+		return
+	}
+
+	// Encode BIER bitstring from PET egress routers if not present
+	if len(packet.Bier) == 0 {
+		packet.Bier = bier.Bift.BuildBierBitString(petEntry.EgressRouters)
+	}
+
+	// Clear local bit if we already delivered locally
+	if deliveredToLocal && len(packet.Bier) > 0 && bier.IsBierEnabled() {
+		bs := bier.BierClone(packet.Bier)
+		bier.BierClearBit(bs, bier.CfgBierIndex())
+		packet.Bier = bs
+		if bier.BierIsZero(bs) {
+			return
+		}
+	}
+
+	// Do BIER replication
+	bierReplicate(t, packet, pitEntry, inFace, t.processOutgoingInterest)
 }
 
 func (t *Thread) afterContentStoreHit(

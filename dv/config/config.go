@@ -27,11 +27,6 @@ var MulticastStrategy = enc.LOCALHOST.
 	Append(enc.NewGenericComponent("strategy")).
 	Append(enc.NewGenericComponent("multicast"))
 
-var BroadcastStrategy = enc.LOCALHOST.
-	Append(enc.NewGenericComponent("nfd")).
-	Append(enc.NewGenericComponent("strategy")).
-	Append(enc.NewGenericComponent("broadcast"))
-
 //go:embed schema.tlv
 var SchemaBytes []byte
 

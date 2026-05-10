@@ -63,8 +63,7 @@ func MakeMgmtThread() *Thread {
 	m.registerModule("bift", newBiftModule())
 	m.registerModule("rib", new(RIBModule))
 	m.registerModule("status", new(ForwarderStatusModule))
-	m.registerModule("strategy-choice", NewStrategyChoiceModule(strategyChoiceUnicast))
-	m.registerModule("multicast-strategy-choice", NewStrategyChoiceModule(strategyChoiceMulticast))
+	m.registerModule("strategy-choice", NewStrategyChoiceModule())
 
 	// readvertisers run in the management thread for ease of
 	// implementation, since they use the internal transport

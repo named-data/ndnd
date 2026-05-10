@@ -19,28 +19,15 @@ import (
 // StrategyChoiceModule is the module that handles Strategy Choice Management.
 type StrategyChoiceModule struct {
 	manager *Thread
-	kind    strategyChoiceKind
 }
 
-type strategyChoiceKind int
-
-const (
-	strategyChoiceUnicast strategyChoiceKind = iota
-	strategyChoiceMulticast
-)
-
-func NewStrategyChoiceModule(kind strategyChoiceKind) *StrategyChoiceModule {
-	return &StrategyChoiceModule{kind: kind}
+func NewStrategyChoiceModule() *StrategyChoiceModule {
+	return &StrategyChoiceModule{}
 }
 
 // (AI GENERATED DESCRIPTION): Returns the identifier string `"mgmt-strategy"` for the StrategyChoiceModule.
 func (s *StrategyChoiceModule) String() string {
-	switch s.kind {
-	case strategyChoiceMulticast:
-		return "mgmt-multicast-strategy"
-	default:
-		return "mgmt-strategy"
-	}
+	return "mgmt-strategy"
 }
 
 // (AI GENERATED DESCRIPTION): Registers the specified manager by assigning it to the StrategyChoiceModule’s manager field.
@@ -149,20 +136,8 @@ func (s *StrategyChoiceModule) set(interest *Interest) {
 			Append(enc.NewVersionComponent(strategyVersion))
 	}
 
-	switch s.kind {
-	case strategyChoiceMulticast:
-		table.MulticastStrategyTable.SetStrategyEnc(params.Name, params.Strategy.Name)
-		core.Log.Info(s, "Set multicast strategy", "name", params.Name, "strategy", params.Strategy.Name)
-
-	case strategyChoiceUnicast:
-		table.FibStrategyTable.SetStrategyEnc(params.Name, params.Strategy.Name)
-		core.Log.Info(s, "Set strategy", "name", params.Name, "strategy", params.Strategy.Name)
-
-	default:
-		core.Log.Warn(s, "Unknown strategy choice kind", "kind", s.kind)
-		s.manager.sendCtrlResp(interest, 500, "Internal error", nil)
-		return
-	}
+	table.FibStrategyTable.SetStrategyEnc(params.Name, params.Strategy.Name)
+	core.Log.Info(s, "Set strategy", "name", params.Name, "strategy", params.Strategy.Name)
 
 	s.manager.sendCtrlResp(interest, 200, "OK", &mgmt.ControlArgs{
 		Name:     params.Name,
@@ -193,18 +168,8 @@ func (s *StrategyChoiceModule) unset(interest *Interest) {
 		return
 	}
 
-	switch s.kind {
-	case strategyChoiceMulticast:
-		table.MulticastStrategyTable.UnSetStrategyEnc(params.Name)
-		core.Log.Info(s, "Unset multicast strategy", "name", params.Name)
-	case strategyChoiceUnicast:
-		table.FibStrategyTable.UnSetStrategyEnc(params.Name)
-		core.Log.Info(s, "Unset Strategy", "name", params.Name)
-	default:
-		core.Log.Warn(s, "Unknown strategy choice kind", "kind", s.kind)
-		s.manager.sendCtrlResp(interest, 500, "Internal error", nil)
-		return
-	}
+	table.FibStrategyTable.UnSetStrategyEnc(params.Name)
+	core.Log.Info(s, "Unset Strategy", "name", params.Name)
 
 	s.manager.sendCtrlResp(interest, 200, "OK", &mgmt.ControlArgs{Name: params.Name})
 }
@@ -218,24 +183,11 @@ func (s *StrategyChoiceModule) list(interest *Interest) {
 
 	// Generate new dataset
 	// TODO: For thread safety, we should lock the Strategy table from writes until we are done
-	var entries []table.FibStrategyEntry
 	name := LOCAL_PREFIX.Append(
 		enc.NewGenericComponent("strategy-choice"),
 		enc.NewGenericComponent("list"),
 	)
-	switch s.kind {
-	case strategyChoiceMulticast:
-		entries = table.MulticastStrategyTable.GetAllForwardingStrategies()
-		name = LOCAL_PREFIX.Append(
-			enc.NewGenericComponent("multicast-strategy-choice"),
-			enc.NewGenericComponent("list"),
-		)
-	case strategyChoiceUnicast:
-		entries = table.FibStrategyTable.GetAllForwardingStrategies()
-	default:
-		core.Log.Warn(s, "Unknown strategy choice kind", "kind", s.kind)
-		return
-	}
+	entries := table.FibStrategyTable.GetAllForwardingStrategies()
 	choices := []*mgmt.StrategyChoice{}
 	for _, fsEntry := range entries {
 		choices = append(choices, &mgmt.StrategyChoice{

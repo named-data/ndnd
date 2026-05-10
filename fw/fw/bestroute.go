@@ -117,22 +117,6 @@ func (s *BestRoute) AfterReceiveInterest(
 	core.Log.Debug(s, "No usable nexthop for Interest - DROP", "name", packet.Name)
 }
 
-func (s *BestRoute) AfterReceiveMulticastInterest(
-	packet *defn.Pkt,
-	pitEntry table.PitEntry,
-	inFace uint64,
-	petEntry table.PetEntry,
-	deliveredToLocal bool,
-) {
-	core.Log.Error(s, "BestRoute does not support AfterReceiveMulticastInterest",
-		"name", packet.Name,
-		"inFace", inFace,
-		"petNextHops", len(petEntry.NextHops),
-		"petEgress", len(petEntry.EgressRouters),
-		"deliveredToLocal", deliveredToLocal,
-	)
-}
-
 // (AI GENERATED DESCRIPTION): No‑op; the BestRoute strategy performs no action before satisfying an Interest.
 func (s *BestRoute) BeforeSatisfyInterest(pitEntry table.PitEntry, inFace uint64) {
 	// This does nothing in BestRoute
