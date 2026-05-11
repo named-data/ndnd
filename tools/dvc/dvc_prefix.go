@@ -35,9 +35,6 @@ func (t *Tool) ExecPrefixCmd(_ *cobra.Command, cmd string, args []string, defaul
 		switch cmd {
 		case "announce":
 			switch key {
-			case "face", "cost":
-				// face/cost are intentionally not part of DV prefix announce params
-				continue
 			case "expires":
 				expires, err := strconv.ParseUint(val, 10, 64)
 				if err != nil {
@@ -54,11 +51,7 @@ func (t *Tool) ExecPrefixCmd(_ *cobra.Command, cmd string, args []string, defaul
 				continue
 			}
 		case "withdraw":
-			switch key {
-			case "face", "cost":
-				// face/cost are intentionally not part of DV prefix withdraw params
-				continue
-			}
+			// face/cost are handled by convPetArg
 		}
 
 		if key == "expires" {
