@@ -313,6 +313,10 @@ func (pfx *PrefixModule) SyncPrefix() enc.Name {
 	return pfx.pfxSvs.SyncPrefix()
 }
 
+func (pfx *PrefixModule) GroupPrefix() enc.Name {
+	return pfx.pfxSvs.GroupPrefix()
+}
+
 func (pfx *PrefixModule) DataPrefix() enc.Name {
 	return pfx.pfxSvs.DataPrefix()
 }

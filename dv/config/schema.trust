@@ -8,10 +8,10 @@
 // Advertisement data and broadcast
 #advertisement_data: /"localhop"/#router/"32=DV"/"32=ADV"/_ <= #router_cert
 
-// Prefix egress state sync group
-#prefix_egre_state: #network/"32=DV"/"32=PES"
-// Prefix egress state data
-#prefix_egre_state_data: #prefix_egre_state/#router/_/_ <= #router_cert
+// Prefix state database
+#prefix_state: #network/"32=DV"/"32=PSD"
+// Prefix state database data
+#prefix_state_data: #prefix_state/#router/_/_ <= #router_cert
 
 // Certificate definitions
 #network_cert: #network/#KEY

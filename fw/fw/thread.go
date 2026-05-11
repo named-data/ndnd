@@ -50,6 +50,47 @@ func (p forwardPipeline) String() string {
 	return fmt.Sprintf("forwardPipeline(%d)", int(p))
 }
 
+// pipelineContext holds arguments for pipeline handling functions
+type pipelineContext struct {
+	Pkt            *defn.Pkt
+	PitEntry       table.PitEntry
+	InFace         uint64
+	Pipeline       forwardPipeline
+	PetLocalHops   []*table.PetNextHop
+	PetEntry       table.PetEntry
+	PetFound       bool
+	LookupName     enc.Name
+	LocalFacesOnly bool
+}
+
+// nexthopFilterContext holds arguments for filterAllowedNexthops
+type nexthopFilterContext struct {
+	packet         *defn.Pkt
+	inFace         uint64
+	nextNet        []StrategyCandidateHop
+	localFacesOnly bool
+	pitEntry       table.PitEntry
+}
+
+// petLocalHopsContext holds arguments for collectPetLocalHops
+type petLocalHopsContext struct {
+	Packet     *defn.Pkt
+	Pipeline   forwardPipeline
+	LookupName enc.Name
+	PitEntry   table.PitEntry
+	PetEntry   table.PetEntry
+	PetFound   bool
+}
+
+// forwardInContext holds arguments for tryContentStoreHit
+type forwardInContext struct {
+	Interest         *defn.FwInterest
+	Packet           *defn.Pkt
+	PitEntry         table.PitEntry
+	Pipeline         forwardPipeline
+	IsAlreadyPending bool
+}
+
 func (p forwardPipeline) isUnicast() bool {
 	return p == fwUnicastTransit || p == fwUnicastIngress || p == fwUnicastEgress
 }
@@ -262,7 +303,13 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		t.deadNonceList.Insert(interest.Name(), prevNonce)
 	}
 
-	if t.tryContentStoreHit(interest, packet, pitEntry, pipeline, isAlreadyPending) {
+	if t.tryContentStoreHit(forwardInContext{
+		Interest:         interest,
+		Packet:           packet,
+		PitEntry:         pitEntry,
+		Pipeline:         pipeline,
+		IsAlreadyPending: isAlreadyPending,
+	}) {
 		return
 	}
 
@@ -274,16 +321,43 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		return
 	}
 
-	petLocalHops := t.collectPetLocalHops(packet, pipeline, lookupName, pitEntry, petEntry, petFound)
+	petLocalHops := t.collectPetLocalHops(petLocalHopsContext{
+		Packet:     packet,
+		Pipeline:   pipeline,
+		LookupName: lookupName,
+		PitEntry:   pitEntry,
+		PetEntry:   petEntry,
+		PetFound:   petFound,
+	})
 	localFacesOnly := incomingFace.Scope() != defn.Local && lookupName.At(0).Equal(enc.LOCALHOP)
 
 	if pipeline.isUnicast() {
-		t.handleUnicastPipeline(packet, pitEntry, incomingFace.FaceID(), pipeline, petLocalHops, petEntry, petFound, localFacesOnly)
+		t.handleUnicastPipeline(pipelineContext{
+			Pkt:            packet,
+			PitEntry:       pitEntry,
+			InFace:         incomingFace.FaceID(),
+			Pipeline:       pipeline,
+			PetLocalHops:   petLocalHops,
+			PetEntry:       petEntry,
+			PetFound:       petFound,
+			LookupName:     lookupName,
+			LocalFacesOnly: localFacesOnly,
+		})
 		return
 	}
 
 	if pipeline.isMulticast() {
-		t.handleMulticastPipeline(packet, pitEntry, incomingFace.FaceID(), pipeline, petLocalHops, petEntry, petFound, lookupName, localFacesOnly)
+		t.handleMulticastPipeline(pipelineContext{
+			Pkt:            packet,
+			PitEntry:       pitEntry,
+			InFace:         incomingFace.FaceID(),
+			Pipeline:       pipeline,
+			PetLocalHops:   petLocalHops,
+			PetEntry:       petEntry,
+			PetFound:       petFound,
+			LookupName:     lookupName,
+			LocalFacesOnly: localFacesOnly,
+		})
 	}
 }
 
@@ -357,7 +431,8 @@ func (t *Thread) determinePipeline(packet *defn.Pkt, lookupName enc.Name) (forwa
 			pipeline = fwMulticastTransit
 		}
 	} else if len(packet.EgressRouter) > 0 {
-		if routerNameSet && packet.EgressRouter.Equal(routerName) {
+		if routerNameSet && (packet.EgressRouter.Equal(routerName) ||
+			packet.EgressRouter.At(0).Equal(enc.LOCALHOP)) {
 			pipeline = fwUnicastEgress
 		} else {
 			pipeline = fwUnicastTransit
@@ -385,12 +460,12 @@ func (t *Thread) determinePipeline(packet *defn.Pkt, lookupName enc.Name) (forwa
 	return pipeline, petEntry, petFound
 }
 
-func (t *Thread) tryContentStoreHit(interest *defn.FwInterest, packet *defn.Pkt, pitEntry table.PitEntry, pipeline forwardPipeline, isAlreadyPending bool) bool {
-	if !pipeline.isUnicast() || isAlreadyPending || !t.pitCS.IsCsServing() {
+func (t *Thread) tryContentStoreHit(ctx forwardInContext) bool {
+	if !ctx.Pipeline.isUnicast() || ctx.IsAlreadyPending || !t.pitCS.IsCsServing() {
 		return false
 	}
 
-	csEntry := t.pitCS.FindMatchingDataFromCS(interest)
+	csEntry := t.pitCS.FindMatchingDataFromCS(ctx.Interest)
 	if csEntry == nil {
 		t.nCsMisses.Add(1)
 		return false
@@ -408,14 +483,14 @@ func (t *Thread) tryContentStoreHit(interest *defn.FwInterest, packet *defn.Pkt,
 		return false
 	}
 
-	table.UpdateExpirationTimer(pitEntry, time.Now())
+	table.UpdateExpirationTimer(ctx.PitEntry, time.Now())
 
-	packet.EgressRouter = nil
-	packet.L3.Data = csData
-	packet.L3.Interest = nil
-	packet.Raw = enc.Wire{csWire}
-	packet.Name = csData.NameV
-	t.afterContentStoreHit(packet, pitEntry, packet.IncomingFaceID)
+	ctx.Packet.EgressRouter = nil
+	ctx.Packet.L3.Data = csData
+	ctx.Packet.L3.Interest = nil
+	ctx.Packet.Raw = enc.Wire{csWire}
+	ctx.Packet.Name = csData.NameV
+	t.afterContentStoreHit(ctx.Packet, ctx.PitEntry, ctx.Packet.IncomingFaceID)
 	return true
 }
 
@@ -436,26 +511,26 @@ func (t *Thread) tryNextHopForward(packet *defn.Pkt, pitEntry table.PitEntry, in
 	return true
 }
 
-func (t *Thread) collectPetLocalHops(packet *defn.Pkt, pipeline forwardPipeline, lookupName enc.Name, pitEntry table.PitEntry, petEntry table.PetEntry, petFound bool) []*table.PetNextHop {
-	if !pipeline.isIngressEgress() {
+func (t *Thread) collectPetLocalHops(ctx petLocalHopsContext) []*table.PetNextHop {
+	if !ctx.Pipeline.isIngressEgress() {
 		return nil
 	}
 
-	if !petFound {
-		petEntry, petFound = table.Pet.FindLongestPrefixEnc(lookupName)
+	if !ctx.PetFound {
+		ctx.PetEntry, ctx.PetFound = table.Pet.FindLongestPrefixEnc(ctx.LookupName)
 	}
 
-	if !petFound {
+	if !ctx.PetFound {
 		return nil
 	}
 
-	petLocalHops := make([]*table.PetNextHop, 0, len(petEntry.NextHops))
-	for i := range petEntry.NextHops {
-		nexthop := &petEntry.NextHops[i]
-		if nexthop.FaceID == packet.IncomingFaceID {
+	petLocalHops := make([]*table.PetNextHop, 0, len(ctx.PetEntry.NextHops))
+	for i := range ctx.PetEntry.NextHops {
+		nexthop := &ctx.PetEntry.NextHops[i]
+		if nexthop.FaceID == ctx.Packet.IncomingFaceID {
 			continue
 		}
-		if pitEntry.InRecords()[nexthop.FaceID] != nil {
+		if ctx.PitEntry.InRecords()[nexthop.FaceID] != nil {
 			continue
 		}
 		petLocalHops = append(petLocalHops, nexthop)
@@ -463,44 +538,51 @@ func (t *Thread) collectPetLocalHops(packet *defn.Pkt, pipeline forwardPipeline,
 	return petLocalHops
 }
 
-func (t *Thread) handleUnicastPipeline(packet *defn.Pkt, pitEntry table.PitEntry, inFace uint64, pipeline forwardPipeline, petLocalHops []*table.PetNextHop, petEntry table.PetEntry, petFound bool, localFacesOnly bool) {
-	isLocalHop := packet.Name.At(0).Equal(enc.LOCALHOP)
+func (t *Thread) handleUnicastPipeline(ctx pipelineContext) {
+	isLocalHop := ctx.Pkt.Name.At(0).Equal(enc.LOCALHOP)
 	core.Log.Trace(t, "Unicast pipeline",
-		"name", packet.Name,
-		"lookup", packet.Name,
-		"petFound", petFound,
+		"name", ctx.Pkt.Name,
+		"lookup", ctx.LookupName,
+		"petFound", ctx.PetFound,
 		"localHop", isLocalHop,
-		"localFacesOnly", localFacesOnly,
+		"localFacesOnly", ctx.LocalFacesOnly,
 	)
 
-	if len(petLocalHops) > 0 {
-		core.Log.Trace(t, "Local Egress captures the Interest", "name", packet.Name)
-		packet.EgressRouter = nil
-		t.processOutgoingInterest(packet, pitEntry, petLocalHops[0].FaceID, inFace)
+	if len(ctx.PetLocalHops) > 0 {
+		core.Log.Trace(t, "Local Egress captures the Interest", "name", ctx.Pkt.Name)
+		ctx.Pkt.EgressRouter = nil
+		t.processOutgoingInterest(ctx.Pkt, ctx.PitEntry, ctx.PetLocalHops[0].FaceID, ctx.InFace)
 		return
 	}
 
-	nextNet := t.collectNetworkNextHops(packet, petEntry, petFound)
+	nextNet := t.collectNetworkNextHops(ctx.Pkt, ctx.PetEntry, ctx.PetFound)
 
 	if len(nextNet) == 0 {
 		core.Log.Trace(t, "Unicast forwarding: no PET and no FIB nexthops",
-			"name", packet.Name,
-			"lookup", packet.Name,
-			"pipeline", pipeline,
+			"name", ctx.Pkt.Name,
+			"lookup", ctx.LookupName,
+			"pipeline", ctx.Pipeline,
 			"isLocalHop", isLocalHop,
 		)
 	}
 
-	allowedNetNexthops := t.filterAllowedNexthops(packet, inFace, nextNet, localFacesOnly, pitEntry)
+	allowedNetNexthops := t.filterAllowedNexthops(nexthopFilterContext{
+		packet:         ctx.Pkt,
+		inFace:         ctx.InFace,
+		nextNet:        nextNet,
+		localFacesOnly: ctx.LocalFacesOnly,
+		pitEntry:       ctx.PitEntry,
+	})
 
 	if len(allowedNetNexthops) > 0 {
 		core.Log.Trace(t, "Unicast forward",
-			"name", packet.Name,
+			"name", ctx.Pkt.Name,
 			"allowedNet", len(allowedNetNexthops),
-			"localFacesOnly", localFacesOnly,
+			"localFacesOnly", ctx.LocalFacesOnly,
 		)
-		strategy := t.strategies[defn.BEST_ROUTE_STRATEGY.Hash()]
-		strategy.AfterReceiveInterest(packet, pitEntry, inFace, allowedNetNexthops)
+		strategyName := table.FibStrategyTable.FindStrategyEnc(ctx.LookupName)
+		strategy := t.strategies[strategyName.Hash()]
+		strategy.AfterReceiveInterest(ctx.Pkt, ctx.PitEntry, ctx.InFace, allowedNetNexthops)
 	}
 }
 
@@ -528,21 +610,21 @@ func (t *Thread) collectNetworkNextHops(packet *defn.Pkt, petEntry table.PetEntr
 	return nextNet
 }
 
-func (t *Thread) filterAllowedNexthops(packet *defn.Pkt, inFace uint64, nextNet []StrategyCandidateHop, localFacesOnly bool, pitEntry table.PitEntry) []StrategyCandidateHop {
-	allowedNetNexthops := make([]StrategyCandidateHop, 0, len(nextNet))
+func (t *Thread) filterAllowedNexthops(ctx nexthopFilterContext) []StrategyCandidateHop {
+	allowedNetNexthops := make([]StrategyCandidateHop, 0, len(ctx.nextNet))
 
-	for _, nexthop := range nextNet {
-		if nexthop.HopEntry.Nexthop == inFace {
+	for _, nexthop := range ctx.nextNet {
+		if nexthop.HopEntry.Nexthop == ctx.inFace {
 			continue
 		}
 
-		if localFacesOnly {
+		if ctx.localFacesOnly {
 			if face := dispatch.GetFace(nexthop.HopEntry.Nexthop); face != nil && face.Scope() != defn.Local {
 				continue
 			}
 		}
 
-		if pitEntry.InRecords()[nexthop.HopEntry.Nexthop] != nil {
+		if ctx.pitEntry.InRecords()[nexthop.HopEntry.Nexthop] != nil {
 			continue
 		}
 
@@ -552,57 +634,57 @@ func (t *Thread) filterAllowedNexthops(packet *defn.Pkt, inFace uint64, nextNet 
 	return allowedNetNexthops
 }
 
-func (t *Thread) handleMulticastPipeline(packet *defn.Pkt, pitEntry table.PitEntry, inFace uint64, pipeline forwardPipeline, petLocalHops []*table.PetNextHop, petEntry table.PetEntry, petFound bool, lookupName enc.Name, localFacesOnly bool) {
-	isLocalHop := lookupName.At(0).Equal(enc.LOCALHOP)
+func (t *Thread) handleMulticastPipeline(ctx pipelineContext) {
+	isLocalHop := ctx.LookupName.At(0).Equal(enc.LOCALHOP)
 	core.Log.Trace(t, "Multicast pipeline",
-		"name", packet.Name,
-		"lookup", lookupName,
-		"petFound", petFound,
+		"name", ctx.Pkt.Name,
+		"lookup", ctx.LookupName,
+		"petFound", ctx.PetFound,
 		"localHop", isLocalHop,
-		"localFacesOnly", localFacesOnly,
-		"bier", len(packet.Bier),
+		"localFacesOnly", ctx.LocalFacesOnly,
+		"bier", len(ctx.Pkt.Bier),
 	)
 
 	deliveredToLocal := false
-	if len(petLocalHops) > 0 {
-		core.Log.Trace(t, "Local Egress captures the Interest", "name", packet.Name)
-		for _, localHop := range petLocalHops {
-			packet.EgressRouter = nil
-			t.processOutgoingInterest(packet, pitEntry, localHop.FaceID, inFace)
+	if len(ctx.PetLocalHops) > 0 {
+		core.Log.Trace(t, "Local Egress captures the Interest", "name", ctx.Pkt.Name)
+		for _, localHop := range ctx.PetLocalHops {
+			ctx.Pkt.EgressRouter = nil
+			t.processOutgoingInterest(ctx.Pkt, ctx.PitEntry, localHop.FaceID, ctx.InFace)
 			deliveredToLocal = true
 		}
 	}
 
-	if localFacesOnly {
+	if ctx.LocalFacesOnly {
 		core.Log.Trace(t, "Multicast /localhop restricted to local faces",
-			"name", packet.Name,
+			"name", ctx.Pkt.Name,
 			"deliveredToLocal", deliveredToLocal,
 		)
 		return
 	}
 
 	// BIER forwarding for multicast
-	if !petFound || len(petEntry.EgressRouters) == 0 {
+	if !ctx.PetFound || len(ctx.PetEntry.EgressRouters) == 0 {
 		return
 	}
 
 	// Encode BIER bitstring from PET egress routers if not present
-	if len(packet.Bier) == 0 {
-		packet.Bier = bier.Bift.BuildBierBitString(petEntry.EgressRouters)
+	if len(ctx.Pkt.Bier) == 0 {
+		ctx.Pkt.Bier = bier.Bift.BuildBierBitString(ctx.PetEntry.EgressRouters)
 	}
 
 	// Clear local bit if we already delivered locally
-	if deliveredToLocal && len(packet.Bier) > 0 && bier.IsBierEnabled() {
-		bs := bier.BierClone(packet.Bier)
+	if deliveredToLocal && len(ctx.Pkt.Bier) > 0 && bier.IsBierEnabled() {
+		bs := bier.BierClone(ctx.Pkt.Bier)
 		bier.BierClearBit(bs, bier.CfgBierIndex())
-		packet.Bier = bs
+		ctx.Pkt.Bier = bs
 		if bier.BierIsZero(bs) {
 			return
 		}
 	}
 
 	// Do BIER replication
-	bierReplicate(t, packet, pitEntry, inFace, t.processOutgoingInterest)
+	bierReplicate(t, ctx.Pkt, ctx.PitEntry, ctx.InFace, t.processOutgoingInterest)
 }
 
 func (t *Thread) afterContentStoreHit(

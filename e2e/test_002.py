@@ -28,10 +28,13 @@ def scenario(ndn: Minindn, network='/minindn'):
     downIntf.config(loss=99.99)
 
     info('Starting forwarder on nodes\n')
-    AppManager(ndn, ndn.net.hosts, NDNd_FW, network=network)
+    bier_map = dv_util.assign_bier_indices(ndn.net.hosts)
+    for host in ndn.net.hosts:
+        AppManager(ndn, [host], NDNd_FW, network=network, bier_index=bier_map[host])
 
     dv_util.setup(ndn, network=network)
     dv_util.converge(others)
+    dv_util.populate_bift(others, bier_map, network=network)
 
     # Make sure the node is really disconnected
     if not dv_util.is_converged(others, network=network):
@@ -45,6 +48,7 @@ def scenario(ndn: Minindn, network='/minindn'):
 
     # Wait for convergence
     dv_util.converge(ndn.net.hosts)
+    dv_util.populate_bift(ndn.net.hosts, bier_map, network=network)
 
     # Ensure that cat/put works with the newly joined node
     data = os.urandom(16).hex()

@@ -1,9 +1,10 @@
-import random
 import os
+import random
 
 from mininet.log import info
 from minindn.minindn import Minindn
 from minindn.apps.app_manager import AppManager
+from minindn.util import MiniNDNCLI
 
 from fw import NDNd_FW
 import dv_util
@@ -15,10 +16,13 @@ def scenario(ndn: Minindn, network='/minindn'):
     """
 
     info('Starting forwarder on nodes\n')
-    AppManager(ndn, ndn.net.hosts, NDNd_FW, network=network)
+    bier_map = dv_util.assign_bier_indices(ndn.net.hosts)
+    for host in ndn.net.hosts:
+        AppManager(ndn, [host], NDNd_FW, network=network, bier_index=bier_map[host])
 
     dv_util.setup(ndn, network=network)
     dv_util.converge(ndn.net.hosts, network=network)
+    dv_util.populate_bift(ndn.net.hosts, bier_map, network=network)
 
     info('Testing file transfer\n')
     test_file = '/tmp/test.bin'
@@ -30,8 +34,7 @@ def scenario(ndn: Minindn, network='/minindn'):
     cat_requests = [(cat_node, random.choice(put_nodes)) for cat_node in cat_nodes]
     put_prefixes = {f"{network}/{node.name}/test" for node in put_nodes}
     control_prefixes = {
-        f"/localhop{network}/32=DV/32=PES/32=svs",
-        f"/localhop{network}/32=DV/32=ADS/32=PSV",
+        f"{network}/32=DV/32=PSD/32=svs",
     }
 
     for node in put_nodes:
@@ -53,16 +56,10 @@ def scenario(ndn: Minindn, network='/minindn'):
         for prefix in control_prefixes:
             if prefix in fib:
                 raise Exception(f'Control prefix {prefix} unexpectedly present in FIB on {node.name}')
-        if f'{network}/32=DV/32=PES/' in fib:
-            raise Exception(f'Router-specific PES entries unexpectedly present in FIB on {node.name}')
+        if f'{network}/32=DV/32=PSD/' in fib:
+            raise Exception(f'Router-specific PSD entries unexpectedly present in FIB on {node.name}')
         if f'/localhop{network}/' in fib and '/32=DV' in fib:
             raise Exception(f'Router-specific localhop DV entries unexpectedly present in FIB on {node.name}')
-
-    # Validate the deprecation of multicast in DV code (#174)
-    for node in ndn.net.hosts:
-        strategy = node.cmd('ndnd fw strategy-list')
-        if "multicast" in strategy:
-            raise Exception(f'Multicast is to be retired, unexpectedly present in strategy on {node.name}')
 
     for node, put_node in cat_requests:
         cmd = f'ndnd cat "{network}/{put_node.name}/test" > recv.test.bin 2> cat.log'

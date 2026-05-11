@@ -100,12 +100,16 @@ def scenario(ndn: Minindn, network="/minindn"):
         raise Exception(f"Missing client LVS schema fixture: {CLIENT_LVS_SCHEMA}")
 
     info("Starting forwarder on nodes\n")
-    AppManager(ndn, ndn.net.hosts, NDNd_FW)
-
     producer, router, router_ip = test_003._pick_producer_router(ndn.net.hosts)
     routers = [n for n in ndn.net.hosts if n != producer]
     if not routers:
         raise Exception("Need at least one router node distinct from producer")
+
+    # Producer is a stub client; only router nodes need BIER indices.
+    bier_map = dv_util.assign_bier_indices(routers)
+    for host in ndn.net.hosts:
+        bier_idx = bier_map.get(host, -1)  # producer gets -1 (disabled)
+        AppManager(ndn, [host], NDNd_FW, network=network, bier_index=bier_idx)
 
     time.sleep(1)  # wait for fw to start
     NDNd_DV.init_trust(network=network)
@@ -124,6 +128,7 @@ def scenario(ndn: Minindn, network="/minindn"):
 
     # This scenario runs security-heavy setup and can take longer on large topologies.
     dv_util.converge(routers, network=network, deadline=300)
+    dv_util.populate_bift(routers, bier_map, network=network)
     test_003._assert_no_local_dv(producer)
 
     consumer_candidates = [n for n in routers if n != router]

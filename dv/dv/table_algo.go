@@ -15,7 +15,7 @@ func (dv *Router) postUpdateRib() {
 	dv.updateFib()
 	dv.advert.generate()
 	// Update PSD sync prefix with all routers as egress for BIER delivery.
-	dv.updatePsdSyncPrefix()
+	dv.updatePsdPrefix()
 }
 
 // updateRib computes the RIB chnages for this neighbor

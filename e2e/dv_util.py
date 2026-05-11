@@ -89,6 +89,12 @@ def wait_prefix_pet_ready(node_to_prefixes: dict[Node, set[str]], deadline=30) -
 
     raise Exception('PET prefix replication did not converge')
 
+def assign_bier_indices(hosts: list[Node]) -> dict[Node, int]:
+    """Assign a unique BIER index to each host, sorted by name."""
+    sorted_hosts = sorted(hosts, key=lambda h: h.name)
+    return {host: idx for idx, host in enumerate(sorted_hosts)}
+
+
 def populate_bift(nodes: list[Node], bier_map: dict, network=DEFAULT_NETWORK):
     info(f'Deploying BIER indices to BIFT ({len(bier_map)} routers)...\n')
     for node in nodes:

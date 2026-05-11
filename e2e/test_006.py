@@ -77,9 +77,9 @@ def _assert_pet_only_prefixes(node, prefixes: set[str], network: str):
                 f"fib-list:\n{fib}\n"
             )
 
-    if f"{network}/32=DV/32=PES/" in fib:
+    if f"{network}/32=DV/32=PSD/" in fib:
         raise Exception(
-            f"Router-specific PES entries unexpectedly present in FIB on {node.name}\n"
+            f"Router-specific PSD entries unexpectedly present in FIB on {node.name}\n"
             f"fib-list:\n{fib}\n"
         )
     if f"/localhop{network}/" in fib and "/32=DV" in fib:
@@ -243,7 +243,7 @@ def scenario(ndn: Minindn, network="/minindn"):
 
     nodes, cores, edges = _partition_nodes(ndn)
     ordered = cores + edges
-    bier_map = test_005._assign_bier_indices(ordered)
+    bier_map = dv_util.assign_bier_indices(ordered)
 
     info("Starting BIER-enabled forwarder on c*/e* topology with PET replication disabled on cores\n")
     for host in ordered:
@@ -262,7 +262,7 @@ def scenario(ndn: Minindn, network="/minindn"):
     prefixes = {}
     for edge in edges:
         prefix = f"{network}/{edge.name}/forwarding-plane"
-        payload_path = f"/tmp/{edge.name}-forwarding-plane-core-no-pes.bin"
+        payload_path = f"/tmp/{edge.name}-forwarding-plane-core-no-psd.bin"
         with open(payload_path, "wb") as f:
             f.write(os.urandom(4096))
 

@@ -56,7 +56,7 @@ def scenario(ndn: Minindn, network="/minindn"):
     if len(hosts) < 4:
         raise Exception("SVS alo-latest test requires at least 4 nodes")
 
-    bier_map = _assign_bier_indices(hosts)
+    bier_map = dv_util.assign_bier_indices(hosts)
 
     info("Starting ndnd forwarder on all nodes\n")
     for host in hosts:
