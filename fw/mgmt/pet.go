@@ -206,7 +206,7 @@ func (p *PETModule) list(interest *Interest) {
 			Name:           entry.Name,
 			EgressRecords:  make([]*mgmt.EgressRecord, 0, len(entry.EgressRouters)),
 			NextHopRecords: make([]*mgmt.NextHopRecord, 0, len(entry.NextHops)),
-			Multicast:     entry.Multicast,
+			Multicast:      entry.Multicast,
 		}
 
 		for _, egress := range entry.EgressRouters {
