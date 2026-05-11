@@ -189,12 +189,9 @@ func (b *BiftState) UpdateNextHop(bfrId int, nextHop uint64) {
 	}
 }
 
-// RebuildFbm rebuilds forwarding bit masks for all BIFT entries.
-// Groups BFR-IDs by their next-hop face and computes the F-BM for each group.
-func (b *BiftState) RebuildFbm() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
+// rebuildFbmLocked rebuilds forwarding bit masks for all BIFT entries.
+// Caller must hold b.mu.
+func (b *BiftState) rebuildFbmLocked() {
 	// Find maximum BFR-ID to size bitstrings
 	maxBit := 0
 	for bfrId := range b.entries {
@@ -233,29 +230,33 @@ func (b *BiftState) RebuildFbm() {
 		"entries", len(b.entries), "faces", len(faceGroups))
 }
 
+// RebuildFbm rebuilds forwarding bit masks for all BIFT entries.
+// Groups BFR-IDs by their next-hop face and computes the F-BM for each group.
+func (b *BiftState) RebuildFbm() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.rebuildFbmLocked()
+}
+
 // BuildFromFib rebuilds the BIFT from the current FIB state.
 // For each known router (registered via DV), looks up the FIB to find next hops.
 func (b *BiftState) BuildFromFib() {
-	b.mu.RLock()
-	entries := make(map[int]*BiftEntry, len(b.entries))
-	for k, v := range b.entries {
-		entries[k] = v
-	}
-	b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	// Update next hops from FIB for each registered router
-	for _, entry := range entries {
+	for _, entry := range b.entries {
 		nexthops := table.FibStrategyTable.FindNextHopsEnc(entry.RouterName)
 		if len(nexthops) > 0 {
 			// Sort by cost and pick best
 			sort.Slice(nexthops, func(i, j int) bool {
 				return nexthops[i].Cost < nexthops[j].Cost
 			})
-			b.UpdateNextHop(entry.BfrId, nexthops[0].Nexthop)
+			entry.NextHop = nexthops[0].Nexthop
 		}
 	}
 
-	b.RebuildFbm()
+	b.rebuildFbmLocked()
 }
 
 func bitPositions(bs []byte) []int {
