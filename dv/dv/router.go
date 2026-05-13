@@ -50,6 +50,8 @@ type Router struct {
 
 	// prefix state daemon
 	pfx *PrefixModule
+	// installed PSD sync/data PET egresses keyed by router TLV.
+	psdSyncInstalled map[string]enc.Name
 	// neighbor table
 	neighbors *table.NeighborTable
 	// routing information base
@@ -129,6 +131,8 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 		client: object.NewClient(engine, store, trust),
 		nfdc:   nfdc.NewNfdMgmtThread(engine),
 		mutex:  sync.Mutex{},
+
+		psdSyncInstalled: make(map[string]enc.Name),
 	}
 
 	// Initialize advertisement module
@@ -290,19 +294,13 @@ func (dv *Router) register() (err error) {
 			Name: prefix,
 		})
 	}
-	// // Allow outgoing local-prefix-sync Interests to use two-phase forwarding.
-	// // Incoming Interests still terminate locally on the same prefix.
-	// dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
-	// 	Name:      dv.pfx.SyncPrefix(),
-	// 	Egress:    &mgmt.EgressRecord{Name: neighborsPrefix.Clone()},
-	// 	Multicast: true,
-	// })
 	// Set Advertisement Sync to localhop neighbors
 	dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
 		Name:   dv.config.AdvertisementSyncPrefix(),
 		Egress: &mgmt.EgressRecord{Name: neighborsPrefix.Clone()},
 	})
-	// Set broadcast strategy for Advertisement Sync prefix
+
+	// Keep advertisement sync on the current working setup.
 	dv.execMgmtRetry("strategy-choice", "set", &mgmt.ControlArgs{
 		Name:     dv.config.AdvertisementSyncPrefix(),
 		Strategy: &mgmt.Strategy{Name: defn.BROADCAST_STRATEGY},
@@ -323,33 +321,50 @@ func (dv *Router) execMgmtRetry(module, cmd string, args *mgmt.ControlArgs) {
 	}
 }
 
-// updatePsdSyncPrefix updates the PSD sync prefix PET entry with all routers as egress for BIER delivery.
+// updatePsdPrefix incrementally updates PSD sync/data PET egresses.
 func (dv *Router) updatePsdPrefix() {
 	synPfx := dv.pfx.SyncPrefix()
 	grpPfx := dv.pfx.GroupPrefix()
-	// First, remove existing egress entries for this prefix
+
+	dv.mutex.Lock()
+	desired := make(map[string]enc.Name)
 	for _, router := range dv.rib.Entries() {
+		name := router.Name().Clone()
+		desired[name.TlvStr()] = name
+	}
+	installed := make(map[string]enc.Name, len(dv.psdSyncInstalled))
+	for key, name := range dv.psdSyncInstalled {
+		installed[key] = name.Clone()
+	}
+	dv.psdSyncInstalled = desired
+	dv.mutex.Unlock()
+
+	for key, router := range installed {
+		if _, ok := desired[key]; ok {
+			continue
+		}
 		dv.execMgmtRetry("pet", "remove-egress", &mgmt.ControlArgs{
 			Name:   synPfx,
-			Egress: &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Egress: &mgmt.EgressRecord{Name: router.Clone()},
 		})
-		// Protocol naming convention
 		dv.execMgmtRetry("pet", "remove-egress", &mgmt.ControlArgs{
-			Name:   grpPfx.Clone().Append(router.Name().Clone()...),
-			Egress: &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Name:   grpPfx.Clone().Append(router.Clone()...),
+			Egress: &mgmt.EgressRecord{Name: router.Clone()},
 		})
 	}
-	// Then add all routers as egress
-	for _, router := range dv.rib.Entries() {
+
+	for key, router := range desired {
+		if _, ok := installed[key]; ok {
+			continue
+		}
 		dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
 			Name:      synPfx,
-			Egress:    &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Egress:    &mgmt.EgressRecord{Name: router.Clone()},
 			Multicast: true,
 		})
-		// Protocol naming convention
 		dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
-			Name:   grpPfx.Clone().Append(router.Name().Clone()...),
-			Egress: &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Name:   grpPfx.Clone().Append(router.Clone()...),
+			Egress: &mgmt.EgressRecord{Name: router.Clone()},
 		})
 	}
 }
