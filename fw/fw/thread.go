@@ -20,6 +20,7 @@ import (
 	"github.com/named-data/ndnd/fw/dispatch"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
 )
 
@@ -58,7 +59,7 @@ type pipelineContext struct {
 	Pipeline       forwardPipeline
 	PetLocalHops   []*table.PetNextHop
 	PetEntry       table.PetEntry
-	PetFound       bool
+	PetFound       optional.Optional[bool]
 	LookupName     enc.Name
 	LocalFacesOnly bool
 }
@@ -79,7 +80,7 @@ type petLocalHopsContext struct {
 	LookupName enc.Name
 	PitEntry   table.PitEntry
 	PetEntry   table.PetEntry
-	PetFound   bool
+	PetFound   optional.Optional[bool]
 }
 
 // forwardInContext holds arguments for tryContentStoreHit
@@ -417,10 +418,29 @@ func (t *Thread) validateNonce(interest *defn.FwInterest, packet *defn.Pkt) bool
 	return true
 }
 
-func (t *Thread) determinePipeline(packet *defn.Pkt, lookupName enc.Name) (forwardPipeline, table.PetEntry, bool) {
+func petLookupState(found optional.Optional[bool]) string {
+	if !found.IsSet() {
+		return "none"
+	}
+	if found.Unwrap() {
+		return "true"
+	}
+	return "false"
+}
+
+func (t *Thread) ensurePetLookup(petEntry *table.PetEntry, petFound *optional.Optional[bool], lookupName enc.Name) {
+	if petFound.IsSet() {
+		return
+	}
+	entry, found := table.Pet.FindLongestPrefixEnc(lookupName)
+	*petEntry = entry
+	*petFound = optional.Some(found)
+}
+
+func (t *Thread) determinePipeline(packet *defn.Pkt, lookupName enc.Name) (forwardPipeline, table.PetEntry, optional.Optional[bool]) {
 	var pipeline forwardPipeline
 	var petEntry table.PetEntry
-	var petFound bool
+	petFound := optional.None[bool]()
 
 	routerName, routerNameSet := CfgRouterName()
 
@@ -438,8 +458,9 @@ func (t *Thread) determinePipeline(packet *defn.Pkt, lookupName enc.Name) (forwa
 			pipeline = fwUnicastTransit
 		}
 	} else {
-		petEntry, petFound = table.Pet.FindLongestPrefixEnc(lookupName)
-		if petFound && petEntry.Multicast {
+		petEntry, found := table.Pet.FindLongestPrefixEnc(lookupName)
+		petFound = optional.Some(found)
+		if found && petEntry.Multicast {
 			pipeline = fwMulticastIngress
 		} else {
 			pipeline = fwUnicastIngress
@@ -451,7 +472,7 @@ func (t *Thread) determinePipeline(packet *defn.Pkt, lookupName enc.Name) (forwa
 		"name", packet.Name,
 		"lookup", lookupName,
 		"pipeline", pipeline,
-		"petFound", petFound,
+		"petFound", petLookupState(petFound),
 		"isLocalHop", isLocalHop,
 		"egressRouter", len(packet.EgressRouter) > 0,
 		"bier", len(packet.Bier) > 0,
@@ -516,11 +537,8 @@ func (t *Thread) collectPetLocalHops(ctx petLocalHopsContext) []*table.PetNextHo
 		return nil
 	}
 
-	if !ctx.PetFound {
-		ctx.PetEntry, ctx.PetFound = table.Pet.FindLongestPrefixEnc(ctx.LookupName)
-	}
-
-	if !ctx.PetFound {
+	t.ensurePetLookup(&ctx.PetEntry, &ctx.PetFound, ctx.LookupName)
+	if !ctx.PetFound.GetOr(false) {
 		return nil
 	}
 
@@ -543,7 +561,7 @@ func (t *Thread) handleUnicastPipeline(ctx pipelineContext) {
 	core.Log.Trace(t, "Unicast pipeline",
 		"name", ctx.Pkt.Name,
 		"lookup", ctx.LookupName,
-		"petFound", ctx.PetFound,
+		"petFound", petLookupState(ctx.PetFound),
 		"localHop", isLocalHop,
 		"localFacesOnly", ctx.LocalFacesOnly,
 	)
@@ -586,7 +604,7 @@ func (t *Thread) handleUnicastPipeline(ctx pipelineContext) {
 	}
 }
 
-func (t *Thread) collectNetworkNextHops(packet *defn.Pkt, petEntry table.PetEntry, petFound bool) []StrategyCandidateHop {
+func (t *Thread) collectNetworkNextHops(packet *defn.Pkt, petEntry table.PetEntry, petFound optional.Optional[bool]) []StrategyCandidateHop {
 	var nextNet []StrategyCandidateHop
 
 	if len(packet.EgressRouter) > 0 {
@@ -596,7 +614,7 @@ func (t *Thread) collectNetworkNextHops(packet *defn.Pkt, petEntry table.PetEntr
 				EgressRouter: packet.EgressRouter,
 			})
 		}
-	} else if petFound {
+	} else if petFound.GetOr(false) {
 		for _, er := range petEntry.EgressRouters {
 			for _, nextHop := range table.FibStrategyTable.FindNextHopsEnc(er) {
 				nextNet = append(nextNet, StrategyCandidateHop{
@@ -639,7 +657,7 @@ func (t *Thread) handleMulticastPipeline(ctx pipelineContext) {
 	core.Log.Trace(t, "Multicast pipeline",
 		"name", ctx.Pkt.Name,
 		"lookup", ctx.LookupName,
-		"petFound", ctx.PetFound,
+		"petFound", petLookupState(ctx.PetFound),
 		"localHop", isLocalHop,
 		"localFacesOnly", ctx.LocalFacesOnly,
 		"bier", len(ctx.Pkt.Bier),
@@ -664,7 +682,8 @@ func (t *Thread) handleMulticastPipeline(ctx pipelineContext) {
 	}
 
 	// BIER forwarding for multicast
-	if !ctx.PetFound || len(ctx.PetEntry.EgressRouters) == 0 {
+	t.ensurePetLookup(&ctx.PetEntry, &ctx.PetFound, ctx.LookupName)
+	if !ctx.PetFound.GetOr(false) || len(ctx.PetEntry.EgressRouters) == 0 {
 		return
 	}
 
