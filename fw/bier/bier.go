@@ -109,13 +109,17 @@ func BierClearBit(bs []byte, pos int) {
 	bs[byteIdx] &^= (1 << bitIdx)
 }
 
-// BierAnd returns bitwise AND of two bitstrings. Result length = min(len(a), len(b)).
+// BierAnd returns bitwise AND of two bitstrings. Result length = max(len(a), len(b)).
 func BierAnd(a, b []byte) []byte {
+	maxLen := len(a)
+	if len(b) > maxLen {
+		maxLen = len(b)
+	}
+	result := make([]byte, maxLen)
 	minLen := len(a)
 	if len(b) < minLen {
 		minLen = len(b)
 	}
-	result := make([]byte, minLen)
 	for i := 0; i < minLen; i++ {
 		result[i] = a[i] & b[i]
 	}
@@ -136,9 +140,13 @@ func BierOr(a, b []byte) []byte {
 	return result
 }
 
-// BierAndNot returns a &^ b (a AND NOT b). Clears bits in a that are set in b.
+// BierAndNot returns a &^ b (a AND NOT b). Result length = max(len(a), len(b)).
 func BierAndNot(a, b []byte) []byte {
-	result := make([]byte, len(a))
+	maxLen := len(a)
+	if len(b) > maxLen {
+		maxLen = len(b)
+	}
+	result := make([]byte, maxLen)
 	copy(result, a)
 	minLen := len(a)
 	if len(b) < minLen {
