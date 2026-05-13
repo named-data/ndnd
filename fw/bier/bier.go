@@ -122,6 +122,20 @@ func BierAnd(a, b []byte) []byte {
 	return result
 }
 
+// BierOr returns bitwise OR of two bitstrings. Result length = max(len(a), len(b)).
+func BierOr(a, b []byte) []byte {
+	maxLen := len(a)
+	if len(b) > maxLen {
+		maxLen = len(b)
+	}
+	result := make([]byte, maxLen)
+	copy(result, a)
+	for i := 0; i < len(b); i++ {
+		result[i] |= b[i]
+	}
+	return result
+}
+
 // BierAndNot returns a &^ b (a AND NOT b). Clears bits in a that are set in b.
 func BierAndNot(a, b []byte) []byte {
 	result := make([]byte, len(a))
@@ -368,7 +382,9 @@ func (b *BiftState) GetNeighborEntries() []BiftNeighborEntry {
 		if entry.NextHop == 0 || entry.Fbm == nil {
 			continue
 		}
-		if _, ok := faceMap[entry.NextHop]; !ok {
+		if fbm, ok := faceMap[entry.NextHop]; ok {
+			faceMap[entry.NextHop] = BierOr(fbm, entry.Fbm)
+		} else {
 			faceMap[entry.NextHop] = BierClone(entry.Fbm)
 		}
 	}
@@ -377,5 +393,8 @@ func (b *BiftState) GetNeighborEntries() []BiftNeighborEntry {
 	for faceID, fbm := range faceMap {
 		neighbors = append(neighbors, BiftNeighborEntry{FaceID: faceID, Fbm: fbm})
 	}
+	sort.Slice(neighbors, func(i, j int) bool {
+		return neighbors[i].FaceID < neighbors[j].FaceID
+	})
 	return neighbors
 }

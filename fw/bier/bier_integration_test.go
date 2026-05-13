@@ -230,6 +230,32 @@ func TestBiftEdgeCases(t *testing.T) {
 		}
 	})
 
+	t.Run("GetNeighborEntries aggregates all bits for same face", func(t *testing.T) {
+		b := &bier.BiftState{}
+		r0 := enc.Name{enc.NewGenericComponent("r0")}
+		r1 := enc.Name{enc.NewGenericComponent("r1")}
+		r9 := enc.Name{enc.NewGenericComponent("r9")}
+
+		b.RegisterRouter(r0, 0)
+		b.RegisterRouter(r1, 1)
+		b.RegisterRouter(r9, 9)
+
+		b.UpdateNextHop(0, 77)
+		b.UpdateNextHop(1, 77)
+		b.UpdateNextHop(9, 77)
+		b.RebuildFbm()
+
+		neighbors := b.GetNeighborEntries()
+		if len(neighbors) != 1 {
+			t.Fatalf("expected 1 neighbor entry, got %d", len(neighbors))
+		}
+
+		fbm := neighbors[0].Fbm
+		if !bier.BierGetBit(fbm, 0) || !bier.BierGetBit(fbm, 1) || !bier.BierGetBit(fbm, 9) {
+			t.Fatalf("expected aggregated F-BM to contain bits 0, 1, and 9; got %08b %08b", fbm[0], fbm[1])
+		}
+	})
+
 	t.Run("RebuildFbm on empty BIFT does not panic", func(t *testing.T) {
 		b := &bier.BiftState{}
 		b.RebuildFbm() // must not panic
