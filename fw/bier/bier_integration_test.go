@@ -86,10 +86,10 @@ func TestBierBitManipulationEdgeCases(t *testing.T) {
 		a := []byte{0xFF, 0xFF, 0xFF} // 3 bytes
 		b := []byte{0x0F, 0xF0}       // 2 bytes — shorter
 		res := bier.BierAnd(a, b)
-		if len(res) != 2 {
-			t.Errorf("result length should be min(3,2)=2, got %d", len(res))
+		if len(res) != 3 {
+			t.Errorf("result length should be max(3,2)=3, got %d", len(res))
 		}
-		if res[0] != 0x0F || res[1] != 0xF0 {
+		if res[0] != 0x0F || res[1] != 0xF0 || res[2] != 0x00 {
 			t.Errorf("unexpected result %v", res)
 		}
 	})
