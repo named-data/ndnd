@@ -318,31 +318,35 @@ func (dv *Router) execMgmtRetry(module, cmd string, args *mgmt.ControlArgs) {
 
 // updatePsdSyncPrefix updates the PSD sync prefix PET entry with all routers as egress for BIER delivery.
 func (dv *Router) updatePsdPrefix() {
+	dv.mutex.Lock()
 	synPfx := dv.pfx.SyncPrefix()
 	grpPfx := dv.pfx.GroupPrefix()
+	routers := dv.rib.SnapshotReachableNames()
+	dv.mutex.Unlock()
+
 	// First, remove existing egress entries for this prefix
-	for _, router := range dv.rib.Entries() {
+	for _, router := range routers {
 		dv.execMgmtRetry("pet", "remove-egress", &mgmt.ControlArgs{
 			Name:   synPfx,
-			Egress: &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Egress: &mgmt.EgressRecord{Name: router.Clone()},
 		})
 		// Protocol naming convention
 		dv.execMgmtRetry("pet", "remove-egress", &mgmt.ControlArgs{
-			Name:   grpPfx.Clone().Append(router.Name().Clone()...),
-			Egress: &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Name:   grpPfx.Clone().Append(router.Clone()...),
+			Egress: &mgmt.EgressRecord{Name: router.Clone()},
 		})
 	}
 	// Then add all routers as egress
-	for _, router := range dv.rib.Entries() {
+	for _, router := range routers {
 		dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
 			Name:      synPfx,
-			Egress:    &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Egress:    &mgmt.EgressRecord{Name: router.Clone()},
 			Multicast: true,
 		})
 		// Protocol naming convention
 		dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
-			Name:   grpPfx.Clone().Append(router.Name().Clone()...),
-			Egress: &mgmt.EgressRecord{Name: router.Name().Clone()},
+			Name:   grpPfx.Clone().Append(router.Clone()...),
+			Egress: &mgmt.EgressRecord{Name: router.Clone()},
 		})
 	}
 }

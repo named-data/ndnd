@@ -116,6 +116,17 @@ func (r *Rib) Entries() iter.Seq2[uint64, *RibEntry] {
 	}
 }
 
+// SnapshotReachableNames returns a point-in-time copy of all reachable router names.
+func (r *Rib) SnapshotReachableNames() []enc.Name {
+	names := make([]enc.Name, 0, len(r.entries))
+	for _, entry := range r.entries {
+		if entry.lowest1 < config.CostInfinity {
+			names = append(names, entry.name.Clone())
+		}
+	}
+	return names
+}
+
 // Remove all entries with a given next hop.
 // Returns true if the Advertisement might change.
 func (r *Rib) RemoveNextHop(nextHop enc.Name) bool {
