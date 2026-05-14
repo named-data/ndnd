@@ -115,7 +115,7 @@ func DefaultConfig() *Config {
 		PrefixInsertionKeychainUri:     "",
 		TrustSchemaPath:                "",
 		PrefixInsertionTrustSchemaPath: "",
-		PrefixStateReplicate:       true,
+		PrefixStateReplicate:           true,
 	}
 }
 

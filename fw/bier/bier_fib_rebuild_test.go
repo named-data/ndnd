@@ -122,20 +122,36 @@ func TestBiftBuildFromFibMultipleRebuildsSafe(t *testing.T) {
 	}
 	b.RebuildFbm()
 
-	// State should be consistent — routerX still reachable via face 77.
+	// State should be consistent — with an empty FIB the stale next hop and
+	// stale F-BM must be cleared rather than preserved.
 	neighbors := b.GetNeighborEntries()
-	found := false
-	for _, n := range neighbors {
-		if n.FaceID == 77 {
-			found = true
-			if !bier.BierGetBit(n.Fbm, 5) {
-				t.Error("F-BM for face 77 should have bit 5 set after repeated rebuilds")
-			}
-		}
+	if len(neighbors) != 0 {
+		t.Fatalf("expected stale BIFT nexthops to be cleared when FIB is empty, got %d neighbors", len(neighbors))
 	}
-	// FIB lookup in BuildFromFib won't find rX (not in FibStrategyTable),
-	// so NextHop may be 0 — the key invariant is no panic and state is stable.
-	_ = found // acceptable: empty FIB means no nexthop resolved
+}
+
+func TestBiftBuildFromFibSelectsDeterministicBestNextHop(t *testing.T) {
+	table.Initialize()
+
+	b := &bier.BiftState{}
+	rX := enc.Name{enc.NewGenericComponent("routerX")}
+	b.RegisterRouter(rX, 5)
+
+	table.FibStrategyTable.InsertNextHopEnc(rX, 200, 10)
+	table.FibStrategyTable.InsertNextHopEnc(rX, 100, 10)
+
+	b.BuildFromFib()
+
+	neighbors := b.GetNeighborEntries()
+	if len(neighbors) != 1 {
+		t.Fatalf("expected exactly 1 BIFT neighbor for equal-cost routes, got %d", len(neighbors))
+	}
+	if neighbors[0].FaceID != 100 {
+		t.Fatalf("expected deterministic equal-cost tie-break to pick face 100, got %d", neighbors[0].FaceID)
+	}
+	if !bier.BierGetBit(neighbors[0].Fbm, 5) {
+		t.Fatal("selected neighbor F-BM should retain routerX bit 5")
+	}
 }
 
 // TestTransitSkipsPetEgressLookup verifies that twoPhaseLookup does NOT

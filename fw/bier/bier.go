@@ -164,16 +164,40 @@ func (b *BiftState) RegisterRouter(routerName enc.Name, bfrId int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	if bfrId < 0 {
+		core.Log.Warn(b, "Ignoring invalid negative BIER router ID", "name", routerName, "bfr-id", bfrId)
+		return
+	}
+
 	if b.entries == nil {
 		b.entries = make(map[int]*BiftEntry)
 		b.routerBit = make(map[uint64]int)
 	}
 
-	b.entries[bfrId] = &BiftEntry{
-		BfrId:      bfrId,
-		RouterName: routerName.Clone(),
+	routerHash := routerName.Hash()
+	if oldId, ok := b.routerBit[routerHash]; ok && oldId != bfrId {
+		if oldEntry, ok := b.entries[oldId]; ok && oldEntry.RouterName.Hash() == routerHash {
+			delete(b.entries, oldId)
+		}
 	}
-	b.routerBit[routerName.Hash()] = bfrId
+
+	if displaced, ok := b.entries[bfrId]; ok && displaced.RouterName.Hash() != routerHash {
+		delete(b.routerBit, displaced.RouterName.Hash())
+	}
+
+	entry, ok := b.entries[bfrId]
+	if !ok || entry.RouterName.Hash() != routerHash {
+		entry = &BiftEntry{
+			BfrId:      bfrId,
+			RouterName: routerName.Clone(),
+		}
+	} else {
+		entry.BfrId = bfrId
+		entry.RouterName = routerName.Clone()
+	}
+
+	b.entries[bfrId] = entry
+	b.routerBit[routerHash] = bfrId
 
 	core.Log.Info(b, "Registered BIER router", "name", routerName, "bfr-id", bfrId)
 }
@@ -192,6 +216,10 @@ func (b *BiftState) UpdateNextHop(bfrId int, nextHop uint64) {
 // rebuildFbmLocked rebuilds forwarding bit masks for all BIFT entries.
 // Caller must hold b.mu.
 func (b *BiftState) rebuildFbmLocked() {
+	for _, entry := range b.entries {
+		entry.Fbm = nil
+	}
+
 	// Find maximum BFR-ID to size bitstrings
 	maxBit := 0
 	for bfrId := range b.entries {
@@ -246,11 +274,15 @@ func (b *BiftState) BuildFromFib() {
 
 	// Update next hops from FIB for each registered router
 	for _, entry := range b.entries {
+		entry.NextHop = 0
 		nexthops := table.FibStrategyTable.FindNextHopsEnc(entry.RouterName)
 		if len(nexthops) > 0 {
-			// Sort by cost and pick best
+			// Sort by cost and pick a deterministic best face on ties.
 			sort.Slice(nexthops, func(i, j int) bool {
-				return nexthops[i].Cost < nexthops[j].Cost
+				if nexthops[i].Cost != nexthops[j].Cost {
+					return nexthops[i].Cost < nexthops[j].Cost
+				}
+				return nexthops[i].Nexthop < nexthops[j].Nexthop
 			})
 			entry.NextHop = nexthops[0].Nexthop
 		}

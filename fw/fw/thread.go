@@ -530,7 +530,10 @@ func (t *Thread) collectPetLocalHops(ctx petLocalHopsContext) []*table.PetNextHo
 		if nexthop.FaceID == ctx.Packet.IncomingFaceID {
 			continue
 		}
-		if ctx.PitEntry.InRecords()[nexthop.FaceID] != nil {
+		// For multicast, a local app can legitimately both announce and express
+		// the same sync prefix on one face. A pending in-record on that face must
+		// not suppress local egress delivery of a remote multicast Interest.
+		if ctx.Pipeline.isUnicast() && ctx.PitEntry.InRecords()[nexthop.FaceID] != nil {
 			continue
 		}
 		petLocalHops = append(petLocalHops, nexthop)
@@ -663,14 +666,17 @@ func (t *Thread) handleMulticastPipeline(ctx pipelineContext) {
 		return
 	}
 
-	// BIER forwarding for multicast
-	if !ctx.PetFound || len(ctx.PetEntry.EgressRouters) == 0 {
-		return
-	}
-
-	// Encode BIER bitstring from PET egress routers if not present
+	// Transit BIER packets already carry their replication state and must not
+	// require a PET hit on intermediate routers. Only ingress packets encode
+	// a new bitstring from PET egress routers.
 	if len(ctx.Pkt.Bier) == 0 {
+		if !ctx.PetFound || len(ctx.PetEntry.EgressRouters) == 0 {
+			return
+		}
 		ctx.Pkt.Bier = bier.Bift.BuildBierBitString(ctx.PetEntry.EgressRouters)
+	}
+	if len(ctx.Pkt.Bier) == 0 {
+		return
 	}
 
 	// Clear local bit if we already delivered locally

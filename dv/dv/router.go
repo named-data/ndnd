@@ -290,13 +290,6 @@ func (dv *Router) register() (err error) {
 			Name: prefix,
 		})
 	}
-	// // Allow outgoing local-prefix-sync Interests to use two-phase forwarding.
-	// // Incoming Interests still terminate locally on the same prefix.
-	// dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
-	// 	Name:      dv.pfx.SyncPrefix(),
-	// 	Egress:    &mgmt.EgressRecord{Name: neighborsPrefix.Clone()},
-	// 	Multicast: true,
-	// })
 	// Set Advertisement Sync to localhop neighbors
 	dv.execMgmtRetry("pet", "add-egress", &mgmt.ControlArgs{
 		Name:   dv.config.AdvertisementSyncPrefix(),

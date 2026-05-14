@@ -1,7 +1,7 @@
 name: test
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "dv2"]
   pull_request:
 
 jobs:
@@ -20,7 +20,8 @@ jobs:
       - name: Build
         run: |
           make
-          make examples
+          mkdir -p .bin
+          CGO_ENABLED=0 go build -o .bin/alo-latest std/examples/svs/alo-latest/main.go
 
       - name: Test
         run: make test

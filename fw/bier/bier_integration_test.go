@@ -265,6 +265,65 @@ func TestBiftEdgeCases(t *testing.T) {
 		if id != 7 {
 			t.Errorf("after re-registration BFR-ID should be 7, got %d", id)
 		}
+
+		bs := b.BuildBierBitString([]enc.Name{r})
+		if bier.BierGetBit(bs, 3) {
+			t.Error("old bit 3 should be cleared after router re-registration")
+		}
+		if !bier.BierGetBit(bs, 7) {
+			t.Error("new bit 7 should be set after router re-registration")
+		}
+	})
+
+	t.Run("RegisterRouter evicts stale owner when BFR-ID is reused", func(t *testing.T) {
+		b := &bier.BiftState{}
+		r1 := enc.Name{enc.NewGenericComponent("router-1")}
+		r2 := enc.Name{enc.NewGenericComponent("router-2")}
+
+		b.RegisterRouter(r1, 3)
+		b.RegisterRouter(r2, 7)
+		b.RegisterRouter(r2, 3)
+
+		if _, ok := b.GetRouterBfrId(r1); ok {
+			t.Fatal("router-1 should be removed when its BFR-ID is reused by router-2")
+		}
+		if id, ok := b.GetRouterBfrId(r2); !ok || id != 3 {
+			t.Fatalf("router-2 should move to reused BFR-ID 3, got ok=%v id=%d", ok, id)
+		}
+	})
+
+	t.Run("RebuildFbm clears stale masks when nexthop is removed", func(t *testing.T) {
+		b := &bier.BiftState{}
+		r1 := enc.Name{enc.NewGenericComponent("router-1")}
+		r2 := enc.Name{enc.NewGenericComponent("router-2")}
+
+		b.RegisterRouter(r1, 0)
+		b.RegisterRouter(r2, 1)
+		b.UpdateNextHop(0, 555)
+		b.UpdateNextHop(1, 555)
+		b.RebuildFbm()
+
+		neighbors := b.GetNeighborEntries()
+		if len(neighbors) != 1 {
+			t.Fatalf("expected 1 neighbor before nexthop removal, got %d", len(neighbors))
+		}
+		if !bier.BierGetBit(neighbors[0].Fbm, 0) || !bier.BierGetBit(neighbors[0].Fbm, 1) {
+			t.Fatal("face 555 should initially aggregate bits 0 and 1")
+		}
+
+		b.UpdateNextHop(1, 0)
+		b.RebuildFbm()
+
+		neighbors = b.GetNeighborEntries()
+		if len(neighbors) != 1 {
+			t.Fatalf("expected 1 neighbor after nexthop removal, got %d", len(neighbors))
+		}
+		if !bier.BierGetBit(neighbors[0].Fbm, 0) {
+			t.Error("face 555 should retain bit 0 after router-2 nexthop removal")
+		}
+		if bier.BierGetBit(neighbors[0].Fbm, 1) {
+			t.Error("face 555 should clear stale bit 1 after router-2 nexthop removal")
+		}
 	})
 
 	t.Run("UpdateNextHop on non-existent BFR-ID is a no-op", func(t *testing.T) {

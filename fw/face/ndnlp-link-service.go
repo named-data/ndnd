@@ -22,6 +22,8 @@ import (
 const lpPacketOverhead = 1 + 3 + 1 + 3 // LpPacket+Fragment
 const pitTokenOverhead = 1 + 1 + 6
 const congestionMarkOverhead = 3 + 1 + 8
+const egressRouterOverheadType = enc.TLNum(0x0359)
+const bierOverheadType = enc.TLNum(0x035a)
 
 const (
 	FaceFlagLocalFields = 1 << iota
@@ -197,6 +199,20 @@ func sendPacket(l *NDNLPLinkService, out dispatch.OutPkt) {
 	}
 	if congestionMark.IsSet() {
 		effectiveMtu -= congestionMarkOverhead
+	}
+	if pkt.L3 != nil && pkt.L3.Interest != nil {
+		if len(pkt.EgressRouter) > 0 {
+			encoder := defn.FwEgressRouterEncoder{}
+			encoder.Init(&defn.FwEgressRouter{Name: pkt.EgressRouter})
+			effectiveMtu -= int(egressRouterOverheadType.EncodingLength()) +
+				int(enc.TLNum(encoder.Length).EncodingLength()) +
+				int(encoder.Length)
+		}
+		if len(pkt.Bier) > 0 {
+			effectiveMtu -= int(bierOverheadType.EncodingLength()) +
+				int(enc.TLNum(len(pkt.Bier)).EncodingLength()) +
+				len(pkt.Bier)
+		}
 	}
 
 	// Fragment packet if necessary
