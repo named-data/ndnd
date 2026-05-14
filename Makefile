@@ -27,7 +27,7 @@ test:
 
 e2e: # minindn container
 	sed -i 's/readvertise_nlsr no/readvertise_nlsr yes/g' /usr/local/etc/ndn/nfd.conf.sample
-	python3 e2e/runner.py e2e/topo.sprint.conf
+	python3 e2e/runner.py
 
 coverage:
 	go tool cover -html=coverage.out

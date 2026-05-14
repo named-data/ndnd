@@ -14,6 +14,7 @@ import test_002
 import test_003
 import test_004
 import test_005
+import test_006
 
 
 def ensure_local_binaries() -> None:
@@ -27,6 +28,22 @@ def ensure_local_binaries() -> None:
         subprocess.check_call(["go", "build", "-o", str(local_bin / name), pkg], cwd=repo_root)
 
     os.environ["PATH"] = f"{local_bin}:{os.environ.get('PATH', '')}"
+
+
+def run_suite(topo_file: Path, scenarios: list[tuple[str, FunctionType]]) -> None:
+    global ndn
+
+    info(f"Using topology file {topo_file}\n")
+    Minindn.cleanUp()
+
+    ndn = Minindn(topoFile=str(topo_file))
+    ndn.start()
+    try:
+        for name, scenario in scenarios:
+            run(name, scenario)
+    finally:
+        ndn.stop()
+        Minindn.cleanUp()
 
 
 def run(name: str, scenario: FunctionType, **kwargs) -> None:
@@ -50,16 +67,18 @@ if __name__ == '__main__':
     setLogLevel('info')
 
     ensure_local_binaries()
-    Minindn.cleanUp()
     Minindn.verifyDependencies()
 
-    ndn = Minindn()
-    ndn.start()
+    topo_dir = Path(__file__).resolve().parent
 
-    run("test_001: basic file transfer (two-phase lookup)",   test_001.scenario)
-    run("test_002: node disconnect/reconnect resilience",     test_002.scenario)
-    run("test_003: stub-mode prefix insertion",               test_003.scenario)
-    run("test_004: LVS prefix insertion security",            test_004.scenario)
-    run("test_005: BIER SVS alo-latest test",                 test_005.scenario)
+    run_suite(topo_dir / "topo.sprint.conf", [
+        ("test_001: basic file transfer (two-phase lookup)", test_001.scenario),
+        ("test_002: node disconnect/reconnect resilience",   test_002.scenario),
+        ("test_003: stub-mode prefix insertion",             test_003.scenario),
+        ("test_004: LVS prefix insertion security",          test_004.scenario),
+        ("test_005: BIER SVS alo-latest test",               test_005.scenario),
+    ])
 
-    ndn.stop()
+    run_suite(topo_dir / "topo.edge-core.conf", [
+        ("test_006: core-edge PET and BIER split", test_006.scenario),
+    ])
