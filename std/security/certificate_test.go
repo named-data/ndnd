@@ -2,7 +2,10 @@ package security_test
 
 import (
 	"encoding/base64"
+	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
@@ -172,6 +175,86 @@ func TestSignCertWithSignerCertName(t *testing.T) {
 	signature := newCert.Signature()
 	require.Equal(t, aliceSigner.KeyName(), signature.KeyName())
 	require.True(t, tu.NoErr(signer.ValidateData(newCert, newSigCov, aliceCertData)))
+}
+
+func TestCertificateRevocationRecord(t *testing.T) {
+	tu.SetT(t)
+
+	aliceKey, _ := base64.StdEncoding.DecodeString(KEY_ALICE)
+	aliceKeyData, _, _ := spec_2022.Spec{}.ReadData(enc.NewBufferView(aliceKey))
+	aliceSigner := tu.NoErr(signer.UnmarshalSecret(aliceKeyData))
+
+	aliceCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    aliceSigner,
+		Data:      aliceKeyData,
+		IssuerId:  revocationTestIssuer(t),
+		NotBefore: T1,
+		NotAfter:  T2,
+	}))
+	aliceCert, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
+	require.NoError(t, err)
+
+	otherCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    aliceSigner,
+		Data:      aliceKeyData,
+		IssuerId:  revocationTestIssuer(t),
+		NotBefore: T1,
+		NotAfter:  T2,
+	}))
+	otherCert, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(otherCertWire))
+	require.NoError(t, err)
+
+	require.False(t, sec.IsRevoked(nil))
+	require.NotPanics(t, func() {
+		sec.Revoke(nil)
+	})
+
+	require.False(t, sec.IsRevoked(aliceCert))
+	require.False(t, sec.IsRevoked(otherCert))
+
+	sec.Revoke(aliceCert)
+
+	require.True(t, sec.IsRevoked(aliceCert))
+	require.False(t, sec.IsRevoked(otherCert))
+}
+
+func TestCertificateRevocationRecordConcurrentAccess(t *testing.T) {
+	tu.SetT(t)
+
+	aliceKey, _ := base64.StdEncoding.DecodeString(KEY_ALICE)
+	aliceKeyData, _, _ := spec_2022.Spec{}.ReadData(enc.NewBufferView(aliceKey))
+	aliceSigner := tu.NoErr(signer.UnmarshalSecret(aliceKeyData))
+
+	aliceCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    aliceSigner,
+		Data:      aliceKeyData,
+		IssuerId:  revocationTestIssuer(t),
+		NotBefore: T1,
+		NotAfter:  T2,
+	}))
+	aliceCert, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	for range 50 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			sec.Revoke(aliceCert)
+		}()
+		go func() {
+			defer wg.Done()
+			_ = sec.IsRevoked(aliceCert)
+		}()
+	}
+	wg.Wait()
+
+	require.True(t, sec.IsRevoked(aliceCert))
+}
+
+func revocationTestIssuer(t *testing.T) enc.Component {
+	t.Helper()
+	return enc.NewGenericComponent(fmt.Sprintf("%s-%d", t.Name(), time.Now().UnixNano()))
 }
 
 func TestEncodeDecodeCertList(t *testing.T) {

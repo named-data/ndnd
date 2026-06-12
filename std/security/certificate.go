@@ -3,6 +3,7 @@ package security
 import (
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
@@ -11,6 +12,13 @@ import (
 	sig "github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
 )
+
+var revokedCertRecord = struct {
+	sync.RWMutex
+	names map[string]struct{}
+}{
+	names: map[string]struct{}{},
+}
 
 // SignCertArgs are the arguments to SignCert.
 type SignCertArgs struct {
@@ -113,6 +121,39 @@ func CertIsExpired(cert ndn.Data) bool {
 	}
 
 	return false
+}
+
+// Revoke records the certificate name as revoked for this process.
+func Revoke(cert ndn.Data) {
+	key, ok := revocationRecordKey(cert)
+	if !ok {
+		return
+	}
+
+	revokedCertRecord.Lock()
+	defer revokedCertRecord.Unlock()
+	revokedCertRecord.names[key] = struct{}{}
+}
+
+// IsRevoked reports whether the certificate name has been revoked in this process.
+func IsRevoked(cert ndn.Data) bool {
+	key, ok := revocationRecordKey(cert)
+	if !ok {
+		return false
+	}
+
+	revokedCertRecord.RLock()
+	defer revokedCertRecord.RUnlock()
+	_, ok = revokedCertRecord.names[key]
+	return ok
+}
+
+func revocationRecordKey(cert ndn.Data) (string, bool) {
+	if cert == nil {
+		return "", false
+	}
+
+	return cert.Name().TlvStr(), true
 }
 
 // getPubKey gets the public key from an NDN data.
