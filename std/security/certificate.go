@@ -1,6 +1,7 @@
 package security
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"sync"
@@ -13,11 +14,23 @@ import (
 	"github.com/named-data/ndnd/std/types/optional"
 )
 
+type revocationReason uint64
+
+const revocationReasonUnspecified revocationReason = 0
+
+type revocationRecord struct {
+	Name          enc.Name
+	CertName      enc.Name
+	PublicKeyHash [sha256.Size]byte
+	Reason        revocationReason
+	Timestamp     time.Time
+}
+
 var revokedCertRecord = struct {
 	sync.RWMutex
-	names map[string]struct{}
+	records map[string]revocationRecord
 }{
-	names: map[string]struct{}{},
+	records: map[string]revocationRecord{},
 }
 
 // SignCertArgs are the arguments to SignCert.
@@ -125,14 +138,14 @@ func CertIsExpired(cert ndn.Data) bool {
 
 // Revoke records the certificate name as revoked for this process.
 func Revoke(cert ndn.Data) {
-	key, ok := revocationRecordKey(cert)
+	record, ok := makeRevocationRecord(cert, revocationReasonUnspecified)
 	if !ok {
 		return
 	}
 
 	revokedCertRecord.Lock()
 	defer revokedCertRecord.Unlock()
-	revokedCertRecord.names[key] = struct{}{}
+	revokedCertRecord.records[record.Name.TlvStr()] = record
 }
 
 // IsRevoked reports whether the certificate name has been revoked in this process.
@@ -144,16 +157,63 @@ func IsRevoked(cert ndn.Data) bool {
 
 	revokedCertRecord.RLock()
 	defer revokedCertRecord.RUnlock()
-	_, ok = revokedCertRecord.names[key]
+	_, ok = revokedCertRecord.records[key]
 	return ok
 }
 
+func makeRevocationRecord(cert ndn.Data, reason revocationReason) (revocationRecord, bool) {
+	recordName, ok := revocationRecordName(cert)
+	if !ok {
+		return revocationRecord{}, false
+	}
+
+	return revocationRecord{
+		Name:          recordName,
+		CertName:      stripImplicitDigest(cert.Name()),
+		PublicKeyHash: sha256.Sum256(cert.Content().Join()),
+		Reason:        reason,
+		Timestamp:     time.Now(),
+	}, true
+}
+
 func revocationRecordKey(cert ndn.Data) (string, bool) {
-	if cert == nil {
+	recordName, ok := revocationRecordName(cert)
+	if !ok {
 		return "", false
 	}
 
-	return cert.Name().TlvStr(), true
+	return recordName.TlvStr(), true
+}
+
+func revocationRecordName(cert ndn.Data) (enc.Name, bool) {
+	if cert == nil {
+		return nil, false
+	}
+
+	certName := stripImplicitDigest(cert.Name())
+	identity, err := GetIdentityFromCertName(certName)
+	if err != nil || !certName.At(-1).IsVersion() {
+		return nil, false
+	}
+
+	recordName := make(enc.Name, len(certName), len(certName)+1)
+	copy(recordName, certName)
+	recordName[len(identity)] = enc.NewGenericComponent("REVOKE")
+	return recordName.Append(certName.At(-2)), true
+}
+
+func isRevocationRecordName(name enc.Name) bool {
+	name = stripImplicitDigest(name)
+	if len(name) < 6 || name.At(-1).Typ != enc.TypeGenericNameComponent || !name.At(-2).IsVersion() {
+		return false
+	}
+
+	certName := make(enc.Name, len(name)-1)
+	copy(certName, name.Prefix(-1))
+	certName[len(name)-5] = enc.NewGenericComponent("KEY")
+
+	_, err := GetIdentityFromCertName(certName)
+	return err == nil
 }
 
 // getPubKey gets the public key from an NDN data.
