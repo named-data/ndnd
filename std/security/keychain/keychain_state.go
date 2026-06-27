@@ -2,10 +2,10 @@ package keychain
 
 import (
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	sec "github.com/named-data/ndnd/std/security"
-	"github.com/named-data/ndnd/std/log"
 )
 
 // shared keychain state used by multiple implementations.
