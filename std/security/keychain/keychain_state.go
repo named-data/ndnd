@@ -5,6 +5,7 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	sec "github.com/named-data/ndnd/std/security"
+	"github.com/named-data/ndnd/std/log"
 )
 
 // shared keychain state used by multiple implementations.
@@ -22,17 +23,8 @@ func newKeyChainState(pubStore ndn.Store) *keyChainState {
 	}
 }
 
-func isCertName(name enc.Name) bool {
-	if len(name) < 4 {
-		return false
-	}
-	if !name.At(-4).IsGeneric("KEY") {
-		return false
-	}
-	if !name.At(-1).IsVersion() {
-		return false
-	}
-	return true
+func (kc *keyChainState) String() string {
+	return "keychain-state"
 }
 
 func (kc *keyChainState) rebuildKeyCerts() {
@@ -117,6 +109,11 @@ func (kc *keyChainState) insertCert(wire []byte) error {
 	name := data.Name()
 	if !isCertName(name) {
 		return ndn.ErrInvalidValue{Item: "certificate name"}
+	}
+
+	// Warn if certificate is invalid
+	if sec.CertIsExpired(data) {
+		log.Warn(kc, "Expired certificate inserted into keychain")
 	}
 
 	// Check if certificate already exists
@@ -223,4 +220,17 @@ func (kc *keyChainState) deleteCert(name enc.Name) error {
 
 func (kc *keyChainState) CertNames() []enc.Name {
 	return kc.certNames
+}
+
+func isCertName(name enc.Name) bool {
+	if len(name) < 4 {
+		return false
+	}
+	if !name.At(-4).IsGeneric("KEY") {
+		return false
+	}
+	if !name.At(-1).IsVersion() {
+		return false
+	}
+	return true
 }
