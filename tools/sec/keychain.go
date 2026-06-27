@@ -26,7 +26,7 @@ func (t *ToolKeychain) configure(cmd *cobra.Command) {
 	cmd.AddCommand(&cobra.Command{
 		GroupID: "keychain",
 		Use:     "key-list KEYCHAIN-URI",
-		Short:   "List keys in a keychain",
+		Short:   "List keys and certs in a keychain",
 		Run:     t.List,
 		Args:    cobra.ExactArgs(1),
 		Example: `  ndnd sec key-list dir:///safe/keys`,
@@ -74,9 +74,18 @@ and the default key of the identity will be exported.`,
 		Example: `  ndnd sec key-export dir:///safe/keys /alice`,
 		Run:     t.Export,
 	})
+
+	cmd.AddCommand(&cobra.Command{
+		GroupID: "keychain",
+		Use:     "cert-export KEYCHAIN-URI CERT-NAME",
+		Short:   "Export a certificate from a keychain",
+		Args:    cobra.ExactArgs(2),
+		Example: `  ndnd sec cert-export dir:///safe/keys /alice/KEY/~%E8t%A5%A3V%88%81/NA/v=0`,
+		Run:     t.ExportCert,
+	})
 }
 
-// (AI GENERATED DESCRIPTION): Lists all identities and their keys in the keychain at the given path, printing each identity name followed by the names of its keys.
+// Lists all identities, their keys, and the associated certs in the keychain at the given URI, printing each identity name followed by the names of its keys, then its names of its certs
 func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
@@ -89,11 +98,14 @@ func (*ToolKeychain) List(_ *cobra.Command, args []string) {
 		fmt.Printf("%s\n", id.Name())
 		for _, key := range id.Keys() {
 			fmt.Printf("==> %s\n", key.KeyName())
+			for _, cert := range key.UniqueCerts() {
+				fmt.Printf("    ==> %s\n", cert)
+			}
 		}
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Imports keychain entries from standard input into the keychain named by the first argument, storing them in a memory-based keychain.
+// Imports keychain entries from standard input into the keychain named by the first argument
 func (*ToolKeychain) Import(_ *cobra.Command, args []string) {
 	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
 	if err != nil {
@@ -117,7 +129,7 @@ func (*ToolKeychain) Import(_ *cobra.Command, args []string) {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Exports a specified key (or an identity’s default key) from a keychain, PEM‑encodes its secret key, and writes it to standard output.
+// Exports a specified key (or an identity’s default key) from a keychain, PEM‑encodes its secret key, and writes it to standard output.
 func (*ToolKeychain) Export(_ *cobra.Command, args []string) {
 	name, err := enc.NameFromStr(args[1])
 	if err != nil {
@@ -203,6 +215,51 @@ func (*ToolKeychain) DeleteKey(_ *cobra.Command, args []string) {
 		fmt.Fprintf(os.Stderr, "Failed to delete key: %s\n", err)
 		os.Exit(1)
 	}
+}
+
+// Exports a specified certificate from a keychain, PEM‑encodes it, and writes it to standard output.
+func (*ToolKeychain) ExportCert(_ *cobra.Command, args []string) {
+	name, err := enc.NameFromStr(args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid certificate name: %s\n", args[1])
+		os.Exit(1)
+		return
+	}
+
+	kc, err := keychain.NewKeyChain(args[0], storage.NewMemoryStore())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open keychain: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	if name.At(-1).Typ == enc.TypeImplicitSha256DigestComponent {
+		name = name.Prefix(-1)
+	}
+
+	if name.At(-1).String() == "v=0" {
+		name = name.Prefix(-1)
+	}
+
+	wire, err := kc.Store().Get(name, false)
+	if err == nil && wire == nil {
+		wire, err = kc.Store().Get(name, true)
+	}
+
+	if err != nil || wire == nil {
+		fmt.Fprintf(os.Stderr, "Certificate not found: %s\n", name)
+		os.Exit(1)
+		return
+	}
+
+	out, err := security.PemEncode(enc.Wire{wire}.Join())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to convert certificate to text: %s\n", err)
+		os.Exit(1)
+		return
+	}
+
+	os.Stdout.Write(out)
 }
 
 // DeleteCert removes a certificate from the keychain.
