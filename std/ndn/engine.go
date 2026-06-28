@@ -89,6 +89,10 @@ type ExpressCallbackArgs struct {
 	// IsLocal indicates if a local copy of the Data was found.
 	// e.g. returned by ExpressR when used with TryStore.
 	IsLocal bool
+	// UseSignatureTime checks validity with signature time
+	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
+	IgnoreValidity optional.Optional[bool]
 }
 
 // InterestHandler represents the callback function for an Interest handler.

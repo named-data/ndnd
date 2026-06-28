@@ -197,9 +197,10 @@ func (r *Repo) fetchSecurityConfig(name enc.Name) (*tlv.SecurityConfigObject, er
 
 	// Repo should validate this as normal command
 	r.client.ConsumeExt(ndn.ConsumeExtArgs{
-		Name:           name,
-		TryStore:       true,
-		IgnoreValidity: optional.Some(r.config.IgnoreValidity),
+		Name:             name,
+		TryStore:         true,
+		UseSignatureTime: optional.Some(true),
+		IgnoreValidity:   optional.Some(r.config.IgnoreValidity),
 		Callback: func(state ndn.ConsumeState) {
 			wire = append(wire, state.Content()...)
 			if state.Error() != nil {

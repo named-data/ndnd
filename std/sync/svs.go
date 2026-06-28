@@ -69,6 +69,8 @@ type SvSyncOpts struct {
 
 	// Passive mode does not send sign Sync Interests
 	Passive bool
+	// UseSignatureTime checks validity period using signature time
+	UseSignatureTime optional.Optional[bool]
 	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
 }
@@ -524,9 +526,10 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 
 	// Validate signature
 	s.o.Client.ValidateExt(ndn.ValidateExtArgs{
-		Data:           data,
-		SigCovered:     sigCov,
-		IgnoreValidity: s.o.IgnoreValidity,
+		Data:             data,
+		SigCovered:       sigCov,
+		UseSignatureTime: s.o.UseSignatureTime,
+		IgnoreValidity:   s.o.IgnoreValidity,
 		Callback: func(valid bool, err error) {
 			if !valid || err != nil {
 				log.Warn(s, "SvSync failed to validate signature", "name", data.Name(), "valid", valid, "err", err)

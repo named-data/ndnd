@@ -129,6 +129,8 @@ type ConsumeExtArgs struct {
 	OnProgress func(status ConsumeState)
 	// NoMetadata disables fetching RDR metadata (advanced usage).
 	NoMetadata bool
+	// UseSignatureTime checks validity period using signature time
+	UseSignatureTime optional.Optional[bool]
 	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
 }
@@ -170,7 +172,9 @@ type ValidateExtArgs struct {
 	// Fetch function to use for fetching certificates.
 	// The fetcher MUST check the store for the certificate before fetching.
 	Fetch optional.Optional[func(enc.Name, *InterestConfig, ExpressCallbackFunc)]
-	// IgnoreValidity ignores validity period in the validation chain.
+	// UseSignatureTime checks validity with signature time
+	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
 }
 

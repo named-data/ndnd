@@ -54,10 +54,11 @@ func (r *RepoSvs) Start() (err error) {
 		}
 
 		snapshot = &ndn_sync.SnapshotNodeHistory{
-			Client:         r.client,
-			Threshold:      r.cmd.HistorySnapshot.Threshold,
-			IsRepo:         true,
-			IgnoreValidity: optional.Some(r.config.IgnoreValidity),
+			Client:           r.client,
+			Threshold:        r.cmd.HistorySnapshot.Threshold,
+			IsRepo:           true,
+			UseSignatureTime: optional.Some(true),
+			IgnoreValidity:   optional.Some(r.config.IgnoreValidity),
 		}
 	}
 
@@ -78,6 +79,7 @@ func (r *RepoSvs) Start() (err error) {
 			SuppressionPeriod: 500 * time.Millisecond,
 			PeriodicTimeout:   365 * 24 * time.Hour, // basically never
 			Passive:           true,
+			UseSignatureTime:  optional.Some(true),
 			IgnoreValidity:    optional.Some(r.config.IgnoreValidity),
 		},
 		Snapshot:        snapshot,

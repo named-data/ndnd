@@ -117,9 +117,9 @@ func (s *SvsALO) consumeCheck(node enc.Name) {
 func (s *SvsALO) consumeObject(node enc.Name, boot uint64, seq uint64) {
 	fetchName := s.objectName(node, boot, seq)
 	s.client.ConsumeExt(ndn.ConsumeExtArgs{
-		Name: fetchName,
-		// inherit ignoreValidity from SVS, not correct but practical
-		IgnoreValidity: s.opts.Svs.IgnoreValidity,
+		Name:             fetchName,
+		UseSignatureTime: s.opts.Svs.UseSignatureTime,
+		IgnoreValidity:   s.opts.Svs.IgnoreValidity,
 		Callback: func(status ndn.ConsumeState) {
 			s.mutex.Lock()
 			defer s.mutex.Unlock()
