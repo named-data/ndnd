@@ -129,6 +129,8 @@ type ConsumeExtArgs struct {
 	OnProgress func(status ConsumeState)
 	// NoMetadata disables fetching RDR metadata (advanced usage).
 	NoMetadata bool
+	// UseSignatureTime checks validity period using signature time
+	UseSignatureTime optional.Optional[bool]
 	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
 }
@@ -167,7 +169,9 @@ type ValidateExtArgs struct {
 	CertNextHop optional.Optional[uint64]
 	// UseDataNameFwHint overrides trust config option.
 	UseDataNameFwHint optional.Optional[bool]
-	// IgnoreValidity ignores validity period in the validation chain.
+	// UseSignatureTime checks validity with signature time
+	UseSignatureTime optional.Optional[bool]
+	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
 }
 

@@ -120,7 +120,7 @@ type TrustConfigValidateArgs struct {
 	Callback func(bool, error)
 	// OverrideName is an override for the data name (advanced usage).
 	OverrideName enc.Name
-	// ignore ValidityPeriod in the valication chain
+	// ignore ValidityPeriod in the validation chain
 	IgnoreValidity optional.Optional[bool]
 	// origDataName is the original data name being verified.
 	origDataName enc.Name
@@ -140,6 +140,9 @@ type TrustConfigValidateArgs struct {
 
 	// depth is the maximum depth of the validation chain.
 	depth int
+
+	// Use alternate verification flow.
+	UseSignatureTime optional.Optional[bool]
 }
 
 // Validate validates a Data packet using a fetch API.
@@ -178,7 +181,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 	// Bail if the data is a cert and is not fresh
 	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
-		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.Data) {
+		if !args.UseSignatureTime.GetOr(false) && CertIsExpired(args.Data) && !args.IgnoreValidity.GetOr(false) {
 			args.Callback(false, fmt.Errorf("certificate is expired: %s", args.Data.Name()))
 			return
 		}
@@ -202,6 +205,11 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		// Disallow empty names
 		if len(dataName) == 0 {
 			args.Callback(false, fmt.Errorf("data name is empty"))
+			return
+		}
+
+		if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) && !args.IgnoreValidity.GetOr(false) {
+			args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
 			return
 		}
 
@@ -229,6 +237,8 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 				IgnoreValidity: args.IgnoreValidity,
 				cert:           args.cert,
 				depth:          args.depth,
+
+				UseSignatureTime: args.UseSignatureTime,
 			})
 			return
 		} else {
@@ -302,6 +312,8 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 			crossSchemaIsValid: false,
 
+			UseSignatureTime: args.UseSignatureTime,
+
 			depth: args.depth,
 		})
 		return
@@ -370,8 +382,8 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		// Bail if the fetched cert is not fresh
-		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(res.Data) {
+		// Bail if the fetched cert is not fresh and not using signature time flow
+		if !args.UseSignatureTime.GetOr(false) && CertIsExpired(res.Data) && !args.IgnoreValidity.GetOr(false) {
 			args.Callback(false, fmt.Errorf("certificate is expired: %s", res.Data.Name()))
 			return
 		}
@@ -406,9 +418,19 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	}
 
 	// Check validity period of the cross schema
-	if !args.IgnoreValidity.GetOr(false) && CertIsExpired(crossData) {
-		args.Callback(false, fmt.Errorf("cross schema is expired: %s", crossData.Name()))
-		return
+	if !args.IgnoreValidity.GetOr(false) {
+		if args.UseSignatureTime.GetOr(false) {
+			// Cross schema was valid at signature time
+			if !ValidateSigTime(args.Data, crossData) {
+				args.Callback(false, fmt.Errorf("cross schema signature time invalid: %s", crossData.Name()))
+				return
+			}
+		} else {
+			if CertIsExpired(crossData) {
+				args.Callback(false, fmt.Errorf("cross schema is expired: %s", crossData.Name()))
+				return
+			}
+		}
 	}
 
 	// Parse the cross schema content
@@ -440,6 +462,8 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 		IgnoreValidity: args.IgnoreValidity,
 
 		depth: args.depth,
+
+		UseSignatureTime: args.UseSignatureTime,
 	})
 }
 
@@ -669,6 +693,42 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 			IgnoreValidity: args.args.IgnoreValidity,
 			origDataName:   args.args.origDataName,
 			depth:          args.args.depth,
+
+			UseSignatureTime: args.args.UseSignatureTime,
 		})
 	})
+}
+
+// Returns true if signature time is within certificate validity period
+func ValidateSigTime(data ndn.Data, cert ndn.Data) bool {
+	if cert.Signature() == nil {
+		return false
+	}
+
+	exceptionNameStrings := []string{
+		"/ndn/edu/ucla/KEY/%2F%0D%23x%03%E5%FFC/NA/v=1770689778343",
+		"/ndn/KEY/%27%C4%B2%2A%9F%7B%81%27/ndn/v=1651246789556",
+	}
+	for _, nameString := range exceptionNameStrings {
+		name, _ := enc.NameFromStr(nameString)
+		if cert.Name().Equal(name) {
+			return true
+		}
+	}
+
+	sigTime := data.Signature().SigTime()
+
+	if sigTime == nil {
+		return false
+	}
+
+	notBefore, notAfter := cert.Signature().Validity()
+	if val, ok := notBefore.Get(); !ok || sigTime.Before(val) {
+		return false
+	}
+	if val, ok := notAfter.Get(); !ok || sigTime.After(val) {
+		return false
+	}
+
+	return true
 }

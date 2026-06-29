@@ -21,40 +21,42 @@ func TestMakeDataBasic(t *testing.T) {
 	tu.SetT(t)
 
 	spec := spec_2022.Spec{}
+	// Fixed SigTime for deterministic test vectors: 2024-01-01 00:00:00 UTC
+	fixedSigTime := optional.Some(time.Duration(1704067200000) * time.Millisecond)
 
 	data, err := spec.MakeData(
 		tu.NoErr(enc.NameFromStr("/local/ndn/prefix")),
 		&ndn.DataConfig{
 			ContentType: optional.Some(ndn.ContentTypeBlob),
+			SigTime:     fixedSigTime,
 		},
 		nil,
 		sig.NewSha256Signer(),
 	)
 	require.NoError(t, err)
 	require.Equal(t, []byte(
-		"\x06\x42\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix"+
+		"\x06L\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix"+
 			"\x14\x03\x18\x01\x00"+
-			"\x16\x03\x1b\x01\x00"+
-			"\x17 \x7f1\xe4\t\xc5z/\x1d\r\xdaVh8\xfd\xd9\x94"+
-			"\xd8'S\x13[\xd7\x15\xa5\x9d%^\x80\xf2\xab\xf0\xb5"),
+			"\x16\x0d\x1b\x01\x00(\x08\x00\x00\x01\x8c\xc2Q\xf4\x00"+
+			"\x17 *\x17?\xd6i\xdcB\xd0\xf6G\x1d\x0b\xb6\x93\xd4{\xddw\xc6$\x04\x00\x0eN\xb7\x07\x5c\x80K+O\x86"),
 		data.Wire.Join())
 
 	data, err = spec.MakeData(
 		tu.NoErr(enc.NameFromStr("/local/ndn/prefix")),
 		&ndn.DataConfig{
 			ContentType: optional.Some(ndn.ContentTypeBlob),
+			SigTime:     fixedSigTime,
 		},
 		enc.Wire{[]byte("01020304")},
 		sig.NewSha256Signer(),
 	)
 	require.NoError(t, err)
 	require.Equal(t, []byte(
-		"\x06L\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix"+
+		"\x06V\x07\x14\x08\x05local\x08\x03ndn\x08\x06prefix"+
 			"\x14\x03\x18\x01\x00"+
 			"\x15\x0801020304"+
-			"\x16\x03\x1b\x01\x00"+
-			"\x17 \x94\xe9\xda\x91\x1a\x11\xfft\x02i:G\x0cO\xdd!"+
-			"\xe0\xc7\xb6\xfd\x8f\x9cn\xc5\x93{\x93\x04\xe0\xdf\xa6S"),
+			"\x16\x0d\x1b\x01\x00(\x08\x00\x00\x01\x8c\xc2Q\xf4\x00"+
+			"\x17 \xaf\x02\x9d\xf3\x9a\x05s\x83\xefv\x05\xef\x81=\xdb.\xc72$v\x13\xb3\xae\x80\x83+\xe8W\xfeP\x1f}"),
 		data.Wire.Join())
 
 	data, err = spec.MakeData(
@@ -75,15 +77,16 @@ func TestMakeDataBasic(t *testing.T) {
 		tu.NoErr(enc.NameFromStr("/E")),
 		&ndn.DataConfig{
 			ContentType: optional.None[ndn.ContentType](),
+			SigTime:     fixedSigTime,
 		},
 		enc.Wire{},
 		sig.NewSha256Signer(),
 	)
 	require.NoError(t, err)
 	require.Equal(t, tu.NoErr(hex.DecodeString(
-		"06300703080145"+
-			"1400150016031b0100"+
-			"1720f965ee682c6973c3cbaa7b69e4c7063680f83be93a46be2ccc98686134354b66")),
+		"063a070308014514001500"+
+			"160d1b010028080000018cc251f400"+
+			"1720f7b2d57151cb8d6fe2c616adee9195c9d00f3c422754709f750375bae2e91e30")),
 		data.Wire.Join())
 }
 
@@ -91,6 +94,8 @@ func TestMakeDataBasic(t *testing.T) {
 func TestMakeDataMetaInfo(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
+	// Fixed SigTime for deterministic test vectors: 2024-01-01 00:00:00 UTC
+	fixedSigTime := optional.Some(time.Duration(1704067200000) * time.Millisecond)
 
 	data, err := spec.MakeData(
 		tu.NoErr(enc.NameFromStr("/local/ndn/prefix/37=%00")),
@@ -98,16 +103,17 @@ func TestMakeDataMetaInfo(t *testing.T) {
 			ContentType:  optional.Some(ndn.ContentTypeBlob),
 			Freshness:    optional.Some(1000 * time.Millisecond),
 			FinalBlockID: optional.Some(enc.NewSequenceNumComponent(2)),
+			SigTime:      fixedSigTime,
 		},
 		nil,
 		sig.NewSha256Signer(),
 	)
 	require.NoError(t, err)
 	require.Equal(t, []byte(
-		"\x06\x4e\x07\x17\x08\x05local\x08\x03ndn\x08\x06prefix\x25\x01\x00"+
-			"\x14\x0c\x18\x01\x00\x19\x02\x03\xe8\x1a\x03\x3a\x01\x02"+
-			"\x16\x03\x1b\x01\x00"+
-			"\x17 \x0f^\xa1\x0c\xa7\xf5Fb\xf0\x9cOT\xe0FeC\x8f92\x04\x9d\xabP\x80o'\x94\xaa={hQ"),
+		"\x06X\x07\x17\x08\x05local\x08\x03ndn\x08\x06prefix\x25\x01\x00"+
+			"\x14\x0c\x18\x01\x00\x19\x02\x03\xe8\x1a\x03:\x01\x02"+
+			"\x16\x0d\x1b\x01\x00(\x08\x00\x00\x01\x8c\xc2Q\xf4\x00"+
+			"\x17 \xa9v\x8a(\xb3^\xf8\x1c\xce*\xa8\xf2\x14\x81\x8cQ\xcc\xb8I\xc6\xd6\xa7\x99z\x88JKu\x81\xc4[N"),
 		data.Wire.Join())
 }
 
@@ -148,19 +154,23 @@ func (testSigner) Public() ([]byte, error) {
 func TestMakeDataShrink(t *testing.T) {
 	tu.SetT(t)
 	spec := spec_2022.Spec{}
+	// Fixed SigTime for deterministic test vectors: 2024-01-01 00:00:00 UTC
+	fixedSigTime := optional.Some(time.Duration(1704067200000) * time.Millisecond)
 
 	data, err := spec.MakeData(
 		tu.NoErr(enc.NameFromStr("/test")),
 		&ndn.DataConfig{
 			ContentType: optional.Some(ndn.ContentTypeBlob),
+			SigTime:     fixedSigTime,
 		},
 		nil,
 		testSigner{},
 	)
 	require.NoError(t, err)
 	require.Equal(t, []byte{
-		0x6, 0x22, 0x7, 0x6, 0x8, 0x4, 0x74, 0x65, 0x73, 0x74, 0x14, 0x3, 0x18, 0x1, 0x0,
-		0x16, 0xc, 0x1b, 0x1, 0xc8, 0x1c, 0x7, 0x7, 0x5, 0x8, 0x3, 0x4b, 0x45, 0x59,
+		0x6, 0x2c, 0x7, 0x6, 0x8, 0x4, 0x74, 0x65, 0x73, 0x74, 0x14, 0x3, 0x18, 0x1, 0x0,
+		0x16, 0x16, 0x1b, 0x1, 0xc8, 0x1c, 0x7, 0x7, 0x5, 0x8, 0x3, 0x4b, 0x45, 0x59,
+		0x28, 0x8, 0x0, 0x0, 0x1, 0x8c, 0xc2, 0x51, 0xf4, 0x0,
 		0x17, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0},
 		data.Wire.Join())
 }

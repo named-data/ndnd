@@ -97,6 +97,9 @@ type DataConfig struct {
 	SigNotBefore optional.Optional[time.Time]
 	SigNotAfter  optional.Optional[time.Time]
 
+	// Signature time, used to determine time the packet was signed
+	SigTime optional.Optional[time.Duration]
+
 	// Cross Schema attachment
 	CrossSchema enc.Wire
 }

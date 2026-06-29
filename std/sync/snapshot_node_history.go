@@ -44,6 +44,8 @@ type SnapshotNodeHistory struct {
 
 	// In Repo mode, all snapshots are fetched automtically for persistence.
 	IsRepo bool
+	// UseSignatureTime checks validity period using signature time
+	UseSignatureTime optional.Optional[bool]
 	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
 	// repoKnown is the known snapshot sequence number.
@@ -162,8 +164,9 @@ func (s *SnapshotNodeHistory) idxName(node enc.Name, boot uint64) enc.Name {
 // fetchIndex fetches the latest index for a remote node.
 func (s *SnapshotNodeHistory) fetchIndex(node enc.Name, boot uint64, known uint64) {
 	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
-		Name:           s.idxName(node, boot),
-		IgnoreValidity: s.IgnoreValidity,
+		Name:             s.idxName(node, boot),
+		UseSignatureTime: s.UseSignatureTime,
+		IgnoreValidity:   s.IgnoreValidity,
 		Callback: func(cstate ndn.ConsumeState) {
 			go s.handleIndex(node, boot, known, cstate)
 		},
@@ -210,9 +213,10 @@ func (s *SnapshotNodeHistory) handleIndex(node enc.Name, boot uint64, known uint
 
 			snapName := s.snapName(node, boot).WithVersion(seqNo)
 			s.Client.ConsumeExt(ndn.ConsumeExtArgs{
-				Name:           snapName,
-				IgnoreValidity: s.IgnoreValidity,
-				Callback:       func(cstate ndn.ConsumeState) { snapC <- cstate },
+				Name:             snapName,
+				UseSignatureTime: s.UseSignatureTime,
+				IgnoreValidity:   s.IgnoreValidity,
+				Callback:         func(cstate ndn.ConsumeState) { snapC <- cstate },
 			})
 
 			scstate := <-snapC
