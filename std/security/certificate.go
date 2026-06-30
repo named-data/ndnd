@@ -148,6 +148,11 @@ func Revoke(cert ndn.Data) {
 	revokedCertRecord.records[record.Name.TlvStr()] = record
 }
 
+// RevocationRecordName derives the REVOKE-style record name for a certificate.
+func RevocationRecordName(cert ndn.Data) (enc.Name, bool) {
+	return revocationRecordName(cert)
+}
+
 // IsRevoked reports whether the certificate name has been revoked in this process.
 func IsRevoked(cert ndn.Data) bool {
 	key, ok := revocationRecordKey(cert)

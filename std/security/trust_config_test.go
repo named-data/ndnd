@@ -1044,3 +1044,92 @@ func TestTrustConfigLvsInter(t *testing.T) {
 
 	testTrustConfigInter(t, schemaInter)
 }
+
+func makeRevocationRecordWire(t *testing.T, cert ndn.Data, signer ndn.Signer) enc.Wire {
+	t.Helper()
+
+	recordName, ok := sec.RevocationRecordName(cert)
+	require.True(t, ok)
+
+	pkt, err := spec.Spec{}.MakeData(recordName, &ndn.DataConfig{}, enc.Wire{[]byte{0x01}}, signer)
+	require.NoError(t, err)
+	return pkt.Wire
+}
+
+func TestTrustConfigRevocation(t *testing.T) {
+	tu.SetT(t)
+
+	clear(tcTestNetwork)
+	tcTestT = t
+	network := tcTestNetwork
+	store := storage.NewMemoryStore()
+	keychain := keychain.NewKeyChainMem(store)
+	tcTestKeyChain = keychain
+
+	opts := SignCertOptions{
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour),
+	}
+
+	rootSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test")))
+	rootCertWire, rootCertData, _ := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(rootSigner)), opts)
+	network[rootCertData.Name().String()] = rootCertWire
+	require.NoError(t, keychain.InsertCert(rootCertWire.Join()))
+
+	aliceSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test/alice")))
+	aliceCertWire, aliceCertData, _ := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(aliceSigner)), opts)
+	network[aliceCertData.Name().String()] = aliceCertWire
+	require.NoError(t, keychain.InsertCert(aliceCertWire.Join()))
+	require.NoError(t, keychain.InsertKey(aliceSigner))
+
+	bobSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test/bob")))
+	bobCertWire, bobCertData, _ := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(bobSigner)), opts)
+	network[bobCertData.Name().String()] = bobCertWire
+
+	schema, err := trust_schema.NewLvsSchema(TRUST_CONFIG_INTRA_LVS)
+	require.NoError(t, err)
+
+	trust, err := sec.NewTrustConfig(keychain, schema, []enc.Name{rootCertData.Name()})
+	require.NoError(t, err)
+	tcTestTrustConfig = trust
+
+	require.Error(t, trust.InstallRevocationRecord(nil))
+	require.Error(t, trust.InstallRevocationRecord(aliceCertWire))
+
+	recordWire := makeRevocationRecordWire(t, aliceCertData, rootSigner)
+	require.NoError(t, trust.InstallRevocationRecord(recordWire))
+
+	recordName, ok := sec.RevocationRecordName(aliceCertData)
+	require.True(t, ok)
+	if buf, _ := keychain.Store().Get(recordName, false); buf == nil {
+		t.Fatal("revocation record not in store")
+	}
+
+	require.False(t, validateSync(ValidateSyncOptions{
+		name:   "/test/alice/data1",
+		signer: aliceSigner,
+	}))
+
+	// Trust anchors are not subject to revocation checks.
+	rootRecordWire := makeRevocationRecordWire(t, rootCertData, rootSigner)
+	require.NoError(t, trust.InstallRevocationRecord(rootRecordWire))
+	_, rootSigCov, err := spec.Spec{}.ReadData(enc.NewWireView(rootCertWire))
+	require.NoError(t, err)
+	require.True(t, validateCerts(rootCertData, rootSigCov, false))
+
+	// Cached certificate path.
+	tcTestFetchCount = 0
+	require.True(t, validateSync(ValidateSyncOptions{
+		name:   "/test/bob/data1",
+		signer: bobSigner,
+	}))
+	require.Equal(t, 1, tcTestFetchCount)
+
+	bobRecordWire := makeRevocationRecordWire(t, bobCertData, rootSigner)
+	require.NoError(t, trust.InstallRevocationRecord(bobRecordWire))
+	require.False(t, validateSync(ValidateSyncOptions{
+		name:   "/test/bob/data2",
+		signer: bobSigner,
+	}))
+	require.Equal(t, 1, tcTestFetchCount)
+}

@@ -94,6 +94,26 @@ func (tc *TrustConfig) Suggest(name enc.Name) ndn.Signer {
 	return tc.schema.Suggest(name, tc.keychain)
 }
 
+// InstallRevocationRecord stores a received revocation record in the keychain store.
+// The wire must encode a Data packet whose name follows the REVOKE naming convention.
+func (tc *TrustConfig) InstallRevocationRecord(wire enc.Wire) error {
+	if len(wire) == 0 {
+		return fmt.Errorf("revocation record wire is empty")
+	}
+
+	data, _, err := spec.Spec{}.ReadData(enc.NewWireView(wire))
+	if err != nil {
+		return fmt.Errorf("failed to parse revocation record: %w", err)
+	}
+	if !isRevocationRecordName(data.Name()) {
+		return fmt.Errorf("not a revocation record name: %s", data.Name())
+	}
+
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	return tc.keychain.Store().Put(data.Name(), wire.Join())
+}
+
 // SetSchema atomically replaces the trust schema.
 func (tc *TrustConfig) SetSchema(schema ndn.TrustSchema) {
 	if schema == nil {
@@ -182,6 +202,9 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			args.Callback(false, fmt.Errorf("certificate is expired: %s", args.Data.Name()))
 			return
 		}
+		if tc.rejectIfRevokedCert(args.Data, args.Callback) {
+			return
+		}
 	}
 
 	// Get the key locator
@@ -193,6 +216,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 	// If a certificate is provided, go directly to validation
 	if args.cert != nil {
+		if tc.rejectIfRevokedCert(args.cert, args.Callback) {
+			return
+		}
+
 		certName := args.cert.Name()
 		dataName := args.Data.Name()
 		if len(args.OverrideName) > 0 {
@@ -323,6 +350,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 	// Check the validated memcache for the certificate
 	if cachedCert, ok := tc.certCache.Get(keyLocator); ok {
+		if tc.rejectIfRevokedCert(cachedCert, args.Callback) {
+			return
+		}
+
 		// The cache always checks the expiry of the cert
 		args.cert = cachedCert
 		args.certIsValid = true
@@ -338,7 +369,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		fwHint = []enc.Name{args.origDataName}
 	}
 
-	// Cert not found, attempt to fetch from network
+	// Cert not found, attempt to fetch from network.
+	// TODO(revocation): the engine can express an Interest for the derived REVOKE
+	// record name when no local record is found. For now, only records installed
+	// via InstallRevocationRecord in keychain.Store() are checked.
 	fetchCfg := &ndn.InterestConfig{
 		CanBePrefix:    true,
 		MustBeFresh:    true,
@@ -378,6 +412,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 		// Fetched cert is fresh
 		log.Debug(tc, "Fetched certificate from network", "cert", res.Data.Name())
+
+		if tc.rejectIfRevokedCert(res.Data, args.Callback) {
+			return
+		}
 
 		// Call again with the fetched cert
 		args.cert = res.Data
@@ -505,6 +543,44 @@ func (tc *TrustConfig) PromoteAnchor(cert ndn.Data, raw enc.Wire) {
 		}
 	}
 	tc.roots = append(tc.roots, name)
+}
+
+func (tc *TrustConfig) isTrustedAnchorCert(cert ndn.Data) bool {
+	if cert == nil {
+		return false
+	}
+
+	name := stripImplicitDigest(cert.Name())
+	tc.mutex.RLock()
+	defer tc.mutex.RUnlock()
+	for _, root := range tc.roots {
+		if root.Equal(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func (tc *TrustConfig) certIsRevoked(cert ndn.Data) bool {
+	if cert == nil || tc.isTrustedAnchorCert(cert) {
+		return false
+	}
+
+	recordName, ok := revocationRecordName(cert)
+	if !ok {
+		return false
+	}
+
+	wire, _ := tc.keychain.Store().Get(recordName, false)
+	return len(wire) > 0
+}
+
+func (tc *TrustConfig) rejectIfRevokedCert(cert ndn.Data, callback func(bool, error)) bool {
+	if tc.certIsRevoked(cert) {
+		callback(false, fmt.Errorf("certificate is revoked: %s", cert.Name()))
+		return true
+	}
+	return false
 }
 
 func (tc *TrustConfig) isTrustedAnchorKey(keyLocator enc.Name) bool {
