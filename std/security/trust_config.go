@@ -81,7 +81,6 @@ func NewTrustConfig(keyChain ndn.KeyChain, schema ndn.TrustSchema, roots []enc.N
 	}, nil
 }
 
-// (AI GENERATED DESCRIPTION): Returns the constant string `"trust-config"` for a `TrustConfig` value, enabling string formatting via the `fmt.Stringer` interface.
 func (tc *TrustConfig) String() string {
 	return "trust-config"
 }
@@ -94,8 +93,7 @@ func (tc *TrustConfig) Suggest(name enc.Name) ndn.Signer {
 	return tc.schema.Suggest(name, tc.keychain)
 }
 
-// InstallRevocationRecord stores a received revocation record in the keychain store.
-// The wire must encode a Data packet whose name follows the REVOKE naming convention.
+// InstallRevocationRecord stores a revocation record Data packet in the keychain store.
 func (tc *TrustConfig) InstallRevocationRecord(wire enc.Wire) error {
 	if len(wire) == 0 {
 		return fmt.Errorf("revocation record wire is empty")
@@ -373,9 +371,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	}
 
 	// Cert not found, attempt to fetch from network.
-	// TODO(revocation): the engine can express an Interest for the derived REVOKE
-	// record name when no local record is found. For now, only records installed
-	// via InstallRevocationRecord in keychain.Store() are checked.
+	// TODO(revocation): fetch REVOKE record by Interest when not in keychain.Store().
 	fetchCfg := &ndn.InterestConfig{
 		CanBePrefix:    true,
 		MustBeFresh:    true,
@@ -432,7 +428,6 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	args.Fetch(keyLocator, fetchCfg, cb)
 }
 
-// (AI GENERATED DESCRIPTION): Validates the cross‑schema signed Data packet by parsing its embedded schema, checking its validity period, ensuring it authorizes the original certificate, and recursively validating the cross‑schema’s signature against the trust configuration.
 func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	crossWire := args.Data.CrossSchema()
 	if crossWire == nil {

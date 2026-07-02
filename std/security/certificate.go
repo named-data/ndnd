@@ -27,22 +27,14 @@ const (
 
 const defaultRevocationFreshness = 8760 * time.Hour
 
-// revocationStore holds locally installed revocation record Data packets.
 var revocationStore = storage.NewMemoryStore()
 
-// MakeRevocationRecordArgs are the arguments to MakeRevocationRecord.
 type MakeRevocationRecordArgs struct {
-	// Cert is the certificate being revoked.
-	Cert ndn.Data
-	// Signer signs the revocation record Data packet. May be nil for unsigned records.
-	Signer ndn.Signer
-	// Reason is the revocation reason code.
-	Reason revocationReason
-	// Timestamp is the revocation timestamp. Defaults to now.
+	Cert      ndn.Data
+	Signer    ndn.Signer
+	Reason    revocationReason
 	Timestamp optional.Optional[time.Time]
-	// NotBefore marks data produced before this timestamp as still valid.
 	NotBefore optional.Optional[time.Time]
-	// Freshness is the FreshnessPeriod of the record Data packet.
 	Freshness optional.Optional[time.Duration]
 }
 
@@ -67,7 +59,6 @@ type SignCertArgs struct {
 // SignCert signs a new NDN certificate with the given signer.
 // Data must have either a Key or Secret in the Content.
 func SignCert(args SignCertArgs) (enc.Wire, error) {
-	// Check all parameters (strict for certs)
 	if args.Signer == nil || args.Data == nil || args.IssuerId.Typ == 0 {
 		return nil, ndn.ErrInvalidValue{Item: "SignCertArgs", Value: args}
 	}
@@ -80,20 +71,17 @@ func SignCert(args SignCertArgs) (enc.Wire, error) {
 		return nil, ndn.ErrInvalidValue{Item: "Expiry", Value: args.NotAfter}
 	}
 
-	// Get public key bits and key name
 	pk, keyName, err := getPubKey(args.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get certificate name
 	certName, err := MakeCertName(keyName, args.IssuerId, uint64(time.Now().UnixMilli()))
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: set description
-	// Create certificate data
 	cfg := &ndn.DataConfig{
 		ContentType:  optional.Some(ndn.ContentTypeKey),
 		Freshness:    optional.Some(time.Hour),
@@ -131,7 +119,7 @@ func SelfSign(args SignCertArgs) (wire enc.Wire, err error) {
 	return SignCert(args)
 }
 
-// (AI GENERATED DESCRIPTION): Returns true if the certificate’s signature is nil or its validity period does not include the current time.
+// CertIsExpired reports whether the certificate is outside its validity period.
 func CertIsExpired(cert ndn.Data) bool {
 	if cert.Signature() == nil {
 		return true
@@ -177,10 +165,7 @@ func MakeRevocationRecord(args MakeRevocationRecordArgs) (enc.Wire, error) {
 
 	timestamp := args.Timestamp.GetOr(time.Now())
 	hash := sha256.Sum256(args.Cert.Content().Join())
-	content, err := encodeRevocationRecordContent(hash, args.Reason, timestamp, args.NotBefore)
-	if err != nil {
-		return nil, err
-	}
+	content := encodeRevocationRecordContent(hash, args.Reason, timestamp, args.NotBefore)
 
 	cfg := &ndn.DataConfig{
 		ContentType: optional.Some(ndn.ContentTypeKey),
@@ -216,16 +201,16 @@ func encodeRevocationRecordContent(
 	reason revocationReason,
 	timestamp time.Time,
 	notBefore optional.Optional[time.Time],
-) (enc.Wire, error) {
+) enc.Wire {
 	var inner []byte
 	inner = appendTlvNat(inner, tlvRevocationTimestamp, uint64(timestamp.UnixMilli()))
 	inner = appendTlvNat(inner, tlvRevocationReason, uint64(reason))
-	inner = appendTlvBytes(inner, tlvPublicKeyHash, hash[:])
+	inner = appendTlv(inner, tlvPublicKeyHash, hash[:])
 	if nb, ok := notBefore.Get(); ok {
 		inner = appendTlvNat(inner, tlvRevocationNotBefore, uint64(nb.UnixMilli()))
 	}
 
-	return enc.Wire{appendTlv(nil, enc.TLNum(0x15), inner)}, nil
+	return enc.Wire{appendTlv(nil, enc.TLNum(0x15), inner)}
 }
 
 func appendTlv(dst []byte, typ enc.TLNum, value []byte) []byte {
@@ -243,10 +228,6 @@ func appendTlv(dst []byte, typ enc.TLNum, value []byte) []byte {
 func appendTlvNat(dst []byte, typ enc.TLNum, n uint64) []byte {
 	nat := enc.Nat(n)
 	return appendTlv(dst, typ, nat.Bytes())
-}
-
-func appendTlvBytes(dst []byte, typ enc.TLNum, value []byte) []byte {
-	return appendTlv(dst, typ, value)
 }
 
 func validateRevocationRecordData(data ndn.Data) error {
@@ -362,7 +343,6 @@ func getPubKey(data ndn.Data) ([]byte, enc.Name, error) {
 
 	switch contentType {
 	case ndn.ContentTypeKey:
-		// Content is public key, return directly
 		pub := data.Content().Join()
 		keyName, err := GetKeyNameFromCertName(data.Name())
 		if err != nil {
@@ -370,7 +350,6 @@ func getPubKey(data ndn.Data) ([]byte, enc.Name, error) {
 		}
 		return pub, keyName, nil
 	case ndn.ContentTypeSigningKey:
-		// Content is private key, parse the signer
 		signer, err := sig.UnmarshalSecret(data)
 		if err != nil {
 			return nil, nil, err
@@ -381,7 +360,6 @@ func getPubKey(data ndn.Data) ([]byte, enc.Name, error) {
 		}
 		return pub, signer.KeyName(), nil
 	default:
-		// Invalid content type
 		return nil, nil, ndn.ErrInvalidValue{Item: "Data.ContentType", Value: contentType}
 	}
 }

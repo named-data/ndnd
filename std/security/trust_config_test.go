@@ -67,7 +67,6 @@ type SignCertOptions struct {
 	NotAfter  time.Time
 }
 
-// (AI GENERATED DESCRIPTION): Creates a signed certificate for the supplied Data packet using the provided signer, and returns the certificate wire, its content, and the signature‑covered portion.
 func signCert(signer ndn.Signer, wire enc.Wire, opts SignCertOptions) (enc.Wire, ndn.Data, enc.Wire) {
 	data, _, _ := spec.Spec{}.ReadData(enc.NewWireView(wire))
 	cert, _ := sec.SignCert(sec.SignCertArgs{
@@ -494,8 +493,6 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 		signer: mallory2Signer,
 	}))
 	require.Equal(t, 4, tcTestFetchCount) // (same as root 1, except no mallory root fetch)
-
-	// ========================================================================
 
 	// Test with cross schema validation
 	// Alice signs a cross schema for bob to allow bob to publish in alice's namespace
@@ -1022,7 +1019,6 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Initializes an in‑memory store and key chain, loads an LVS trust schema, and runs trust configuration tests.
 func TestTrustConfigLvsIntra(t *testing.T) {
 	tu.SetT(t)
 
@@ -1110,14 +1106,14 @@ func TestTrustConfigRevocation(t *testing.T) {
 		signer: aliceSigner,
 	}))
 
-	// Trust anchors are not subject to revocation checks.
+	// Trust anchors skip revocation checks.
 	rootRecordWire := makeRevocationRecordWire(t, rootCertData, rootSigner)
 	require.NoError(t, trust.InstallRevocationRecord(rootRecordWire))
 	_, rootSigCov, err := spec.Spec{}.ReadData(enc.NewWireView(rootCertWire))
 	require.NoError(t, err)
 	require.True(t, validateCerts(rootCertData, rootSigCov, false))
 
-	// Cached certificate path.
+	// Cached cert path.
 	tcTestFetchCount = 0
 	require.True(t, validateSync(ValidateSyncOptions{
 		name:   "/test/bob/data1",
