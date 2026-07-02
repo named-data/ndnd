@@ -216,6 +216,18 @@ func TestCertificateRevocationRecord(t *testing.T) {
 
 	require.True(t, sec.IsRevoked(aliceCert))
 	require.False(t, sec.IsRevoked(otherCert))
+
+	recordWire, err := sec.MakeRevocationRecord(sec.MakeRevocationRecordArgs{Cert: aliceCert})
+	require.NoError(t, err)
+	recordData, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(recordWire))
+	require.NoError(t, err)
+	recordName, ok := sec.RevocationRecordName(aliceCert)
+	require.True(t, ok)
+	require.True(t, recordName.Equal(recordData.Name()))
+	contentType, ok := recordData.ContentType().Get()
+	require.True(t, ok)
+	require.Equal(t, ndn.ContentTypeKey, contentType)
+	require.NotEmpty(t, recordData.Content())
 }
 
 func TestCertificateRevocationRecordConcurrentAccess(t *testing.T) {

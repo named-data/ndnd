@@ -108,6 +108,9 @@ func (tc *TrustConfig) InstallRevocationRecord(wire enc.Wire) error {
 	if !isRevocationRecordName(data.Name()) {
 		return fmt.Errorf("not a revocation record name: %s", data.Name())
 	}
+	if err := validateRevocationRecordData(data); err != nil {
+		return err
+	}
 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()

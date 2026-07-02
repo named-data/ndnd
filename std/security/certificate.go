@@ -4,12 +4,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	"github.com/named-data/ndnd/std/object/storage"
 	sig "github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
 )
@@ -18,19 +18,32 @@ type revocationReason uint64
 
 const revocationReasonUnspecified revocationReason = 0
 
-type revocationRecord struct {
-	Name          enc.Name
-	CertName      enc.Name
-	PublicKeyHash [sha256.Size]byte
-	Reason        revocationReason
-	Timestamp     time.Time
-}
+const (
+	tlvRevocationTimestamp enc.TLNum = 201
+	tlvPublicKeyHash       enc.TLNum = 202
+	tlvRevocationReason    enc.TLNum = 203
+	tlvRevocationNotBefore enc.TLNum = 205
+)
 
-var revokedCertRecord = struct {
-	sync.RWMutex
-	records map[string]revocationRecord
-}{
-	records: map[string]revocationRecord{},
+const defaultRevocationFreshness = 8760 * time.Hour
+
+// revocationStore holds locally installed revocation record Data packets.
+var revocationStore = storage.NewMemoryStore()
+
+// MakeRevocationRecordArgs are the arguments to MakeRevocationRecord.
+type MakeRevocationRecordArgs struct {
+	// Cert is the certificate being revoked.
+	Cert ndn.Data
+	// Signer signs the revocation record Data packet. May be nil for unsigned records.
+	Signer ndn.Signer
+	// Reason is the revocation reason code.
+	Reason revocationReason
+	// Timestamp is the revocation timestamp. Defaults to now.
+	Timestamp optional.Optional[time.Time]
+	// NotBefore marks data produced before this timestamp as still valid.
+	NotBefore optional.Optional[time.Time]
+	// Freshness is the FreshnessPeriod of the record Data packet.
+	Freshness optional.Optional[time.Duration]
 }
 
 // SignCertArgs are the arguments to SignCert.
@@ -136,16 +149,50 @@ func CertIsExpired(cert ndn.Data) bool {
 	return false
 }
 
-// Revoke records the certificate name as revoked for this process.
+// Revoke records a certificate as revoked by storing a revocation record Data packet.
 func Revoke(cert ndn.Data) {
-	record, ok := makeRevocationRecord(cert, revocationReasonUnspecified)
-	if !ok {
+	wire, err := MakeRevocationRecord(MakeRevocationRecordArgs{Cert: cert})
+	if err != nil {
 		return
 	}
 
-	revokedCertRecord.Lock()
-	defer revokedCertRecord.Unlock()
-	revokedCertRecord.records[record.Name.TlvStr()] = record
+	data, _, err := spec.Spec{}.ReadData(enc.NewWireView(wire))
+	if err != nil {
+		return
+	}
+
+	_ = revocationStore.Put(data.Name(), wire.Join())
+}
+
+// MakeRevocationRecord builds a revocation record Data packet for a certificate.
+func MakeRevocationRecord(args MakeRevocationRecordArgs) (enc.Wire, error) {
+	if args.Cert == nil {
+		return nil, fmt.Errorf("certificate is nil")
+	}
+
+	recordName, ok := revocationRecordName(args.Cert)
+	if !ok {
+		return nil, fmt.Errorf("invalid certificate name for revocation: %s", args.Cert.Name())
+	}
+
+	timestamp := args.Timestamp.GetOr(time.Now())
+	hash := sha256.Sum256(args.Cert.Content().Join())
+	content, err := encodeRevocationRecordContent(hash, args.Reason, timestamp, args.NotBefore)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &ndn.DataConfig{
+		ContentType: optional.Some(ndn.ContentTypeKey),
+		Freshness:   optional.Some(args.Freshness.GetOr(defaultRevocationFreshness)),
+	}
+
+	encoded, err := spec.Spec{}.MakeData(recordName, cfg, content, args.Signer)
+	if err != nil {
+		return nil, err
+	}
+
+	return encoded.Wire, nil
 }
 
 // RevocationRecordName derives the REVOKE-style record name for a certificate.
@@ -153,41 +200,125 @@ func RevocationRecordName(cert ndn.Data) (enc.Name, bool) {
 	return revocationRecordName(cert)
 }
 
-// IsRevoked reports whether the certificate name has been revoked in this process.
+// IsRevoked reports whether a revocation record Data packet is installed for the certificate.
 func IsRevoked(cert ndn.Data) bool {
-	key, ok := revocationRecordKey(cert)
+	recordName, ok := revocationRecordName(cert)
 	if !ok {
 		return false
 	}
 
-	revokedCertRecord.RLock()
-	defer revokedCertRecord.RUnlock()
-	_, ok = revokedCertRecord.records[key]
-	return ok
+	wire, _ := revocationStore.Get(recordName, false)
+	return len(wire) > 0
 }
 
-func makeRevocationRecord(cert ndn.Data, reason revocationReason) (revocationRecord, bool) {
-	recordName, ok := revocationRecordName(cert)
-	if !ok {
-		return revocationRecord{}, false
+func encodeRevocationRecordContent(
+	hash [sha256.Size]byte,
+	reason revocationReason,
+	timestamp time.Time,
+	notBefore optional.Optional[time.Time],
+) (enc.Wire, error) {
+	var inner []byte
+	inner = appendTlvNat(inner, tlvRevocationTimestamp, uint64(timestamp.UnixMilli()))
+	inner = appendTlvNat(inner, tlvRevocationReason, uint64(reason))
+	inner = appendTlvBytes(inner, tlvPublicKeyHash, hash[:])
+	if nb, ok := notBefore.Get(); ok {
+		inner = appendTlvNat(inner, tlvRevocationNotBefore, uint64(nb.UnixMilli()))
 	}
 
-	return revocationRecord{
-		Name:          recordName,
-		CertName:      stripImplicitDigest(cert.Name()),
-		PublicKeyHash: sha256.Sum256(cert.Content().Join()),
-		Reason:        reason,
-		Timestamp:     time.Now(),
-	}, true
+	return enc.Wire{appendTlv(nil, enc.TLNum(0x15), inner)}, nil
 }
 
-func revocationRecordKey(cert ndn.Data) (string, bool) {
-	recordName, ok := revocationRecordName(cert)
-	if !ok {
-		return "", false
+func appendTlv(dst []byte, typ enc.TLNum, value []byte) []byte {
+	typeLen := typ.EncodingLength()
+	lengthLen := enc.TLNum(len(value)).EncodingLength()
+	out := make([]byte, len(dst)+typeLen+lengthLen+len(value))
+	copy(out, dst)
+	pos := len(dst)
+	pos += typ.EncodeInto(out[pos:])
+	pos += enc.TLNum(len(value)).EncodeInto(out[pos:])
+	copy(out[pos:], value)
+	return out
+}
+
+func appendTlvNat(dst []byte, typ enc.TLNum, n uint64) []byte {
+	nat := enc.Nat(n)
+	return appendTlv(dst, typ, nat.Bytes())
+}
+
+func appendTlvBytes(dst []byte, typ enc.TLNum, value []byte) []byte {
+	return appendTlv(dst, typ, value)
+}
+
+func validateRevocationRecordData(data ndn.Data) error {
+	if data == nil {
+		return fmt.Errorf("revocation record is nil")
+	}
+	if !isRevocationRecordName(data.Name()) {
+		return fmt.Errorf("not a revocation record name: %s", data.Name())
+	}
+	_, err := parseRevocationRecordContent(data.Content())
+	return err
+}
+
+func parseRevocationRecordContent(content enc.Wire) (map[enc.TLNum][]byte, error) {
+	if len(content) == 0 {
+		return nil, fmt.Errorf("revocation record content is empty")
 	}
 
-	return recordName.TlvStr(), true
+	reader := enc.NewWireView(content)
+	typ, err := reader.ReadTLNum()
+	if err != nil {
+		return nil, err
+	}
+	if typ != enc.TLNum(0x15) {
+		return nil, fmt.Errorf("revocation record content is not a Content TLV")
+	}
+
+	l, err := reader.ReadTLNum()
+	if err != nil {
+		return nil, err
+	}
+
+	body := reader.Delegate(int(l))
+	if body.Length() != int(l) {
+		return nil, io.ErrUnexpectedEOF
+	}
+
+	fields := map[enc.TLNum][]byte{}
+	for !body.IsEOF() {
+		fieldType, err := body.ReadTLNum()
+		if err != nil {
+			return nil, err
+		}
+		fieldLen, err := body.ReadTLNum()
+		if err != nil {
+			return nil, err
+		}
+		fieldView := body.Delegate(int(fieldLen))
+		if fieldView.Length() != int(fieldLen) {
+			return nil, io.ErrUnexpectedEOF
+		}
+		buf, err := fieldView.ReadBuf(fieldView.Length())
+		if err != nil {
+			return nil, err
+		}
+		fields[fieldType] = buf
+	}
+
+	if _, ok := fields[tlvRevocationTimestamp]; !ok {
+		return nil, fmt.Errorf("revocation record missing timestamp")
+	}
+	if _, ok := fields[tlvRevocationReason]; !ok {
+		return nil, fmt.Errorf("revocation record missing reason")
+	}
+	if _, ok := fields[tlvPublicKeyHash]; !ok {
+		return nil, fmt.Errorf("revocation record missing public key hash")
+	}
+	if len(fields[tlvPublicKeyHash]) != sha256.Size {
+		return nil, fmt.Errorf("revocation record public key hash has invalid length")
+	}
+
+	return fields, nil
 }
 
 func revocationRecordName(cert ndn.Data) (enc.Name, bool) {

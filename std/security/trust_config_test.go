@@ -1048,12 +1048,12 @@ func TestTrustConfigLvsInter(t *testing.T) {
 func makeRevocationRecordWire(t *testing.T, cert ndn.Data, signer ndn.Signer) enc.Wire {
 	t.Helper()
 
-	recordName, ok := sec.RevocationRecordName(cert)
-	require.True(t, ok)
-
-	pkt, err := spec.Spec{}.MakeData(recordName, &ndn.DataConfig{}, enc.Wire{[]byte{0x01}}, signer)
+	wire, err := sec.MakeRevocationRecord(sec.MakeRevocationRecordArgs{
+		Cert:   cert,
+		Signer: signer,
+	})
 	require.NoError(t, err)
-	return pkt.Wire
+	return wire
 }
 
 func TestTrustConfigRevocation(t *testing.T) {
