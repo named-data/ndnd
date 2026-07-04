@@ -93,8 +93,8 @@ func (tc *TrustConfig) Suggest(name enc.Name) ndn.Signer {
 	return tc.schema.Suggest(name, tc.keychain)
 }
 
-// InstallRevocationRecord stores a revocation record Data packet in the keychain store.
-func (tc *TrustConfig) InstallRevocationRecord(wire enc.Wire) error {
+// InsertRevoke stores a revocation record Data packet.
+func (tc *TrustConfig) InsertRevoke(wire enc.Wire) error {
 	if len(wire) == 0 {
 		return fmt.Errorf("revocation record wire is empty")
 	}
@@ -106,12 +106,10 @@ func (tc *TrustConfig) InstallRevocationRecord(wire enc.Wire) error {
 	if !isRevocationRecordName(data.Name()) {
 		return fmt.Errorf("not a revocation record name: %s", data.Name())
 	}
-	if err := validateRevocationRecordData(data); err != nil {
-		return err
-	}
 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
+	// HACK: revocation records live in keychain.Store() until we have a dedicated store.
 	return tc.keychain.Store().Put(data.Name(), wire.Join())
 }
 
@@ -543,24 +541,8 @@ func (tc *TrustConfig) PromoteAnchor(cert ndn.Data, raw enc.Wire) {
 	tc.roots = append(tc.roots, name)
 }
 
-func (tc *TrustConfig) isTrustedAnchorCert(cert ndn.Data) bool {
+func (tc *TrustConfig) rejectIfRevokedCert(cert ndn.Data, callback func(bool, error)) bool {
 	if cert == nil {
-		return false
-	}
-
-	name := stripImplicitDigest(cert.Name())
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
-	for _, root := range tc.roots {
-		if root.Equal(name) {
-			return true
-		}
-	}
-	return false
-}
-
-func (tc *TrustConfig) certIsRevoked(cert ndn.Data) bool {
-	if cert == nil || tc.isTrustedAnchorCert(cert) {
 		return false
 	}
 
@@ -570,11 +552,7 @@ func (tc *TrustConfig) certIsRevoked(cert ndn.Data) bool {
 	}
 
 	wire, _ := tc.keychain.Store().Get(recordName, false)
-	return len(wire) > 0
-}
-
-func (tc *TrustConfig) rejectIfRevokedCert(cert ndn.Data, callback func(bool, error)) bool {
-	if tc.certIsRevoked(cert) {
+	if len(wire) > 0 {
 		callback(false, fmt.Errorf("certificate is revoked: %s", cert.Name()))
 		return true
 	}

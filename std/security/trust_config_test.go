@@ -1044,7 +1044,7 @@ func TestTrustConfigLvsInter(t *testing.T) {
 func makeRevocationRecordWire(t *testing.T, cert ndn.Data, signer ndn.Signer) enc.Wire {
 	t.Helper()
 
-	wire, err := sec.MakeRevocationRecord(sec.MakeRevocationRecordArgs{
+	wire, err := sec.RevokeCert(sec.RevokeCertArgs{
 		Cert:   cert,
 		Signer: signer,
 	})
@@ -1089,15 +1089,15 @@ func TestTrustConfigRevocation(t *testing.T) {
 	require.NoError(t, err)
 	tcTestTrustConfig = trust
 
-	require.Error(t, trust.InstallRevocationRecord(nil))
-	require.Error(t, trust.InstallRevocationRecord(aliceCertWire))
+	require.Error(t, trust.InsertRevoke(nil))
+	require.Error(t, trust.InsertRevoke(aliceCertWire))
 
 	recordWire := makeRevocationRecordWire(t, aliceCertData, rootSigner)
-	require.NoError(t, trust.InstallRevocationRecord(recordWire))
+	require.NoError(t, trust.InsertRevoke(recordWire))
 
-	recordName, ok := sec.RevocationRecordName(aliceCertData)
-	require.True(t, ok)
-	if buf, _ := keychain.Store().Get(recordName, false); buf == nil {
+	recordData, _, err := spec.Spec{}.ReadData(enc.NewWireView(recordWire))
+	require.NoError(t, err)
+	if buf, _ := keychain.Store().Get(recordData.Name(), false); buf == nil {
 		t.Fatal("revocation record not in store")
 	}
 
@@ -1105,13 +1105,6 @@ func TestTrustConfigRevocation(t *testing.T) {
 		name:   "/test/alice/data1",
 		signer: aliceSigner,
 	}))
-
-	// Trust anchors skip revocation checks.
-	rootRecordWire := makeRevocationRecordWire(t, rootCertData, rootSigner)
-	require.NoError(t, trust.InstallRevocationRecord(rootRecordWire))
-	_, rootSigCov, err := spec.Spec{}.ReadData(enc.NewWireView(rootCertWire))
-	require.NoError(t, err)
-	require.True(t, validateCerts(rootCertData, rootSigCov, false))
 
 	// Cached cert path.
 	tcTestFetchCount = 0
@@ -1122,7 +1115,7 @@ func TestTrustConfigRevocation(t *testing.T) {
 	require.Equal(t, 1, tcTestFetchCount)
 
 	bobRecordWire := makeRevocationRecordWire(t, bobCertData, rootSigner)
-	require.NoError(t, trust.InstallRevocationRecord(bobRecordWire))
+	require.NoError(t, trust.InsertRevoke(bobRecordWire))
 	require.False(t, validateSync(ValidateSyncOptions{
 		name:   "/test/bob/data2",
 		signer: bobSigner,

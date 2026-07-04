@@ -3,7 +3,6 @@ package security_test
 import (
 	"encoding/base64"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// (AI GENERATED DESCRIPTION): Tests that the `SignCert` function correctly returns an error when invoked with a nil signer and nil data.
 func TestSignCertInvalid(t *testing.T) {
 	tu.SetT(t)
 
@@ -27,6 +27,7 @@ func TestSignCertInvalid(t *testing.T) {
 	require.Error(t, err)
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that a key can self‑sign its own certificate, checking the certificate name, public‑key content, validity period, and Ed25519 signature correctness.
 func TestSignCertSelf(t *testing.T) {
 	tu.SetT(t)
 
@@ -74,6 +75,7 @@ func TestSignCertSelf(t *testing.T) {
 	require.True(t, tu.NoErr(signer.ValidateData(cert, certSigCov, cert)))
 }
 
+// (AI GENERATED DESCRIPTION): Verifies that Alice’s signer can correctly sign a root certificate, producing a certificate with the expected name, content, signature format, validity period, and that the signature verifies against Alice’s own certificate.
 func TestSignCertOther(t *testing.T) {
 	tu.SetT(t)
 
@@ -191,74 +193,21 @@ func TestCertificateRevocationRecord(t *testing.T) {
 	aliceCert, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
 	require.NoError(t, err)
 
-	otherCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
-		Signer:    aliceSigner,
-		Data:      aliceKeyData,
-		IssuerId:  revocationTestIssuer(t),
-		NotBefore: T1,
-		NotAfter:  T2,
-	}))
-	otherCert, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(otherCertWire))
-	require.NoError(t, err)
+	_, err = sec.RevokeCert(sec.RevokeCertArgs{Cert: nil})
+	require.Error(t, err)
 
-	require.False(t, sec.IsRevoked(nil))
-	require.NotPanics(t, func() {
-		sec.Revoke(nil)
+	recordWire, err := sec.RevokeCert(sec.RevokeCertArgs{
+		Cert:   aliceCert,
+		Signer: aliceSigner,
 	})
-
-	require.False(t, sec.IsRevoked(aliceCert))
-	require.False(t, sec.IsRevoked(otherCert))
-
-	sec.Revoke(aliceCert)
-
-	require.True(t, sec.IsRevoked(aliceCert))
-	require.False(t, sec.IsRevoked(otherCert))
-
-	recordWire, err := sec.MakeRevocationRecord(sec.MakeRevocationRecordArgs{Cert: aliceCert})
 	require.NoError(t, err)
 	recordData, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(recordWire))
 	require.NoError(t, err)
-	recordName, ok := sec.RevocationRecordName(aliceCert)
-	require.True(t, ok)
-	require.True(t, recordName.Equal(recordData.Name()))
+	require.Contains(t, recordData.Name().String(), "/REVOKE/")
 	contentType, ok := recordData.ContentType().Get()
 	require.True(t, ok)
 	require.Equal(t, ndn.ContentTypeKey, contentType)
 	require.NotEmpty(t, recordData.Content())
-}
-
-func TestCertificateRevocationRecordConcurrentAccess(t *testing.T) {
-	tu.SetT(t)
-
-	aliceKey, _ := base64.StdEncoding.DecodeString(KEY_ALICE)
-	aliceKeyData, _, _ := spec_2022.Spec{}.ReadData(enc.NewBufferView(aliceKey))
-	aliceSigner := tu.NoErr(signer.UnmarshalSecret(aliceKeyData))
-
-	aliceCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
-		Signer:    aliceSigner,
-		Data:      aliceKeyData,
-		IssuerId:  revocationTestIssuer(t),
-		NotBefore: T1,
-		NotAfter:  T2,
-	}))
-	aliceCert, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
-	require.NoError(t, err)
-
-	var wg sync.WaitGroup
-	for range 50 {
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			sec.Revoke(aliceCert)
-		}()
-		go func() {
-			defer wg.Done()
-			_ = sec.IsRevoked(aliceCert)
-		}()
-	}
-	wg.Wait()
-
-	require.True(t, sec.IsRevoked(aliceCert))
 }
 
 func revocationTestIssuer(t *testing.T) enc.Component {
