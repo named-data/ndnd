@@ -161,6 +161,7 @@ func RevokeCert(args RevokeCertArgs) (enc.Wire, error) {
 		record.NotBefore = optional.Some(uint64(nb.UnixMilli()))
 	}
 
+	// Create revocation record data
 	cfg := &ndn.DataConfig{
 		ContentType: optional.Some(ndn.ContentTypeKey),
 		Freshness:   optional.Some(args.Freshness.GetOr(defaultRevocationFreshness)),

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Tests that SignCert returns an error when invoked with a nil signer and nil data.
+// (AI GENERATED DESCRIPTION): Tests that the `SignCert` function correctly returns an error when invoked with a nil signer and nil data.
 func TestSignCertInvalid(t *testing.T) {
 	tu.SetT(t)
 
@@ -27,7 +27,7 @@ func TestSignCertInvalid(t *testing.T) {
 	require.Error(t, err)
 }
 
-// Verifies that a key can self-sign its own certificate, checking name, content, validity, and signature.
+// (AI GENERATED DESCRIPTION): Verifies that a key can self‑sign its own certificate, checking the certificate name, public‑key content, validity period, and Ed25519 signature correctness.
 func TestSignCertSelf(t *testing.T) {
 	tu.SetT(t)
 
@@ -75,7 +75,7 @@ func TestSignCertSelf(t *testing.T) {
 	require.True(t, tu.NoErr(signer.ValidateData(cert, certSigCov, cert)))
 }
 
-// Verifies that Alice's signer can sign a root certificate and that the signature verifies.
+// (AI GENERATED DESCRIPTION): Verifies that Alice’s signer can correctly sign a root certificate, producing a certificate with the expected name, content, signature format, validity period, and that the signature verifies against Alice’s own certificate.
 func TestSignCertOther(t *testing.T) {
 	tu.SetT(t)
 
