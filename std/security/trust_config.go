@@ -208,9 +208,11 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) && !args.IgnoreValidity.GetOr(false) {
-			args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
-			return
+		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.cert) {
+			if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) {
+				args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
+				return
+			}
 		}
 
 		// Check schema if the key is allowed
@@ -421,7 +423,7 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	if !args.IgnoreValidity.GetOr(false) {
 		if args.UseSignatureTime.GetOr(false) {
 			// Cross schema was valid at signature time
-			if !ValidateSigTime(args.Data, crossData) {
+			if CertIsExpired(crossData) && !ValidateSigTime(args.Data, crossData) {
 				args.Callback(false, fmt.Errorf("cross schema signature time invalid: %s", crossData.Name()))
 				return
 			}
