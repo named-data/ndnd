@@ -8,6 +8,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	revocationtlv "github.com/named-data/ndnd/std/security/revocation_tlv"
 	"github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/security/trust_schema"
 	"github.com/named-data/ndnd/std/types/optional"
@@ -552,11 +553,44 @@ func (tc *TrustConfig) rejectIfRevokedCert(cert ndn.Data, callback func(bool, er
 	}
 
 	wire, _ := tc.keychain.Store().Get(recordName, false)
-	if len(wire) > 0 {
-		callback(false, fmt.Errorf("certificate is revoked: %s", cert.Name()))
-		return true
+	if len(wire) == 0 {
+		return false
 	}
-	return false
+	// A cert signed before the record's notBefore was issued before the
+	// revocation took effect, so we accept it as still valid.
+	if preRevocationCert(cert, enc.Wire{wire}) {
+		return false
+	}
+	callback(false, fmt.Errorf("certificate is revoked: %s", cert.Name()))
+	return true
+}
+
+// preRevocationCert returns true if the cert was signed before the
+// installed record's NotBefore timestamp, in which case the cert predates
+// the revocation and is still valid.
+func preRevocationCert(cert ndn.Data, recordWire enc.Wire) bool {
+	sig := cert.Signature()
+	if sig == nil {
+		return false
+	}
+	sigTime := sig.SigTime()
+	if sigTime == nil {
+		return false
+	}
+
+	data, _, err := spec.Spec{}.ReadData(enc.NewWireView(recordWire))
+	if err != nil {
+		return false
+	}
+	record, err := revocationtlv.ParseRevocationRecord(enc.NewWireView(data.Content()), false)
+	if err != nil || record == nil {
+		return false
+	}
+	nb, ok := record.NotBefore.Get()
+	if !ok {
+		return false
+	}
+	return sigTime.UnixMilli() < int64(nb)
 }
 
 func (tc *TrustConfig) isTrustedAnchorKey(keyLocator enc.Name) bool {

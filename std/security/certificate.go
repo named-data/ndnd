@@ -14,9 +14,23 @@ import (
 	"github.com/named-data/ndnd/std/types/optional"
 )
 
-type revocationReason uint64
+// RevocationReason is the reason code for a revocation record,
+// per RFC 5280 / UCLA-IRL/ndnrevoke.
+type RevocationReason uint64
 
-const revocationReasonUnspecified revocationReason = 0
+// Revocation reason codes from RFC 5280 / UCLA-IRL/ndnrevoke.
+// RFC 5280 slots 7 (removeFromCRL) and 8 are intentionally unused.
+const (
+	RevocationReasonUnspecified         RevocationReason = 0
+	RevocationReasonKeyCompromise       RevocationReason = 1
+	RevocationReasonCACompromise        RevocationReason = 2
+	RevocationReasonAffiliationChanged   RevocationReason = 3
+	RevocationReasonSuperseded          RevocationReason = 4
+	RevocationReasonCessationOfOperation RevocationReason = 5
+	RevocationReasonCertificateHold      RevocationReason = 6
+	RevocationReasonPrivilegeWithdrawn RevocationReason = 9
+	RevocationReasonAACompromise       RevocationReason = 10
+)
 
 const defaultRevocationFreshness = 8760 * time.Hour
 
@@ -27,7 +41,7 @@ type RevokeCertArgs struct {
 	// Signer signs the revocation record Data packet. May be nil for unsigned records.
 	Signer ndn.Signer
 	// Reason is the revocation reason code.
-	Reason revocationReason
+	Reason RevocationReason
 	// Timestamp is the revocation timestamp. Defaults to now.
 	Timestamp optional.Optional[time.Time]
 	// NotBefore marks data produced before this timestamp as still valid.
@@ -52,6 +66,9 @@ type SignCertArgs struct {
 	Description map[string]string
 	// CrossSchema to attach to the certificate.
 	CrossSchema enc.Wire
+	// SigTime overrides the signature timestamp applied to the certificate.
+	// When unset, the certificate is signed at the current time.
+	SigTime optional.Optional[time.Time]
 }
 
 // SignCert signs a new NDN certificate with the given signer.
@@ -90,6 +107,10 @@ func SignCert(args SignCertArgs) (enc.Wire, error) {
 		SigNotBefore: optional.Some(args.NotBefore),
 		SigNotAfter:  optional.Some(args.NotAfter),
 		CrossSchema:  args.CrossSchema,
+	}
+	if args.SigTime.IsSet() {
+		t := args.SigTime.Unwrap()
+		cfg.SigTime = optional.Some(time.Duration(t.UnixMilli()) * time.Millisecond)
 	}
 	signer := sig.AsContextSigner(args.Signer)
 
