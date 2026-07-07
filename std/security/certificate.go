@@ -21,15 +21,15 @@ type RevocationReason uint64
 // Revocation reason codes from RFC 5280 / UCLA-IRL/ndnrevoke.
 // RFC 5280 slots 7 (removeFromCRL) and 8 are intentionally unused.
 const (
-	RevocationReasonUnspecified         RevocationReason = 0
-	RevocationReasonKeyCompromise       RevocationReason = 1
-	RevocationReasonCACompromise        RevocationReason = 2
+	RevocationReasonUnspecified          RevocationReason = 0
+	RevocationReasonKeyCompromise        RevocationReason = 1
+	RevocationReasonCACompromise         RevocationReason = 2
 	RevocationReasonAffiliationChanged   RevocationReason = 3
-	RevocationReasonSuperseded          RevocationReason = 4
+	RevocationReasonSuperseded           RevocationReason = 4
 	RevocationReasonCessationOfOperation RevocationReason = 5
 	RevocationReasonCertificateHold      RevocationReason = 6
-	RevocationReasonPrivilegeWithdrawn RevocationReason = 9
-	RevocationReasonAACompromise       RevocationReason = 10
+	RevocationReasonPrivilegeWithdrawn   RevocationReason = 9
+	RevocationReasonAACompromise         RevocationReason = 10
 )
 
 const defaultRevocationFreshness = 8760 * time.Hour
