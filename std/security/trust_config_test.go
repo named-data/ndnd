@@ -1166,6 +1166,17 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 	}))
 	aliceCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
 
+	expiredSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/app/user/alice_expired"))))
+	expiredKeyData := tu.NoErr(signer.MarshalSecretToData(expiredSigner))
+	expiredCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    anchorSigner,
+		Data:      expiredKeyData,
+		IssuerId:  enc.NewGenericComponent("app"),
+		NotBefore: now.Add(-2 * time.Hour),
+		NotAfter:  now.Add(-1 * time.Hour),
+	}))
+	expiredCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(expiredCertWire))
+
 	// User data
 	payload := enc.Wire{[]byte{0x01}}
 	dataWire := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/data"), &ndn.DataConfig{
@@ -1175,10 +1186,10 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 
 	// User data with invalid signature time
 	sigTimeBeforeUserCert := optional.Some(time.Duration(now.Add(-time.Hour).UnixMilli()) * time.Millisecond)
-	dataWireInvalidSigTime := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/data"), &ndn.DataConfig{
+	dataWireInvalidSigTime := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice_expired/data"), &ndn.DataConfig{
 		Freshness: optional.Some(time.Minute),
 		SigTime:   sigTimeBeforeUserCert,
-	}, payload, aliceSigner))
+	}, payload, expiredSigner))
 	dataPktInvalidSigTime, dataSigCovInvalidSigTime, _ := spec.Spec{}.ReadData(enc.NewWireView(dataWireInvalidSigTime.Wire))
 
 	bobSigner := tu.NoErr(signer.KeygenEd25519(sec.MakeKeyName(n("/app/user/bob"))))
@@ -1219,10 +1230,11 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 	require.True(t, schema.Check(listData.Name(), anchorCertData.Name()))
 	require.True(t, schema.Check(aliceCertData.Name(), anchorCertData.Name()))
 	require.True(t, schema.Check(dataPkt.Name(), aliceCertData.Name()))
-	require.True(t, schema.Check(dataPktInvalidSigTime.Name(), aliceCertData.Name()))
+	require.True(t, schema.Check(dataPktInvalidSigTime.Name(), expiredCertData.Name()))
 
 	network[anchorCertData.Name().String()] = anchorCertWire
 	network[aliceCertData.Name().String()] = aliceCertWire
+	network[expiredCertData.Name().String()] = expiredCertWire
 	network[ownerCertData.Name().String()] = ownerCertWire
 
 	type stage struct {

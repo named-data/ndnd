@@ -208,9 +208,11 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) && !args.IgnoreValidity.GetOr(false) {
-			args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
-			return
+		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.cert) {
+			if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) {
+				args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
+				return
+			}
 		}
 
 		// Check schema if the key is allowed
@@ -421,7 +423,7 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	if !args.IgnoreValidity.GetOr(false) {
 		if args.UseSignatureTime.GetOr(false) {
 			// Cross schema was valid at signature time
-			if !ValidateSigTime(args.Data, crossData) {
+			if CertIsExpired(crossData) && !ValidateSigTime(args.Data, crossData) {
 				args.Callback(false, fmt.Errorf("cross schema signature time invalid: %s", crossData.Name()))
 				return
 			}
@@ -703,17 +705,6 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 func ValidateSigTime(data ndn.Data, cert ndn.Data) bool {
 	if cert.Signature() == nil {
 		return false
-	}
-
-	exceptionNameStrings := []string{
-		"/ndn/edu/ucla/KEY/%2F%0D%23x%03%E5%FFC/NA/v=1770689778343",
-		"/ndn/KEY/%27%C4%B2%2A%9F%7B%81%27/ndn/v=1651246789556",
-	}
-	for _, nameString := range exceptionNameStrings {
-		name, _ := enc.NameFromStr(nameString)
-		if cert.Name().Equal(name) {
-			return true
-		}
 	}
 
 	sigTime := data.Signature().SigTime()
