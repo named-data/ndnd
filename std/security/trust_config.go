@@ -8,6 +8,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	revocationtlv "github.com/named-data/ndnd/std/security/revocation_tlv"
 	"github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/security/trust_schema"
 	"github.com/named-data/ndnd/std/types/optional"
@@ -81,7 +82,6 @@ func NewTrustConfig(keyChain ndn.KeyChain, schema ndn.TrustSchema, roots []enc.N
 	}, nil
 }
 
-// (AI GENERATED DESCRIPTION): Returns the constant string `"trust-config"` for a `TrustConfig` value, enabling string formatting via the `fmt.Stringer` interface.
 func (tc *TrustConfig) String() string {
 	return "trust-config"
 }
@@ -92,6 +92,26 @@ func (tc *TrustConfig) Suggest(name enc.Name) ndn.Signer {
 	defer tc.mutex.RUnlock()
 
 	return tc.schema.Suggest(name, tc.keychain)
+}
+
+// InsertRevoke stores a revocation record Data packet.
+func (tc *TrustConfig) InsertRevoke(wire enc.Wire) error {
+	if len(wire) == 0 {
+		return fmt.Errorf("revocation record wire is empty")
+	}
+
+	data, _, err := spec.Spec{}.ReadData(enc.NewWireView(wire))
+	if err != nil {
+		return fmt.Errorf("failed to parse revocation record: %w", err)
+	}
+	if !isRevocationRecordName(data.Name()) {
+		return fmt.Errorf("not a revocation record name: %s", data.Name())
+	}
+
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+	// HACK: revocation records live in keychain.Store() until we have a dedicated store.
+	return tc.keychain.Store().Put(data.Name(), wire.Join())
 }
 
 // SetSchema atomically replaces the trust schema.
@@ -182,6 +202,9 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			args.Callback(false, fmt.Errorf("certificate is expired: %s", args.Data.Name()))
 			return
 		}
+		if tc.rejectIfRevokedCert(args.Data, args.Callback) {
+			return
+		}
 	}
 
 	// Get the key locator
@@ -193,6 +216,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 	// If a certificate is provided, go directly to validation
 	if args.cert != nil {
+		if tc.rejectIfRevokedCert(args.cert, args.Callback) {
+			return
+		}
+
 		certName := args.cert.Name()
 		dataName := args.Data.Name()
 		if len(args.OverrideName) > 0 {
@@ -323,6 +350,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 	// Check the validated memcache for the certificate
 	if cachedCert, ok := tc.certCache.Get(keyLocator); ok {
+		if tc.rejectIfRevokedCert(cachedCert, args.Callback) {
+			return
+		}
+
 		// The cache always checks the expiry of the cert
 		args.cert = cachedCert
 		args.certIsValid = true
@@ -338,7 +369,8 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		fwHint = []enc.Name{args.origDataName}
 	}
 
-	// Cert not found, attempt to fetch from network
+	// Cert not found, attempt to fetch from network.
+	// TODO(revocation): fetch REVOKE record by Interest when not in keychain.Store().
 	fetchCfg := &ndn.InterestConfig{
 		CanBePrefix:    true,
 		MustBeFresh:    true,
@@ -379,6 +411,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		// Fetched cert is fresh
 		log.Debug(tc, "Fetched certificate from network", "cert", res.Data.Name())
 
+		if tc.rejectIfRevokedCert(res.Data, args.Callback) {
+			return
+		}
+
 		// Call again with the fetched cert
 		args.cert = res.Data
 		args.certSigCov = res.SigCovered
@@ -391,7 +427,6 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	args.Fetch(keyLocator, fetchCfg, cb)
 }
 
-// (AI GENERATED DESCRIPTION): Validates the cross‑schema signed Data packet by parsing its embedded schema, checking its validity period, ensuring it authorizes the original certificate, and recursively validating the cross‑schema’s signature against the trust configuration.
 func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	crossWire := args.Data.CrossSchema()
 	if crossWire == nil {
@@ -505,6 +540,57 @@ func (tc *TrustConfig) PromoteAnchor(cert ndn.Data, raw enc.Wire) {
 		}
 	}
 	tc.roots = append(tc.roots, name)
+}
+
+func (tc *TrustConfig) rejectIfRevokedCert(cert ndn.Data, callback func(bool, error)) bool {
+	if cert == nil {
+		return false
+	}
+
+	recordName, ok := revocationRecordName(cert)
+	if !ok {
+		return false
+	}
+
+	wire, _ := tc.keychain.Store().Get(recordName, false)
+	if len(wire) == 0 {
+		return false
+	}
+	// A cert signed before the record's notBefore was issued before the
+	// revocation took effect, so we accept it as still valid.
+	if preRevocationCert(cert, enc.Wire{wire}) {
+		return false
+	}
+	callback(false, fmt.Errorf("certificate is revoked: %s", cert.Name()))
+	return true
+}
+
+// preRevocationCert returns true if the cert was signed before the
+// installed record's NotBefore timestamp, in which case the cert predates
+// the revocation and is still valid.
+func preRevocationCert(cert ndn.Data, recordWire enc.Wire) bool {
+	sig := cert.Signature()
+	if sig == nil {
+		return false
+	}
+	sigTime := sig.SigTime()
+	if sigTime == nil {
+		return false
+	}
+
+	data, _, err := spec.Spec{}.ReadData(enc.NewWireView(recordWire))
+	if err != nil {
+		return false
+	}
+	record, err := revocationtlv.ParseRevocationRecord(enc.NewWireView(data.Content()), false)
+	if err != nil || record == nil {
+		return false
+	}
+	nb, ok := record.NotBefore.Get()
+	if !ok {
+		return false
+	}
+	return sigTime.UnixMilli() < int64(nb)
 }
 
 func (tc *TrustConfig) isTrustedAnchorKey(keyLocator enc.Name) bool {

@@ -14,6 +14,7 @@ import (
 	"github.com/named-data/ndnd/std/object/storage"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/keychain"
+	revocationtlv "github.com/named-data/ndnd/std/security/revocation_tlv"
 	"github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/security/trust_schema"
 	"github.com/named-data/ndnd/std/types/optional"
@@ -67,7 +68,6 @@ type SignCertOptions struct {
 	NotAfter  time.Time
 }
 
-// (AI GENERATED DESCRIPTION): Creates a signed certificate for the supplied Data packet using the provided signer, and returns the certificate wire, its content, and the signature‑covered portion.
 func signCert(signer ndn.Signer, wire enc.Wire, opts SignCertOptions) (enc.Wire, ndn.Data, enc.Wire) {
 	data, _, _ := spec.Spec{}.ReadData(enc.NewWireView(wire))
 	cert, _ := sec.SignCert(sec.SignCertArgs{
@@ -494,8 +494,6 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 		signer: mallory2Signer,
 	}))
 	require.Equal(t, 4, tcTestFetchCount) // (same as root 1, except no mallory root fetch)
-
-	// ========================================================================
 
 	// Test with cross schema validation
 	// Alice signs a cross schema for bob to allow bob to publish in alice's namespace
@@ -1022,7 +1020,6 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Initializes an in‑memory store and key chain, loads an LVS trust schema, and runs trust configuration tests.
 func TestTrustConfigLvsIntra(t *testing.T) {
 	tu.SetT(t)
 
@@ -1043,4 +1040,167 @@ func TestTrustConfigLvsInter(t *testing.T) {
 	require.NoError(t, err)
 
 	testTrustConfigInter(t, schemaInter)
+}
+
+func makeRevocationRecordWire(t *testing.T, cert ndn.Data, signer ndn.Signer) enc.Wire {
+	t.Helper()
+
+	wire, err := sec.RevokeCert(sec.RevokeCertArgs{
+		Cert:   cert,
+		Signer: signer,
+	})
+	require.NoError(t, err)
+	return wire
+}
+
+func TestTrustConfigRevocation(t *testing.T) {
+	tu.SetT(t)
+
+	clear(tcTestNetwork)
+	tcTestT = t
+	network := tcTestNetwork
+	store := storage.NewMemoryStore()
+	keychain := keychain.NewKeyChainMem(store)
+	tcTestKeyChain = keychain
+
+	opts := SignCertOptions{
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour),
+	}
+
+	rootSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test")))
+	rootCertWire, rootCertData, _ := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(rootSigner)), opts)
+	network[rootCertData.Name().String()] = rootCertWire
+	require.NoError(t, keychain.InsertCert(rootCertWire.Join()))
+
+	aliceSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test/alice")))
+	aliceCertWire, aliceCertData, _ := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(aliceSigner)), opts)
+	network[aliceCertData.Name().String()] = aliceCertWire
+	require.NoError(t, keychain.InsertCert(aliceCertWire.Join()))
+	require.NoError(t, keychain.InsertKey(aliceSigner))
+
+	bobSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test/bob")))
+	bobCertWire, bobCertData, _ := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(bobSigner)), opts)
+	network[bobCertData.Name().String()] = bobCertWire
+
+	schema, err := trust_schema.NewLvsSchema(TRUST_CONFIG_INTRA_LVS)
+	require.NoError(t, err)
+
+	trust, err := sec.NewTrustConfig(keychain, schema, []enc.Name{rootCertData.Name()})
+	require.NoError(t, err)
+	tcTestTrustConfig = trust
+
+	require.Error(t, trust.InsertRevoke(nil))
+	require.Error(t, trust.InsertRevoke(aliceCertWire))
+
+	recordWire := makeRevocationRecordWire(t, aliceCertData, rootSigner)
+	require.NoError(t, trust.InsertRevoke(recordWire))
+
+	recordData, _, err := spec.Spec{}.ReadData(enc.NewWireView(recordWire))
+	require.NoError(t, err)
+	if buf, _ := keychain.Store().Get(recordData.Name(), false); buf == nil {
+		t.Fatal("revocation record not in store")
+	}
+
+	require.False(t, validateSync(ValidateSyncOptions{
+		name:   "/test/alice/data1",
+		signer: aliceSigner,
+	}))
+
+	// Cached cert path.
+	tcTestFetchCount = 0
+	require.True(t, validateSync(ValidateSyncOptions{
+		name:   "/test/bob/data1",
+		signer: bobSigner,
+	}))
+	require.Equal(t, 1, tcTestFetchCount)
+
+	bobRecordWire := makeRevocationRecordWire(t, bobCertData, rootSigner)
+	require.NoError(t, trust.InsertRevoke(bobRecordWire))
+	require.False(t, validateSync(ValidateSyncOptions{
+		name:   "/test/bob/data2",
+		signer: bobSigner,
+	}))
+	require.Equal(t, 1, tcTestFetchCount)
+}
+
+func TestTrustConfigRevocationNotBefore(t *testing.T) {
+	tu.SetT(t)
+
+	clear(tcTestNetwork)
+	tcTestT = t
+	store := storage.NewMemoryStore()
+	keychainLocal := keychain.NewKeyChainMem(store)
+	tcTestKeyChain = keychainLocal
+
+	opts := SignCertOptions{
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(2 * time.Hour),
+	}
+
+	rootSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test")))
+	rootCertWire, rootCertData, _ := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(rootSigner)), opts)
+	require.NoError(t, keychainLocal.InsertCert(rootCertWire.Join()))
+
+	daveSigner, _ := signer.KeygenEd25519(sec.MakeKeyName(sname("/test/dave")))
+	daveSec, _ := tu.NoErr(signer.MarshalSecret(daveSigner)), error(nil)
+	daveCertWire, daveCertData, _ := signCertWithSigTime(rootSigner, daveSec, opts,
+		time.Now().Add(-2*time.Hour))
+	require.NoError(t, keychainLocal.InsertCert(daveCertWire.Join()))
+	require.NoError(t, keychainLocal.InsertKey(daveSigner))
+
+	schema, err := trust_schema.NewLvsSchema(TRUST_CONFIG_INTRA_LVS)
+	require.NoError(t, err)
+
+	trust, err := sec.NewTrustConfig(keychainLocal, schema, []enc.Name{rootCertData.Name()})
+	require.NoError(t, err)
+	tcTestTrustConfig = trust
+
+	// Issue a revocation record with NotBefore set to the future. A cert whose
+	// signature timestamp is older than NotBefore must still validate.
+	recordWire := tu.NoErr(sec.RevokeCert(sec.RevokeCertArgs{
+		Cert:      daveCertData,
+		Signer:    rootSigner,
+		Reason:    sec.RevocationReasonKeyCompromise,
+		NotBefore: optional.Some(time.Now().Add(time.Hour)),
+	}))
+	require.NoError(t, trust.InsertRevoke(recordWire))
+
+	// Sanity-check: record wire has the chosen reason.
+	recordData, _, err := spec.Spec{}.ReadData(enc.NewWireView(recordWire))
+	require.NoError(t, err)
+	record, err := revocationtlv.ParseRevocationRecord(enc.NewWireView(recordData.Content()), false)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), record.Reason)
+
+	// Validation passes because the cert's signature timestamp pre-dates
+	// the record's NotBefore.
+	network := tcTestNetwork
+	network[daveCertData.Name().String()] = daveCertWire
+	require.True(t, validateSync(ValidateSyncOptions{
+		name:   "/test/dave/data1",
+		signer: daveSigner,
+	}))
+}
+
+// signCertWithSigTime mirrors signCert but pins the new cert's signature
+// timestamp via sec.SignCert's SigTime option.
+func signCertWithSigTime(s ndn.Signer, wire enc.Wire, opts SignCertOptions, sigTime time.Time) (enc.Wire, ndn.Data, enc.Wire) {
+	data, _, _ := spec.Spec{}.ReadData(enc.NewWireView(wire))
+	cert, err := sec.SignCert(sec.SignCertArgs{
+		Signer:    s,
+		Data:      data,
+		IssuerId:  enc.NewGenericComponent("ndn"),
+		NotBefore: opts.NotBefore,
+		NotAfter:  opts.NotAfter,
+		SigTime:   optional.Some(sigTime),
+	})
+	if err != nil {
+		panic(err)
+	}
+	certData, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(cert))
+	if err != nil {
+		panic(err)
+	}
+	return cert, certData, sigCov
 }

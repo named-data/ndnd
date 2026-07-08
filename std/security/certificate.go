@@ -1,6 +1,7 @@
 package security
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"time"
@@ -8,9 +9,46 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
+	revocationtlv "github.com/named-data/ndnd/std/security/revocation_tlv"
 	sig "github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
 )
+
+// RevocationReason is the reason code for a revocation record,
+// per RFC 5280 / UCLA-IRL/ndnrevoke.
+type RevocationReason uint64
+
+// Revocation reason codes from RFC 5280 / UCLA-IRL/ndnrevoke.
+// RFC 5280 slots 7 (removeFromCRL) and 8 are intentionally unused.
+const (
+	RevocationReasonUnspecified          RevocationReason = 0
+	RevocationReasonKeyCompromise        RevocationReason = 1
+	RevocationReasonCACompromise         RevocationReason = 2
+	RevocationReasonAffiliationChanged   RevocationReason = 3
+	RevocationReasonSuperseded           RevocationReason = 4
+	RevocationReasonCessationOfOperation RevocationReason = 5
+	RevocationReasonCertificateHold      RevocationReason = 6
+	RevocationReasonPrivilegeWithdrawn   RevocationReason = 9
+	RevocationReasonAACompromise         RevocationReason = 10
+)
+
+const defaultRevocationFreshness = 8760 * time.Hour
+
+// RevokeCertArgs are the arguments to RevokeCert.
+type RevokeCertArgs struct {
+	// Cert is the certificate being revoked.
+	Cert ndn.Data
+	// Signer signs the revocation record Data packet. May be nil for unsigned records.
+	Signer ndn.Signer
+	// Reason is the revocation reason code.
+	Reason RevocationReason
+	// Timestamp is the revocation timestamp. Defaults to now.
+	Timestamp optional.Optional[time.Time]
+	// NotBefore marks data produced before this timestamp as still valid.
+	NotBefore optional.Optional[time.Time]
+	// Freshness is the FreshnessPeriod of the record Data packet.
+	Freshness optional.Optional[time.Duration]
+}
 
 // SignCertArgs are the arguments to SignCert.
 type SignCertArgs struct {
@@ -28,6 +66,9 @@ type SignCertArgs struct {
 	Description map[string]string
 	// CrossSchema to attach to the certificate.
 	CrossSchema enc.Wire
+	// SigTime overrides the signature timestamp applied to the certificate.
+	// When unset, the certificate is signed at the current time.
+	SigTime optional.Optional[time.Time]
 }
 
 // SignCert signs a new NDN certificate with the given signer.
@@ -67,6 +108,10 @@ func SignCert(args SignCertArgs) (enc.Wire, error) {
 		SigNotAfter:  optional.Some(args.NotAfter),
 		CrossSchema:  args.CrossSchema,
 	}
+	if args.SigTime.IsSet() {
+		t := args.SigTime.Unwrap()
+		cfg.SigTime = optional.Some(time.Duration(t.UnixMilli()) * time.Millisecond)
+	}
 	signer := sig.AsContextSigner(args.Signer)
 
 	cert, err := spec.Spec{}.MakeData(certName, cfg, enc.Wire{pk}, signer)
@@ -97,7 +142,7 @@ func SelfSign(args SignCertArgs) (wire enc.Wire, err error) {
 	return SignCert(args)
 }
 
-// (AI GENERATED DESCRIPTION): Returns true if the certificate’s signature is nil or its validity period does not include the current time.
+// CertIsExpired reports whether the certificate is outside its validity period.
 func CertIsExpired(cert ndn.Data) bool {
 	if cert.Signature() == nil {
 		return true
@@ -113,6 +158,73 @@ func CertIsExpired(cert ndn.Data) bool {
 	}
 
 	return false
+}
+
+// RevokeCert builds a signed revocation record Data packet for a certificate.
+func RevokeCert(args RevokeCertArgs) (enc.Wire, error) {
+	if args.Cert == nil {
+		return nil, fmt.Errorf("certificate is nil")
+	}
+
+	recordName, ok := revocationRecordName(args.Cert)
+	if !ok {
+		return nil, fmt.Errorf("invalid certificate name for revocation: %s", args.Cert.Name())
+	}
+
+	timestamp := args.Timestamp.GetOr(time.Now())
+	hash := sha256.Sum256(args.Cert.Content().Join())
+	record := revocationtlv.RevocationRecord{
+		Timestamp:     uint64(timestamp.UnixMilli()),
+		Reason:        uint64(args.Reason),
+		PublicKeyHash: hash[:],
+	}
+	if nb, ok := args.NotBefore.Get(); ok {
+		record.NotBefore = optional.Some(uint64(nb.UnixMilli()))
+	}
+
+	// Create revocation record data
+	cfg := &ndn.DataConfig{
+		ContentType: optional.Some(ndn.ContentTypeKey),
+		Freshness:   optional.Some(args.Freshness.GetOr(defaultRevocationFreshness)),
+	}
+
+	encoded, err := spec.Spec{}.MakeData(recordName, cfg, record.Encode(), args.Signer)
+	if err != nil {
+		return nil, err
+	}
+
+	return encoded.Wire, nil
+}
+
+func revocationRecordName(cert ndn.Data) (enc.Name, bool) {
+	if cert == nil {
+		return nil, false
+	}
+
+	certName := stripImplicitDigest(cert.Name())
+	identity, err := GetIdentityFromCertName(certName)
+	if err != nil || !certName.At(-1).IsVersion() {
+		return nil, false
+	}
+
+	recordName := make(enc.Name, len(certName), len(certName)+1)
+	copy(recordName, certName)
+	recordName[len(identity)] = enc.NewGenericComponent("REVOKE")
+	return recordName.Append(certName.At(-2)), true
+}
+
+func isRevocationRecordName(name enc.Name) bool {
+	name = stripImplicitDigest(name)
+	if len(name) < 6 || name.At(-1).Typ != enc.TypeGenericNameComponent || !name.At(-2).IsVersion() {
+		return false
+	}
+
+	certName := make(enc.Name, len(name)-1)
+	copy(certName, name.Prefix(-1))
+	certName[len(name)-5] = enc.NewGenericComponent("KEY")
+
+	_, err := GetIdentityFromCertName(certName)
+	return err == nil
 }
 
 // getPubKey gets the public key from an NDN data.

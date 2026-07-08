@@ -97,6 +97,9 @@ type DataConfig struct {
 	SigNotBefore optional.Optional[time.Time]
 	SigNotAfter  optional.Optional[time.Time]
 
+	// Signed Data signature timestamp (added with #186).
+	SigTime optional.Optional[time.Duration]
+
 	// Cross Schema attachment
 	CrossSchema enc.Wire
 }

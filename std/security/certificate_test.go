@@ -2,7 +2,9 @@ package security_test
 
 import (
 	"encoding/base64"
+	"fmt"
 	"testing"
+	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
@@ -13,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// (AI GENERATED DESCRIPTION): Tests that the `SignCert` function correctly returns an error when invoked with a nil signer and nil data.
 func TestSignCertInvalid(t *testing.T) {
 	tu.SetT(t)
 
@@ -25,7 +26,6 @@ func TestSignCertInvalid(t *testing.T) {
 	require.Error(t, err)
 }
 
-// (AI GENERATED DESCRIPTION): Verifies that a key can self‑sign its own certificate, checking the certificate name, public‑key content, validity period, and Ed25519 signature correctness.
 func TestSignCertSelf(t *testing.T) {
 	tu.SetT(t)
 
@@ -73,7 +73,6 @@ func TestSignCertSelf(t *testing.T) {
 	require.True(t, tu.NoErr(signer.ValidateData(cert, certSigCov, cert)))
 }
 
-// (AI GENERATED DESCRIPTION): Verifies that Alice’s signer can correctly sign a root certificate, producing a certificate with the expected name, content, signature format, validity period, and that the signature verifies against Alice’s own certificate.
 func TestSignCertOther(t *testing.T) {
 	tu.SetT(t)
 
@@ -172,6 +171,45 @@ func TestSignCertWithSignerCertName(t *testing.T) {
 	signature := newCert.Signature()
 	require.Equal(t, aliceSigner.KeyName(), signature.KeyName())
 	require.True(t, tu.NoErr(signer.ValidateData(newCert, newSigCov, aliceCertData)))
+}
+
+func TestCertificateRevocationRecord(t *testing.T) {
+	tu.SetT(t)
+
+	aliceKey, _ := base64.StdEncoding.DecodeString(KEY_ALICE)
+	aliceKeyData, _, _ := spec_2022.Spec{}.ReadData(enc.NewBufferView(aliceKey))
+	aliceSigner := tu.NoErr(signer.UnmarshalSecret(aliceKeyData))
+
+	aliceCertWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+		Signer:    aliceSigner,
+		Data:      aliceKeyData,
+		IssuerId:  revocationTestIssuer(t),
+		NotBefore: T1,
+		NotAfter:  T2,
+	}))
+	aliceCert, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(aliceCertWire))
+	require.NoError(t, err)
+
+	_, err = sec.RevokeCert(sec.RevokeCertArgs{Cert: nil})
+	require.Error(t, err)
+
+	recordWire, err := sec.RevokeCert(sec.RevokeCertArgs{
+		Cert:   aliceCert,
+		Signer: aliceSigner,
+	})
+	require.NoError(t, err)
+	recordData, _, err := spec_2022.Spec{}.ReadData(enc.NewWireView(recordWire))
+	require.NoError(t, err)
+	require.Contains(t, recordData.Name().String(), "/REVOKE/")
+	contentType, ok := recordData.ContentType().Get()
+	require.True(t, ok)
+	require.Equal(t, ndn.ContentTypeKey, contentType)
+	require.NotEmpty(t, recordData.Content())
+}
+
+func revocationTestIssuer(t *testing.T) enc.Component {
+	t.Helper()
+	return enc.NewGenericComponent(fmt.Sprintf("%s-%d", t.Name(), time.Now().UnixNano()))
 }
 
 func TestEncodeDecodeCertList(t *testing.T) {
