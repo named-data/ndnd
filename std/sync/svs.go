@@ -17,6 +17,8 @@ import (
 	"github.com/named-data/ndnd/std/utils"
 )
 
+const SvSyncVersion = 3
+
 type SvSync struct {
 	o SvSyncOpts
 
@@ -135,7 +137,7 @@ func NewSvSync(opts SvSyncOpts) *SvSync {
 		mutex:  sync.Mutex{},
 		state:  initialState,
 		mtime:  make(map[string]time.Time),
-		prefix: opts.GroupPrefix.Append(enc.NewVersionComponent(3)),
+		prefix: opts.GroupPrefix.Append(enc.NewVersionComponent(SvSyncVersion)),
 
 		suppress: false,
 		merge:    NewSvMap[uint64](0),
@@ -480,7 +482,7 @@ func (s *SvSync) encodeSyncData() enc.Wire {
 	svWire := (&spec_svs.SvsData{StateVector: sv}).Encode()
 
 	// SVS v3 Sync Data
-	name := s.o.SyncDataName.WithVersion(enc.VersionUnixMicro)
+	name := s.o.SyncDataName.WithVersion(SvSyncVersion)
 
 	// Sign Sync Data
 	signer := s.o.Client.SuggestSigner(name)
