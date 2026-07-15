@@ -5,10 +5,11 @@ on:
       - 'v*'
   schedule:
     # twice a month
-    - cron: '20 8 5,20 * *'
+    - cron: '20 5 5,20 * *'
   workflow_dispatch:
 
 permissions:
+  artifact-metadata: write
   attestations: write
   id-token: write
   packages: write
