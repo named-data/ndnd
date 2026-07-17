@@ -163,7 +163,7 @@ func (s *SvsALO) GroupPrefix() enc.Name {
 
 // SyncPrefix is the sync route prefix for this instance.
 func (s *SvsALO) SyncPrefix() enc.Name {
-	return s.opts.Svs.GroupPrefix
+	return s.svs.SyncPrefix()
 }
 
 // DataPrefix is the data route prefix for this instance.

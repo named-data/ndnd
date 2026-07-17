@@ -64,8 +64,8 @@ func main() {
 	})
 
 	// Announce group prefix route
-	client.AnnouncePrefix(ndn.Announcement{Name: group})
-	defer client.WithdrawPrefix(group, nil)
+	client.AnnouncePrefix(ndn.Announcement{Name: svsync.SyncPrefix()})
+	defer client.WithdrawPrefix(svsync.SyncPrefix(), nil)
 
 	err = svsync.Start()
 	if err != nil {
