@@ -19,7 +19,6 @@ type SvMapVal[V any] struct {
 	Value V
 }
 
-// (AI GENERATED DESCRIPTION): Compares the Boot field of two SvMapVal[V] values, returning a negative, zero, or positive integer to indicate their ordering.
 func (*SvMapVal[V]) Cmp(a, b SvMapVal[V]) int {
 	return cmp.Compare(a.Boot, b.Boot)
 }
@@ -27,6 +26,15 @@ func (*SvMapVal[V]) Cmp(a, b SvMapVal[V]) int {
 // Create a new state vector map.
 func NewSvMap[V any](size int) SvMap[V] {
 	return make(SvMap[V], size)
+}
+
+// cloneSvMap returns a shallow copy safe for use without holding SvSync.mutex.
+func cloneSvMap[V any](m SvMap[V]) SvMap[V] {
+	out := NewSvMap[V](len(m))
+	for hash, vals := range m {
+		out[hash] = slices.Clone(vals)
+	}
+	return out
 }
 
 // Get seq entry for a bootstrap time.
@@ -39,7 +47,6 @@ func (m SvMap[V]) Get(hash string, boot uint64) (value V) {
 	return value
 }
 
-// (AI GENERATED DESCRIPTION): Adds or updates a value in the sorted list for a given hash, inserting the new entry or replacing the existing one while maintaining the slice sorted by the boot field.
 func (m SvMap[V]) Set(hash string, boot uint64, value V) {
 	entry := SvMapVal[V]{boot, value}
 	i, match := slices.BinarySearchFunc(m[hash], entry, entry.Cmp)
@@ -50,7 +57,6 @@ func (m SvMap[V]) Set(hash string, boot uint64, value V) {
 	m[hash] = slices.Insert(m[hash], i, entry)
 }
 
-// (AI GENERATED DESCRIPTION): Clears all key/value pairs from the SvMap, safely handling nil maps by doing nothing if the map is nil.
 func (m SvMap[V]) Clear() {
 	if m != nil {
 		clear(m)
@@ -118,7 +124,6 @@ func (m SvMap[V]) Encode(seq func(V) uint64) *spec_svs.StateVector {
 	return &spec_svs.StateVector{Entries: entries}
 }
 
-// (AI GENERATED DESCRIPTION): Iter returns an iterator over the SvMap that yields each decoded name and its associated slice of SvMapVal values.
 func (m SvMap[V]) Iter() iter.Seq2[enc.Name, []SvMapVal[V]] {
 	return func(yield func(enc.Name, []SvMapVal[V]) bool) {
 		for hash, val := range m {

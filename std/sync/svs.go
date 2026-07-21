@@ -40,6 +40,13 @@ type SvSync struct {
 	// Channel for incoming state vectors
 	recvSv chan svSyncRecvSvArgs
 
+	// Prefix for published full State Vector Data (.../32=sv).
+	fullVectorPrefix enc.Name
+
+	// lastPullTime debounces pullFullVector per sender so a sync storm across
+	// many peers does not generate thousands of redundant segment-0 fetches.
+	lastPullTime map[string]time.Time
+
 	// cancellation for face hook
 	faceCancel func()
 }
@@ -58,6 +65,13 @@ type SvSyncOpts struct {
 	// If not provided, the GroupPrefix will be used instead.
 	SyncDataName enc.Name
 
+	// FullVectorPrefix is the publish/serve prefix for retrievable FULL
+	// StateVector Data used by SvsDataRef publish+pull recovery. The
+	// version component is appended when producing the Data.
+	// If not provided, it defaults to SyncDataName with the trailing
+	// "32=svs" component (if present) replaced by "32=sv".
+	FullVectorPrefix enc.Name
+
 	// Initial state vector from persistence
 	InitialState *spec_svs.StateVector
 	// Boot time from persistence
@@ -73,6 +87,14 @@ type SvSyncOpts struct {
 	UseSignatureTime optional.Optional[bool]
 	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
+
+	// SyncVectorThreshold is the max embedded SvsData size (bytes) above
+	// which the sender switches to PARTIAL (on publication) or
+	// publish+pull (on periodic sync and recovery). When <= 0, the
+	// default (1200 bytes) is used. SVS v4 always emits `mhash` and a
+	// `VectorType` on the wire; there is no legacy StateVector-only
+	// mode.
+	SyncVectorThreshold int
 }
 
 type SvSyncUpdate struct {
@@ -83,8 +105,11 @@ type SvSyncUpdate struct {
 }
 
 type svSyncRecvSvArgs struct {
-	sv   *spec_svs.StateVector
-	data enc.Wire
+	sv         *spec_svs.StateVector
+	data       enc.Wire
+	vectorType optional.Optional[uint64]
+	mhash      []byte
+	svsDataRef enc.Name
 }
 
 // NewSvSync creates a new SV Sync instance.
@@ -124,6 +149,9 @@ func NewSvSync(opts SvSyncOpts) *SvSync {
 	if len(opts.SyncDataName) == 0 {
 		opts.SyncDataName = opts.GroupPrefix
 	}
+	if opts.SyncVectorThreshold <= 0 {
+		opts.SyncVectorThreshold = 1200
+	}
 
 	return &SvSync{
 		o: opts,
@@ -135,7 +163,7 @@ func NewSvSync(opts SvSyncOpts) *SvSync {
 		mutex:  sync.Mutex{},
 		state:  initialState,
 		mtime:  make(map[string]time.Time),
-		prefix: opts.GroupPrefix.Append(enc.NewVersionComponent(3)),
+		prefix: opts.GroupPrefix.Append(enc.NewVersionComponent(4)),
 
 		suppress: false,
 		merge:    NewSvMap[uint64](0),
@@ -144,6 +172,10 @@ func NewSvSync(opts SvSyncOpts) *SvSync {
 		passiveWillPersist: atomic.Bool{},
 
 		recvSv: make(chan svSyncRecvSvArgs, 128),
+
+		fullVectorPrefix: resolveFullVectorPrefix(opts.FullVectorPrefix, opts.SyncDataName),
+
+		lastPullTime: make(map[string]time.Time),
 
 		faceCancel: func() {},
 	}
@@ -169,7 +201,6 @@ func (s *SvSync) Start() (err error) {
 	return nil
 }
 
-// (AI GENERATED DESCRIPTION): Runs the SvSync event loop: it performs the initial sync (or passive load), registers periodic timer ticks and face‑up callbacks, processes received state vectors, and exits cleanly when signalled to stop.
 func (s *SvSync) main() {
 	// Cleanup on exit
 	defer s.o.Client.Engine().DetachHandler(s.prefix)
@@ -180,7 +211,7 @@ func (s *SvSync) main() {
 
 	// Notify everyone when we are back online
 	s.faceCancel = s.o.Client.Engine().Face().OnUp(func() {
-		time.AfterFunc(100*time.Millisecond, s.sendSyncInterest)
+		time.AfterFunc(100*time.Millisecond, func() { s.sendSyncInterest(syncSendOther) })
 	})
 	defer s.faceCancel()
 
@@ -190,7 +221,7 @@ func (s *SvSync) main() {
 		go s.loadPassiveWires()
 	} else {
 		// Send the initial Sync Interest
-		go s.sendSyncInterest()
+		go s.sendSyncInterest(syncSendOther)
 	}
 
 	for {
@@ -242,7 +273,7 @@ func (s *SvSync) SetSeqNo(name enc.Name, seqNo uint64) error {
 	// [Spec] When the node generates a new publication,
 	// immediately emit a Sync Interest
 	s.state.Set(hash, s.o.BootTime, seqNo)
-	go s.sendSyncInterest()
+	go s.sendSyncInterest(syncSendPublication, name)
 
 	return nil
 }
@@ -264,17 +295,15 @@ func (s *SvSync) IncrSeqNo(name enc.Name) uint64 {
 
 	// [Spec] When the node generates a new publication,
 	// immediately emit a Sync Interest
-	go s.sendSyncInterest()
+	go s.sendSyncInterest(syncSendPublication, name)
 
 	return entry
 }
 
-// (AI GENERATED DESCRIPTION): Returns the boot time value stored in the SvSync instance.
 func (s *SvSync) GetBootTime() uint64 {
 	return s.o.BootTime
 }
 
-// (AI GENERATED DESCRIPTION): Returns a thread‑safe slice of all names currently stored in the SvSync state.
 func (s *SvSync) GetNames() []enc.Name {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -287,7 +316,6 @@ func (s *SvSync) GetNames() []enc.Name {
 	return names
 }
 
-// (AI GENERATED DESCRIPTION): Processes an incoming state vector, updating the local state vector, notifying the application of any changes, and handling suppression and passive‑sync logic while ensuring updates are delivered in order.
 func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	// Deliver the updates after this call is done
 	// This ensures the mutex is not held during the callback
@@ -372,7 +400,16 @@ func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 
 	// The above checks each node in the incoming state vector, but
 	// does not check if a node is missing from the incoming state vector.
-	if !isOutdated && s.state.IsNewerThan(recvSv, func(_, _ uint64) bool { return false }) {
+	//
+	// [Spec] For embedded SvsData, VectorType is required by the protocol:
+	// publish-only Sync Data carries no StateVector and is filtered out
+	// earlier (see onSyncData). So args.vectorType is guaranteed present
+	// here; we default missing values to FULL rather than branch on `ok`.
+	isPartial := args.vectorType.GetOr(spec_svs.VectorTypeFull) == spec_svs.VectorTypePartial
+	if len(args.mhash) > 0 {
+		s.handleMhashMismatch(args, recvSv)
+	}
+	if !isPartial && !isOutdated && s.state.IsNewerThan(recvSv, func(_, _ uint64) bool { return false }) {
 		isOutdated = true
 		canDrop = false
 	}
@@ -402,7 +439,6 @@ func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	s.ticker.Reset(s.getSuppressionTimeout())
 }
 
-// (AI GENERATED DESCRIPTION): Handles a timer expiry by checking suppression state, potentially transitioning to steady state, and asynchronously sending a Sync Interest with the current local state vector.
 func (s *SvSync) timerExpired() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -420,11 +456,10 @@ func (s *SvSync) timerExpired() {
 
 	// [Spec] On expiration of timer emit a Sync Interest
 	// with the current local state vector.
-	go s.sendSyncInterest()
+	go s.sendSyncInterest(syncSendPeriodic)
 }
 
-// (AI GENERATED DESCRIPTION): Sends a sync Interest: if passive mode is enabled, it publishes all buffered state updates without duplicates; otherwise, it encodes the current state vector into a wire and transmits it, provided the sync service is running.
-func (s *SvSync) sendSyncInterest() {
+func (s *SvSync) sendSyncInterest(reason syncSendReason, pubName ...enc.Name) {
 	if !s.running.Load() {
 		return
 	}
@@ -437,12 +472,16 @@ func (s *SvSync) sendSyncInterest() {
 		return
 	}
 
+	var sender enc.Name
+	if reason == syncSendPublication && len(pubName) > 0 {
+		sender = pubName[0]
+	}
+
 	// Encode and sign the current state vector
-	wire := s.encodeSyncData()
+	wire := s.encodeSyncData(reason, sender)
 	s.sendSyncInterestWith(wire)
 }
 
-// (AI GENERATED DESCRIPTION): Sends a sync Interest carrying the supplied data wire payload with a 1‑second lifetime, using the object’s prefix, and logs any construction or transmission errors.
 func (s *SvSync) sendSyncInterestWith(dataWire enc.Wire) {
 	if dataWire == nil {
 		return
@@ -465,21 +504,52 @@ func (s *SvSync) sendSyncInterestWith(dataWire enc.Wire) {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Builds a signed Data packet containing the current state vector for SVS v3 synchronization.
-func (s *SvSync) encodeSyncData() enc.Wire {
-	// Critical section
-	sv := func() *spec_svs.StateVector {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
+func (s *SvSync) encodeSyncData(reason syncSendReason, sender enc.Name) enc.Wire {
+	s.mutex.Lock()
+	s.enterSteadyState()
+	stateSnap := cloneSvMap(s.state)
+	mtimeSnap := make(map[string]time.Time, len(s.mtime))
+	for k, v := range s.mtime {
+		mtimeSnap[k] = v
+	}
+	repair, propagation := s.partialTargets()
+	s.mutex.Unlock()
 
-		// [Spec*] Sending always triggers Steady State
-		s.enterSteadyState()
+	var svsData *spec_svs.SvsData
+	if shouldUseAnnouncePull(reason, s.o.SyncVectorThreshold, stateSnap) {
+		ref, err := s.publishFullVectorData(stateSnap)
+		if err != nil {
+			log.Error(s, "publishFullVectorData failed", "err", err)
+			return nil
+		}
+		svsData = buildAnnounceSvsData(stateSnap, ref)
+	} else {
+		svsData = buildSvsDataForSend(svsSendInput{
+			State:       stateSnap,
+			Reason:      reason,
+			Threshold:   s.o.SyncVectorThreshold,
+			Sender:      sender,
+			Repair:      repair,
+			Propagation: propagation,
+			Mtime:       mtimeSnap,
+		})
+		if svsData == nil {
+			// [Spec] Publication-triggered PARTIAL encoding could not fit
+			// even the sender-only baseline: fall back to publish+pull.
+			ref, err := s.publishFullVectorData(stateSnap)
+			if err != nil {
+				log.Error(s, "publishFullVectorData failed (fallback)", "err", err)
+				return nil
+			}
+			svsData = buildAnnounceSvsData(stateSnap, ref)
+		}
+	}
+	if svsData == nil {
+		return nil
+	}
+	svWire := svsData.Encode()
 
-		return s.state.Encode(func(s uint64) uint64 { return s })
-	}()
-	svWire := (&spec_svs.SvsData{StateVector: sv}).Encode()
-
-	// SVS v3 Sync Data
+	// SVS v4 Sync Data
 	name := s.o.SyncDataName.WithVersion(enc.VersionUnixMicro)
 
 	// Sign Sync Data
@@ -500,7 +570,6 @@ func (s *SvSync) encodeSyncData() enc.Wire {
 	return data.Wire
 }
 
-// (AI GENERATED DESCRIPTION): Handles a received sync Interest by checking the running state, extracting its AppParam, and passing that payload to the sync‑data processing routine.
 func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 	if !s.running.Load() {
 		return
@@ -516,7 +585,6 @@ func (s *SvSync) onSyncInterest(interest ndn.Interest) {
 	s.onSyncData(interest.AppParam())
 }
 
-// (AI GENERATED DESCRIPTION): Processes a received SyncData packet by parsing it, validating the signature, extracting the state vector, and forwarding the vector and original data to the receiver channel.
 func (s *SvSync) onSyncData(dataWire enc.Wire) {
 	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(dataWire))
 	if err != nil {
@@ -536,18 +604,36 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 				return
 			}
 
-			// Decode state vector
+			// Decode SvsData (embedded FULL, embedded PARTIAL, or publish-only ref).
 			svWire := data.Content().Join()
 			params, err := spec_svs.ParseSvsData(enc.NewBufferView(svWire), false)
-			if err != nil || params.StateVector == nil {
-				log.Warn(s, "onSyncInterest failed to parse StateVec", "err", err)
+			if err != nil {
+				log.Warn(s, "onSyncInterest failed to parse SvsData", "err", err)
 				return
 			}
 
-			s.recvSv <- svSyncRecvSvArgs{
-				sv:   params.StateVector,
-				data: dataWire,
+			// Publish-only ref: advertise that the full vector is retrievable.
+			if params.StateVector == nil && len(params.SvsDataRef) > 0 {
+				trustPrefix := pullRefFromSyncDataWire(dataWire)
+				go s.pullFullVector(params.SvsDataRef, trustPrefix)
+				return
 			}
+			if params.StateVector == nil {
+				log.Warn(s, "onSyncInterest SvsData has no StateVector")
+				return
+			}
+
+			args := svSyncRecvSvArgs{
+				sv:         params.StateVector,
+				data:       dataWire,
+				mhash:      params.MemberSetHash,
+				svsDataRef: params.SvsDataRef,
+			}
+			if vt, ok := params.VectorType.Get(); ok {
+				args.vectorType = optional.Some(vt)
+			}
+
+			s.recvSv <- args
 		},
 	})
 }
@@ -559,7 +645,6 @@ func (s *SvSync) enterSteadyState() {
 	s.ticker.Reset(s.getPeriodicTimeout())
 }
 
-// (AI GENERATED DESCRIPTION): Returns a duration uniformly randomized within ±10% of the configured periodic timeout.
 func (s *SvSync) getPeriodicTimeout() time.Duration {
 	// [Spec] ±10% uniform jitter
 	jitter := s.o.PeriodicTimeout / 10
@@ -568,7 +653,6 @@ func (s *SvSync) getPeriodicTimeout() time.Duration {
 	return time.Duration(rand.Int64N(int64(max-min))) + min
 }
 
-// (AI GENERATED DESCRIPTION): Calculates a random suppression timeout duration using an exponential‑decay function based on the configured SuppressionPeriod.
 func (s *SvSync) getSuppressionTimeout() time.Duration {
 	// [Spec] Exponential decay function
 	// [Spec] c = SuppressionPeriod  // constant factor
@@ -664,5 +748,16 @@ func (s *SvSync) loadPassiveWires() {
 	}
 
 	// This is hacky but pragmatic - wait for the state to be processed
-	time.AfterFunc(500*time.Millisecond, s.sendSyncInterest)
+	time.AfterFunc(500*time.Millisecond, func() { s.sendSyncInterest(syncSendOther) })
+}
+
+// partialTargets returns repair and propagation name targets from suppression merge state.
+func (s *SvSync) partialTargets() (repair, propagation []enc.Name) {
+	if !s.suppress {
+		return nil, nil
+	}
+	for name := range s.merge.Iter() {
+		repair = append(repair, name)
+	}
+	return repair, nil
 }
