@@ -406,7 +406,13 @@ func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	// earlier (see onSyncData). So args.vectorType is guaranteed present
 	// here; we default missing values to FULL rather than branch on `ok`.
 	isPartial := args.vectorType.GetOr(spec_svs.VectorTypeFull) == spec_svs.VectorTypePartial
-	if len(args.mhash) > 0 {
+	// [Spec] Membership recovery is a FULL-boundary operation: only an embedded
+	// FULL StateVector or a publish-only Sync Data (which carries no StateVector
+	// and is filtered earlier in onSyncData) represents the sender's complete
+	// membership view. A PARTIAL vector is a subset by design, so the recvSv
+	// tuple-count superset check in handleMhashMismatch would spuriously
+	// trigger sendRecoveryAnnounce for the local node's normal PUBLISH path.
+	if len(args.mhash) > 0 && !isPartial {
 		s.handleMhashMismatch(args, recvSv)
 	}
 	if !isPartial && !isOutdated && s.state.IsNewerThan(recvSv, func(_, _ uint64) bool { return false }) {
@@ -751,7 +757,8 @@ func (s *SvSync) loadPassiveWires() {
 	time.AfterFunc(500*time.Millisecond, func() { s.sendSyncInterest(syncSendOther) })
 }
 
-// partialTargets returns repair and propagation name targets from suppression merge state.
+// partialTargets returns the repair target names from the suppression-merge
+// state. propagation is currently unused and always nil.
 func (s *SvSync) partialTargets() (repair, propagation []enc.Name) {
 	if !s.suppress {
 		return nil, nil

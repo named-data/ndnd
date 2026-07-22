@@ -188,11 +188,14 @@ func partialCandidateNames(state SvMap[uint64], senderHash string, opts PartialE
 	})
 	appendUnique(inactive)
 
+	// Sort by (recency desc, canonical name asc) using a single comparator.
+	// slices.SortFunc is not stable, so sorting twice is not a reliable
+	// tie-breaker for entries with equal recency scores.
 	slices.SortFunc(remaining, func(a, b enc.Name) int {
+		if c := cmp.Compare(recencyScore(opts.Mtime, b), recencyScore(opts.Mtime, a)); c != 0 {
+			return c
+		}
 		return a.Compare(b)
-	})
-	slices.SortFunc(remaining, func(a, b enc.Name) int {
-		return cmp.Compare(recencyScore(opts.Mtime, b), recencyScore(opts.Mtime, a))
 	})
 	appendUnique(remaining)
 
