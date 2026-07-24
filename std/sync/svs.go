@@ -156,6 +156,12 @@ func (s *SvSync) String() string {
 	return fmt.Sprintf("svs (%s)", s.o.GroupPrefix)
 }
 
+// SyncPrefix is the sync route prefix for this instance.
+// It should be used in the prefix registration / announcement.
+func (s *SvSync) SyncPrefix() enc.Name {
+	return s.prefix
+}
+
 // Start the SV Sync instance.
 func (s *SvSync) Start() (err error) {
 	err = s.o.Client.Engine().AttachHandler(s.prefix,
