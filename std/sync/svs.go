@@ -92,8 +92,7 @@ type SvSyncOpts struct {
 	// which the sender switches to PARTIAL (on publication) or
 	// publish+pull (on periodic sync and recovery). When <= 0, the
 	// default (1200 bytes) is used. SVS v4 always emits `mhash` and a
-	// `VectorType` on the wire; there is no legacy StateVector-only
-	// mode.
+	// `VectorType` on the wire.
 	SyncVectorThreshold int
 }
 

@@ -115,8 +115,8 @@ reference — not both.
 ### 3.1 `SvsData`
 
 `SvsData` has two forms: inline (FULL or PARTIAL) and publish-only. The
-`mhash` field is present in both forms. `VectorType` is only meaningful in
-the inline form.
+`mhash` field is present in both forms. The inline form carries
+`VectorType`; the publish-only form does not.
 
 #### 3.1.1 Inline form (FULL or PARTIAL)
 
@@ -183,14 +183,15 @@ SeqNoEntry = SEQ-NO-ENTRY-TYPE TLV-LENGTH
 
 - Sequence numbers are 1-indexed.
 - Bootstrap time is seconds since Unix epoch.
-- If an entry is absent, its sequence number is treated as 0 for comparison.
-- If any received `BootstrapTime` is more than 86400s in the future, the
-  entire `StateVector` SHOULD be ignored.
+- A missing entry compares as `SeqNo = 0` against a present entry.
+- Reject the entire `StateVector` if any received `BootstrapTime` is more
+  than 86400s in the future.
 
 ### 3.3 `MemberSetHash` (`mhash`)
 
-`mhash` is a **membership hash**. It is not a hash of the full State Vector
-and not a hash of sequence numbers.
+`mhash` is a **membership hash**: the SHA-256 digest of the membership set
+described below. Membership is independent of sequence numbers, so `mhash`
+is unaffected by data publications within the group.
 
 **Membership** is the set of participants, each identified by:
 
@@ -209,9 +210,10 @@ mhash = SHA-256( concatenation of canonical TLV bytes of each (Name, BootstrapTi
 Recompute `mhash` whenever membership changes (member added, removed, or new
 bootstrap time for a name).
 
-Membership data and State Vector data are separate concepts. Membership is
-carried implicitly in the full State Vector. `mhash` summarizes membership
-for quick comparison.
+The full State Vector carries membership implicitly: every member's
+`StateVectorEntry` is present with its current sequence number. `mhash`
+summarizes that membership for quick comparison without having to walk the
+full State Vector.
 
 ### 3.4 `VectorType` (inline form)
 
@@ -237,14 +239,14 @@ subscription views may legitimately disagree on what subset was sent.
 
 - Include all known members and their latest sequence numbers per bootstrap.
 - Entries ordered in NDN canonical order of `Name`.
-- Set `VectorType = FULL`.
+- `VectorType = FULL` (§3.4).
 
 ### 4.2 PARTIAL State Vector
 
 Used on new publication when
 `encoded_size(inline FULL SvsData) > SyncVectorThreshold`.
 
-- Set `VectorType = PARTIAL`.
+- `VectorType = PARTIAL` (§3.4).
 - **Entry `[0]`** is the sender's own `StateVectorEntry`.
 - **Entries `[1…n]`** are in NDN canonical order among included peers.
 
@@ -409,9 +411,10 @@ State Vector `A` is outdated to `B` if:
 - `A` is missing a name present in `B`, or
 - `A` has a strictly smaller `SeqNo` for any entry.
 
-This rule applies to `VectorType = FULL` only. For `VectorType = PARTIAL`,
-omitted names are a subset by design (§4.2) and never indicate that `A` is
-outdated relative to `B`.
+This rule applies to `VectorType = FULL`. For `VectorType = PARTIAL`,
+omitted names are a subset by design (§4.2): the sender selected a
+publication-time subset and `A`'s missing entries do not carry any
+information about whether `A` is outdated relative to `B`.
 
 ---
 
