@@ -269,6 +269,13 @@ func (s *rrSegFetcher) handleResult(args ndn.ExpressCallbackArgs, state *Consume
 			// congestion signal
 			s.window.HandleSignal(cong.SigCongest)
 			s.enqueueForRetransmission(state, seg, retries-1)
+		case spec.NackReasonNoRoute:
+			// Transient: route not yet learned (e.g. DV startup race).
+			// Treat as a loss so the AIMD window shrinks; the segment
+			// will be retried until the retry budget is exhausted or a
+			// route arrives.
+			s.window.HandleSignal(cong.SigLoss)
+			s.enqueueForRetransmission(state, seg, retries-1)
 		default:
 			// treat as irrecoverable error for now
 			state.finalizeError(fmt.Errorf("%w: fetch seg failed with result: %s", ndn.ErrNetwork, args.Result))
