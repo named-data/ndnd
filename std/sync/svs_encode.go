@@ -8,7 +8,6 @@ import (
 
 	enc "github.com/named-data/ndnd/std/encoding"
 	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
-	"github.com/named-data/ndnd/std/types/optional"
 )
 
 // syncSendReason distinguishes why a Sync Interest is being sent.
@@ -49,9 +48,8 @@ type svsSendInput struct {
 func buildSvsDataForSend(in svsSendInput) *spec_svs.SvsData {
 	fullSv := in.State.Encode(func(seq uint64) uint64 { return seq })
 	fullData := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(in.State),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   fullSv,
+		MemberSetHash:   ComputeMembershipHash(in.State),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: fullSv},
 	}
 
 	if in.Reason != syncSendPublication || len(fullData.Encode().Join()) <= in.Threshold {
@@ -70,9 +68,8 @@ func buildSvsDataForSend(in svsSendInput) *spec_svs.SvsData {
 		return nil
 	}
 	return &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(in.State),
-		VectorType:    optional.Some(spec_svs.VectorTypePartial),
-		StateVector:   partialSv,
+		MemberSetHash:      ComputeMembershipHash(in.State),
+		PartialStateVector: &spec_svs.PartialStateVector{StateVector: partialSv},
 	}
 }
 
@@ -95,9 +92,8 @@ func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec
 	// Sender-only baseline must always fit when possible.
 	baseline := &spec_svs.StateVector{Entries: []*spec_svs.StateVectorEntry{senderEntry}}
 	baselineData := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(state),
-		VectorType:    optional.Some(spec_svs.VectorTypePartial),
-		StateVector:   baseline,
+		MemberSetHash:      ComputeMembershipHash(state),
+		PartialStateVector: &spec_svs.PartialStateVector{StateVector: baseline},
 	}
 	if len(baselineData.Encode().Join()) > opts.Threshold {
 		// Baseline too large to fit even the sender entry: return an
@@ -124,9 +120,8 @@ func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec
 		sortPartialTail(trial)
 		trialSv := &spec_svs.StateVector{Entries: trial}
 		trialData := &spec_svs.SvsData{
-			MemberSetHash: ComputeMembershipHash(state),
-			VectorType:    optional.Some(spec_svs.VectorTypePartial),
-			StateVector:   trialSv,
+			MemberSetHash:      ComputeMembershipHash(state),
+			PartialStateVector: &spec_svs.PartialStateVector{StateVector: trialSv},
 		}
 		if len(trialData.Encode().Join()) > opts.Threshold {
 			break

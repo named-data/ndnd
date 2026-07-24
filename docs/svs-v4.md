@@ -2,9 +2,10 @@
 
 SVS v4 is a state-vector synchronization protocol for large sync groups.
 It introduces a membership hash (`mhash`), two direct state-vector
-encodings (`FULL` and `PARTIAL`), and a third publish-only form that
-references a retrievable full vector. Every Sync Data carries `mhash` and
-a `VectorType`.
+encodings (`FULL` and `PARTIAL`) carried as distinct TLVs, and a third
+publish-only form that references a retrievable full vector. Every Sync
+Data carries `mhash` and one of `FullStateVector`, `PartialStateVector`,
+or `SvsDataRef`.
 
 ---
 
@@ -24,9 +25,9 @@ modes:
 
 | Mode | Trigger | Wire shape |
 |------|---------|------------|
-| **Direct FULL** | Encoded FULL fits in threshold | `mhash` + `VectorType=FULL` + complete `StateVector` in Sync Data |
-| **Direct PARTIAL** | New publication and FULL exceeds threshold | `mhash` + `VectorType=PARTIAL` + subset `StateVector` in Sync Data |
-| **Referenced FULL** | Periodic sync (large group), or `mhash` mismatch | Produce full vector Data at `32=sv/<version>`; Sync Data carries `mhash` + reference Name only |
+| **Direct FULL** | Encoded FULL fits in threshold | `FullStateVector` (`mhash` + complete `StateVector`) in Sync Data |
+| **Direct PARTIAL** | New publication and FULL exceeds threshold | `PartialStateVector` (`mhash` + subset `StateVector`) in Sync Data |
+| **Referenced FULL** | Periodic sync (large group), or `mhash` mismatch | Produce full vector Data at `32=sv/<version>`; Sync Data carries only `SvsDataRef` |
 
 `mhash` is defined in §3.3.
 
@@ -35,7 +36,7 @@ modes:
 1. `mhash` differs from the local membership hash, or
 2. Periodic sync runs while the local FULL encoding exceeds
    `SyncVectorThreshold`, or
-3. A direct `VectorType = FULL` State Vector is outdated per §6.2.
+3. A direct `FullStateVector` is outdated per §6.2.
 
 Retrievable full-vector Data uses the standard NDN segmentation convention
 when it exceeds a single packet.
@@ -91,8 +92,8 @@ Retrievable full State Vector objects use a dedicated sync namespace:
 /<group>/<node>/<boot time>/32=sv/<version>
 ```
 
-**Content:** signed `SvsData` in direct FULL form: `mhash` +
-`VectorType = FULL` + complete `StateVector`.
+**Content:** signed `SvsData` in direct FULL form: `FullStateVector`
+containing `mhash` and complete `StateVector`.
 
 **Publish + pull procedure** (periodic sync, `mhash` recovery, join when
 FULL exceeds threshold):
@@ -113,47 +114,38 @@ reference — not both.
 
 ### 3.1 `SvsData`
 
-`SvsData` has two forms: direct (FULL or PARTIAL) and publish-only. The
-`mhash` field is present in both forms. The direct form carries
-`VectorType`; the publish-only form does not.
+`SvsData` is a tagged union. The wire carries:
 
-#### 3.1.1 Direct form (FULL or PARTIAL)
-
-Used when the State Vector (full or a publication-time PARTIAL subset) is
-carried in the Sync Data packet itself, or in published full-vector Data
-at `32=sv/<version>`.
+- `MemberSetHash` (`0xCB`): 32-byte `mhash`, present in all three forms.
+- One of the following three top-level TLVs (the choice replaces the
+  previous `VectorType` discriminator):
+  - `FullStateVector` (`0xCD`): direct form with a complete State Vector.
+  - `PartialStateVector` (`0xCE`): direct form with a publication-time
+    subset.
+  - `SvsDataRef` (`0x07`): publish-only form pointing to a retrievable
+    full-vector Data.
 
 ```
 SvsData = SVS-DATA-TYPE TLV-LENGTH
-          MemberSetHash
-          VectorType
-          StateVector
+          MemberSetHash                ; always present
+          ( FullStateVector
+          | PartialStateVector
+          | SvsDataRef )               ; exactly one
+
+FullStateVector    = FULL-STATE-VECTOR-TYPE    TLV-LENGTH StateVector
+PartialStateVector = PARTIAL-STATE-VECTOR-TYPE TLV-LENGTH StateVector
 ```
 
 | Field | TLV type | Value |
 |-------|----------|-------|
 | `MemberSetHash` | `0xCB` | 32-byte SHA-256 digest (`mhash`) |
-| `VectorType` | `0xCD` | `0` = FULL, `1` = PARTIAL |
-| `StateVector` | `0xC9` | See §3.2 |
-
-#### 3.1.2 Publish-only form
-
-Used when Sync Data advertises a retrievable full-vector Data name (periodic
-sync, `mhash` recovery). `VectorType` and `StateVector` are absent.
-
-```
-SvsData = SVS-DATA-TYPE TLV-LENGTH
-          MemberSetHash
-          SvsDataRef
-```
-
-| Field | TLV type | Value |
-|-------|----------|-------|
-| `MemberSetHash` | `0xCB` | 32-byte SHA-256 digest (`mhash`) |
+| `FullStateVector` | `0xCD` | Complete `StateVector` (§3.2) |
+| `PartialStateVector` | `0xCE` | Subset `StateVector` (§3.2) |
 | `SvsDataRef` | `0x07` (Name) | Name of the published full-vector Data. The receiver strips the trailing version component and uses the resulting `32=sv` prefix as the trust anchor for that sender's retrievable full vectors. |
 
-The direct layout puts `MemberSetHash` and `VectorType` before
-`StateVector` (`mhash` at `0xCB`, vector at `0xC9`/`0xCA`).
+The receiver MUST reject Sync Data that carries both `FullStateVector`
+and `PartialStateVector`, and Sync Data that carries none of the three.
+`mhash` MUST be exactly 32 bytes when present.
 
 ### 3.2 `StateVector`
 
@@ -172,6 +164,8 @@ SeqNoEntry = SEQ-NO-ENTRY-TYPE TLV-LENGTH
 
 | TLV | Type (decimal) | Type (hex) |
 |-----|----------------|------------|
+| `FULL-STATE-VECTOR-TYPE` | 205 | `0xCD` |
+| `PARTIAL-STATE-VECTOR-TYPE` | 206 | `0xCE` |
 | `STATE-VECTOR-TYPE` | 201 | `0xC9` |
 | `STATE-VECTOR-ENTRY-TYPE` | 202 | `0xCA` |
 | `SEQ-NO-ENTRY-TYPE` | 210 | `0xD2` |
@@ -214,21 +208,26 @@ The full State Vector carries membership implicitly: every member's
 summarizes that membership for quick comparison without having to walk the
 full State Vector.
 
-### 3.4 `VectorType` (direct form)
+### 3.4 `FullStateVector` vs. `PartialStateVector`
 
-| Value | Name | Meaning |
-|-------|------|---------|
-| `0` | **FULL** | `StateVector` contains the complete advertised state (§4.1 ordering). |
-| `1` | **PARTIAL** | `StateVector` contains a subset (§4.2). Used for new publication only when FULL exceeds threshold. |
+The wire TLV itself disambiguates the direct form:
 
-`VectorType` is required on the wire because it lets a receiver skip the
-more expensive subset-evaluation code path when it sees `FULL`, and lets a
-sender guarantee the receiver knows whether missing names imply partition
-(FULL) or merely "not included in this subset" (PARTIAL). `mhash` alone
-cannot convey this — two parties with identical membership but different
-subscription views may legitimately disagree on what subset was sent.
+| TLV | Name | Meaning |
+|-----|------|---------|
+| `0xCD` | **FULL** | `StateVector` contains the complete advertised state (§4.1 ordering). |
+| `0xCE` | **PARTIAL** | `StateVector` contains a subset (§4.2). Used for new publication only when FULL exceeds threshold. |
 
-`mhash` is present in both direct and publish-only `SvsData` messages.
+Distinct TLVs (instead of a shared field with a discriminator) let a
+receiver skip the more expensive subset-evaluation code path when it sees
+`FullStateVector`, and let a sender guarantee the receiver knows whether
+missing names imply partition (FULL) or merely "not included in this
+subset" (PARTIAL). `mhash` alone cannot convey this — two parties with
+identical membership but different subscription views may legitimately
+disagree on what subset was sent.
+
+The publish-only form (`SvsDataRef` only, no embedded `StateVector`)
+carries neither TLV; the receiver treats it as a signal to fetch the
+referenced full vector.
 
 ---
 
@@ -238,14 +237,14 @@ subscription views may legitimately disagree on what subset was sent.
 
 - Include all known members and their latest sequence numbers per bootstrap.
 - Entries ordered in NDN canonical order of `Name`.
-- `VectorType = FULL` (§3.4).
+- Wire TLV is `FullStateVector` (`0xCD`, §3.4).
 
 ### 4.2 PARTIAL State Vector
 
 Used on new publication when
 `encoded_size(direct FULL SvsData) > SyncVectorThreshold`.
 
-- `VectorType = PARTIAL` (§3.4).
+- Wire TLV is `PartialStateVector` (`0xCE`, §3.4).
 - The first entry is the sender's own `StateVectorEntry`; the sender is
   always included.
 - The remaining entries are the sender's selected peers, ordered in NDN
@@ -275,12 +274,14 @@ Stop adding entries when the estimated direct `SvsData` size approaches
 the size of a direct SvsData:
 
 - When `encoded_size(FULL) ≤ SyncVectorThreshold`, nodes use direct FULL
-  (with `mhash` and `VectorType=FULL`).
+  (`FullStateVector`).
 - When `encoded_size(FULL) > SyncVectorThreshold`, nodes switch to PARTIAL
-  (publication) or publish + pull (periodic sync and recovery).
+  (`PartialStateVector`, on publication) or publish + pull (`SvsDataRef`,
+  on periodic sync and recovery).
 
-The wire format is independent of `SyncVectorThreshold`. All Sync messages
-carry `mhash` and a `VectorType` (or `SvsDataRef` for publish-only).
+The wire format is independent of `SyncVectorThreshold`. Every Sync
+message carries exactly one of `FullStateVector`, `PartialStateVector`,
+or `SvsDataRef`.
 
 ---
 
@@ -302,8 +303,8 @@ Interest and resets the timer to `PeriodicTimeout`.
 
 | Trigger | Action |
 |---------|--------|
-| `encoded_size(direct FULL) ≤ SyncVectorThreshold` | Send direct FULL (`mhash` + `VectorType=FULL` + `StateVector`) |
-| `encoded_size(direct FULL) > SyncVectorThreshold` | Send direct PARTIAL (`mhash` + `VectorType=PARTIAL` + subset `StateVector`), or publish + pull if the sender-only baseline itself exceeds the threshold |
+| `encoded_size(direct FULL) ≤ SyncVectorThreshold` | Send direct FULL (`FullStateVector` with `mhash` + `StateVector`) |
+| `encoded_size(direct FULL) > SyncVectorThreshold` | Send direct PARTIAL (`PartialStateVector` with `mhash` + subset `StateVector`), or publish + pull if the sender-only baseline itself exceeds the threshold |
 
 ### 5.3 Sync Ack policy
 
@@ -311,12 +312,12 @@ Sync Interests are unacknowledged.
 
 ### 5.4 Steady state and suppression (direct FULL)
 
-For incoming Sync Data with direct `VectorType = FULL`, apply the
+For incoming Sync Data carrying `FullStateVector`, apply the
 steady-state and suppression rules in §5.1–§5.4.
 
 ### 5.5 PARTIAL State Vector processing
 
-When `VectorType = PARTIAL`:
+When the wire carries `PartialStateVector`:
 
 1. Parse `mhash` and `StateVector`.
 2. Names omitted from the partial `StateVector` are interpreted as "not
@@ -337,7 +338,7 @@ direct-FULL path.
 | # | Trigger | Action |
 |---|---------|--------|
 | 1 | `mhash` in received `SvsData` ≠ locally computed `mhash` | Publish + pull |
-| 2 | Direct `VectorType = FULL` is outdated per §6.2 | Merge direct if complete; otherwise publish + pull |
+| 2 | Direct `FullStateVector` is outdated per §6.2 | Merge direct if complete; otherwise publish + pull |
 | 3 | Periodic sync while local FULL exceeds `SyncVectorThreshold` | Publish + pull (§5.8) |
 
 Recovery always fetches the complete State Vector from the referenced
@@ -346,8 +347,8 @@ Recovery always fetches the complete State Vector from the referenced
 **Sender procedure** (on `mhash` mismatch or periodic large-group sync):
 
 1. Produce full-vector Data at `/<group>/<sender>/<boot>/32=sv/<version>`
-   with direct FULL `SvsData`.
-2. Send Sync Interest with publish-only `SvsData` (`mhash` + `SvsDataRef`).
+   with `FullStateVector` SvsData.
+2. Send Sync Interest with publish-only `SvsData` (`SvsDataRef` only).
 
 **Receiver procedure:**
 
@@ -373,11 +374,11 @@ not fit in a single packet.
 
 1. Joining node **N** multicasts Sync Interest whose direct State Vector
    contains only itself: `(Name=N, SeqNo=0)`. The Sync Data's `mhash` is
-   the SHA-256 of N's membership set, which is a single member (N).
+   the SHA-256 of N's membership set, which is the single member `{N}`.
 2. Existing members receive the announcement.
 3. Suppression limits duplicate responses; typically one member **A**
    provides recovery state.
-4. If FULL fits in a direct packet: **A** responds with direct `VectorType = FULL`.
+4. If FULL fits in a direct packet: **A** responds with `FullStateVector`.
 5. If FULL exceeds `SyncVectorThreshold`: **A** uses publish + pull
    (produce at `32=sv/<version>`, then publish-only Sync Data).
 6. Normal synchronization proceeds through SvsALO.
@@ -386,7 +387,7 @@ not fit in a single packet.
 
 | Local FULL size | Periodic Sync behavior |
 |-----------------|------------------------|
-| `≤ SyncVectorThreshold` | Direct FULL |
+| `≤ SyncVectorThreshold` | Direct FULL (`FullStateVector`) |
 | `> SyncVectorThreshold` | Publish + pull (produce full-vector Data, then publish-only Sync Data) |
 
 Periodic sync does not send direct PARTIAL vectors.
@@ -395,8 +396,8 @@ Periodic sync does not send direct PARTIAL vectors.
 
 | Event | `size ≤ threshold` | `size > threshold` |
 |-------|--------------------|--------------------|
-| **New publication** | Direct FULL | Direct PARTIAL (or publish + pull fallback) |
-| **Periodic sync** | Direct FULL | Publish + pull |
+| **New publication** | Direct FULL (`FullStateVector`) | Direct PARTIAL (`PartialStateVector`, or publish + pull fallback) |
+| **Periodic sync** | Direct FULL (`FullStateVector`) | Publish + pull |
 | **`mhash` mismatch** | Publish + pull (if recovery needed) | Publish + pull |
 
 ---
@@ -414,11 +415,11 @@ State Vector `A` is outdated to `B` if:
 - `A` is missing a name present in `B`, or
 - `A` has a strictly smaller `SeqNo` for any entry.
 
-This rule applies when `A` is a `VectorType = FULL` State Vector. When
-`A` is `VectorType = PARTIAL`, `A`'s omitted names are a subset by
-design (§4.2): the sender selected a publication-time subset and `A`'s
-missing entries do not carry any information about whether `A` is
-outdated relative to `B`.
+This rule applies when `A` is a `FullStateVector`. When `A` is a
+`PartialStateVector`, `A`'s omitted names are a subset by design (§4.2):
+the sender selected a publication-time subset and `A`'s missing entries
+do not carry any information about whether `A` is outdated relative to
+`B`.
 
 ---
 
@@ -433,7 +434,7 @@ direct FULL Sync Interest `[A:11, B:15, C:25]`. Peers merge.
 
 Group exceeds `SyncVectorThreshold`. Producer `P` publishes:
 
-- `P` sends direct PARTIAL `SvsData { mhash, VectorType=PARTIAL,
+- `P` sends direct PARTIAL `SvsData` carrying `PartialStateVector { mhash,
   StateVector=[P:…, A:…, …] }`.
 - Receiver merges present entries only.
 - If `mhash` differs, `P` (or receiver per policy) triggers publish + pull
@@ -442,15 +443,14 @@ Group exceeds `SyncVectorThreshold`. Producer `P` publishes:
 ### 7.3 Large group
 
 - `A` produces full vector at `/group/A/boot/32=sv/<version>`.
-- `A` sends publish-only Sync Data `{ mhash,
-  SvsDataRef=/group/A/boot/32=sv/<version> }`.
+- `A` sends publish-only Sync Data `{ SvsDataRef=/group/A/boot/32=sv/<version> }`.
 - Peers pull and merge.
 
 ### 7.4 New node join
 
 - `N` sends a State Vector containing only itself (`[N:0]`) with `mhash`
   computed over the single-member membership set `{N}`.
-- `A` responds with direct FULL or publish + pull.
+- `A` responds with `FullStateVector` or publish + pull.
 - `N` merges and synchronizes via SvsALO.
 
 ---
@@ -458,6 +458,7 @@ Group exceeds `SyncVectorThreshold`. Producer `P` publishes:
 ## 8. Interoperability
 
 SVS v4 defines a single wire profile. Deployments upgrade all nodes in a
-sync group at the same time. Every Sync Data carries `mhash` and a
-`VectorType` (or `SvsDataRef` for publish-only). The implementation never
-emits a `StateVector`-only `SvsData`, regardless of `SyncVectorThreshold`.
+sync group at the same time. Every Sync Data carries exactly one of
+`FullStateVector`, `PartialStateVector`, or `SvsDataRef`. The
+implementation never emits a bare `StateVector`-only `SvsData`,
+regardless of `SyncVectorThreshold`.

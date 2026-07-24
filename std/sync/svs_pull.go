@@ -10,7 +10,6 @@ import (
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
-	"github.com/named-data/ndnd/std/types/optional"
 )
 
 const (
@@ -83,9 +82,9 @@ func buildPublishSvsData(state SvMap[uint64], ref enc.Name) *spec_svs.SvsData {
 }
 
 // shouldUsePublishPull reports whether the sender should publish at .../32=sv
-// and emit publish-only Sync Data (mhash + SvsDataRef, no embedded vector)
-// instead of an embedded FULL or PARTIAL StateVector. The full SvsData is
-// built once (so the caller can reuse it if not publishing) and its size is
+// and emit publish-only Sync Data (SvsDataRef, no embedded vector) instead
+// of an embedded FULL or PARTIAL StateVector. The full SvsData is built
+// once (so the caller can reuse it if not publishing) and its size is
 // returned alongside the decision so the caller does not have to re-encode.
 func shouldUsePublishPull(reason syncSendReason, threshold int, state SvMap[uint64]) (usePublish bool, data *spec_svs.SvsData, size int) {
 	switch reason {
@@ -96,9 +95,8 @@ func shouldUsePublishPull(reason syncSendReason, threshold int, state SvMap[uint
 	}
 	sv := state.Encode(func(seq uint64) uint64 { return seq })
 	full := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(state),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   sv,
+		MemberSetHash:  ComputeMembershipHash(state),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: sv},
 	}
 	wire := full.Encode().Join()
 	if len(wire) > threshold {
@@ -114,9 +112,8 @@ func (s *SvSync) publishFullVectorData(state SvMap[uint64]) (enc.Name, error) {
 	}
 	sv := state.Encode(func(seq uint64) uint64 { return seq })
 	content := (&spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(state),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   sv,
+		MemberSetHash:   ComputeMembershipHash(state),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: sv},
 	}).Encode()
 	name := s.fullVectorPrefix.WithVersion(enc.VersionUnixMicro)
 	return s.o.Client.Produce(ndn.ProduceArgs{
@@ -190,9 +187,8 @@ func (s *SvSync) onPulledFullVector(content []byte) {
 	}
 
 	s.recvSv <- svSyncRecvSvArgs{
-		sv:         params.StateVector,
-		vectorType: optional.Some(spec_svs.VectorTypeFull),
-		mhash:      params.MemberSetHash,
+		sv:    params.GetStateVector(),
+		mhash: params.MemberSetHash,
 	}
 }
 
@@ -201,23 +197,22 @@ func parseFullVectorContent(content []byte) (*spec_svs.SvsData, error) {
 	if err != nil {
 		return nil, err
 	}
-	if params.StateVector == nil {
+	// [Spec] Fetched full-vector Data is inline FULL: the wire TLV must be
+	// FullStateVector (0xCD), not PartialStateVector (0xCE), and the
+	// MemberSetHash must be present and valid.
+	if !params.IsFull() {
+		return nil, fmt.Errorf("full vector content is not FullStateVector")
+	}
+	sv := params.GetStateVector()
+	if sv == nil {
 		return nil, fmt.Errorf("full vector content has no StateVector")
 	}
-	// [Spec] Fetched full-vector Data is inline FULL: VectorType must be FULL
-	// and MemberSetHash must be present and valid.
-	vt, ok := params.VectorType.Get()
-	if !ok {
-		return nil, fmt.Errorf("full vector content missing VectorType")
+	mhash := params.MemberSetHash
+	if len(mhash) != 32 {
+		return nil, fmt.Errorf("full vector content missing or invalid mhash (len=%d)", len(mhash))
 	}
-	if vt != spec_svs.VectorTypeFull {
-		return nil, fmt.Errorf("full vector VectorType=%d, want FULL", vt)
-	}
-	if len(params.MemberSetHash) != 32 {
-		return nil, fmt.Errorf("full vector content missing or invalid mhash (len=%d)", len(params.MemberSetHash))
-	}
-	computed := ComputeMembershipHash(stateVectorToMap(params.StateVector))
-	if !bytes.Equal(params.MemberSetHash, computed) {
+	computed := ComputeMembershipHash(stateVectorToMap(sv))
+	if !bytes.Equal(mhash, computed) {
 		return nil, fmt.Errorf("full vector mhash mismatch")
 	}
 	return params, nil

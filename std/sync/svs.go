@@ -20,8 +20,8 @@ import (
 
 // syncVectorThreshold is the max embedded SvsData size (bytes) above
 // which the sender switches to PARTIAL (on publication) or publish+pull
-// (on periodic sync and recovery). SVS v4 always emits `mhash` and a
-// `VectorType` on the wire.
+// (on periodic sync and recovery). SVS v4 always emits `mhash` and one of
+// FullStateVector/PartialStateVector on the wire (see std/ndn/svs/v3).
 const syncVectorThreshold = 1200
 
 type SvSync struct {
@@ -106,7 +106,7 @@ type SvSyncUpdate struct {
 type svSyncRecvSvArgs struct {
 	sv         *spec_svs.StateVector
 	data       enc.Wire
-	vectorType optional.Optional[uint64]
+	partial    bool
 	mhash      []byte
 	svsDataRef enc.Name
 }
@@ -397,11 +397,11 @@ func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	// The above checks each node in the incoming state vector, but
 	// does not check if a node is missing from the incoming state vector.
 	//
-	// [Spec] For embedded SvsData, VectorType is required by the protocol:
-	// publish-only Sync Data carries no StateVector and is filtered out
-	// earlier (see onSyncData). So args.vectorType is guaranteed present
-	// here; we default missing values to FULL rather than branch on `ok`.
-	isPartial := args.vectorType.GetOr(spec_svs.VectorTypeFull) == spec_svs.VectorTypePartial
+	// [Spec] The wire TLV (FullStateVector or PartialStateVector) replaces
+	// the previous VectorType discriminator. publish-only Sync Data carries
+	// no StateVector and is filtered out earlier (see onSyncData), so any
+	// args.sv reaching this function was either FULL or PARTIAL on the wire.
+	isPartial := args.partial
 	// [Spec] Membership recovery is a FULL-boundary operation: only an embedded
 	// FULL StateVector or a publish-only Sync Data (which carries no StateVector
 	// and is filtered earlier in onSyncData) represents the sender's complete
@@ -620,47 +620,47 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 				return
 			}
 
-			// [Spec] Every Sync Data carries a 32-byte mhash. Reject malformed
-			// packets that would misclassify PARTIAL-as-FULL or skip recovery.
-			if len(params.MemberSetHash) != 32 {
-				log.Warn(s, "onSyncInterest SvsData missing or invalid mhash",
-					"len", len(params.MemberSetHash))
-				return
-			}
+			mhash := params.MemberSetHash
+			sv := params.GetStateVector()
 
 			// Publish-only ref: advertise that the full vector is retrievable.
-			if params.StateVector == nil && len(params.SvsDataRef) > 0 {
+			if sv == nil && len(params.SvsDataRef) > 0 {
+				// [Spec] Every Sync Data carries a 32-byte mhash. Reject malformed
+				// packets that omit mhash on the publish-only form.
+				if len(mhash) != 32 {
+					log.Warn(s, "onSyncInterest publish-only SvsData missing or invalid mhash",
+						"len", len(mhash))
+					return
+				}
 				trustPrefix := pullRefFromSyncDataWire(dataWire)
 				go s.pullFullVector(params.SvsDataRef, trustPrefix)
 				return
 			}
-			if params.StateVector == nil {
+			if sv == nil {
 				log.Warn(s, "onSyncInterest SvsData has no StateVector")
 				return
 			}
 
-			// [Spec] Inline form must carry VectorType (FULL or PARTIAL).
-			vt, ok := params.VectorType.Get()
-			if !ok {
-				log.Warn(s, "onSyncInterest inline SvsData missing VectorType")
+			// [Spec] Direct form must carry exactly one of FullStateVector /
+			// PartialStateVector, and a 32-byte mhash. The wire TLV replaces
+			// the previous VectorType discriminator.
+			if !params.IsFull() && !params.IsPartial() {
+				log.Warn(s, "onSyncInterest inline SvsData missing direct form")
 				return
 			}
-			if vt != spec_svs.VectorTypeFull && vt != spec_svs.VectorTypePartial {
-				log.Warn(s, "onSyncInterest inline SvsData invalid VectorType", "vt", vt)
+			if len(mhash) != 32 {
+				log.Warn(s, "onSyncInterest inline SvsData missing or invalid mhash",
+					"len", len(mhash))
 				return
 			}
 
-			args := svSyncRecvSvArgs{
-				sv:         params.StateVector,
+			s.recvSv <- svSyncRecvSvArgs{
+				sv:         sv,
 				data:       dataWire,
-				mhash:      params.MemberSetHash,
+				partial:    params.IsPartial(),
+				mhash:      mhash,
 				svsDataRef: params.SvsDataRef,
 			}
-			if vt, ok := params.VectorType.Get(); ok {
-				args.vectorType = optional.Some(vt)
-			}
-
-			s.recvSv <- args
 		},
 	})
 }

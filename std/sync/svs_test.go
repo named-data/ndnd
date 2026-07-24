@@ -31,17 +31,16 @@ func TestBuildInlineFullSvsData(t *testing.T) {
 	m := testSvMapAliceBob()
 	sv := m.Encode(func(s uint64) uint64 { return s })
 	data := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   sv,
+		MemberSetHash:   ComputeMembershipHash(m),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: sv},
 	}
 
+	require.True(t, data.IsFull())
+	require.False(t, data.IsPartial())
 	require.Equal(t, ComputeMembershipHash(m), data.MemberSetHash)
-	vt, ok := data.VectorType.Get()
-	require.True(t, ok)
-	require.Equal(t, spec_svs.VectorTypeFull, vt)
-	require.NotNil(t, data.StateVector)
-	require.Len(t, data.StateVector.Entries, 2)
+	svOut := data.GetStateVector()
+	require.NotNil(t, svOut)
+	require.Len(t, svOut.Entries, 2)
 }
 
 func TestOnReceivePartialSkipsMissingNameOutdated(t *testing.T) {
@@ -65,9 +64,9 @@ func TestOnReceivePartialSkipsMissingNameOutdated(t *testing.T) {
 	partialSv := bobOnly.Encode(func(s uint64) uint64 { return s })
 
 	s.onReceiveStateVector(svSyncRecvSvArgs{
-		sv:         partialSv,
-		vectorType: optional.Some(spec_svs.VectorTypePartial),
-		mhash:      ComputeMembershipHash(bobOnly),
+		sv:      partialSv,
+		partial: true,
+		mhash:   ComputeMembershipHash(bobOnly),
 	})
 
 	require.False(t, s.suppress)
@@ -93,9 +92,8 @@ func TestOnReceiveFullTreatsMissingNameOutdated(t *testing.T) {
 	fullSv := bobOnly.Encode(func(s uint64) uint64 { return s })
 
 	s.onReceiveStateVector(svSyncRecvSvArgs{
-		sv:         fullSv,
-		vectorType: optional.Some(spec_svs.VectorTypeFull),
-		mhash:      ComputeMembershipHash(bobOnly),
+		sv:    fullSv,
+		mhash: ComputeMembershipHash(bobOnly),
 	})
 
 	require.True(t, s.suppress)
@@ -115,9 +113,8 @@ func TestEncodePartialSenderFirst(t *testing.T) {
 
 	// Threshold large enough for sender + one peer.
 	full := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:   ComputeMembershipHash(m),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: m.Encode(func(s uint64) uint64 { return s })},
 	}
 	threshold := len(full.Encode().Join()) - 1
 
@@ -149,26 +146,25 @@ func TestBuildSvsDataForSendPublicationPartial(t *testing.T) {
 	}
 
 	full := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:   ComputeMembershipHash(m),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: m.Encode(func(s uint64) uint64 { return s })},
 	}
 	threshold := len(full.Encode().Join()) / 2
 
 	pub := buildSvsDataForSend(svsSendInput{
 		State: m, Reason: syncSendPublication, Threshold: threshold, Sender: alice,
 	})
-	vt, ok := pub.VectorType.Get()
-	require.True(t, ok)
-	require.Equal(t, spec_svs.VectorTypePartial, vt)
-	require.Less(t, len(pub.StateVector.Entries), len(full.StateVector.Entries))
+	require.True(t, pub.IsPartial())
+	require.False(t, pub.IsFull())
+	pubSv := pub.GetStateVector()
+	fullSv := full.GetStateVector()
+	require.Less(t, len(pubSv.Entries), len(fullSv.Entries))
 
 	periodic := buildSvsDataForSend(svsSendInput{
 		State: m, Reason: syncSendPeriodic, Threshold: threshold, Sender: alice,
 	})
-	vt, ok = periodic.VectorType.Get()
-	require.True(t, ok)
-	require.Equal(t, spec_svs.VectorTypeFull, vt)
+	require.True(t, periodic.IsFull())
+	require.False(t, periodic.IsPartial())
 }
 
 func TestOnReceivePartialMergesPresentEntriesOnly(t *testing.T) {
@@ -195,9 +191,9 @@ func TestOnReceivePartialMergesPresentEntriesOnly(t *testing.T) {
 	partialSv := bobOnly.Encode(func(s uint64) uint64 { return s })
 
 	s.onReceiveStateVector(svSyncRecvSvArgs{
-		sv:         partialSv,
-		vectorType: optional.Some(spec_svs.VectorTypePartial),
-		mhash:      ComputeMembershipHash(bobOnly),
+		sv:      partialSv,
+		partial: true,
+		mhash:   ComputeMembershipHash(bobOnly),
 	})
 
 	require.Len(t, updates, 1)
@@ -268,17 +264,19 @@ func TestSvsDataInlineTLV(t *testing.T) {
 	sv := m.Encode(func(s uint64) uint64 { return s })
 
 	original := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   sv,
+		MemberSetHash:   ComputeMembershipHash(m),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: sv},
 	}
 	wire := original.Encode().Join()
 
 	parsed, err := spec_svs.ParseSvsData(enc.NewBufferView(wire), false)
 	require.NoError(t, err)
+	require.True(t, parsed.IsFull())
+	require.False(t, parsed.IsPartial())
 	require.Equal(t, original.MemberSetHash, parsed.MemberSetHash)
-	require.Equal(t, original.VectorType, parsed.VectorType)
-	require.Equal(t, original.StateVector.Entries[0].Name.String(), parsed.StateVector.Entries[0].Name.String())
+	origSv := original.GetStateVector()
+	parsedSv := parsed.GetStateVector()
+	require.Equal(t, origSv.Entries[0].Name.String(), parsedSv.Entries[0].Name.String())
 }
 
 func TestSvsDataPublishTLV(t *testing.T) {
@@ -287,32 +285,37 @@ func TestSvsDataPublishTLV(t *testing.T) {
 	ref := tu.NoErr(enc.NameFromStr("/ndn/svs/alice/100/32=sv/1"))
 	mhash := make([]byte, 32)
 
+	original := &spec_svs.SvsData{MemberSetHash: mhash, SvsDataRef: ref}
+	wire := original.Encode().Join()
+
+	parsed, err := spec_svs.ParseSvsData(enc.NewBufferView(wire), false)
+	require.NoError(t, err)
+	require.Equal(t, spec_svs.VectorKindNone, parsed.Kind())
+	require.Equal(t, ref.String(), parsed.SvsDataRef.String())
+	require.Nil(t, parsed.GetStateVector())
+	require.Equal(t, mhash, parsed.MemberSetHash)
+}
+
+func TestSvsDataPartialTLV(t *testing.T) {
+	tu.SetT(t)
+
+	m := NewSvMap[uint64](0)
+	m.Set(tu.NoErr(enc.NameFromStr("/ndn/alice")).TlvStr(), 100, 1)
+	sv := m.Encode(func(s uint64) uint64 { return s })
+
 	original := &spec_svs.SvsData{
-		MemberSetHash: mhash,
-		SvsDataRef:    ref,
+		MemberSetHash:      ComputeMembershipHash(m),
+		PartialStateVector: &spec_svs.PartialStateVector{StateVector: sv},
 	}
 	wire := original.Encode().Join()
 
 	parsed, err := spec_svs.ParseSvsData(enc.NewBufferView(wire), false)
 	require.NoError(t, err)
-	require.Equal(t, mhash, parsed.MemberSetHash)
-	require.Equal(t, ref.String(), parsed.SvsDataRef.String())
-	require.Nil(t, parsed.StateVector)
-	require.False(t, parsed.VectorType.IsSet())
-}
-
-func TestSvsDataLegacyParse(t *testing.T) {
-	tu.SetT(t)
-
-	m := NewSvMap[uint64](0)
-	m.Set(tu.NoErr(enc.NameFromStr("/ndn/alice")).TlvStr(), 100, 1)
-	legacy := &spec_svs.SvsData{StateVector: m.Encode(func(s uint64) uint64 { return s })}
-	wire := legacy.Encode().Join()
-
-	parsed, err := spec_svs.ParseSvsData(enc.NewBufferView(wire), false)
-	require.NoError(t, err)
-	require.Nil(t, parsed.MemberSetHash)
-	require.NotNil(t, parsed.StateVector)
+	require.True(t, parsed.IsPartial())
+	require.False(t, parsed.IsFull())
+	require.Equal(t, spec_svs.VectorKindPartial, parsed.Kind())
+	require.NotNil(t, parsed.GetStateVector())
+	require.Equal(t, ComputeMembershipHash(m), parsed.MemberSetHash)
 }
 
 // --- pull / recovery tests ---
@@ -349,17 +352,18 @@ func TestBuildPublishSvsData(t *testing.T) {
 	ref := tu.NoErr(enc.NameFromStr("/ndn/svs/alice/1700000000/32=sv/999"))
 	data := buildPublishSvsData(m, ref)
 
+	require.Equal(t, spec_svs.VectorKindNone, data.Kind())
 	require.Equal(t, ComputeMembershipHash(m), data.MemberSetHash)
 	require.True(t, ref.Equal(data.SvsDataRef))
-	require.Nil(t, data.StateVector)
-	require.False(t, data.VectorType.IsSet())
+	require.Nil(t, data.GetStateVector())
 
 	wire := data.Encode().Join()
 	parsed, err := spec_svs.ParseSvsData(enc.NewBufferView(wire), false)
 	require.NoError(t, err)
-	require.Equal(t, data.MemberSetHash, parsed.MemberSetHash)
+	require.Equal(t, spec_svs.VectorKindNone, parsed.Kind())
+	require.Equal(t, ComputeMembershipHash(m), parsed.MemberSetHash)
 	require.True(t, ref.Equal(parsed.SvsDataRef))
-	require.Nil(t, parsed.StateVector)
+	require.Nil(t, parsed.GetStateVector())
 }
 
 func TestShouldUsePublishPull(t *testing.T) {
@@ -368,9 +372,8 @@ func TestShouldUsePublishPull(t *testing.T) {
 	m := testSvMapAliceBob()
 	sv := m.Encode(func(s uint64) uint64 { return s })
 	fullSize := len((&spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   sv,
+		MemberSetHash:   ComputeMembershipHash(m),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: sv},
 	}).Encode().Join())
 
 	usePublish, _, _ := shouldUsePublishPull(syncSendPublication, fullSize-1, m)
@@ -403,9 +406,8 @@ func TestParseFullVectorContentRejectsBadMhash(t *testing.T) {
 
 	m := testSvMapAliceBob()
 	inline := &spec_svs.SvsData{
-		MemberSetHash: []byte("not-a-valid-mhash-padding-000000"),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:   []byte("not-a-valid-mhash-padding-000000"),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: m.Encode(func(s uint64) uint64 { return s })},
 	}
 	wire := inline.Encode().Join()
 
@@ -413,14 +415,14 @@ func TestParseFullVectorContentRejectsBadMhash(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestParseFullVectorContentRejectsMissingVectorType(t *testing.T) {
+func TestParseFullVectorContentRejectsPartial(t *testing.T) {
 	tu.SetT(t)
 
 	m := testSvMapAliceBob()
+	// Wrong wire TLV: PartialStateVector instead of FullStateVector.
 	inline := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.None[uint64](),
-		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:      ComputeMembershipHash(m),
+		PartialStateVector: &spec_svs.PartialStateVector{StateVector: m.Encode(func(s uint64) uint64 { return s })},
 	}
 	wire := inline.Encode().Join()
 
@@ -433,9 +435,8 @@ func TestParseFullVectorContentRejectsMissingMhash(t *testing.T) {
 
 	m := testSvMapAliceBob()
 	inline := &spec_svs.SvsData{
-		MemberSetHash: nil,
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:   nil,
+		FullStateVector: &spec_svs.FullStateVector{StateVector: m.Encode(func(s uint64) uint64 { return s })},
 	}
 	wire := inline.Encode().Join()
 
@@ -448,16 +449,15 @@ func TestParseFullVectorContent(t *testing.T) {
 
 	m := testSvMapAliceBob()
 	inline := &spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:   ComputeMembershipHash(m),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: m.Encode(func(s uint64) uint64 { return s })},
 	}
 	wire := inline.Encode().Join()
 
 	parsed, err := parseFullVectorContent(wire)
 	require.NoError(t, err)
 	require.Equal(t, inline.MemberSetHash, parsed.MemberSetHash)
-	require.Len(t, parsed.StateVector.Entries, 2)
+	require.Len(t, parsed.GetStateVector().Entries, 2)
 }
 
 func TestOnPulledFullVectorMergesState(t *testing.T) {
@@ -480,9 +480,8 @@ func TestOnPulledFullVectorMergesState(t *testing.T) {
 
 	remote := testSvMapAliceBob()
 	content := (&spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(remote),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   remote.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:   ComputeMembershipHash(remote),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: remote.Encode(func(s uint64) uint64 { return s })},
 	}).Encode().Join()
 
 	go func() {
@@ -501,15 +500,13 @@ func TestEncodeSyncDataPublishMode(t *testing.T) {
 
 	m := testSvMapAliceBob()
 	fullSize := len((&spec_svs.SvsData{
-		MemberSetHash: ComputeMembershipHash(m),
-		VectorType:    optional.Some(spec_svs.VectorTypeFull),
-		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+		MemberSetHash:   ComputeMembershipHash(m),
+		FullStateVector: &spec_svs.FullStateVector{StateVector: m.Encode(func(s uint64) uint64 { return s })},
 	}).Encode().Join())
 	usePublish, _, _ := shouldUsePublishPull(syncSendPeriodic, fullSize-1, m)
 	require.True(t, usePublish)
 
 	publish := buildPublishSvsData(m, tu.NoErr(enc.NameFromStr("/ndn/svs/alice/1/32=sv/2")))
-	require.Nil(t, publish.StateVector)
-	vt, ok := publish.VectorType.Get()
-	require.False(t, ok || vt == spec_svs.VectorTypePartial)
+	require.Equal(t, spec_svs.VectorKindNone, publish.Kind())
+	require.Nil(t, publish.GetStateVector())
 }
