@@ -83,6 +83,7 @@ func buildSvsDataForSend(in svsSendInput) *spec_svs.SvsData {
 func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec_svs.StateVector {
 	seq := func(v uint64) uint64 { return v }
 	senderHash := opts.Sender.TlvStr()
+	mhash := ComputeMembershipHash(state)
 
 	senderEntry := state.encodeNameEntry(opts.Sender, seq)
 	if senderEntry == nil {
@@ -92,7 +93,7 @@ func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec
 	// Sender-only baseline must always fit when possible.
 	baseline := &spec_svs.StateVector{Entries: []*spec_svs.StateVectorEntry{senderEntry}}
 	baselineData := &spec_svs.SvsData{
-		MemberSetHash:      ComputeMembershipHash(state),
+		MemberSetHash:      mhash,
 		PartialStateVector: &spec_svs.PartialStateVector{StateVector: baseline},
 	}
 	if len(baselineData.Encode().Join()) > opts.Threshold {
@@ -120,7 +121,7 @@ func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec
 		sortPartialTail(trial)
 		trialSv := &spec_svs.StateVector{Entries: trial}
 		trialData := &spec_svs.SvsData{
-			MemberSetHash:      ComputeMembershipHash(state),
+			MemberSetHash:      mhash,
 			PartialStateVector: &spec_svs.PartialStateVector{StateVector: trialSv},
 		}
 		if len(trialData.Encode().Join()) > opts.Threshold {

@@ -644,8 +644,8 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 			// [Spec] Direct form must carry exactly one of FullStateVector /
 			// PartialStateVector, and a 32-byte mhash. The wire TLV replaces
 			// the previous VectorType discriminator.
-			if !params.IsFull() && !params.IsPartial() {
-				log.Warn(s, "onSyncInterest inline SvsData missing direct form")
+			if params.IsFull() == params.IsPartial() || len(params.SvsDataRef) > 0 {
+				log.Warn(s, "onSyncInterest inline SvsData has invalid direct form")
 				return
 			}
 			if len(mhash) != 32 {
