@@ -117,9 +117,9 @@ func (c *Client) fetchMetadata(
 		Config: &ndn.InterestConfig{
 			CanBePrefix: true,
 			MustBeFresh: true,
-			Lifetime:    optional.Some(time.Millisecond * 2000),
+			Lifetime:    optional.Some(time.Millisecond * 1000),
 		},
-		Retries:  5, // TODO: configurable (sprint e2e needs ~10s budget for DV startup reset storm)
+		Retries:  3,
 		TryStore: utils.If(tryStore, c.store, nil),
 		Callback: func(args ndn.ExpressCallbackArgs) {
 			if args.Result == ndn.InterestResultError {
@@ -174,9 +174,9 @@ func (c *Client) fetchDataByPrefix(
 		Config: &ndn.InterestConfig{
 			CanBePrefix: true,
 			MustBeFresh: true,
-			Lifetime:    optional.Some(time.Millisecond * 2000),
+			Lifetime:    optional.Some(time.Millisecond * 1000),
 		},
-		Retries:  5, // TODO: configurable (sprint e2e needs ~10s budget for DV startup reset storm)
+		Retries:  3,
 		TryStore: utils.If(tryStore, c.store, nil),
 		Callback: func(args ndn.ExpressCallbackArgs) {
 			if args.Result == ndn.InterestResultError {
