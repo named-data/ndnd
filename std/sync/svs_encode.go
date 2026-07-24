@@ -223,11 +223,6 @@ func recencyScore(mtime map[string]time.Time, name enc.Name) int64 {
 }
 
 // sortPartialTail keeps entry [0] fixed and sorts [1..n] in canonical name order.
-//
-// [Spec §4.2] Entry [0] of a PARTIAL StateVector is the sender; remaining
-// entries are NOT ordered by membership hash like MemberSet entries are —
-// they are ordered by canonical NDN name comparison. StateVectorEntry
-// ordering is independent of mhash ordering.
 func sortPartialTail(entries []*spec_svs.StateVectorEntry) {
 	if len(entries) <= 1 {
 		return
