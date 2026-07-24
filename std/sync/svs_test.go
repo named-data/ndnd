@@ -281,7 +281,7 @@ func TestSvsDataInlineTLV(t *testing.T) {
 	require.Equal(t, original.StateVector.Entries[0].Name.String(), parsed.StateVector.Entries[0].Name.String())
 }
 
-func TestSvsDataAnnounceTLV(t *testing.T) {
+func TestSvsDataPublishTLV(t *testing.T) {
 	tu.SetT(t)
 
 	ref := tu.NoErr(enc.NameFromStr("/ndn/svs/alice/100/32=sv/1"))
@@ -342,12 +342,12 @@ func TestPullRefFromSyncDataWire(t *testing.T) {
 	require.Equal(t, "/ndn/svs/alice/1700000000/32=sv", ref.String())
 }
 
-func TestBuildAnnounceSvsData(t *testing.T) {
+func TestBuildPublishSvsData(t *testing.T) {
 	tu.SetT(t)
 
 	m := testSvMapAliceBob()
 	ref := tu.NoErr(enc.NameFromStr("/ndn/svs/alice/1700000000/32=sv/999"))
-	data := buildAnnounceSvsData(m, ref)
+	data := buildPublishSvsData(m, ref)
 
 	require.Equal(t, ComputeMembershipHash(m), data.MemberSetHash)
 	require.True(t, ref.Equal(data.SvsDataRef))
@@ -362,7 +362,7 @@ func TestBuildAnnounceSvsData(t *testing.T) {
 	require.Nil(t, parsed.StateVector)
 }
 
-func TestShouldUseAnnouncePull(t *testing.T) {
+func TestShouldUsePublishPull(t *testing.T) {
 	tu.SetT(t)
 
 	m := testSvMapAliceBob()
@@ -373,11 +373,11 @@ func TestShouldUseAnnouncePull(t *testing.T) {
 		StateVector:   sv,
 	}).Encode().Join())
 
-	require.False(t, shouldUseAnnouncePull(syncSendPublication, fullSize-1, m))
-	require.False(t, shouldUseAnnouncePull(syncSendPeriodic, fullSize+1, m))
-	require.True(t, shouldUseAnnouncePull(syncSendPeriodic, fullSize-1, m))
-	require.True(t, shouldUseAnnouncePull(syncSendOther, fullSize-1, m))
-	require.True(t, shouldUseAnnouncePull(syncSendRecovery, fullSize-1, m))
+	require.False(t, shouldUsePublishPull(syncSendPublication, fullSize-1, m))
+	require.False(t, shouldUsePublishPull(syncSendPeriodic, fullSize+1, m))
+	require.True(t, shouldUsePublishPull(syncSendPeriodic, fullSize-1, m))
+	require.True(t, shouldUsePublishPull(syncSendOther, fullSize-1, m))
+	require.True(t, shouldUsePublishPull(syncSendRecovery, fullSize-1, m))
 }
 
 func TestIsTrustedSvsDataRef(t *testing.T) {
@@ -491,7 +491,7 @@ func TestOnPulledFullVectorMergesState(t *testing.T) {
 	require.EqualValues(t, 5, s.state.Get(alice.TlvStr(), 100))
 }
 
-func TestEncodeSyncDataAnnounceMode(t *testing.T) {
+func TestEncodeSyncDataPublishMode(t *testing.T) {
 	tu.SetT(t)
 
 	m := testSvMapAliceBob()
@@ -500,10 +500,10 @@ func TestEncodeSyncDataAnnounceMode(t *testing.T) {
 		VectorType:    optional.Some(spec_svs.VectorTypeFull),
 		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
 	}).Encode().Join())
-	require.True(t, shouldUseAnnouncePull(syncSendPeriodic, fullSize-1, m))
+	require.True(t, shouldUsePublishPull(syncSendPeriodic, fullSize-1, m))
 
-	announce := buildAnnounceSvsData(m, tu.NoErr(enc.NameFromStr("/ndn/svs/alice/1/32=sv/2")))
-	require.Nil(t, announce.StateVector)
-	vt, ok := announce.VectorType.Get()
+	publish := buildPublishSvsData(m, tu.NoErr(enc.NameFromStr("/ndn/svs/alice/1/32=sv/2")))
+	require.Nil(t, publish.StateVector)
+	vt, ok := publish.VectorType.Get()
 	require.False(t, ok || vt == spec_svs.VectorTypePartial)
 }

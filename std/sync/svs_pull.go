@@ -60,17 +60,17 @@ func pullRefFromSyncDataWire(dataWire enc.Wire) enc.Name {
 	return deriveFullVectorPrefix(name)
 }
 
-func buildAnnounceSvsData(state SvMap[uint64], ref enc.Name) *spec_svs.SvsData {
+func buildPublishSvsData(state SvMap[uint64], ref enc.Name) *spec_svs.SvsData {
 	return &spec_svs.SvsData{
 		MemberSetHash: ComputeMembershipHash(state),
 		SvsDataRef:    ref,
 	}
 }
 
-// shouldUseAnnouncePull reports whether the sender should publish at .../32=sv
+// shouldUsePublishPull reports whether the sender should publish at .../32=sv
 // and emit publish-only Sync Data (mhash + SvsDataRef, no embedded vector)
 // instead of an embedded FULL or PARTIAL StateVector.
-func shouldUseAnnouncePull(reason syncSendReason, threshold int, state SvMap[uint64]) bool {
+func shouldUsePublishPull(reason syncSendReason, threshold int, state SvMap[uint64]) bool {
 	if reason == syncSendRecovery {
 		return true
 	}
@@ -213,8 +213,8 @@ func stateVectorToMap(sv *spec_svs.StateVector) SvMap[uint64] {
 	return m
 }
 
-// sendRecoveryAnnounce publishes at 32=sv and emits announce-only Sync Data (mhash recovery).
-func (s *SvSync) sendRecoveryAnnounce() {
+// sendRecoveryPublish publishes at 32=sv and emits publish-only Sync Data (mhash recovery).
+func (s *SvSync) sendRecoveryPublish() {
 	if !s.running.Load() || s.o.Passive {
 		return
 	}
@@ -222,7 +222,7 @@ func (s *SvSync) sendRecoveryAnnounce() {
 	s.sendSyncInterestWith(wire)
 }
 
-// handleMhashMismatch schedules announce or pull recovery on membership mismatch.
+// handleMhashMismatch schedules publish or pull recovery on membership mismatch.
 func (s *SvSync) handleMhashMismatch(args svSyncRecvSvArgs, recvSv SvMap[uint64]) {
 	localMhash := ComputeMembershipHash(s.state)
 	if bytes.Equal(localMhash, args.mhash) {
@@ -236,7 +236,7 @@ func (s *SvSync) handleMhashMismatch(args svSyncRecvSvArgs, recvSv SvMap[uint64]
 
 	localTuples, remoteTuples := membershipTupleCount(s.state), membershipTupleCount(recvSv)
 	if localTuples > remoteTuples && membershipContains(s.state, recvSv) {
-		go s.sendRecoveryAnnounce()
+		go s.sendRecoveryPublish()
 		return
 	}
 

@@ -18,8 +18,8 @@ and `OnUpdate` semantics.
 
 ### 1.2 Large groups
 
-When the encoded State Vector exceeds **`SyncVectorThreshold`** (an
-application-configured size budget in bytes), nodes use three dissemination
+When the encoded State Vector exceeds **`SyncVectorThreshold`** (a
+fixed library constant of 1200 bytes), nodes use three dissemination
 modes:
 
 | Mode | Trigger | Wire shape |
@@ -269,8 +269,9 @@ Stop adding entries when the estimated inline `SvsData` size approaches
 
 ### 4.3 `SyncVectorThreshold`
 
-- Configurable implementation parameter (application packet size budget) in
-  bytes.
+`SyncVectorThreshold` is a fixed library constant (1200 bytes) that bounds
+the size of an inline SvsData:
+
 - When `encoded_size(FULL) ≤ SyncVectorThreshold`, nodes use inline FULL
   (with `mhash` and `VectorType=FULL`).
 - When `encoded_size(FULL) > SyncVectorThreshold`, nodes switch to PARTIAL
@@ -278,7 +279,6 @@ Stop adding entries when the estimated inline `SvsData` size approaches
 
 The wire format is independent of `SyncVectorThreshold`. All Sync messages
 carry `mhash` and a `VectorType` (or `SvsDataRef` for publish-only).
-`SyncVectorThreshold <= 0` selects the default 1200-byte budget.
 
 ---
 
@@ -455,5 +455,4 @@ Group exceeds `SyncVectorThreshold`. Producer `P` publishes:
 SVS v4 defines a single wire profile. Deployments upgrade all nodes in a
 sync group at the same time. Every Sync Data carries `mhash` and a
 `VectorType` (or `SvsDataRef` for publish-only). The implementation never
-emits a `StateVector`-only `SvsData`, regardless of `SyncVectorThreshold`
-(a `Threshold ≤ 0` selects the 1200-byte default).
+emits a `StateVector`-only `SvsData`, regardless of `SyncVectorThreshold`.

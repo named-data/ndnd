@@ -44,7 +44,7 @@ type svsSendInput struct {
 // buildSvsDataForSend picks embedded FULL or PARTIAL SvsData for an outgoing
 // Sync message. Returns nil when publication-triggered PARTIAL encoding cannot
 // fit even the sender-only baseline: the caller MUST fall back to publish+pull
-// (see shouldUseAnnouncePull). Other reasons always return a non-nil result.
+// (see shouldUsePublishPull). Other reasons always return a non-nil result.
 func buildSvsDataForSend(in svsSendInput) *spec_svs.SvsData {
 	fullSv := in.State.Encode(func(seq uint64) uint64 { return seq })
 	fullData := &spec_svs.SvsData{

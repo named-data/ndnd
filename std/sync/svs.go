@@ -18,6 +18,12 @@ import (
 	"github.com/named-data/ndnd/std/utils"
 )
 
+// syncVectorThreshold is the max embedded SvsData size (bytes) above
+// which the sender switches to PARTIAL (on publication) or publish+pull
+// (on periodic sync and recovery). SVS v4 always emits `mhash` and a
+// `VectorType` on the wire.
+const syncVectorThreshold = 1200
+
 type SvSync struct {
 	o SvSyncOpts
 
@@ -88,13 +94,6 @@ type SvSyncOpts struct {
 	UseSignatureTime optional.Optional[bool]
 	// IgnoreValidity ignores validity period in the validation chain
 	IgnoreValidity optional.Optional[bool]
-
-	// SyncVectorThreshold is the max embedded SvsData size (bytes) above
-	// which the sender switches to PARTIAL (on publication) or
-	// publish+pull (on periodic sync and recovery). When <= 0, the
-	// default (1200 bytes) is used. SVS v4 always emits `mhash` and a
-	// `VectorType` on the wire.
-	SyncVectorThreshold int
 }
 
 type SvSyncUpdate struct {
@@ -148,9 +147,6 @@ func NewSvSync(opts SvSyncOpts) *SvSync {
 	}
 	if len(opts.SyncDataName) == 0 {
 		opts.SyncDataName = opts.GroupPrefix
-	}
-	if opts.SyncVectorThreshold <= 0 {
-		opts.SyncVectorThreshold = 1200
 	}
 
 	return &SvSync{
@@ -411,7 +407,7 @@ func (s *SvSync) onReceiveStateVector(args svSyncRecvSvArgs) {
 	// and is filtered earlier in onSyncData) represents the sender's complete
 	// membership view. A PARTIAL vector is a subset by design, so the recvSv
 	// tuple-count superset check in handleMhashMismatch would spuriously
-	// trigger sendRecoveryAnnounce for the local node's normal PUBLISH path.
+	// trigger sendRecoveryPublish for the local node's normal PUBLISH path.
 	if len(args.mhash) > 0 && !isPartial {
 		s.handleMhashMismatch(args, recvSv)
 	}
@@ -522,18 +518,18 @@ func (s *SvSync) encodeSyncData(reason syncSendReason, sender enc.Name) enc.Wire
 	s.mutex.Unlock()
 
 	var svsData *spec_svs.SvsData
-	if shouldUseAnnouncePull(reason, s.o.SyncVectorThreshold, stateSnap) {
+	if shouldUsePublishPull(reason, syncVectorThreshold, stateSnap) {
 		ref, err := s.publishFullVectorData(stateSnap)
 		if err != nil {
 			log.Error(s, "publishFullVectorData failed", "err", err)
 			return nil
 		}
-		svsData = buildAnnounceSvsData(stateSnap, ref)
+		svsData = buildPublishSvsData(stateSnap, ref)
 	} else {
 		svsData = buildSvsDataForSend(svsSendInput{
 			State:       stateSnap,
 			Reason:      reason,
-			Threshold:   s.o.SyncVectorThreshold,
+			Threshold:   syncVectorThreshold,
 			Sender:      sender,
 			Repair:      repair,
 			Propagation: propagation,
@@ -547,7 +543,7 @@ func (s *SvSync) encodeSyncData(reason syncSendReason, sender enc.Name) enc.Wire
 				log.Error(s, "publishFullVectorData failed (fallback)", "err", err)
 				return nil
 			}
-			svsData = buildAnnounceSvsData(stateSnap, ref)
+			svsData = buildPublishSvsData(stateSnap, ref)
 		}
 	}
 	if svsData == nil {
