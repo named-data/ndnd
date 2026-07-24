@@ -130,6 +130,9 @@ func (s *SvSync) pullFullVector(ref enc.Name, trustPrefix enc.Name) {
 	// Debounce per sender: drop the pull if one is already in flight or completed recently.
 	senderHash := trustPrefix.TlvStr()
 	s.mutex.Lock()
+	if s.lastPullTime == nil {
+		s.lastPullTime = make(map[string]time.Time)
+	}
 	if last, ok := s.lastPullTime[senderHash]; ok && time.Since(last) < pullFullVectorMinInterval {
 		s.mutex.Unlock()
 		return
@@ -180,14 +183,21 @@ func parseFullVectorContent(content []byte) (*spec_svs.SvsData, error) {
 	if params.StateVector == nil {
 		return nil, fmt.Errorf("full vector content has no StateVector")
 	}
-	if vt, ok := params.VectorType.Get(); ok && vt != spec_svs.VectorTypeFull {
+	// [Spec] Fetched full-vector Data is inline FULL: VectorType must be FULL
+	// and MemberSetHash must be present and valid.
+	vt, ok := params.VectorType.Get()
+	if !ok {
+		return nil, fmt.Errorf("full vector content missing VectorType")
+	}
+	if vt != spec_svs.VectorTypeFull {
 		return nil, fmt.Errorf("full vector VectorType=%d, want FULL", vt)
 	}
-	if len(params.MemberSetHash) > 0 {
-		computed := ComputeMembershipHash(stateVectorToMap(params.StateVector))
-		if !bytes.Equal(params.MemberSetHash, computed) {
-			return nil, fmt.Errorf("full vector mhash mismatch")
-		}
+	if len(params.MemberSetHash) != 32 {
+		return nil, fmt.Errorf("full vector content missing or invalid mhash (len=%d)", len(params.MemberSetHash))
+	}
+	computed := ComputeMembershipHash(stateVectorToMap(params.StateVector))
+	if !bytes.Equal(params.MemberSetHash, computed) {
+		return nil, fmt.Errorf("full vector mhash mismatch")
 	}
 	return params, nil
 }

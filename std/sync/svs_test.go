@@ -408,6 +408,36 @@ func TestParseFullVectorContentRejectsBadMhash(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestParseFullVectorContentRejectsMissingVectorType(t *testing.T) {
+	tu.SetT(t)
+
+	m := testSvMapAliceBob()
+	inline := &spec_svs.SvsData{
+		MemberSetHash: ComputeMembershipHash(m),
+		VectorType:    optional.None[uint64](),
+		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+	}
+	wire := inline.Encode().Join()
+
+	_, err := parseFullVectorContent(wire)
+	require.Error(t, err)
+}
+
+func TestParseFullVectorContentRejectsMissingMhash(t *testing.T) {
+	tu.SetT(t)
+
+	m := testSvMapAliceBob()
+	inline := &spec_svs.SvsData{
+		MemberSetHash: nil,
+		VectorType:    optional.Some(spec_svs.VectorTypeFull),
+		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
+	}
+	wire := inline.Encode().Join()
+
+	_, err := parseFullVectorContent(wire)
+	require.Error(t, err)
+}
+
 func TestParseFullVectorContent(t *testing.T) {
 	tu.SetT(t)
 

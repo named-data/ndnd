@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	rand "math/rand/v2"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -617,6 +618,14 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 				return
 			}
 
+			// [Spec] Every Sync Data carries a 32-byte mhash. Reject malformed
+			// packets that would misclassify PARTIAL-as-FULL or skip recovery.
+			if len(params.MemberSetHash) != 32 {
+				log.Warn(s, "onSyncInterest SvsData missing or invalid mhash",
+					"len", len(params.MemberSetHash))
+				return
+			}
+
 			// Publish-only ref: advertise that the full vector is retrievable.
 			if params.StateVector == nil && len(params.SvsDataRef) > 0 {
 				trustPrefix := pullRefFromSyncDataWire(dataWire)
@@ -625,6 +634,17 @@ func (s *SvSync) onSyncData(dataWire enc.Wire) {
 			}
 			if params.StateVector == nil {
 				log.Warn(s, "onSyncInterest SvsData has no StateVector")
+				return
+			}
+
+			// [Spec] Inline form must carry VectorType (FULL or PARTIAL).
+			vt, ok := params.VectorType.Get()
+			if !ok {
+				log.Warn(s, "onSyncInterest inline SvsData missing VectorType")
+				return
+			}
+			if vt != spec_svs.VectorTypeFull && vt != spec_svs.VectorTypePartial {
+				log.Warn(s, "onSyncInterest inline SvsData invalid VectorType", "vt", vt)
 				return
 			}
 
@@ -757,7 +777,8 @@ func (s *SvSync) loadPassiveWires() {
 }
 
 // partialTargets returns the repair target names from the suppression-merge
-// state. propagation is currently unused and always nil.
+// state, sorted in NDN canonical order so PARTIAL selection is deterministic.
+// propagation is currently unused and always nil.
 func (s *SvSync) partialTargets() (repair, propagation []enc.Name) {
 	if !s.suppress {
 		return nil, nil
@@ -765,5 +786,6 @@ func (s *SvSync) partialTargets() (repair, propagation []enc.Name) {
 	for name := range s.merge.Iter() {
 		repair = append(repair, name)
 	}
+	slices.SortFunc(repair, func(a, b enc.Name) int { return a.Compare(b) })
 	return repair, nil
 }
