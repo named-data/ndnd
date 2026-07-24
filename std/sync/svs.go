@@ -13,7 +13,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v4"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
 )
@@ -21,7 +21,7 @@ import (
 // syncVectorThreshold is the max embedded SvsData size (bytes) above
 // which the sender switches to PARTIAL (on publication) or publish+pull
 // (on periodic sync and recovery). SVS v4 always emits `mhash` and one of
-// FullStateVector/PartialStateVector on the wire (see std/ndn/svs/v3).
+// FullStateVector/PartialStateVector on the wire (see std/ndn/svs/v4).
 const syncVectorThreshold = 1200
 
 type SvSync struct {

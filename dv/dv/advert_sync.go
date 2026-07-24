@@ -9,7 +9,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v4"
 	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"

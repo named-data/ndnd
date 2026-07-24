@@ -7,7 +7,7 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v4"
 )
 
 // syncSendReason distinguishes why a Sync Interest is being sent.

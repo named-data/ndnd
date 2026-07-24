@@ -10,7 +10,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v4"
 	sig "github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/types/optional"
 	tu "github.com/named-data/ndnd/std/utils/testutils"

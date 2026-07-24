@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"slices"
 
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v4"
 )
 
 // ComputeMembershipHash returns the membership hash over all (Name, BootstrapTime) pairs in state.

@@ -9,7 +9,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v4"
 )
 
 const (
@@ -95,7 +95,7 @@ func shouldUsePublishPull(reason syncSendReason, threshold int, state SvMap[uint
 	}
 	sv := state.Encode(func(seq uint64) uint64 { return seq })
 	full := &spec_svs.SvsData{
-		MemberSetHash:  ComputeMembershipHash(state),
+		MemberSetHash:   ComputeMembershipHash(state),
 		FullStateVector: &spec_svs.FullStateVector{StateVector: sv},
 	}
 	wire := full.Encode().Join()
