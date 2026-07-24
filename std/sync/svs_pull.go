@@ -18,7 +18,13 @@ const (
 	fullVectorKeyword = "sv"
 )
 
-// deriveFullVectorPrefix maps SyncDataName (.../32=svs) to the published full-vector prefix (.../32=sv).
+// deriveFullVectorPrefix is an implementation convenience that maps a
+// SyncDataName (.../32=svs) to the published full-vector prefix
+// (.../32=sv) by replacing the trailing keyword. The spec only requires
+// that a full-vector prefix exists at some sender-controlled location; this
+// helper just provides a default when the caller does not set one.
+// Callers that wire to a different prefix MUST supply FullVectorPrefix
+// explicitly via NewSvSync opts.
 func deriveFullVectorPrefix(syncDataName enc.Name) enc.Name {
 	if len(syncDataName) == 0 {
 		return nil
@@ -31,7 +37,9 @@ func deriveFullVectorPrefix(syncDataName enc.Name) enc.Name {
 }
 
 // resolveFullVectorPrefix returns the explicit FullVectorPrefix if set,
-// otherwise derives it from SyncDataName.
+// otherwise derives it from SyncDataName. Per the spec, the full-vector
+// prefix is whatever location the producer publishes at; this helper picks
+// the default location documented above.
 func resolveFullVectorPrefix(explicit, syncDataName enc.Name) enc.Name {
 	if len(explicit) > 0 {
 		return explicit.Clone()
@@ -60,6 +68,13 @@ func pullRefFromSyncDataWire(dataWire enc.Wire) enc.Name {
 	return deriveFullVectorPrefix(name)
 }
 
+// buildPublishSvsData constructs the publish-only form of SvsData carried
+// in a Sync message (per spec §3.1.2): the membership hash for the current
+// state plus a reference (SvsDataRef) to the sender's retrievable full
+// vector. The ref is the published full-vector Data name (e.g.
+// /<group>/<node>/<boot>/32=sv/<version>); receivers fetch it via
+// pullFullVector, validate, and merge. The ref must sit below the
+// sender's trust prefix (see isTrustedSvsDataRef).
 func buildPublishSvsData(state SvMap[uint64], ref enc.Name) *spec_svs.SvsData {
 	return &spec_svs.SvsData{
 		MemberSetHash: ComputeMembershipHash(state),
@@ -69,13 +84,15 @@ func buildPublishSvsData(state SvMap[uint64], ref enc.Name) *spec_svs.SvsData {
 
 // shouldUsePublishPull reports whether the sender should publish at .../32=sv
 // and emit publish-only Sync Data (mhash + SvsDataRef, no embedded vector)
-// instead of an embedded FULL or PARTIAL StateVector.
-func shouldUsePublishPull(reason syncSendReason, threshold int, state SvMap[uint64]) bool {
-	if reason == syncSendRecovery {
-		return true
-	}
-	if reason == syncSendPublication {
-		return false
+// instead of an embedded FULL or PARTIAL StateVector. The full SvsData is
+// built once (so the caller can reuse it if not publishing) and its size is
+// returned alongside the decision so the caller does not have to re-encode.
+func shouldUsePublishPull(reason syncSendReason, threshold int, state SvMap[uint64]) (usePublish bool, data *spec_svs.SvsData, size int) {
+	switch reason {
+	case syncSendRecovery:
+		return true, nil, 0
+	case syncSendPublication:
+		return false, nil, 0
 	}
 	sv := state.Encode(func(seq uint64) uint64 { return seq })
 	full := &spec_svs.SvsData{
@@ -83,7 +100,11 @@ func shouldUsePublishPull(reason syncSendReason, threshold int, state SvMap[uint
 		VectorType:    optional.Some(spec_svs.VectorTypeFull),
 		StateVector:   sv,
 	}
-	return len(full.Encode().Join()) > threshold
+	wire := full.Encode().Join()
+	if len(wire) > threshold {
+		return true, nil, len(wire)
+	}
+	return false, full, len(wire)
 }
 
 // publishFullVectorData produces retrievable inline FULL SvsData at .../32=sv/<version>.

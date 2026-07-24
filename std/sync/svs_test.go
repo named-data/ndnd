@@ -373,11 +373,16 @@ func TestShouldUsePublishPull(t *testing.T) {
 		StateVector:   sv,
 	}).Encode().Join())
 
-	require.False(t, shouldUsePublishPull(syncSendPublication, fullSize-1, m))
-	require.False(t, shouldUsePublishPull(syncSendPeriodic, fullSize+1, m))
-	require.True(t, shouldUsePublishPull(syncSendPeriodic, fullSize-1, m))
-	require.True(t, shouldUsePublishPull(syncSendOther, fullSize-1, m))
-	require.True(t, shouldUsePublishPull(syncSendRecovery, fullSize-1, m))
+	usePublish, _, _ := shouldUsePublishPull(syncSendPublication, fullSize-1, m)
+	require.False(t, usePublish)
+	usePublish, _, _ = shouldUsePublishPull(syncSendPeriodic, fullSize+1, m)
+	require.False(t, usePublish)
+	usePublish, _, _ = shouldUsePublishPull(syncSendPeriodic, fullSize-1, m)
+	require.True(t, usePublish)
+	usePublish, _, _ = shouldUsePublishPull(syncSendOther, fullSize-1, m)
+	require.True(t, usePublish)
+	usePublish, _, _ = shouldUsePublishPull(syncSendRecovery, fullSize-1, m)
+	require.True(t, usePublish)
 }
 
 func TestIsTrustedSvsDataRef(t *testing.T) {
@@ -500,7 +505,8 @@ func TestEncodeSyncDataPublishMode(t *testing.T) {
 		VectorType:    optional.Some(spec_svs.VectorTypeFull),
 		StateVector:   m.Encode(func(s uint64) uint64 { return s }),
 	}).Encode().Join())
-	require.True(t, shouldUsePublishPull(syncSendPeriodic, fullSize-1, m))
+	usePublish, _, _ := shouldUsePublishPull(syncSendPeriodic, fullSize-1, m)
+	require.True(t, usePublish)
 
 	publish := buildPublishSvsData(m, tu.NoErr(enc.NameFromStr("/ndn/svs/alice/1/32=sv/2")))
 	require.Nil(t, publish.StateVector)

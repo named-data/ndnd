@@ -252,8 +252,9 @@ Used on new publication when
   canonical name order.
 
 If the sender-only baseline already exceeds `SyncVectorThreshold`, the
-sender falls back to publish + pull rather than emit a PARTIAL vector that
-omits the sender's own entry.
+sender falls back to publish + pull. The implementation MAY emit an empty
+PARTIAL in this case as a signal to the caller; the caller MUST treat an
+empty PARTIAL as the publish + pull trigger instead of forwarding it.
 
 An implementation MAY use the following selection priority:
 

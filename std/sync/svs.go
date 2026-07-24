@@ -518,14 +518,20 @@ func (s *SvSync) encodeSyncData(reason syncSendReason, sender enc.Name) enc.Wire
 	s.mutex.Unlock()
 
 	var svsData *spec_svs.SvsData
-	if shouldUsePublishPull(reason, syncVectorThreshold, stateSnap) {
+	usePublish, precomputedFull, _ := shouldUsePublishPull(reason, syncVectorThreshold, stateSnap)
+	switch {
+	case usePublish:
 		ref, err := s.publishFullVectorData(stateSnap)
 		if err != nil {
 			log.Error(s, "publishFullVectorData failed", "err", err)
 			return nil
 		}
 		svsData = buildPublishSvsData(stateSnap, ref)
-	} else {
+	case precomputedFull != nil:
+		// [Spec] Inline FULL fits the threshold; reuse the SvsData we
+		// already built during the size check instead of re-encoding.
+		svsData = precomputedFull
+	default:
 		svsData = buildSvsDataForSend(svsSendInput{
 			State:       stateSnap,
 			Reason:      reason,

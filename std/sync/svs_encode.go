@@ -43,7 +43,8 @@ type svsSendInput struct {
 
 // buildSvsDataForSend picks embedded FULL or PARTIAL SvsData for an outgoing
 // Sync message. Returns nil when publication-triggered PARTIAL encoding cannot
-// fit even the sender-only baseline: the caller MUST fall back to publish+pull
+// fit even the sender-only baseline (signaled by an empty StateVector from
+// encodePartialStateVector): the caller MUST fall back to publish+pull
 // (see shouldUsePublishPull). Other reasons always return a non-nil result.
 func buildSvsDataForSend(in svsSendInput) *spec_svs.SvsData {
 	fullSv := in.State.Encode(func(seq uint64) uint64 { return seq })
@@ -64,7 +65,7 @@ func buildSvsDataForSend(in svsSendInput) *spec_svs.SvsData {
 		Propagation: in.Propagation,
 		Mtime:       in.Mtime,
 	})
-	if partialSv == nil {
+	if len(partialSv.Entries) == 0 {
 		// Baseline exceeded Threshold; caller must use publish+pull.
 		return nil
 	}
@@ -78,9 +79,10 @@ func buildSvsDataForSend(in svsSendInput) *spec_svs.SvsData {
 // encodePartialStateVector builds a PARTIAL StateVector for new publication.
 // Entry [0] is the sender; entries [1..n] are in NDN canonical order.
 //
-// Returns nil if the sender-only baseline itself exceeds Threshold:
-// callers MUST fall back to publish+pull in that case, because including
-// the sender entry is required by §4.2 of the v4 spec.
+// Returns an empty StateVector (no entries) if the sender-only baseline
+// itself exceeds Threshold: the caller MUST fall back to publish+pull in
+// that case and the empty vector is the explicit signal that no PARTIAL
+// body could be fit under the size budget.
 func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec_svs.StateVector {
 	seq := func(v uint64) uint64 { return v }
 	senderHash := opts.Sender.TlvStr()
@@ -98,16 +100,17 @@ func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec
 		StateVector:   baseline,
 	}
 	if len(baselineData.Encode().Join()) > opts.Threshold {
-		// Caller falls back to publish+pull because we cannot satisfy
-		// the §4.2 "entry [0] is the sender" rule at this size budget.
-		return nil
+		// Baseline too large to fit even the sender entry: return an
+		// empty PARTIAL so the caller can detect the overflow and fall
+		// back to publish+pull.
+		return &spec_svs.StateVector{}
 	}
 
-	candidates := partialCandidateNames(state, senderHash, opts)
+	peers := priorityOrderedPeers(state, senderHash, opts)
 	included := map[string]bool{senderHash: true}
 	entries := []*spec_svs.StateVectorEntry{senderEntry}
 
-	for _, name := range candidates {
+	for _, name := range peers {
 		hash := name.TlvStr()
 		if included[hash] {
 			continue
@@ -133,12 +136,17 @@ func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec
 		included[hash] = true
 	}
 
-	sortPartialTail(entries)
+	// entries is already sorted tail-wise: the loop's sortPartialTail(trial)
+	// runs on every accepted iteration, so the trailing sort is redundant.
 	return &spec_svs.StateVector{Entries: entries}
 }
 
-// partialCandidateNames returns the producer names considered for inclusion
-// in a PARTIAL StateVector, in priority order:
+// priorityOrderedPeers returns the producer names that consumers should
+// consider for inclusion in a new-publication PARTIAL StateVector, ordered
+// by inclusion priority. The caller iterates the returned slice and
+// greedily adds entries until the size budget is reached.
+//
+// The priority order is:
 //
 //  1. Repair targets from the suppression-merge state (newest entries first).
 //  2. Propagation targets (the most recently updated producers).
@@ -148,7 +156,7 @@ func encodePartialStateVector(state SvMap[uint64], opts PartialEncodeOpts) *spec
 //     (b) canonical NDN name ascending.
 //
 // The sender is excluded — it is always included at entries[0].
-func partialCandidateNames(state SvMap[uint64], senderHash string, opts PartialEncodeOpts) []enc.Name {
+func priorityOrderedPeers(state SvMap[uint64], senderHash string, opts PartialEncodeOpts) []enc.Name {
 	seen := map[string]bool{senderHash: true}
 	out := make([]enc.Name, 0, len(state))
 
@@ -222,7 +230,10 @@ func recencyScore(mtime map[string]time.Time, name enc.Name) int64 {
 	return t.UnixNano()
 }
 
-// sortPartialTail keeps entry [0] fixed and sorts [1..n] in canonical name order.
+// sortPartialTail keeps the first entry fixed (the sender) and sorts the
+// remaining entries in canonical NDN name order. PARTIAL vectors place the
+// sender at entries[0] and the rest must be canonically ordered for byte-
+// deterministic encoding.
 func sortPartialTail(entries []*spec_svs.StateVectorEntry) {
 	if len(entries) <= 1 {
 		return

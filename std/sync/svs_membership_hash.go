@@ -11,17 +11,17 @@ import (
 // Each tuple is encoded as a TLV structure (Tuple-T 0xcc with Name and BootstrapTime
 // children) using the ndnd standard TLV codec.
 func ComputeMembershipHash(state SvMap[uint64]) []byte {
-	tuples := make([]*spec_svs.MembershipTuple, 0)
+	membershipTuples := make([]*spec_svs.MembershipTuple, 0)
 	for name, vals := range state.Iter() {
 		for _, val := range vals {
-			tuples = append(tuples, &spec_svs.MembershipTuple{
+			membershipTuples = append(membershipTuples, &spec_svs.MembershipTuple{
 				Name:          name,
 				BootstrapTime: val.Boot,
 			})
 		}
 	}
 
-	slices.SortFunc(tuples, func(a, b *spec_svs.MembershipTuple) int {
+	slices.SortFunc(membershipTuples, func(a, b *spec_svs.MembershipTuple) int {
 		if c := a.Name.Compare(b.Name); c != 0 {
 			return c
 		}
@@ -35,7 +35,7 @@ func ComputeMembershipHash(state SvMap[uint64]) []byte {
 	})
 
 	h := sha256.New()
-	for _, t := range tuples {
+	for _, t := range membershipTuples {
 		h.Write(t.Encode().Join())
 	}
 	return h.Sum(nil)
