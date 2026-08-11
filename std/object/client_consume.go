@@ -119,7 +119,7 @@ func (c *Client) fetchMetadata(
 			MustBeFresh: true,
 			Lifetime:    optional.Some(time.Millisecond * 1000),
 		},
-		Retries:  3, // TODO: configurable
+		Retries:  3,
 		TryStore: utils.If(tryStore, c.store, nil),
 		Callback: func(args ndn.ExpressCallbackArgs) {
 			if args.Result == ndn.InterestResultError {
@@ -176,7 +176,7 @@ func (c *Client) fetchDataByPrefix(
 			MustBeFresh: true,
 			Lifetime:    optional.Some(time.Millisecond * 1000),
 		},
-		Retries:  3, // TODO: configurable
+		Retries:  3,
 		TryStore: utils.If(tryStore, c.store, nil),
 		Callback: func(args ndn.ExpressCallbackArgs) {
 			if args.Result == ndn.InterestResultError {

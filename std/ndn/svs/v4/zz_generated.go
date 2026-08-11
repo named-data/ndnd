@@ -8,17 +8,17 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 )
 
-type SvsDataEncoder struct {
+type FullStateVectorEncoder struct {
 	Length uint
 
 	StateVector_encoder StateVectorEncoder
 }
 
-type SvsDataParsingContext struct {
+type FullStateVectorParsingContext struct {
 	StateVector_context StateVectorParsingContext
 }
 
-func (encoder *SvsDataEncoder) Init(value *SvsData) {
+func (encoder *FullStateVectorEncoder) Init(value *FullStateVector) {
 	if value.StateVector != nil {
 		encoder.StateVector_encoder.Init(value.StateVector)
 	}
@@ -33,11 +33,11 @@ func (encoder *SvsDataEncoder) Init(value *SvsData) {
 
 }
 
-func (context *SvsDataParsingContext) Init() {
+func (context *FullStateVectorParsingContext) Init() {
 	context.StateVector_context.Init()
 }
 
-func (encoder *SvsDataEncoder) EncodeInto(value *SvsData, buf []byte) {
+func (encoder *FullStateVectorEncoder) EncodeInto(value *FullStateVector, buf []byte) {
 
 	pos := uint(0)
 
@@ -52,7 +52,7 @@ func (encoder *SvsDataEncoder) EncodeInto(value *SvsData, buf []byte) {
 	}
 }
 
-func (encoder *SvsDataEncoder) Encode(value *SvsData) enc.Wire {
+func (encoder *FullStateVectorEncoder) Encode(value *FullStateVector) enc.Wire {
 
 	wire := make(enc.Wire, 1)
 	wire[0] = make([]byte, encoder.Length)
@@ -62,14 +62,14 @@ func (encoder *SvsDataEncoder) Encode(value *SvsData) enc.Wire {
 	return wire
 }
 
-func (context *SvsDataParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*SvsData, error) {
+func (context *FullStateVectorParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*FullStateVector, error) {
 
 	var handled_StateVector bool = false
 
 	progress := -1
 	_ = progress
 
-	value := &SvsData{}
+	value := &FullStateVector{}
 	var err error
 	var startPos int
 	for {
@@ -117,6 +117,361 @@ func (context *SvsDataParsingContext) Parse(reader enc.WireView, ignoreCritical 
 
 	if !handled_StateVector && err == nil {
 		value.StateVector = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *FullStateVector) Encode() enc.Wire {
+	encoder := FullStateVectorEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *FullStateVector) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseFullStateVector(reader enc.WireView, ignoreCritical bool) (*FullStateVector, error) {
+	context := FullStateVectorParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PartialStateVectorEncoder struct {
+	Length uint
+
+	StateVector_encoder StateVectorEncoder
+}
+
+type PartialStateVectorParsingContext struct {
+	StateVector_context StateVectorParsingContext
+}
+
+func (encoder *PartialStateVectorEncoder) Init(value *PartialStateVector) {
+	if value.StateVector != nil {
+		encoder.StateVector_encoder.Init(value.StateVector)
+	}
+
+	l := uint(0)
+	if value.StateVector != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.StateVector_encoder.Length).EncodingLength())
+		l += encoder.StateVector_encoder.Length
+	}
+	encoder.Length = l
+
+}
+
+func (context *PartialStateVectorParsingContext) Init() {
+	context.StateVector_context.Init()
+}
+
+func (encoder *PartialStateVectorEncoder) EncodeInto(value *PartialStateVector, buf []byte) {
+
+	pos := uint(0)
+
+	if value.StateVector != nil {
+		buf[pos] = byte(201)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.StateVector_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.StateVector_encoder.Length > 0 {
+			encoder.StateVector_encoder.EncodeInto(value.StateVector, buf[pos:])
+			pos += encoder.StateVector_encoder.Length
+		}
+	}
+}
+
+func (encoder *PartialStateVectorEncoder) Encode(value *PartialStateVector) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PartialStateVectorParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PartialStateVector, error) {
+
+	var handled_StateVector bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PartialStateVector{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 201:
+				if true {
+					handled = true
+					handled_StateVector = true
+					value.StateVector, err = context.StateVector_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_StateVector && err == nil {
+		value.StateVector = nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PartialStateVector) Encode() enc.Wire {
+	encoder := PartialStateVectorEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PartialStateVector) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePartialStateVector(reader enc.WireView, ignoreCritical bool) (*PartialStateVector, error) {
+	context := PartialStateVectorParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type SvsDataEncoder struct {
+	Length uint
+
+	FullStateVector_encoder    FullStateVectorEncoder
+	PartialStateVector_encoder PartialStateVectorEncoder
+	SvsDataRef_length          uint
+}
+
+type SvsDataParsingContext struct {
+	FullStateVector_context    FullStateVectorParsingContext
+	PartialStateVector_context PartialStateVectorParsingContext
+}
+
+func (encoder *SvsDataEncoder) Init(value *SvsData) {
+
+	if value.FullStateVector != nil {
+		encoder.FullStateVector_encoder.Init(value.FullStateVector)
+	}
+	if value.PartialStateVector != nil {
+		encoder.PartialStateVector_encoder.Init(value.PartialStateVector)
+	}
+	if value.SvsDataRef != nil {
+		encoder.SvsDataRef_length = 0
+		for _, c := range value.SvsDataRef {
+			encoder.SvsDataRef_length += uint(c.EncodingLength())
+		}
+	}
+
+	l := uint(0)
+	if value.MemberSetHash != nil {
+		l += 1
+		l += uint(enc.TLNum(len(value.MemberSetHash)).EncodingLength())
+		l += uint(len(value.MemberSetHash))
+	}
+	if value.FullStateVector != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.FullStateVector_encoder.Length).EncodingLength())
+		l += encoder.FullStateVector_encoder.Length
+	}
+	if value.PartialStateVector != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.PartialStateVector_encoder.Length).EncodingLength())
+		l += encoder.PartialStateVector_encoder.Length
+	}
+	if value.SvsDataRef != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.SvsDataRef_length).EncodingLength())
+		l += encoder.SvsDataRef_length
+	}
+	encoder.Length = l
+
+}
+
+func (context *SvsDataParsingContext) Init() {
+
+	context.FullStateVector_context.Init()
+	context.PartialStateVector_context.Init()
+
+}
+
+func (encoder *SvsDataEncoder) EncodeInto(value *SvsData, buf []byte) {
+
+	pos := uint(0)
+
+	if value.MemberSetHash != nil {
+		buf[pos] = byte(203)
+		pos += 1
+		pos += uint(enc.TLNum(len(value.MemberSetHash)).EncodeInto(buf[pos:]))
+		copy(buf[pos:], value.MemberSetHash)
+		pos += uint(len(value.MemberSetHash))
+	}
+	if value.FullStateVector != nil {
+		buf[pos] = byte(205)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.FullStateVector_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.FullStateVector_encoder.Length > 0 {
+			encoder.FullStateVector_encoder.EncodeInto(value.FullStateVector, buf[pos:])
+			pos += encoder.FullStateVector_encoder.Length
+		}
+	}
+	if value.PartialStateVector != nil {
+		buf[pos] = byte(206)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.PartialStateVector_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.PartialStateVector_encoder.Length > 0 {
+			encoder.PartialStateVector_encoder.EncodeInto(value.PartialStateVector, buf[pos:])
+			pos += encoder.PartialStateVector_encoder.Length
+		}
+	}
+	if value.SvsDataRef != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.SvsDataRef_length).EncodeInto(buf[pos:]))
+		for _, c := range value.SvsDataRef {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+}
+
+func (encoder *SvsDataEncoder) Encode(value *SvsData) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *SvsDataParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*SvsData, error) {
+
+	var handled_MemberSetHash bool = false
+	var handled_FullStateVector bool = false
+	var handled_PartialStateVector bool = false
+	var handled_SvsDataRef bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &SvsData{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 203:
+				if true {
+					handled = true
+					handled_MemberSetHash = true
+					value.MemberSetHash = make([]byte, l)
+					_, err = reader.ReadFull(value.MemberSetHash)
+				}
+			case 205:
+				if true {
+					handled = true
+					handled_FullStateVector = true
+					value.FullStateVector, err = context.FullStateVector_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 206:
+				if true {
+					handled = true
+					handled_PartialStateVector = true
+					value.PartialStateVector, err = context.PartialStateVector_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 7:
+				if true {
+					handled = true
+					handled_SvsDataRef = true
+					delegate := reader.Delegate(int(l))
+					value.SvsDataRef, err = delegate.ReadName()
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_MemberSetHash && err == nil {
+		value.MemberSetHash = nil
+	}
+	if !handled_FullStateVector && err == nil {
+		value.FullStateVector = nil
+	}
+	if !handled_PartialStateVector && err == nil {
+		value.PartialStateVector = nil
+	}
+	if !handled_SvsDataRef && err == nil {
+		value.SvsDataRef = nil
 	}
 
 	if err != nil {
@@ -738,6 +1093,172 @@ func (value *SeqNoEntry) Bytes() []byte {
 
 func ParseSeqNoEntry(reader enc.WireView, ignoreCritical bool) (*SeqNoEntry, error) {
 	context := SeqNoEntryParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type MembershipTupleEncoder struct {
+	Length uint
+
+	Name_length uint
+}
+
+type MembershipTupleParsingContext struct {
+}
+
+func (encoder *MembershipTupleEncoder) Init(value *MembershipTuple) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	l += 1
+	l += uint(1 + enc.Nat(value.BootstrapTime).EncodingLength())
+	encoder.Length = l
+
+}
+
+func (context *MembershipTupleParsingContext) Init() {
+
+}
+
+func (encoder *MembershipTupleEncoder) EncodeInto(value *MembershipTuple, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	buf[pos] = byte(212)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.BootstrapTime).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+}
+
+func (encoder *MembershipTupleEncoder) Encode(value *MembershipTuple) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *MembershipTupleParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*MembershipTuple, error) {
+
+	var handled_Name bool = false
+	var handled_BootstrapTime bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &MembershipTuple{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			case 212:
+				if true {
+					handled = true
+					handled_BootstrapTime = true
+					value.BootstrapTime = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.BootstrapTime = uint64(value.BootstrapTime<<8) | uint64(x)
+						}
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+	if !handled_BootstrapTime && err == nil {
+		err = enc.ErrSkipRequired{Name: "BootstrapTime", TypeNum: 212}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *MembershipTuple) Encode() enc.Wire {
+	encoder := MembershipTupleEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *MembershipTuple) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseMembershipTuple(reader enc.WireView, ignoreCritical bool) (*MembershipTuple, error) {
+	context := MembershipTupleParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
