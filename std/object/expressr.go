@@ -60,24 +60,36 @@ func ExpressR(engine ndn.Engine, args ndn.ExpressRArgs) {
 	// Send the interest
 	// TODO: reexpress faster than lifetime
 	err = engine.Express(interest, func(res ndn.ExpressCallbackArgs) {
-		if res.Result == ndn.InterestResultTimeout {
+		// Retryable transient results: timeout and the Nacks that signal
+		// "try again later" (no FIB entry yet, or downstream congestion).
+		// Routing convergence in a large network can outlast a single
+		// Interest lifetime, especially when DV/NLSR startup produces a
+		// burst of prefix resets; without retry the first Interest after a
+		// scenario transition races ahead of route propagation and the
+		// caller observes an immediate failure.
+		retryable := false
+		switch res.Result {
+		case ndn.InterestResultTimeout:
 			log.Debug(nil, "ExpressR Interest timeout", "name", args.Name)
-
-			// Check if retries are exhausted
-			if args.Retries == 0 {
-				args.Callback(res)
-				return
+			retryable = true
+		case ndn.InterestResultNack:
+			switch res.NackReason {
+			case spec.NackReasonNoRoute, spec.NackReasonCongestion:
+				log.Debug(nil, "ExpressR retryable Nack", "name", args.Name, "reason", res.NackReason)
+				retryable = true
 			}
-
-			// Retry on timeout
-			args.Retries--
-			ExpressR(engine, args)
-			return
-		} else {
-			// All other results / errors are final
+		}
+		if !retryable {
 			args.Callback(res)
 			return
 		}
+
+		if args.Retries == 0 {
+			args.Callback(res)
+			return
+		}
+		args.Retries--
+		ExpressR(engine, args)
 	})
 	if err != nil {
 		finalizeError(err)

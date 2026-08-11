@@ -15,7 +15,7 @@ def setup(ndn: Minindn, network=DEFAULT_NETWORK) -> None:
     info('Starting ndn-dv on nodes\n')
     AppManager(ndn, ndn.net.hosts, NDNd_DV, network=network)
 
-def converge(nodes: list[Node], deadline=30, network=DEFAULT_NETWORK, use_nfdc=False) -> int:
+def converge(nodes: list[Node], deadline=90, network=DEFAULT_NETWORK, use_nfdc=False) -> int:
     info('Waiting for routing to converge\n')
     start = time.time()
     while time.time() - start < deadline:

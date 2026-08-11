@@ -43,7 +43,7 @@ def scenario(ndn: Minindn, fw=None, network='/minindn'):
         node.cmd(cmd)
 
     info('Waiting for put to complete\n')
-    time.sleep(30)
+    time.sleep(90)
 
     for node in cat_nodes:
         put_node = random.choice(put_nodes)

@@ -9,7 +9,7 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
-	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v3"
+	spec_svs "github.com/named-data/ndnd/std/ndn/svs/v4"
 	"github.com/named-data/ndnd/std/object/storage"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
@@ -50,17 +50,18 @@ func (a *advertModule) sendSyncInterest() (err error) {
 
 // (AI GENERATED DESCRIPTION): Sends a signed state‑vector Data packet as the payload of a sync Interest to the given `syncName`, expressing the Interest locally without expecting a reply.
 func (a *advertModule) sendSyncInterestImpl(syncName enc.Name) (err error) {
-	// State Vector for our group
-	sv := &spec_svs.SvsData{
-		StateVector: &spec_svs.StateVector{
-			Entries: []*spec_svs.StateVectorEntry{{
-				Name: a.dv.config.RouterName(),
-				SeqNoEntries: []*spec_svs.SeqNoEntry{{
-					BootstrapTime: a.bootTime,
-					SeqNo:         a.seq,
-				}},
+	// DV's advertisement Sync Data carries a single-entry StateVector
+	// directly. SVS v4's wire (FullStateVector/PartialStateVector/SvsDataRef
+	// tagged union) is a different protocol layer; DV keeps its own simpler
+	// shape to remain independent of SVS v4 changes.
+	sv := &spec_svs.StateVector{
+		Entries: []*spec_svs.StateVectorEntry{{
+			Name: a.dv.config.RouterName(),
+			SeqNoEntries: []*spec_svs.SeqNoEntry{{
+				BootstrapTime: a.bootTime,
+				SeqNo:         a.seq,
 			}},
-		},
+		}},
 	}
 
 	// Sign the Sync Data
@@ -136,14 +137,14 @@ func (a *advertModule) OnSyncInterest(args ndn.InterestHandlerArgs, active bool)
 
 			// Decode state vector
 			svWire := data.Content()
-			params, err := spec_svs.ParseSvsData(enc.NewWireView(svWire), false)
-			if err != nil || params.StateVector == nil {
+			params, err := spec_svs.ParseStateVector(enc.NewWireView(svWire), false)
+			if err != nil {
 				log.Warn(a, "Failed to parse StateVec", "err", err)
 				return
 			}
 
 			// Process the state vector
-			go a.onStateVector(params.StateVector, args.IncomingFaceId.Unwrap(), active)
+			go a.onStateVector(params, args.IncomingFaceId.Unwrap(), active)
 		},
 	})
 }

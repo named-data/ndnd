@@ -5,7 +5,7 @@ import (
 	"io"
 
 	enc "github.com/named-data/ndnd/std/encoding"
-	"github.com/named-data/ndnd/std/ndn/svs/v3"
+	"github.com/named-data/ndnd/std/ndn/svs/v4"
 )
 
 type InstanceStateEncoder struct {
