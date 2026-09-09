@@ -89,10 +89,10 @@ var tcTestKeyChain ndn.KeyChain = nil
 var tcTestFetchCount int = 0
 
 type ValidateSyncOptions struct {
-	name           string
-	signer         ndn.Signer
-	crossSchema    enc.Wire
-	ignoreValidity bool
+	name          string
+	signer        ndn.Signer
+	crossSchema   enc.Wire
+	onCertExpired ndn.CertExpiredCallback
 }
 
 // Helper to validate a packet synchronously
@@ -114,13 +114,13 @@ func validateSync(opts ValidateSyncOptions) bool {
 			ch <- valid
 			close(ch)
 		},
-		IgnoreValidity: optional.Some(opts.ignoreValidity),
+		OnCertExpired: opts.onCertExpired,
 	})
 	return <-ch
 }
 
 // Helper to validate certificates
-func validateCerts(certData ndn.Data, certDataSigCov enc.Wire, ignoreValidity bool) bool {
+func validateCerts(certData ndn.Data, certDataSigCov enc.Wire, onCertExpired ndn.CertExpiredCallback) bool {
 	ch := make(chan bool)
 	go tcTestTrustConfig.Validate(sec.TrustConfigValidateArgs{
 		Data:       certData,
@@ -131,7 +131,7 @@ func validateCerts(certData ndn.Data, certDataSigCov enc.Wire, ignoreValidity bo
 			ch <- valid
 			close(ch)
 		},
-		IgnoreValidity: optional.Some(ignoreValidity),
+		OnCertExpired: onCertExpired,
 	})
 	return <-ch
 }
@@ -342,10 +342,16 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 
 	// Signing with correct keys
 	tcTestFetchCount = 0
+	expiryCallbackCalled := false
 	require.True(t, validateSync(ValidateSyncOptions{
 		name:   "/test/alice/data1",
 		signer: aliceSigner,
+		onCertExpired: func(_ ndn.CertExpiredCallbackArgs, complete func(error)) {
+			expiryCallbackCalled = true
+			complete(fmt.Errorf("unexpected expiry callback"))
+		},
 	}))
+	require.False(t, expiryCallbackCalled)
 	require.Equal(t, 0, tcTestFetchCount) // have all certificates
 	require.True(t, validateSync(ValidateSyncOptions{
 		name:   "/test/bob/data1",
@@ -790,18 +796,34 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 	tcTestT.Log(eveSigner.KeyLocator().String())
 	eveCertWire, eveCertData, eveSigCov := signCert(rootSigner, tu.NoErr(signer.MarshalSecret(eveSigner)), expiredOpts)
 	network[eveCertData.Name().String()] = eveCertWire
-	require.False(t, validateCerts(eveCertData, eveSigCov, false))
-	require.True(t, validateCerts(eveCertData, eveSigCov, true))
+	require.False(t, validateCerts(eveCertData, eveSigCov, nil))
+	require.True(t, validateCerts(eveCertData, eveSigCov, sec.IgnoreExpiredCert))
 	require.False(t, validateSync(ValidateSyncOptions{
-		name:           "/test/eve/data1",
-		signer:         eveSigner,
-		ignoreValidity: false,
+		name:   "/test/eve/data1",
+		signer: eveSigner,
 	}))
 	require.True(t, validateSync(ValidateSyncOptions{
-		name:           "/test/eve/data2",
-		signer:         eveSigner,
-		ignoreValidity: true,
+		name:          "/test/eve/data2",
+		signer:        eveSigner,
+		onCertExpired: sec.IgnoreExpiredCert,
 	}))
+	var callbackData, callbackCert ndn.Data
+	callbackCount := 0
+	require.True(t, validateSync(ValidateSyncOptions{
+		name:   "/test/eve/data3",
+		signer: eveSigner,
+		onCertExpired: func(args ndn.CertExpiredCallbackArgs, complete func(error)) {
+			callbackCount++
+			callbackData = args.Data
+			callbackCert = args.Cert
+			go complete(nil)
+		},
+	}))
+	require.Equal(t, 1, callbackCount)
+	require.NotNil(t, callbackData)
+	require.NotNil(t, callbackCert)
+	require.Equal(t, "/test/eve/data3", callbackData.Name().String())
+	require.True(t, eveCertData.Name().Equal(callbackCert.Name()))
 }
 
 // This is intended as the ultimate inter-domain trust config test.
@@ -1267,7 +1289,7 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 				}{v: valid, err: err}
 			},
 
-			UseSignatureTime: optional.Some(true),
+			OnCertExpired: sec.ValidateAtSignatureTime,
 		})
 		res := <-done
 		return res.v, res.err
@@ -1341,7 +1363,7 @@ func TestSignatureTimeValidationFlows(t *testing.T) {
 			dataSigCov:    dataSigCovInvalidSigTimeCrossSchema,
 			expectAnchor:  true,
 			expectData:    false,
-			expectErrPart: "cross schema signature time invalid",
+			expectErrPart: "data not signed during validity period",
 		},
 
 		// Validate flows after the expired root is replaced

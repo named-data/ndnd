@@ -120,14 +120,18 @@ type TrustConfigValidateArgs struct {
 	Callback func(bool, error)
 	// OverrideName is an override for the data name (advanced usage).
 	OverrideName enc.Name
-	// ignore ValidityPeriod in the validation chain
-	IgnoreValidity optional.Optional[bool]
+	// OnCertExpired decides whether an expired certificate may be used.
+	// A nil callback rejects expired certificates.
+	OnCertExpired ndn.CertExpiredCallback
 	// origDataName is the original data name being verified.
 	origDataName enc.Name
+	// dataExpiryHandled indicates the current certificate was expired and accepted.
+	dataExpiryHandled bool
 
 	// cert is the certificate to use for validation.
-	// The caller is responsible for checking the expiry of the cert.
 	cert ndn.Data
+	// certExpiryHandled indicates cert was expired and accepted for the current data.
+	certExpiryHandled bool
 	// certSigCov is the signature covered certificate wire.
 	certSigCov enc.Wire
 	// certRaw is the raw certificate bytes (if fetched).
@@ -140,9 +144,25 @@ type TrustConfigValidateArgs struct {
 
 	// depth is the maximum depth of the validation chain.
 	depth int
+}
 
-	// Use alternate verification flow.
-	UseSignatureTime optional.Optional[bool]
+// runCertExpiryPolicy invokes the policy for a certificate already known to
+// be expired. An asynchronous policy may race its result against a timeout,
+// so only the first completion is allowed to resume validation.
+func runCertExpiryPolicy(
+	policy ndn.CertExpiredCallback,
+	expiryArgs ndn.CertExpiredCallbackArgs,
+	resumeValidation func(error),
+) {
+	if policy == nil {
+		policy = RejectExpiredCert // the default
+	}
+	var resumeOnce sync.Once
+	policy(expiryArgs, func(err error) {
+		resumeOnce.Do(func() {
+			resumeValidation(err)
+		})
+	})
 }
 
 // Validate validates a Data packet using a fetch API.
@@ -179,12 +199,21 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		return
 	}
 
-	// Bail if the data is a cert and is not fresh
-	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
-		if !args.UseSignatureTime.GetOr(false) && CertIsExpired(args.Data) && !args.IgnoreValidity.GetOr(false) {
-			args.Callback(false, fmt.Errorf("certificate is expired: %s", args.Data.Name()))
-			return
-		}
+	// Check validity when a certificate is itself the object being validated.
+	if t, ok := args.Data.ContentType().Get(); !args.dataExpiryHandled && ok && t == ndn.ContentTypeKey && CertIsExpired(args.Data) {
+		runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+			Data: nil,
+			Cert: args.Data,
+		}, func(err error) {
+			if err != nil {
+				args.Callback(false, err)
+				return
+			}
+			args.dataExpiryHandled = true
+			args.depth++ // Resume the current validation depth.
+			tc.Validate(args)
+		})
+		return
 	}
 
 	// Get the key locator
@@ -208,11 +237,20 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.cert) {
-			if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) {
-				args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
-				return
-			}
+		if !args.certExpiryHandled && CertIsExpired(args.cert) {
+			runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+				Data: args.Data,
+				Cert: args.cert,
+			}, func(err error) {
+				if err != nil {
+					args.Callback(false, err)
+					return
+				}
+				args.certExpiryHandled = true
+				args.depth++ // Resume the current validation depth.
+				tc.Validate(args)
+			})
+			return
 		}
 
 		// Check schema if the key is allowed
@@ -235,12 +273,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 						args.Callback(valid, fmt.Errorf("cross schema: %w", err))
 					}
 				},
-				OverrideName:   args.OverrideName,
-				IgnoreValidity: args.IgnoreValidity,
-				cert:           args.cert,
-				depth:          args.depth,
-
-				UseSignatureTime: args.UseSignatureTime,
+				OverrideName:  args.OverrideName,
+				OnCertExpired: args.OnCertExpired,
+				cert:          args.cert,
+				depth:         args.depth,
 			})
 			return
 		} else {
@@ -301,11 +337,13 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			Data:       args.cert,
 			DataSigCov: args.certSigCov,
 
-			Fetch:          args.Fetch,
-			Callback:       args.Callback,
-			OverrideName:   nil,
-			IgnoreValidity: args.IgnoreValidity,
-			origDataName:   args.origDataName,
+			Fetch:         args.Fetch,
+			Callback:      args.Callback,
+			OverrideName:  nil,
+			OnCertExpired: args.OnCertExpired,
+			origDataName:  args.origDataName,
+			// Avoid handling the same expired certificate again during recursion.
+			dataExpiryHandled: args.certExpiryHandled,
 
 			cert:        nil,
 			certSigCov:  nil,
@@ -313,8 +351,6 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			certIsValid: false,
 
 			crossSchemaIsValid: false,
-
-			UseSignatureTime: args.UseSignatureTime,
 
 			depth: args.depth,
 		})
@@ -333,6 +369,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	args.certSigCov = nil
 	args.certRaw = nil
 	args.certIsValid = false
+	args.certExpiryHandled = false
 	args.crossSchemaIsValid = false
 
 	// Check the validated memcache for the certificate
@@ -384,13 +421,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		// Bail if the fetched cert is not fresh and not using signature time flow
-		if !args.UseSignatureTime.GetOr(false) && CertIsExpired(res.Data) && !args.IgnoreValidity.GetOr(false) {
-			args.Callback(false, fmt.Errorf("certificate is expired: %s", res.Data.Name()))
-			return
-		}
-
-		// Fetched cert is fresh
+		// The certificate's expiry policy is checked when it is used below.
 		log.Debug(tc, "Fetched certificate from network", "cert", res.Data.Name())
 
 		// Call again with the fetched cert
@@ -419,22 +450,29 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 		return
 	}
 
-	// Check validity period of the cross schema
-	if !args.IgnoreValidity.GetOr(false) {
-		if args.UseSignatureTime.GetOr(false) {
-			// Cross schema was valid at signature time
-			if CertIsExpired(crossData) && !ValidateSigTime(args.Data, crossData) {
-				args.Callback(false, fmt.Errorf("cross schema signature time invalid: %s", crossData.Name()))
+	// Check validity period of the cross schema.
+	if CertIsExpired(crossData) {
+		runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+			Data: args.Data,
+			Cert: crossData,
+		}, func(err error) {
+			if err != nil {
+				args.Callback(false, err)
 				return
 			}
-		} else {
-			if CertIsExpired(crossData) {
-				args.Callback(false, fmt.Errorf("cross schema is expired: %s", crossData.Name()))
-				return
-			}
-		}
+			tc.validateCrossSchemaData(args, crossData, crossDataSigCov, true)
+		})
+		return
 	}
+	tc.validateCrossSchemaData(args, crossData, crossDataSigCov, false)
+}
 
+func (tc *TrustConfig) validateCrossSchemaData(
+	args TrustConfigValidateArgs,
+	crossData ndn.Data,
+	crossDataSigCov enc.Wire,
+	expiryHandled bool,
+) {
 	// Parse the cross schema content
 	cross, err := trust_schema.ParseCrossSchemaContent(enc.NewWireView(crossData.Content()), false)
 	if err != nil {
@@ -458,14 +496,14 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 		Data:       crossData,
 		DataSigCov: crossDataSigCov,
 
-		Fetch:          args.Fetch,
-		Callback:       args.Callback,
-		OverrideName:   dataName, // original data
-		IgnoreValidity: args.IgnoreValidity,
+		Fetch:         args.Fetch,
+		Callback:      args.Callback,
+		OverrideName:  dataName, // original data
+		OnCertExpired: args.OnCertExpired,
+		// Avoid handling the same expired cross-schema packet again.
+		dataExpiryHandled: expiryHandled,
 
 		depth: args.depth,
-
-		UseSignatureTime: args.UseSignatureTime,
 	})
 }
 
@@ -692,11 +730,9 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 				}
 				tc.tryListedCerts(args, names, idx+1)
 			},
-			IgnoreValidity: args.args.IgnoreValidity,
-			origDataName:   args.args.origDataName,
-			depth:          args.args.depth,
-
-			UseSignatureTime: args.args.UseSignatureTime,
+			OnCertExpired: args.args.OnCertExpired,
+			origDataName:  args.args.origDataName,
+			depth:         args.args.depth,
 		})
 	})
 }
