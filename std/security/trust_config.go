@@ -680,7 +680,20 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 	}
 	args.visitedCerts[name.TlvStr()] = struct{}{}
 
-	if _, ok := tc.certCache.Get(name); ok {
+	if cachedCert, ok := tc.certCache.Get(name); ok {
+		if CertIsExpired(cachedCert) {
+			runCertExpiryPolicy(args.args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+				Cert: cachedCert,
+			}, func(err error) {
+				if err != nil {
+					tc.tryListedCerts(args, names, idx+1)
+					return
+				}
+				tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
+				args.args.Callback(true, nil)
+			})
+			return
+		}
 		tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
 		args.args.Callback(true, nil)
 		return

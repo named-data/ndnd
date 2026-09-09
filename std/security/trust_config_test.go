@@ -924,7 +924,7 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 		NotBefore: nb,
 		NotAfter:  na,
 	}))
-	userCertData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(userCertWire))
+	userCertData, userCertSigCov, _ := spec.Spec{}.ReadData(enc.NewWireView(userCertWire))
 
 	payload := enc.Wire{[]byte{0x01}}
 	dataWire := tu.NoErr(spec.Spec{}.MakeData(n("/app/user/alice/data"), &ndn.DataConfig{
@@ -982,7 +982,12 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 		},
 	}
 
-	validateOnce := func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire) (bool, error) {
+	validateWithPolicy := func(
+		trust *sec.TrustConfig,
+		data ndn.Data,
+		sigCov enc.Wire,
+		onCertExpired ndn.CertExpiredCallback,
+	) (bool, error) {
 		tcTestFetchCount = 0
 		done := make(chan struct {
 			v   bool
@@ -998,9 +1003,13 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 					err error
 				}{v: valid, err: err}
 			},
+			OnCertExpired: onCertExpired,
 		})
 		res := <-done
 		return res.v, res.err
+	}
+	validateOnce := func(trust *sec.TrustConfig, data ndn.Data, sigCov enc.Wire) (bool, error) {
+		return validateWithPolicy(trust, data, sigCov, nil)
 	}
 
 	for _, st := range stages {
@@ -1042,6 +1051,57 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 			}
 		})
 	}
+
+	t.Run("cached expired certlist target", func(t *testing.T) {
+		clear(network)
+
+		expiredPreAnchorWire := tu.NoErr(sec.SignCert(sec.SignCertArgs{
+			Signer:    ownerSigner,
+			Data:      anchorKeyData,
+			IssuerId:  enc.NewGenericComponent("expired-owner"),
+			NotBefore: now.Add(-time.Hour),
+			NotAfter:  now.Add(-time.Minute),
+		}))
+		expiredPreAnchorData, _, _ := spec.Spec{}.ReadData(enc.NewWireView(expiredPreAnchorWire))
+
+		expiredListContent := tu.NoErr(sec.EncodeCertList([]enc.Name{expiredPreAnchorData.Name()}))
+		expiredListName := listPrefix.Append(enc.NewVersionComponent(uint64(time.Now().UnixMicro())))
+		expiredListWire := tu.NoErr(spec.Spec{}.MakeData(expiredListName, &ndn.DataConfig{
+			Freshness: optional.Some(time.Minute),
+		}, expiredListContent, anchorSigner))
+
+		store := storage.NewMemoryStore()
+		tcTestKeyChain = keychain.NewKeyChainMem(store)
+		require.NoError(t, tcTestKeyChain.InsertCert(rootCertWire.Join()))
+		trust, err := sec.NewTrustConfig(tcTestKeyChain, schema, []enc.Name{rootCertData.Name()})
+		require.NoError(t, err)
+
+		network[expiredPreAnchorData.Name().String()] = expiredPreAnchorWire
+		network[ownerCertData.Name().String()] = ownerCertWire
+		network[expiredListName.String()] = expiredListWire.Wire
+
+		// Validate a packet through the expired certificate to put it in the cache.
+		valid, err := validateWithPolicy(trust, userCertData, userCertSigCov, sec.IgnoreExpiredCert)
+		require.True(t, valid)
+		require.NoError(t, err)
+
+		policyCalls := 0
+		rejectExpired := func(args ndn.CertExpiredCallbackArgs, complete func(error)) {
+			policyCalls++
+			require.True(t, expiredPreAnchorData.Name().Equal(args.Cert.Name()))
+			complete(fmt.Errorf("expired certlist target"))
+		}
+		valid, err = validateWithPolicy(trust, anchorCertData, anchorSigCov, rejectExpired)
+		require.False(t, valid)
+		require.Error(t, err)
+		require.Equal(t, 1, policyCalls)
+		require.Equal(t, 1, tcTestFetchCount) // CertList only; target certificate came from cache.
+
+		valid, err = validateWithPolicy(trust, anchorCertData, anchorSigCov, sec.IgnoreExpiredCert)
+		require.True(t, valid)
+		require.NoError(t, err)
+		require.Equal(t, 0, tcTestFetchCount)
+	})
 }
 
 // (AI GENERATED DESCRIPTION): Initializes an in‑memory store and key chain, loads an LVS trust schema, and runs trust configuration tests.
