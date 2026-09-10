@@ -126,12 +126,10 @@ func IgnoreExpiredCert(_ ndn.CertExpiredCallbackArgs, complete func(error)) {
 	complete(nil)
 }
 
-// ValidateAtSignatureTime accepts an expired certificate when the data was
-// signed during the certificate's validity period. When data is nil, the
-// certificate is the object being validated and this check is deferred until
-// it is used to validate another packet.
+// ValidateAtSignatureTime accepts an expired validation chain when each
+// affected Data packet was signed during its Cert's validity period.
 func ValidateAtSignatureTime(args ndn.CertExpiredCallbackArgs, complete func(error)) {
-	if args.Data == nil || ValidateSigTime(args.Data, args.Cert) {
+	if ValidateSigTime(args.Data, args.Cert) {
 		complete(nil)
 		return
 	}
