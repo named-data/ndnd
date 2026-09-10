@@ -46,8 +46,7 @@ func (c *Client) ValidateExt(args ndn.ValidateExtArgs) {
 		Callback:          args.Callback,
 		OverrideName:      overrideName,
 		UseDataNameFwHint: args.UseDataNameFwHint,
-		UseSignatureTime:  args.UseSignatureTime,
-		IgnoreValidity:    args.IgnoreValidity,
+		OnCertExpired:     c.wrapOnCertExpired(args.OnCertExpired),
 		Fetch: func(name enc.Name, config *ndn.InterestConfig, callback ndn.ExpressCallbackFunc) {
 			config.NextHopId = args.CertNextHop
 			c.ExpressR(ndn.ExpressRArgs{
@@ -59,6 +58,20 @@ func (c *Client) ValidateExt(args ndn.ValidateExtArgs) {
 			})
 		},
 	})
+}
+
+// wrapOnCertExpired ensures validation resumes on the engine goroutine.
+func (c *Client) wrapOnCertExpired(appCallback ndn.CertExpiredCallback) ndn.CertExpiredCallback {
+	if appCallback == nil {
+		return nil
+	}
+	return func(args ndn.CertExpiredCallbackArgs, resumeValidation func(error)) {
+		appCallback(args, func(err error) {
+			c.engine.Post(func() {
+				resumeValidation(err)
+			})
+		})
+	}
 }
 
 // SetTrustSchema replaces the client's trust schema at runtime.

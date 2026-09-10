@@ -17,8 +17,9 @@ type CertCache struct {
 }
 
 type certCacheEntry struct {
-	data   ndn.Data
-	expiry time.Time
+	data       ndn.Data
+	sigCovered enc.Wire
+	expiry     time.Time
 }
 
 // CertListCache stores validated CertList Data packets keyed by prefix and full name.
@@ -68,30 +69,42 @@ func NewCertCache() *CertCache {
 
 // Get retrieves a certificate from the cache.
 // The name can be either the certificate name or the key locator.
-// If the cert expires in less than 5 minutes, it is considered stale.
+// Entries are retained until five minutes after certificate expiry.
 func (cc *CertCache) Get(name enc.Name) (ndn.Data, bool) {
+	entry, ok := cc.get(name)
+	return entry.data, ok
+}
+
+// get retrieves the certificate and its signature verification evidence.
+func (cc *CertCache) get(name enc.Name) (certCacheEntry, bool) {
 	str := name.TlvStr()
 	if v, ok := cc.cache.Load(str); ok {
 		entry := v.(certCacheEntry)
 		if entry.expiry.Add(5 * time.Minute).After(time.Now()) {
-			return entry.data, true
+			return entry, true
 		} else {
 			cc.cache.Delete(str)
 		}
 	}
-	return nil, false
+	return certCacheEntry{}, false
 }
 
-// Put stores a certificate in the cache
+// Put stores certificate data without signature verification evidence.
 func (cc *CertCache) Put(cert ndn.Data) {
+	cc.put(cert, nil)
+}
+
+// put stores a certificate with the wire covered by its signature.
+func (cc *CertCache) put(cert ndn.Data, sigCovered enc.Wire) {
 	_, expiry := cert.Signature().Validity()
 	if !expiry.IsSet() {
 		return // huh?
 	}
 
 	entry := certCacheEntry{
-		data:   cert,
-		expiry: expiry.Unwrap(),
+		data:       cert,
+		sigCovered: sigCovered,
+		expiry:     expiry.Unwrap(),
 	}
 
 	// Store the certificate by its own name

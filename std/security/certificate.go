@@ -116,6 +116,26 @@ func CertIsExpired(cert ndn.Data) bool {
 	return false
 }
 
+// RejectExpiredCert rejects an expired certificate.
+func RejectExpiredCert(args ndn.CertExpiredCallbackArgs, complete func(error)) {
+	complete(fmt.Errorf("certificate is expired: %s", args.Cert.Name()))
+}
+
+// IgnoreExpiredCert accepts an expired certificate without additional checks.
+func IgnoreExpiredCert(_ ndn.CertExpiredCallbackArgs, complete func(error)) {
+	complete(nil)
+}
+
+// ValidateAtSignatureTime accepts an expired validation chain when each
+// affected Data packet was signed during its Cert's validity period.
+func ValidateAtSignatureTime(args ndn.CertExpiredCallbackArgs, complete func(error)) {
+	if ValidateSigTime(args.Data, args.Cert) {
+		complete(nil)
+		return
+	}
+	complete(fmt.Errorf("data not signed during validity period: %s", args.Cert.Name()))
+}
+
 // getPubKey gets the public key from an NDN data.
 // returns [public key, key name, error].
 func getPubKey(data ndn.Data) ([]byte, enc.Name, error) {

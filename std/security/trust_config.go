@@ -1,6 +1,7 @@
 package security
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -25,8 +26,8 @@ type TrustConfig struct {
 	// roots are the full names of the trust anchors.
 	roots []enc.Name
 
-	// certCache is the certificate memcache.
-	// Everything in here is validated, fresh and passes the schema.
+	// certCache stores certificate data and its signature-covered wire.
+	// Cache hits are revalidated unless the certificate is a trust anchor.
 	certCache *CertCache
 
 	// certListCache stores validated CertLists.
@@ -63,11 +64,11 @@ func NewTrustConfig(keyChain ndn.KeyChain, schema ndn.TrustSchema, roots []enc.N
 		if certBytes, _ := keyChain.Store().Get(root, false); len(certBytes) == 0 {
 			return nil, fmt.Errorf("trust anchor not found in keychain: %s", root)
 		} else {
-			certData, _, err := spec.Spec{}.ReadData(enc.NewBufferView(certBytes))
+			certData, certSigCov, err := spec.Spec{}.ReadData(enc.NewBufferView(certBytes))
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse trust anchor %s: %w", root, err)
 			}
-			certCache.Put(certData)
+			certCache.put(certData, certSigCov)
 		}
 	}
 
@@ -120,14 +121,19 @@ type TrustConfigValidateArgs struct {
 	Callback func(bool, error)
 	// OverrideName is an override for the data name (advanced usage).
 	OverrideName enc.Name
-	// ignore ValidityPeriod in the validation chain
-	IgnoreValidity optional.Optional[bool]
+	// OnCertExpired decides whether an expired certificate may be used.
+	// A nil callback rejects expired certificates.
+	OnCertExpired ndn.CertExpiredCallback
 	// origDataName is the original data name being verified.
 	origDataName enc.Name
+	// crossSchemaExpired indicates Data is an expired cross-schema packet whose
+	// use by the original packet was accepted by the expiry policy.
+	crossSchemaExpired bool
 
 	// cert is the certificate to use for validation.
-	// The caller is responsible for checking the expiry of the cert.
 	cert ndn.Data
+	// certExpiryHandled indicates the expiry policy accepted the current Data/cert relation.
+	certExpiryHandled bool
 	// certSigCov is the signature covered certificate wire.
 	certSigCov enc.Wire
 	// certRaw is the raw certificate bytes (if fetched).
@@ -140,9 +146,25 @@ type TrustConfigValidateArgs struct {
 
 	// depth is the maximum depth of the validation chain.
 	depth int
+}
 
-	// Use alternate verification flow.
-	UseSignatureTime optional.Optional[bool]
+// runCertExpiryPolicy invokes the policy for a validation relation already known
+// to involve an expired validity period. An asynchronous policy may race its
+// result against a timeout, so only the first completion resumes validation.
+func runCertExpiryPolicy(
+	policy ndn.CertExpiredCallback,
+	expiryArgs ndn.CertExpiredCallbackArgs,
+	resumeValidation func(error),
+) {
+	if policy == nil {
+		policy = RejectExpiredCert // the default
+	}
+	var resumeOnce sync.Once
+	policy(expiryArgs, func(err error) {
+		resumeOnce.Do(func() {
+			resumeValidation(err)
+		})
+	})
 }
 
 // Validate validates a Data packet using a fetch API.
@@ -179,14 +201,6 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		return
 	}
 
-	// Bail if the data is a cert and is not fresh
-	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
-		if !args.UseSignatureTime.GetOr(false) && CertIsExpired(args.Data) && !args.IgnoreValidity.GetOr(false) {
-			args.Callback(false, fmt.Errorf("certificate is expired: %s", args.Data.Name()))
-			return
-		}
-	}
-
 	// Get the key locator
 	keyLocator := signature.KeyName()
 	if len(keyLocator) == 0 {
@@ -208,11 +222,29 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.cert) {
-			if args.UseSignatureTime.GetOr(false) && !ValidateSigTime(args.Data, args.cert) {
-				args.Callback(false, fmt.Errorf("data not signed during validity period: %s", args.cert.Name()))
-				return
-			}
+		// The same expired, intermidiary certificate would appear in callbacks two times.
+		// The first it appears as a signing certificate, asking if the data signing was valid.
+		// The second it appears as a data to be validated in the next depth, asking if the certificate issuance was valid.
+		// It is the responsibility of the policy to distinguish these two cases be aware of the cross schema usage.
+		certDataExpired := false
+		if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
+			certDataExpired = CertIsExpired(args.Data)
+		}
+		if !args.certExpiryHandled &&
+			(args.crossSchemaExpired || certDataExpired || CertIsExpired(args.cert)) {
+			runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+				Data: args.Data,
+				Cert: args.cert,
+			}, func(err error) {
+				if err != nil {
+					args.Callback(false, err)
+					return
+				}
+				args.certExpiryHandled = true
+				args.depth++ // Resume the current validation depth.
+				tc.Validate(args)
+			})
+			return
 		}
 
 		// Check schema if the key is allowed
@@ -235,12 +267,10 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 						args.Callback(valid, fmt.Errorf("cross schema: %w", err))
 					}
 				},
-				OverrideName:   args.OverrideName,
-				IgnoreValidity: args.IgnoreValidity,
-				cert:           args.cert,
-				depth:          args.depth,
-
-				UseSignatureTime: args.UseSignatureTime,
+				OverrideName:  args.OverrideName,
+				OnCertExpired: args.OnCertExpired,
+				cert:          args.cert,
+				depth:         args.depth,
 			})
 			return
 		} else {
@@ -277,8 +307,8 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		origCallback := args.Callback
 		args.Callback = func(valid bool, err error) {
 			if valid && err == nil {
-				// Cache is thread safe
-				tc.certCache.Put(args.cert)
+				// Cache the certificate and the wire needed to revalidate its chain.
+				tc.certCache.put(args.cert, args.certSigCov)
 
 				// Keychain is not thread safe for inserts
 				if len(args.certRaw) > 0 {
@@ -301,11 +331,11 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			Data:       args.cert,
 			DataSigCov: args.certSigCov,
 
-			Fetch:          args.Fetch,
-			Callback:       args.Callback,
-			OverrideName:   nil,
-			IgnoreValidity: args.IgnoreValidity,
-			origDataName:   args.origDataName,
+			Fetch:         args.Fetch,
+			Callback:      args.Callback,
+			OverrideName:  nil,
+			OnCertExpired: args.OnCertExpired,
+			origDataName:  args.origDataName,
 
 			cert:        nil,
 			certSigCov:  nil,
@@ -313,8 +343,6 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			certIsValid: false,
 
 			crossSchemaIsValid: false,
-
-			UseSignatureTime: args.UseSignatureTime,
 
 			depth: args.depth,
 		})
@@ -333,13 +361,16 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	args.certSigCov = nil
 	args.certRaw = nil
 	args.certIsValid = false
+	args.certExpiryHandled = false
 	args.crossSchemaIsValid = false
 
-	// Check the validated memcache for the certificate
-	if cachedCert, ok := tc.certCache.Get(keyLocator); ok {
-		// The cache always checks the expiry of the cert
-		args.cert = cachedCert
-		args.certIsValid = true
+	// A cache hit supplies evidence, not a reusable validation result. Only an
+	// exact trust anchor terminates the chain; every other chain is revalidated.
+	if cached, ok := tc.certCache.get(keyLocator); ok &&
+		(tc.isTrustAnchor(cached.data.Name()) || len(cached.sigCovered) > 0) {
+		args.cert = cached.data
+		args.certSigCov = cached.sigCovered
+		args.certIsValid = tc.isTrustAnchor(cached.data.Name())
 
 		// Continue validation with cached cert
 		tc.Validate(args)
@@ -384,20 +415,14 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		// Bail if the fetched cert is not fresh and not using signature time flow
-		if !args.UseSignatureTime.GetOr(false) && CertIsExpired(res.Data) && !args.IgnoreValidity.GetOr(false) {
-			args.Callback(false, fmt.Errorf("certificate is expired: %s", res.Data.Name()))
-			return
-		}
-
-		// Fetched cert is fresh
+		// The certificate's expiry policy is checked when it is used below.
 		log.Debug(tc, "Fetched certificate from network", "cert", res.Data.Name())
 
 		// Call again with the fetched cert
 		args.cert = res.Data
 		args.certSigCov = res.SigCovered
 		args.certRaw = utils.If(!res.IsLocal, res.RawData, nil) // prevent double insert
-		args.certIsValid = false
+		args.certIsValid = tc.isTrustAnchor(res.Data.Name())
 
 		// Continue validation with fetched cert
 		tc.Validate(args)
@@ -419,22 +444,29 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 		return
 	}
 
-	// Check validity period of the cross schema
-	if !args.IgnoreValidity.GetOr(false) {
-		if args.UseSignatureTime.GetOr(false) {
-			// Cross schema was valid at signature time
-			if CertIsExpired(crossData) && !ValidateSigTime(args.Data, crossData) {
-				args.Callback(false, fmt.Errorf("cross schema signature time invalid: %s", crossData.Name()))
+	// Check validity period of the cross schema.
+	if CertIsExpired(crossData) {
+		runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+			Data: args.Data,
+			Cert: crossData,
+		}, func(err error) {
+			if err != nil {
+				args.Callback(false, err)
 				return
 			}
-		} else {
-			if CertIsExpired(crossData) {
-				args.Callback(false, fmt.Errorf("cross schema is expired: %s", crossData.Name()))
-				return
-			}
-		}
+			tc.validateCrossSchemaData(args, crossData, crossDataSigCov, true)
+		})
+		return
 	}
+	tc.validateCrossSchemaData(args, crossData, crossDataSigCov, false)
+}
 
+func (tc *TrustConfig) validateCrossSchemaData(
+	args TrustConfigValidateArgs,
+	crossData ndn.Data,
+	crossDataSigCov enc.Wire,
+	crossSchemaExpired bool,
+) {
 	// Parse the cross schema content
 	cross, err := trust_schema.ParseCrossSchemaContent(enc.NewWireView(crossData.Content()), false)
 	if err != nil {
@@ -458,18 +490,37 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 		Data:       crossData,
 		DataSigCov: crossDataSigCov,
 
-		Fetch:          args.Fetch,
-		Callback:       args.Callback,
-		OverrideName:   dataName, // original data
-		IgnoreValidity: args.IgnoreValidity,
+		Fetch:              args.Fetch,
+		Callback:           args.Callback,
+		OverrideName:       dataName, // original data
+		OnCertExpired:      args.OnCertExpired,
+		crossSchemaExpired: crossSchemaExpired,
 
 		depth: args.depth,
-
-		UseSignatureTime: args.UseSignatureTime,
 	})
 }
 
 func (tc *TrustConfig) handleSelfSignedCert(args TrustConfigValidateArgs, keyLocator enc.Name) {
+	certDataExpired := false
+	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey && CertIsExpired(args.Data) {
+		certDataExpired = true
+	}
+	if !args.certExpiryHandled && (args.crossSchemaExpired || certDataExpired) {
+		runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+			Data: args.Data,
+			Cert: args.Data,
+		}, func(err error) {
+			if err != nil {
+				args.Callback(false, err)
+				return
+			}
+			args.certExpiryHandled = true
+			args.depth++ // Resume the current validation depth.
+			tc.Validate(args)
+		})
+		return
+	}
+
 	if len(args.DataSigCov) == 0 {
 		args.Callback(false, fmt.Errorf("cert sig covered is nil: %s", args.Data.Name()))
 		return
@@ -548,11 +599,23 @@ func (tc *TrustConfig) isTrustedAnchorKey(keyLocator enc.Name) bool {
 	return false
 }
 
+func (tc *TrustConfig) isTrustAnchor(name enc.Name) bool {
+	tc.mutex.RLock()
+	defer tc.mutex.RUnlock()
+	for _, root := range tc.roots {
+		if root.Equal(name) {
+			return true
+		}
+	}
+	return false
+}
+
 type certListArgs struct {
 	args         TrustConfigValidateArgs
 	anchorCert   ndn.Data
 	anchorRaw    enc.Wire
 	anchorKey    enc.Name
+	listData     ndn.Data
 	visitedLists map[string]struct{}
 	visitedCerts map[string]struct{}
 }
@@ -622,6 +685,7 @@ func (tc *TrustConfig) processCertList(args certListArgs, listData ndn.Data, lis
 			log.Warn(tc, "Failed to store CertList", "name", listData.Name(), "err", err)
 		}
 	}
+	args.listData = listData
 	tc.tryListedCerts(args, names, 0)
 }
 
@@ -634,6 +698,7 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 	name := names[idx]
 	if !args.anchorKey.IsPrefix(name) {
 		log.Debug(tc, "redirected cert name mismatch", "anchor", args.anchorKey, "redirect", name)
+		tc.tryListedCerts(args, names, idx+1)
 		return
 	}
 	if _, ok := args.visitedCerts[name.TlvStr()]; ok {
@@ -642,9 +707,9 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 	}
 	args.visitedCerts[name.TlvStr()] = struct{}{}
 
-	if _, ok := tc.certCache.Get(name); ok {
-		tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
-		args.args.Callback(true, nil)
+	if cached, ok := tc.certCache.get(name); ok &&
+		(tc.isTrustAnchor(cached.data.Name()) || len(cached.sigCovered) > 0) {
+		tc.validateListedCert(args, names, idx, cached.data, cached.sigCovered, nil)
 		return
 	}
 
@@ -667,37 +732,83 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 			return
 		}
 
-		if t, ok := res.Data.ContentType().Get(); !ok || t != ndn.ContentTypeKey {
-			tc.tryListedCerts(args, names, idx+1)
-			return
-		}
+		tc.validateListedCert(args, names, idx, res.Data, res.SigCovered, res.RawData)
+	})
+}
 
+func (tc *TrustConfig) validateListedCert(
+	args certListArgs,
+	names []enc.Name,
+	idx int,
+	cert ndn.Data,
+	certSigCov enc.Wire,
+	certRaw enc.Wire,
+) {
+	next := func() {
+		tc.tryListedCerts(args, names, idx+1)
+	}
+	if t, ok := cert.ContentType().Get(); !ok || t != ndn.ContentTypeKey {
+		next()
+		return
+	}
+	if !bytes.Equal(cert.Content().Join(), args.anchorCert.Content().Join()) {
+		next()
+		return
+	}
+	if tc.isTrustAnchor(cert.Name()) {
+		tc.validateCertListSigner(args, cert, func() {
+			tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
+			args.args.Callback(true, nil)
+		}, next)
+		return
+	}
+
+	tc.validateCertListSigner(args, cert, func() {
 		tc.Validate(TrustConfigValidateArgs{
-			Data:       res.Data,
-			DataSigCov: res.SigCovered,
+			Data:       cert,
+			DataSigCov: certSigCov,
 
 			Fetch:             args.args.Fetch,
 			UseDataNameFwHint: args.args.UseDataNameFwHint,
 			Callback: func(valid bool, err error) {
 				if valid && err == nil {
-					tc.certCache.Put(res.Data)
-					if len(res.RawData) > 0 {
+					tc.certCache.put(cert, certSigCov)
+					if len(certRaw) > 0 {
 						tc.mutex.Lock()
-						_ = tc.keychain.InsertCert(res.RawData.Join())
+						_ = tc.keychain.InsertCert(certRaw.Join())
 						tc.mutex.Unlock()
 					}
 					tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
 					args.args.Callback(true, nil)
 					return
 				}
-				tc.tryListedCerts(args, names, idx+1)
+				next()
 			},
-			IgnoreValidity: args.args.IgnoreValidity,
-			origDataName:   args.args.origDataName,
-			depth:          args.args.depth,
-
-			UseSignatureTime: args.args.UseSignatureTime,
+			OnCertExpired: args.args.OnCertExpired,
+			origDataName:  args.args.origDataName,
+			depth:         args.args.depth,
 		})
+	}, next)
+}
+
+// validateCertListSigner applies the expiry policy to the CertList and the
+// listed certificate that authenticates its signing key. Their key content was
+// checked for equality before this function is called.
+func (tc *TrustConfig) validateCertListSigner(args certListArgs, cert ndn.Data, onAccept, onReject func()) {
+	if !CertIsExpired(cert) {
+		onAccept()
+		return
+	}
+
+	runCertExpiryPolicy(args.args.OnCertExpired, ndn.CertExpiredCallbackArgs{
+		Data: args.listData,
+		Cert: cert,
+	}, func(err error) {
+		if err != nil {
+			onReject()
+			return
+		}
+		onAccept()
 	})
 }
 

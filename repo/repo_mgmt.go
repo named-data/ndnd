@@ -12,7 +12,6 @@ import (
 	"github.com/named-data/ndnd/std/object"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/trust_schema"
-	"github.com/named-data/ndnd/std/types/optional"
 )
 
 // (AI GENERATED DESCRIPTION): Parses a repository management command from the received wire and dispatches it to the sync‑join handler if present, otherwise logs a warning about an unknown command.
@@ -197,10 +196,9 @@ func (r *Repo) fetchSecurityConfig(name enc.Name) (*tlv.SecurityConfigObject, er
 
 	// Repo should validate this as normal command
 	r.client.ConsumeExt(ndn.ConsumeExtArgs{
-		Name:             name,
-		TryStore:         true,
-		UseSignatureTime: optional.Some(true),
-		IgnoreValidity:   optional.Some(r.config.IgnoreValidity),
+		Name:          name,
+		TryStore:      true,
+		OnCertExpired: r.config.certExpiredCallback(),
 		Callback: func(state ndn.ConsumeState) {
 			wire = append(wire, state.Content()...)
 			if state.Error() != nil {

@@ -7,7 +7,6 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
-	"github.com/named-data/ndnd/std/types/optional"
 )
 
 // SnapshotNodeLatest is a snapshot strategy that takes a snapshot of the
@@ -33,10 +32,9 @@ type SnapshotNodeLatest struct {
 	SnapMe func(enc.Name) (enc.Wire, error)
 	// Threshold is the number of updates before a snapshot is taken.
 	Threshold uint64
-	// UseSignatureTime checks validity period using signature time
-	UseSignatureTime optional.Optional[bool]
-	// IgnoreValidity ignores validity period in the validation chain
-	IgnoreValidity optional.Optional[bool]
+	// OnCertExpired decides whether an expired certificate may be used.
+	// A nil callback rejects expired certificates.
+	OnCertExpired ndn.CertExpiredCallback
 
 	// pss is the struct from the svs layer.
 	pss snapPsState
@@ -121,9 +119,8 @@ func (s *SnapshotNodeLatest) snapName(node enc.Name, boot uint64) enc.Name {
 func (s *SnapshotNodeLatest) fetchSnap(node enc.Name, boot uint64) {
 	// Discover the latest snapshot
 	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
-		Name:             s.snapName(node, boot),
-		UseSignatureTime: s.UseSignatureTime,
-		IgnoreValidity:   s.IgnoreValidity,
+		Name:          s.snapName(node, boot),
+		OnCertExpired: s.OnCertExpired,
 		Callback: func(cstate ndn.ConsumeState) {
 			if cstate.Error() != nil {
 				// Do not try too fast in case NFD returns NACK
