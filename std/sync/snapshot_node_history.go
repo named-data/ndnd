@@ -8,7 +8,6 @@ import (
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/ndn/svs_ps"
-	"github.com/named-data/ndnd/std/types/optional"
 )
 
 const SnapHistoryIndexFreshness = time.Millisecond * 10
@@ -44,10 +43,9 @@ type SnapshotNodeHistory struct {
 
 	// In Repo mode, all snapshots are fetched automtically for persistence.
 	IsRepo bool
-	// UseSignatureTime checks validity period using signature time
-	UseSignatureTime optional.Optional[bool]
-	// IgnoreValidity ignores validity period in the validation chain
-	IgnoreValidity optional.Optional[bool]
+	// OnCertExpired decides whether an expired certificate may be used.
+	// A nil callback rejects expired certificates.
+	OnCertExpired ndn.CertExpiredCallback
 	// repoKnown is the known snapshot sequence number.
 	repoKnown SvMap[uint64]
 
@@ -164,9 +162,8 @@ func (s *SnapshotNodeHistory) idxName(node enc.Name, boot uint64) enc.Name {
 // fetchIndex fetches the latest index for a remote node.
 func (s *SnapshotNodeHistory) fetchIndex(node enc.Name, boot uint64, known uint64) {
 	s.Client.ConsumeExt(ndn.ConsumeExtArgs{
-		Name:             s.idxName(node, boot),
-		UseSignatureTime: s.UseSignatureTime,
-		IgnoreValidity:   s.IgnoreValidity,
+		Name:          s.idxName(node, boot),
+		OnCertExpired: s.OnCertExpired,
 		Callback: func(cstate ndn.ConsumeState) {
 			go s.handleIndex(node, boot, known, cstate)
 		},
@@ -213,10 +210,9 @@ func (s *SnapshotNodeHistory) handleIndex(node enc.Name, boot uint64, known uint
 
 			snapName := s.snapName(node, boot).WithVersion(seqNo)
 			s.Client.ConsumeExt(ndn.ConsumeExtArgs{
-				Name:             snapName,
-				UseSignatureTime: s.UseSignatureTime,
-				IgnoreValidity:   s.IgnoreValidity,
-				Callback:         func(cstate ndn.ConsumeState) { snapC <- cstate },
+				Name:          snapName,
+				OnCertExpired: s.OnCertExpired,
+				Callback:      func(cstate ndn.ConsumeState) { snapC <- cstate },
 			})
 
 			scstate := <-snapC

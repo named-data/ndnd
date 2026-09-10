@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
+	sec "github.com/named-data/ndnd/std/security"
 )
 
 type Config struct {
@@ -57,6 +59,13 @@ func (c *Config) TrustAnchorNames() []enc.Name {
 		}
 	}
 	return res
+}
+
+func (c *Config) certExpiredCallback() ndn.CertExpiredCallback {
+	if c.IgnoreValidity {
+		return sec.IgnoreExpiredCert
+	}
+	return sec.ValidateAtSignatureTime
 }
 
 // (AI GENERATED DESCRIPTION): Returns a new Config with default placeholder values: empty Name and StorageDir strings, and a nil NameN slice.

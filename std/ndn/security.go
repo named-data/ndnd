@@ -51,6 +51,28 @@ type Signer interface {
 // Create a go routine for time consuming jobs.
 type SigChecker func(name enc.Name, sigCovered enc.Wire, sig Signature) bool
 
+// CertExpiredCallbackArgs are the arguments passed to CertExpiredCallback.
+type CertExpiredCallbackArgs struct {
+	// Data is the packet whose validation depends on Cert's validity.
+	Data Data
+	// Cert is the certificate or cross-schema packet authorizing Data.
+	Cert Data
+}
+
+// CertExpiredCallback decides whether a validation relation involving an
+// expired validity period may be used. For a Data <- Cert relation, it is
+// called when Cert is expired or when expired Data is validated through Cert.
+// Call complete with nil to continue validation or an error to reject it.
+// Acceptance is authoritative: a successful validation may use the relation to
+// establish trust that remains available to later validations.
+// complete may be called synchronously or asynchronously, but must be called
+// exactly once. The callback itself should return promptly without blocking
+// the validation goroutine.
+// An expired certificate in a chain may cause one call for Data <- certificate
+// and another for certificate <- upstream signer.
+// Separate validation operations may invoke the callback concurrently.
+type CertExpiredCallback func(args CertExpiredCallbackArgs, complete func(error))
+
 // KeyChain is the interface of a keychain.
 // Note that Keychains are not thread-safe, and the owner should provide a lock.
 type KeyChain interface {
