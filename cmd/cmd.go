@@ -3,6 +3,7 @@ package cmd
 import (
 	dv "github.com/named-data/ndnd/dv/cmd"
 	fw "github.com/named-data/ndnd/fw/cmd"
+	"github.com/named-data/ndnd/merkle"
 	"github.com/named-data/ndnd/repo"
 	"github.com/named-data/ndnd/std/utils"
 	"github.com/named-data/ndnd/tools"
@@ -41,6 +42,7 @@ func init() {
 	CmdNDNd.AddCommand(cmdDv())
 	CmdNDNd.AddCommand(cmdDaemon)
 	CmdNDNd.AddCommand(cmdRepo())
+	CmdNDNd.AddCommand(cmdMerkle())
 
 	CmdNDNd.AddGroup(&cobra.Group{ID: "sec", Title: "Security Tools"})
 	CmdNDNd.AddCommand(sec.CmdSec())
@@ -120,4 +122,20 @@ func cmdRepo() *cobra.Command {
 	cmdRepo.AddCommand(repo.CmdRepo)
 
 	return cmdRepo
+}
+
+// cmdMerkle creates the top-level command for the Merkle history log daemon.
+func cmdMerkle() *cobra.Command {
+	cmdMerkle := &cobra.Command{
+		Use:     "merkle",
+		Short:   "Merkle History Log",
+		GroupID: "daemons",
+	}
+
+	cmdMerkle.AddGroup(&cobra.Group{ID: "run", Title: "Merkle History Log Daemon"})
+	merkle.CmdMerkle.Use = "run CONFIG-FILE"
+	merkle.CmdMerkle.Short = "Start the Merkle History Log Daemon"
+	cmdMerkle.AddCommand(merkle.CmdMerkle)
+
+	return cmdMerkle
 }
