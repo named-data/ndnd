@@ -32,6 +32,8 @@ type PitCsTable interface {
 	InsertData(data *defn.FwData, wire []byte)
 	// FindMatchingDataFromCS finds a matching Data in the CS.
 	FindMatchingDataFromCS(interest *defn.FwInterest) CsEntry
+	// EraseCsDataUnderPrefix erases up to limit Data under the given prefix from the CS.
+	EraseCsDataUnderPrefix(name enc.Name, limit int) (int, bool)
 	// CsSize returns the number of entries in the CS.
 	CsSize() int
 	// IsCsAdmitting returns whether the CS is admitting new entries.
