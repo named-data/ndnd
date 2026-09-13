@@ -132,6 +132,7 @@ func (c *Client) fetchMetadata(
 			}
 			c.ValidateExt(ndn.ValidateExtArgs{
 				Data:          args.Data,
+				RawData:       args.RawData,
 				SigCovered:    args.SigCovered,
 				OnCertExpired: onCertExpired,
 				Callback: func(valid bool, err error) {
@@ -187,6 +188,7 @@ func (c *Client) fetchDataByPrefix(
 			}
 			c.ValidateExt(ndn.ValidateExtArgs{
 				Data:          args.Data,
+				RawData:       args.RawData,
 				SigCovered:    args.SigCovered,
 				OnCertExpired: onCertExpired,
 				Callback: func(valid bool, err error) {
