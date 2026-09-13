@@ -8,6 +8,8 @@
 package mgmt
 
 import (
+	"math"
+
 	"github.com/named-data/ndnd/fw/core"
 	"github.com/named-data/ndnd/fw/dispatch"
 	"github.com/named-data/ndnd/fw/fw"
@@ -51,8 +53,7 @@ func (c *ContentStoreModule) handleIncomingInterest(interest *Interest) {
 	case "config":
 		c.config(interest)
 	case "erase":
-		// TODO
-		//c.erase(interest)
+		c.erase(interest)
 	case "info":
 		c.info(interest)
 	default:
@@ -109,6 +110,65 @@ func (c *ContentStoreModule) config(interest *Interest) {
 		Capacity: optional.Some(uint64(table.CfgCsCapacity())),
 		Flags:    optional.Some(c.getFlags()),
 	})
+}
+
+// eraseLimit mirrors NFD's ERASE_LIMIT: a single cs/erase command never
+// erases more than this many entries, and the client is expected to repeat the
+// command for the remainder.
+const csEraseLimit = 256
+
+// erase handles a cs/erase command Interest: it erases Content Store entries
+// under the prefix in ControlParameters.Name on every forwarding thread and
+// replies with the number of entries erased.
+func (c *ContentStoreModule) erase(interest *Interest) {
+	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
+		// Name not long enough to contain ControlParameters
+		core.Log.Warn(c, "Missing ControlParameters", "name", interest.Name())
+		c.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
+		return
+	}
+
+	params := decodeControlParameters(c, interest)
+	if params == nil {
+		c.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
+		return
+	}
+
+	if len(params.Name) == 0 {
+		core.Log.Warn(c, "Missing Prefix in ControlParameters", "name", interest.Name())
+		c.manager.sendCtrlResp(interest, 400, "ControlParameters is incorrect", nil)
+		return
+	}
+
+	requested := uint64(math.MaxUint64)
+	if count, ok := params.Count.Get(); ok {
+		requested = count
+	}
+	remaining := min(requested, csEraseLimit)
+
+	nErased := uint64(0)
+	more := false
+	for threadID := 0; threadID < fw.CfgNumThreads(); threadID++ {
+		thread := dispatch.GetFWThread(threadID)
+		if thread == nil {
+			continue
+		}
+		n, threadHasMore := thread.EraseCsDataUnderPrefix(params.Name, int(remaining))
+		nErased += uint64(n)
+		more = more || threadHasMore
+		remaining -= uint64(n)
+	}
+
+	// NFD signals "more entries remain" by setting Capacity to ERASE_LIMIT when
+	// the command hit the limit and the client asked for more than that.
+	args := &mgmt.ControlArgs{
+		Name:  params.Name,
+		Count: optional.Some(nErased),
+	}
+	if nErased == csEraseLimit && requested > csEraseLimit && more {
+		args.Capacity = optional.Some(uint64(csEraseLimit))
+	}
+	c.manager.sendCtrlResp(interest, 200, "OK", args)
 }
 
 // (AI GENERATED DESCRIPTION): Collects content‑store statistics from all threads and replies to the Interest with a status dataset containing the CS capacity, flags, entry count, hit and miss counts.
