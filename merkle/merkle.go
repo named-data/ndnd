@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
@@ -35,13 +37,21 @@ type Log struct {
 	keychain ndn.KeyChain
 	trust    *sec.TrustConfig
 
-	clientStarted bool
-	started       bool
+	treeMutex sync.Mutex
+	now       func() time.Time
+
+	clientStarted         bool
+	appendHandlerAttached bool
+	checkHandlerAttached  bool
+	started               bool
 }
 
 // NewLog creates a stopped Merkle history log service.
 func NewLog(config *Config) *Log {
-	return &Log{config: config}
+	return &Log{
+		config: config,
+		now:    time.Now,
+	}
 }
 
 // String returns the service's log identifier.
@@ -105,6 +115,14 @@ func (m *Log) Start() (err error) {
 		return fmt.Errorf("start Object client: %w", err)
 	}
 	m.clientStarted = true
+	if err = m.client.AttachCommandHandler(merklelog.AppendPrefix(m.config.nameN), m.onAppend); err != nil {
+		return fmt.Errorf("attach append handler: %w", err)
+	}
+	m.appendHandlerAttached = true
+	if err = m.client.AttachCommandHandler(merklelog.CheckPrefix(m.config.nameN), m.onCheck); err != nil {
+		return fmt.Errorf("attach check handler: %w", err)
+	}
+	m.checkHandlerAttached = true
 	m.client.AnnouncePrefix(ndn.Announcement{
 		Name:   m.config.nameN,
 		Expose: true,
@@ -127,6 +145,18 @@ func (m *Log) stop() error {
 		if m.started {
 			m.client.WithdrawPrefix(m.config.nameN, nil)
 		}
+		if m.checkHandlerAttached {
+			if err := m.client.DetachCommandHandler(merklelog.CheckPrefix(m.config.nameN)); err != nil {
+				errs = append(errs, fmt.Errorf("detach check handler: %w", err))
+			}
+			m.checkHandlerAttached = false
+		}
+		if m.appendHandlerAttached {
+			if err := m.client.DetachCommandHandler(merklelog.AppendPrefix(m.config.nameN)); err != nil {
+				errs = append(errs, fmt.Errorf("detach append handler: %w", err))
+			}
+			m.appendHandlerAttached = false
+		}
 		if m.clientStarted {
 			if err := m.client.Stop(); err != nil {
 				errs = append(errs, fmt.Errorf("stop Object client: %w", err))
@@ -143,12 +173,15 @@ func (m *Log) stop() error {
 		}
 		m.engine = nil
 	}
+	m.treeMutex.Lock()
 	if m.logStore != nil {
 		if err := m.logStore.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close Merkle log store: %w", err))
 		}
 		m.logStore = nil
 	}
+	m.tree = nil
+	m.treeMutex.Unlock()
 	if m.packetStore != nil {
 		if err := m.packetStore.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close packet store: %w", err))
@@ -156,7 +189,6 @@ func (m *Log) stop() error {
 		m.packetStore = nil
 	}
 
-	m.tree = nil
 	m.keychain = nil
 	m.trust = nil
 	m.started = false
