@@ -46,16 +46,11 @@ type AppendResult struct {
 	LeafIndex optional.Optional[uint64] `tlv:"0x1E06"`
 }
 
-type CheckRequest struct {
-	//+field:sequence:[]byte:binary:[]byte
-	DataHashes [][]byte `tlv:"0x1E00"`
-}
-
 type CheckResponse struct {
 	//+field:struct:TreeRoot
 	Root *TreeRoot `tlv:"0x1E08"`
-	//+field:sequence:*CheckResult:struct:CheckResult
-	Results []*CheckResult `tlv:"0x1E0A"`
+	//+field:struct:CheckResult
+	Result *CheckResult `tlv:"0x1E0A"`
 }
 
 type CheckResult struct {

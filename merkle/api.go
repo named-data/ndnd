@@ -9,6 +9,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/merklelog"
+	"github.com/named-data/ndnd/std/ndn"
 	defn "github.com/named-data/ndnd/std/ndn/merklelog"
 	"github.com/named-data/ndnd/std/types/optional"
 )
@@ -38,24 +39,66 @@ func (m *Log) onAppend(name enc.Name, content enc.Wire, reply func(enc.Wire) err
 	}()
 }
 
-func (m *Log) onCheck(name enc.Name, content enc.Wire, reply func(enc.Wire) error) {
-	if err := m.validateRequestName(name, merklelog.CheckPrefix(m.config.nameN)); err != nil {
-		log.Debug(m, "Rejected check request", "err", err)
+func (m *Log) onCheck(args ndn.InterestHandlerArgs) {
+	name := args.Interest.Name().Clone()
+	prefix := merklelog.CheckPrefix(m.config.nameN)
+	if !prefix.IsPrefix(name) {
 		return
 	}
-	request, err := defn.ParseCheckRequest(enc.NewWireView(content), false)
-	if err != nil {
-		log.Debug(m, "Failed to parse check request", "err", err)
+	hashIndex := len(prefix)
+	if len(name) <= hashIndex ||
+		name[hashIndex].Typ != enc.TypeGenericNameComponent ||
+		len(name[hashIndex].Val) != merklelog.HashSize {
+		log.Debug(m, "Rejected check Interest", "name", name)
 		return
 	}
-	go func() {
-		response, err := m.check(request)
+
+	// Serve segments of proof objects that were produced by an earlier lookup.
+	if len(name) == len(prefix)+3 && name.At(-2).IsVersion() && name.At(-1).IsSegment() {
+		wire, err := m.packetStore.Get(name, false)
 		if err != nil {
-			log.Debug(m, "Rejected check request", "err", err)
+			log.Warn(m, "Failed to read check response", "name", name, "err", err)
+		} else if wire != nil {
+			_ = args.Reply(enc.Wire{wire})
+		}
+		return
+	}
+	if len(name) != len(prefix)+1 || !args.Interest.CanBePrefix() {
+		log.Debug(m, "Rejected check Interest", "name", name)
+		return
+	}
+	dataHash := bytes.Clone(name[hashIndex].Val)
+
+	go func() {
+		response, err := m.check(dataHash)
+		if err != nil {
+			log.Debug(m, "Rejected check Interest", "err", err)
 			return
 		}
-		if err := reply(response.Encode()); err != nil {
-			log.Warn(m, "Failed to reply to check request", "err", err)
+
+		objectName := name.Append(enc.NewVersionComponent(response.Root.TreeSize))
+		segmentName := objectName.Append(enc.NewSegmentComponent(0))
+		wire, err := m.packetStore.Get(segmentName, false)
+		if err == nil && wire == nil {
+			_, err = m.client.Produce(ndn.ProduceArgs{
+				Name:       objectName,
+				Content:    response.Encode(),
+				NoMetadata: true,
+			})
+			if err == nil {
+				wire, err = m.packetStore.Get(segmentName, false)
+			}
+		}
+		if err != nil {
+			log.Warn(m, "Failed to produce check response", "name", name, "err", err)
+			return
+		}
+		if wire == nil {
+			log.Warn(m, "Check response has no first segment", "name", name)
+			return
+		}
+		if err := args.Reply(enc.Wire{wire}); err != nil {
+			log.Warn(m, "Failed to reply to check Interest", "err", err)
 		}
 	}()
 }
@@ -125,19 +168,13 @@ func (m *Log) append(request *defn.AppendRequest) (*defn.AppendResponse, error) 
 	return response, nil
 }
 
-func (m *Log) check(request *defn.CheckRequest) (*defn.CheckResponse, error) {
-	if request == nil || len(request.DataHashes) == 0 {
-		return nil, fmt.Errorf("check request has no Data hashes")
-	}
-	for i, dataHash := range request.DataHashes {
-		if len(dataHash) != merklelog.HashSize {
-			return nil, fmt.Errorf(
-				"Data hash %d length is %d, want %d",
-				i,
-				len(dataHash),
-				merklelog.HashSize,
-			)
-		}
+func (m *Log) check(dataHash []byte) (*defn.CheckResponse, error) {
+	if len(dataHash) != merklelog.HashSize {
+		return nil, fmt.Errorf(
+			"Data hash length is %d, want %d",
+			len(dataHash),
+			merklelog.HashSize,
+		)
 	}
 
 	m.treeMutex.Lock()
@@ -147,23 +184,19 @@ func (m *Log) check(request *defn.CheckRequest) (*defn.CheckResponse, error) {
 	}
 
 	response := &defn.CheckResponse{
-		Root:    m.tree.Root(),
-		Results: make([]*defn.CheckResult, len(request.DataHashes)),
-	}
-	for i, dataHash := range request.DataHashes {
-		result := &defn.CheckResult{
+		Root: m.tree.Root(),
+		Result: &defn.CheckResult{
 			DataHash: bytes.Clone(dataHash),
 			Status:   defn.CheckStatusNotFound,
+		},
+	}
+	if leafIndex, ok := m.tree.Lookup(dataHash); ok {
+		proof, err := m.tree.InclusionProof(leafIndex)
+		if err != nil {
+			return nil, err
 		}
-		response.Results[i] = result
-		if leafIndex, ok := m.tree.Lookup(dataHash); ok {
-			proof, err := m.tree.InclusionProof(leafIndex)
-			if err != nil {
-				return nil, err
-			}
-			result.Status = defn.CheckStatusIncluded
-			result.Proof = proof
-		}
+		response.Result.Status = defn.CheckStatusIncluded
+		response.Result.Proof = proof
 	}
 	return response, nil
 }

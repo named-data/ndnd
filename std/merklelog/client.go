@@ -21,14 +21,14 @@ func AppendPrefix(logPrefix enc.Name) enc.Name {
 	return logPrefix.Clone().Append(appendKeyword)
 }
 
-// CheckPrefix returns the check command prefix under logPrefix.
+// CheckPrefix returns the check object prefix under logPrefix.
 func CheckPrefix(logPrefix enc.Name) enc.Name {
 	return logPrefix.Clone().Append(checkKeyword)
 }
 
-// Client sends signed requests to a Merkle history log. The supplied Object
-// client must use a TrustConfig that signs requests and strictly validates log
-// response signatures.
+// Client appends to and queries a Merkle history log. The supplied Object
+// client must use a TrustConfig that signs append requests and strictly
+// validates log response signatures.
 type Client struct {
 	client     ndn.Client
 	appendName enc.Name
@@ -93,39 +93,42 @@ func (c *Client) Append(dataHashes [][]byte, callback func(*defn.AppendResponse,
 	)
 }
 
-// Check retrieves and verifies inclusion proofs for Data packet hashes.
-func (c *Client) Check(dataHashes [][]byte, callback func(*defn.CheckResponse, error)) {
-	hashes, err := copyRequestHashes(dataHashes)
-	if err != nil {
-		callback(nil, err)
+// Check retrieves and verifies the inclusion proof for one Data packet hash.
+func (c *Client) Check(dataHash []byte, callback func(*defn.CheckResponse, error)) {
+	if len(dataHash) != HashSize {
+		callback(nil, fmt.Errorf("Data hash length is %d, want %d", len(dataHash), HashSize))
 		return
 	}
-	requestName, err := c.requestName(c.checkName)
-	if err != nil {
-		callback(nil, err)
-		return
-	}
-	c.client.ExpressCommand(
-		c.checkName,
-		requestName,
-		(&defn.CheckRequest{DataHashes: hashes}).Encode(),
-		func(wire enc.Wire, err error) {
-			if err != nil {
-				callback(nil, err)
+	hash := bytes.Clone(dataHash)
+	name := c.checkName.Clone().Append(enc.NewGenericBytesComponent(hash))
+	c.client.ConsumeExt(ndn.ConsumeExtArgs{
+		Name:       name,
+		NoMetadata: true,
+		Callback: func(state ndn.ConsumeState) {
+			if err := state.Error(); err != nil {
+				callback(nil, fmt.Errorf("consume check response: %w", err))
 				return
 			}
-			response, err := defn.ParseCheckResponse(enc.NewWireView(wire), false)
+			response, err := defn.ParseCheckResponse(enc.NewWireView(state.Content()), false)
 			if err != nil {
 				callback(nil, fmt.Errorf("parse check response: %w", err))
 				return
 			}
-			if err := validateCheckResponse(hashes, response); err != nil {
+			if response.Root != nil && response.Root.TreeSize != state.Version() {
+				callback(nil, fmt.Errorf(
+					"check response tree size %d does not match object version %d",
+					response.Root.TreeSize,
+					state.Version(),
+				))
+				return
+			}
+			if err := validateCheckResponse(hash, response); err != nil {
 				callback(nil, err)
 				return
 			}
 			callback(response, nil)
 		},
-	)
+	})
 }
 
 func (c *Client) requestName(commandPrefix enc.Name) (enc.Name, error) {
@@ -180,7 +183,7 @@ func validateAppendResponse(dataHashes [][]byte, response *defn.AppendResponse) 
 	return nil
 }
 
-func validateCheckResponse(dataHashes [][]byte, response *defn.CheckResponse) error {
+func validateCheckResponse(dataHash []byte, response *defn.CheckResponse) error {
 	if response == nil || response.Root == nil {
 		return fmt.Errorf("check response has no tree root")
 	}
@@ -193,25 +196,21 @@ func validateCheckResponse(dataHashes [][]byte, response *defn.CheckResponse) er
 			return fmt.Errorf("empty tree has an invalid root hash")
 		}
 	}
-	if len(response.Results) != len(dataHashes) {
-		return fmt.Errorf("check response has %d results, want %d", len(response.Results), len(dataHashes))
+	result := response.Result
+	if result == nil || !bytes.Equal(result.DataHash, dataHash) {
+		return fmt.Errorf("check result does not match requested Data hash")
 	}
-	for i, result := range response.Results {
-		if result == nil || !bytes.Equal(result.DataHash, dataHashes[i]) {
-			return fmt.Errorf("check result %d does not match requested Data hash", i)
+	switch result.Status {
+	case defn.CheckStatusIncluded:
+		if err := VerifyInclusion(dataHash, result.Proof, response.Root); err != nil {
+			return fmt.Errorf("check result has invalid inclusion proof: %w", err)
 		}
-		switch result.Status {
-		case defn.CheckStatusIncluded:
-			if err := VerifyInclusion(dataHashes[i], result.Proof, response.Root); err != nil {
-				return fmt.Errorf("check result %d has invalid inclusion proof: %w", i, err)
-			}
-		case defn.CheckStatusNotFound:
-			if result.Proof != nil {
-				return fmt.Errorf("not-found check result %d has an inclusion proof", i)
-			}
-		default:
-			return fmt.Errorf("check result %d has unknown status %d", i, result.Status)
+	case defn.CheckStatusNotFound:
+		if result.Proof != nil {
+			return fmt.Errorf("not-found check result has an inclusion proof")
 		}
+	default:
+		return fmt.Errorf("check result has unknown status %d", result.Status)
 	}
 	return nil
 }

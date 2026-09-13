@@ -119,7 +119,7 @@ func (m *Log) Start() (err error) {
 		return fmt.Errorf("attach append handler: %w", err)
 	}
 	m.appendHandlerAttached = true
-	if err = m.client.AttachCommandHandler(merklelog.CheckPrefix(m.config.nameN), m.onCheck); err != nil {
+	if err = m.engine.AttachHandler(merklelog.CheckPrefix(m.config.nameN), m.onCheck); err != nil {
 		return fmt.Errorf("attach check handler: %w", err)
 	}
 	m.checkHandlerAttached = true
@@ -146,7 +146,7 @@ func (m *Log) stop() error {
 			m.client.WithdrawPrefix(m.config.nameN, nil)
 		}
 		if m.checkHandlerAttached {
-			if err := m.client.DetachCommandHandler(merklelog.CheckPrefix(m.config.nameN)); err != nil {
+			if err := m.engine.DetachHandler(merklelog.CheckPrefix(m.config.nameN)); err != nil {
 				errs = append(errs, fmt.Errorf("detach check handler: %w", err))
 			}
 			m.checkHandlerAttached = false

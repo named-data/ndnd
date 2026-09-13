@@ -609,243 +609,24 @@ func ParseAppendResult(reader enc.WireView, ignoreCritical bool) (*AppendResult,
 	return context.Parse(reader, ignoreCritical)
 }
 
-type CheckRequestEncoder struct {
-	Length uint
-
-	DataHashes_subencoder []struct {
-	}
-}
-
-type CheckRequestParsingContext struct {
-}
-
-func (encoder *CheckRequestEncoder) Init(value *CheckRequest) {
-	{
-		DataHashes_l := len(value.DataHashes)
-		encoder.DataHashes_subencoder = make([]struct {
-		}, DataHashes_l)
-		for i := 0; i < DataHashes_l; i++ {
-			pseudoEncoder := &encoder.DataHashes_subencoder[i]
-			pseudoValue := struct {
-				DataHashes []byte
-			}{
-				DataHashes: value.DataHashes[i],
-			}
-			{
-				encoder := pseudoEncoder
-				value := &pseudoValue
-
-				_ = encoder
-				_ = value
-			}
-		}
-	}
-
-	l := uint(0)
-	if value.DataHashes != nil {
-		for seq_i, seq_v := range value.DataHashes {
-			pseudoEncoder := &encoder.DataHashes_subencoder[seq_i]
-			pseudoValue := struct {
-				DataHashes []byte
-			}{
-				DataHashes: seq_v,
-			}
-			{
-				encoder := pseudoEncoder
-				value := &pseudoValue
-				if value.DataHashes != nil {
-					l += 3
-					l += uint(enc.TLNum(len(value.DataHashes)).EncodingLength())
-					l += uint(len(value.DataHashes))
-				}
-				_ = encoder
-				_ = value
-			}
-		}
-	}
-	encoder.Length = l
-
-}
-
-func (context *CheckRequestParsingContext) Init() {
-
-}
-
-func (encoder *CheckRequestEncoder) EncodeInto(value *CheckRequest, buf []byte) {
-
-	pos := uint(0)
-
-	if value.DataHashes != nil {
-		for seq_i, seq_v := range value.DataHashes {
-			pseudoEncoder := &encoder.DataHashes_subencoder[seq_i]
-			pseudoValue := struct {
-				DataHashes []byte
-			}{
-				DataHashes: seq_v,
-			}
-			{
-				encoder := pseudoEncoder
-				value := &pseudoValue
-				if value.DataHashes != nil {
-					buf[pos] = 253
-					binary.BigEndian.PutUint16(buf[pos+1:], uint16(7680))
-					pos += 3
-					pos += uint(enc.TLNum(len(value.DataHashes)).EncodeInto(buf[pos:]))
-					copy(buf[pos:], value.DataHashes)
-					pos += uint(len(value.DataHashes))
-				}
-				_ = encoder
-				_ = value
-			}
-		}
-	}
-}
-
-func (encoder *CheckRequestEncoder) Encode(value *CheckRequest) enc.Wire {
-
-	wire := make(enc.Wire, 1)
-	wire[0] = make([]byte, encoder.Length)
-	buf := wire[0]
-	encoder.EncodeInto(value, buf)
-
-	return wire
-}
-
-func (context *CheckRequestParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*CheckRequest, error) {
-
-	var handled_DataHashes bool = false
-
-	progress := -1
-	_ = progress
-
-	value := &CheckRequest{}
-	var err error
-	var startPos int
-	for {
-		startPos = reader.Pos()
-		if startPos >= reader.Length() {
-			break
-		}
-		typ := enc.TLNum(0)
-		l := enc.TLNum(0)
-		typ, err = reader.ReadTLNum()
-		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
-		}
-		l, err = reader.ReadTLNum()
-		if err != nil {
-			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
-		}
-
-		err = nil
-		if handled := false; true {
-			switch typ {
-			case 7680:
-				if true {
-					handled = true
-					handled_DataHashes = true
-					if value.DataHashes == nil {
-						value.DataHashes = make([][]byte, 0)
-					}
-					{
-						pseudoValue := struct {
-							DataHashes []byte
-						}{}
-						{
-							value := &pseudoValue
-							value.DataHashes = make([]byte, l)
-							_, err = reader.ReadFull(value.DataHashes)
-							_ = value
-						}
-						value.DataHashes = append(value.DataHashes, pseudoValue.DataHashes)
-					}
-					progress--
-				}
-			default:
-				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
-					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
-				}
-				handled = true
-				err = reader.Skip(int(l))
-			}
-			if err == nil && !handled {
-			}
-			if err != nil {
-				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
-			}
-		}
-	}
-
-	startPos = reader.Pos()
-	err = nil
-
-	if !handled_DataHashes && err == nil {
-		// sequence - skip
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return value, nil
-}
-
-func (value *CheckRequest) Encode() enc.Wire {
-	encoder := CheckRequestEncoder{}
-	encoder.Init(value)
-	return encoder.Encode(value)
-}
-
-func (value *CheckRequest) Bytes() []byte {
-	return value.Encode().Join()
-}
-
-func ParseCheckRequest(reader enc.WireView, ignoreCritical bool) (*CheckRequest, error) {
-	context := CheckRequestParsingContext{}
-	context.Init()
-	return context.Parse(reader, ignoreCritical)
-}
-
 type CheckResponseEncoder struct {
 	Length uint
 
-	Root_encoder       TreeRootEncoder
-	Results_subencoder []struct {
-		Results_encoder CheckResultEncoder
-	}
+	Root_encoder   TreeRootEncoder
+	Result_encoder CheckResultEncoder
 }
 
 type CheckResponseParsingContext struct {
-	Root_context    TreeRootParsingContext
-	Results_context CheckResultParsingContext
+	Root_context   TreeRootParsingContext
+	Result_context CheckResultParsingContext
 }
 
 func (encoder *CheckResponseEncoder) Init(value *CheckResponse) {
 	if value.Root != nil {
 		encoder.Root_encoder.Init(value.Root)
 	}
-	{
-		Results_l := len(value.Results)
-		encoder.Results_subencoder = make([]struct {
-			Results_encoder CheckResultEncoder
-		}, Results_l)
-		for i := 0; i < Results_l; i++ {
-			pseudoEncoder := &encoder.Results_subencoder[i]
-			pseudoValue := struct {
-				Results *CheckResult
-			}{
-				Results: value.Results[i],
-			}
-			{
-				encoder := pseudoEncoder
-				value := &pseudoValue
-				if value.Results != nil {
-					encoder.Results_encoder.Init(value.Results)
-				}
-				_ = encoder
-				_ = value
-			}
-		}
+	if value.Result != nil {
+		encoder.Result_encoder.Init(value.Result)
 	}
 
 	l := uint(0)
@@ -854,26 +635,10 @@ func (encoder *CheckResponseEncoder) Init(value *CheckResponse) {
 		l += uint(enc.TLNum(encoder.Root_encoder.Length).EncodingLength())
 		l += encoder.Root_encoder.Length
 	}
-	if value.Results != nil {
-		for seq_i, seq_v := range value.Results {
-			pseudoEncoder := &encoder.Results_subencoder[seq_i]
-			pseudoValue := struct {
-				Results *CheckResult
-			}{
-				Results: seq_v,
-			}
-			{
-				encoder := pseudoEncoder
-				value := &pseudoValue
-				if value.Results != nil {
-					l += 3
-					l += uint(enc.TLNum(encoder.Results_encoder.Length).EncodingLength())
-					l += encoder.Results_encoder.Length
-				}
-				_ = encoder
-				_ = value
-			}
-		}
+	if value.Result != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.Result_encoder.Length).EncodingLength())
+		l += encoder.Result_encoder.Length
 	}
 	encoder.Length = l
 
@@ -881,7 +646,7 @@ func (encoder *CheckResponseEncoder) Init(value *CheckResponse) {
 
 func (context *CheckResponseParsingContext) Init() {
 	context.Root_context.Init()
-	context.Results_context.Init()
+	context.Result_context.Init()
 }
 
 func (encoder *CheckResponseEncoder) EncodeInto(value *CheckResponse, buf []byte) {
@@ -898,30 +663,14 @@ func (encoder *CheckResponseEncoder) EncodeInto(value *CheckResponse, buf []byte
 			pos += encoder.Root_encoder.Length
 		}
 	}
-	if value.Results != nil {
-		for seq_i, seq_v := range value.Results {
-			pseudoEncoder := &encoder.Results_subencoder[seq_i]
-			pseudoValue := struct {
-				Results *CheckResult
-			}{
-				Results: seq_v,
-			}
-			{
-				encoder := pseudoEncoder
-				value := &pseudoValue
-				if value.Results != nil {
-					buf[pos] = 253
-					binary.BigEndian.PutUint16(buf[pos+1:], uint16(7690))
-					pos += 3
-					pos += uint(enc.TLNum(encoder.Results_encoder.Length).EncodeInto(buf[pos:]))
-					if encoder.Results_encoder.Length > 0 {
-						encoder.Results_encoder.EncodeInto(value.Results, buf[pos:])
-						pos += encoder.Results_encoder.Length
-					}
-				}
-				_ = encoder
-				_ = value
-			}
+	if value.Result != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(7690))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.Result_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Result_encoder.Length > 0 {
+			encoder.Result_encoder.EncodeInto(value.Result, buf[pos:])
+			pos += encoder.Result_encoder.Length
 		}
 	}
 }
@@ -939,7 +688,7 @@ func (encoder *CheckResponseEncoder) Encode(value *CheckResponse) enc.Wire {
 func (context *CheckResponseParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*CheckResponse, error) {
 
 	var handled_Root bool = false
-	var handled_Results bool = false
+	var handled_Result bool = false
 
 	progress := -1
 	_ = progress
@@ -975,22 +724,8 @@ func (context *CheckResponseParsingContext) Parse(reader enc.WireView, ignoreCri
 			case 7690:
 				if true {
 					handled = true
-					handled_Results = true
-					if value.Results == nil {
-						value.Results = make([]*CheckResult, 0)
-					}
-					{
-						pseudoValue := struct {
-							Results *CheckResult
-						}{}
-						{
-							value := &pseudoValue
-							value.Results, err = context.Results_context.Parse(reader.Delegate(int(l)), ignoreCritical)
-							_ = value
-						}
-						value.Results = append(value.Results, pseudoValue.Results)
-					}
-					progress--
+					handled_Result = true
+					value.Result, err = context.Result_context.Parse(reader.Delegate(int(l)), ignoreCritical)
 				}
 			default:
 				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
@@ -1013,8 +748,8 @@ func (context *CheckResponseParsingContext) Parse(reader enc.WireView, ignoreCri
 	if !handled_Root && err == nil {
 		value.Root = nil
 	}
-	if !handled_Results && err == nil {
-		// sequence - skip
+	if !handled_Result && err == nil {
+		value.Result = nil
 	}
 
 	if err != nil {

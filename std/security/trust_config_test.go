@@ -1,6 +1,7 @@
 package security_test
 
 import (
+	"bytes"
 	"crypto/elliptic"
 	_ "embed"
 	"fmt"
@@ -104,9 +105,21 @@ func validateSync(opts ValidateSyncOptions) bool {
 	require.NoError(tcTestT, err)
 	data, sigCov, err := spec.Spec{}.ReadData(enc.NewWireView(dataW.Wire))
 	require.NoError(tcTestT, err)
+	onCertExpired := opts.onCertExpired
+	rawDataMismatch := false
+	if onCertExpired != nil {
+		onCertExpired = func(args ndn.CertExpiredCallbackArgs, complete func(error)) {
+			if args.Data.Name().Equal(data.Name()) &&
+				!bytes.Equal(dataW.Wire.Join(), args.RawData.Join()) {
+				rawDataMismatch = true
+			}
+			opts.onCertExpired(args, complete)
+		}
+	}
 	ch := make(chan bool)
 	go tcTestTrustConfig.Validate(sec.TrustConfigValidateArgs{
 		Data:       data,
+		RawData:    dataW.Wire,
 		DataSigCov: sigCov,
 		Fetch:      fetchFun,
 		Callback: func(valid bool, err error) {
@@ -114,9 +127,11 @@ func validateSync(opts ValidateSyncOptions) bool {
 			ch <- valid
 			close(ch)
 		},
-		OnCertExpired: opts.onCertExpired,
+		OnCertExpired: onCertExpired,
 	})
-	return <-ch
+	valid := <-ch
+	require.False(tcTestT, rawDataMismatch)
+	return valid
 }
 
 // Helper to validate certificates
@@ -565,6 +580,7 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 	require.Equal(t, "/test/alice/app/test/bob/expired-invite", crossSchemaExpiryArgs[0].Data.Name().String())
 	require.True(t, expiredInviteData.Name().Equal(crossSchemaExpiryArgs[0].Cert.Name()))
 	require.True(t, expiredInviteData.Name().Equal(crossSchemaExpiryArgs[1].Data.Name()))
+	require.Equal(t, expiredInvite.Join(), crossSchemaExpiryArgs[1].RawData.Join())
 	require.True(t, aliceCertData.Name().Equal(crossSchemaExpiryArgs[1].Cert.Name()))
 
 	require.False(t, validateSync(ValidateSyncOptions{
@@ -853,6 +869,7 @@ func testTrustConfigIntra(t *testing.T, schema ndn.TrustSchema) {
 	require.Equal(t, "/test/eve/data3", callbackArgs[0].Data.Name().String())
 	require.True(t, eveCertData.Name().Equal(callbackArgs[0].Cert.Name()))
 	require.True(t, eveCertData.Name().Equal(callbackArgs[1].Data.Name()))
+	require.Equal(t, eveCertWire.Join(), callbackArgs[1].RawData.Join())
 	require.True(t, rootCertData.Name().Equal(callbackArgs[1].Cert.Name()))
 }
 
@@ -1132,6 +1149,7 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 		require.Error(t, err)
 		require.Len(t, expiryArgs, 1)
 		require.True(t, freshPreAnchorData.Name().Equal(expiryArgs[0].Data.Name()))
+		require.Equal(t, freshPreAnchorWire.Join(), expiryArgs[0].RawData.Join())
 		require.True(t, expiringOwnerData.Name().Equal(expiryArgs[0].Cert.Name()))
 		require.Equal(t, 0, tcTestFetchCount)
 	})
@@ -1286,8 +1304,10 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 		require.Error(t, err)
 		require.Len(t, rejectedExpiryArgs, 2)
 		require.True(t, expiredListData.Name().Equal(rejectedExpiryArgs[0].Data.Name()))
+		require.Equal(t, expiredListWire.Wire.Join(), rejectedExpiryArgs[0].RawData.Join())
 		require.True(t, expiredPreAnchorData.Name().Equal(rejectedExpiryArgs[0].Cert.Name()))
 		require.True(t, expiredPreAnchorData.Name().Equal(rejectedExpiryArgs[1].Data.Name()))
+		require.Equal(t, expiredPreAnchorWire.Join(), rejectedExpiryArgs[1].RawData.Join())
 		require.True(t, ownerCertData.Name().Equal(rejectedExpiryArgs[1].Cert.Name()))
 		require.Equal(t, 1, tcTestFetchCount) // CertList; target certificate is reloaded locally.
 
@@ -1301,8 +1321,10 @@ func testTrustConfigInter(t *testing.T, schema ndn.TrustSchema) {
 		require.Error(t, err)
 		require.Len(t, expiryArgs, 2)
 		require.True(t, expiredListData.Name().Equal(expiryArgs[0].Data.Name()))
+		require.Equal(t, expiredListWire.Wire.Join(), expiryArgs[0].RawData.Join())
 		require.True(t, expiredPreAnchorData.Name().Equal(expiryArgs[0].Cert.Name()))
 		require.True(t, expiredPreAnchorData.Name().Equal(expiryArgs[1].Data.Name()))
+		require.Equal(t, expiredPreAnchorWire.Join(), expiryArgs[1].RawData.Join())
 		require.True(t, ownerCertData.Name().Equal(expiryArgs[1].Cert.Name()))
 		require.Equal(t, 0, tcTestFetchCount) // CertList is cached; target is reloaded locally.
 
