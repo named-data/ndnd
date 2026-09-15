@@ -489,3 +489,18 @@ func TestFIB_HT_RealAndVirtualNodes(t *testing.T) {
 		testFIB_HT_Details(t, uint16(i))
 	}
 }
+
+func TestPruneRecomputesVirtualDepth_HT(t *testing.T) {
+	newFibStrategyTableHashTable(2)
+
+	shortName, _ := enc.NameFromStr("/a/b/c")
+	longName, _ := enc.NameFromStr("/a/b/c/d")
+	FibStrategyTable.InsertNextHopEnc(shortName, 1, 1)
+	FibStrategyTable.InsertNextHopEnc(longName, 2, 1)
+
+	FibStrategyTable.RemoveNextHopEnc(longName, 2)
+
+	table := FibStrategyTable.(*FibStrategyHashTable)
+	virtualName, _ := enc.NameFromStr("/a/b")
+	assert.Equal(t, len(shortName), table.virtTable[virtualName.Hash()].md)
+}
