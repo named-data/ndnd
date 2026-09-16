@@ -814,7 +814,7 @@ func (tc *TrustConfig) validateCertListSigner(args certListArgs, cert ndn.Data, 
 
 // Returns true if signature time is within certificate validity period
 func ValidateSigTime(data ndn.Data, cert ndn.Data) bool {
-	if cert.Signature() == nil {
+	if data == nil || cert.Signature() == nil {
 		return false
 	}
 
