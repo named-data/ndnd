@@ -56,6 +56,11 @@ func MakeNDNLPLinkServiceOptions() NDNLPLinkServiceOptions {
 	}
 }
 
+// maxReassemblyFragments bounds the fragment count of a single reassembled
+// packet. A valid L3 packet is at most MaxNDNPacketSize bytes and every
+// fragment carries at least one byte, so a larger count can never complete.
+const maxReassemblyFragments = defn.MaxNDNPacketSize
+
 // NDNLPLinkService is a link service implementing the NDNLPv2 link protocol
 type NDNLPLinkService struct {
 	linkServiceBase
@@ -317,6 +322,12 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 			if v, ok := LP.FragCount.Get(); ok {
 				fragCount = v
 			}
+			if fragCount == 0 || fragCount > maxReassemblyFragments ||
+				fragIndex >= fragCount || fragIndex > LP.Sequence.Unwrap() {
+				core.Log.Warn(l, "Received frame with invalid fragmentation fields - DROP",
+					"index", fragIndex, "count", fragCount, "sequence", LP.Sequence.Unwrap())
+				return
+			}
 			baseSequence := LP.Sequence.Unwrap() - fragIndex
 
 			core.Log.Trace(l, "Received fragment", "index", fragIndex, "count", fragCount, "base", baseSequence)
@@ -374,6 +385,13 @@ func (l *NDNLPLinkService) reassemble(
 	fragIndex uint64,
 	fragCount uint64,
 ) enc.Wire {
+	// Validate fragmentation fields before allocating a reassembly buffer
+	if fragCount == 0 || fragCount > maxReassemblyFragments || fragIndex >= fragCount {
+		core.Log.Warn(l, "Invalid fragmentation fields - DROP",
+			"index", fragIndex, "count", fragCount, "base", baseSequence)
+		return nil
+	}
+
 	var buffer enc.Wire = nil
 	var bufIndex int = 0
 
