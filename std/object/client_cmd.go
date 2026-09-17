@@ -93,9 +93,9 @@ func (c *Client) ExpressCommand(dest enc.Name, name enc.Name, cmd enc.Wire, call
 				callback(nil, fmt.Errorf("command failed: %s", args.Result))
 				return
 			}
-			c.Validate(args.Data, data.Wire, func(valid bool, err error) {
+			c.Validate(args.Data, args.SigCovered, func(valid bool, err error) {
 				if !valid {
-					callback(nil, fmt.Errorf("command data validation failed: %w", err))
+					callback(nil, fmt.Errorf("command response validation failed: %w", err))
 					return
 				}
 				callback(args.Data.Content(), nil)

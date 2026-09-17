@@ -12,7 +12,6 @@ import (
 	"github.com/named-data/ndnd/std/security/signer"
 	"github.com/named-data/ndnd/std/security/trust_schema"
 	"github.com/named-data/ndnd/std/types/optional"
-	"github.com/named-data/ndnd/std/utils"
 )
 
 // TrustConfig is the configuration of the trust module.
@@ -26,7 +25,8 @@ type TrustConfig struct {
 	// roots are the full names of the trust anchors.
 	roots []enc.Name
 
-	// certCache stores certificate data and its signature-covered wire.
+	// certCache stores certificate data and the wire needed to identify and
+	// revalidate it.
 	// Cache hits are revalidated unless the certificate is a trust anchor.
 	certCache *CertCache
 
@@ -68,7 +68,7 @@ func NewTrustConfig(keyChain ndn.KeyChain, schema ndn.TrustSchema, roots []enc.N
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse trust anchor %s: %w", root, err)
 			}
-			certCache.put(certData, certSigCov)
+			certCache.put(certData, certSigCov, enc.Wire{certBytes})
 		}
 	}
 
@@ -109,6 +109,9 @@ func (tc *TrustConfig) SetSchema(schema ndn.TrustSchema) {
 type TrustConfigValidateArgs struct {
 	// Data is the packet to validate.
 	Data ndn.Data
+	// RawData is the complete wire encoding of Data. It may be nil when the
+	// caller only has the parsed packet.
+	RawData enc.Wire
 	// DataSigCov is the signature covered data wire.
 	DataSigCov enc.Wire
 
@@ -136,8 +139,8 @@ type TrustConfigValidateArgs struct {
 	certExpiryHandled bool
 	// certSigCov is the signature covered certificate wire.
 	certSigCov enc.Wire
-	// certRaw is the raw certificate bytes (if fetched).
-	certRaw enc.Wire
+	// certWire is the complete certificate wire used as packet identity.
+	certWire enc.Wire
 	// certIsValid indicates if the certificate has been already validated.
 	certIsValid bool
 
@@ -233,8 +236,9 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		if !args.certExpiryHandled &&
 			(args.crossSchemaExpired || certDataExpired || CertIsExpired(args.cert)) {
 			runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
-				Data: args.Data,
-				Cert: args.cert,
+				Data:    args.Data,
+				RawData: args.RawData,
+				Cert:    args.cert,
 			}, func(err error) {
 				if err != nil {
 					args.Callback(false, err)
@@ -255,6 +259,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		} else if args.Data.CrossSchema() != nil {
 			tc.validateCrossSchema(TrustConfigValidateArgs{
 				Data:       args.Data,
+				RawData:    args.RawData,
 				DataSigCov: args.DataSigCov,
 
 				Fetch: args.Fetch,
@@ -302,23 +307,13 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 			return
 		}
 
-		// Monkey patch the callback to store the cert in
-		// keychain and cache if the validation passes.
+		// Monkey patch the callback to store the cert after validation passes.
 		origCallback := args.Callback
 		args.Callback = func(valid bool, err error) {
 			if valid && err == nil {
 				// Cache the certificate and the wire needed to revalidate its chain.
-				tc.certCache.put(args.cert, args.certSigCov)
-
-				// Keychain is not thread safe for inserts
-				if len(args.certRaw) > 0 {
-					tc.mutex.Lock()
-					err := tc.keychain.InsertCert(args.certRaw.Join())
-					tc.mutex.Unlock()
-					if err != nil { // broken keychain
-						log.Error(tc, "Failed to insert certificate to keychain", "name", args.cert.Name(), "err", err)
-					}
-				}
+				tc.certCache.put(args.cert, args.certSigCov, args.certWire)
+				tc.storeCertIfMissing(args.cert, args.certWire)
 			} else {
 				log.Warn(tc, "Received invalid certificate", "name", args.cert.Name(), "err", err)
 			}
@@ -329,6 +324,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		// Recursively validate the certificate
 		tc.Validate(TrustConfigValidateArgs{
 			Data:       args.cert,
+			RawData:    args.certWire,
 			DataSigCov: args.certSigCov,
 
 			Fetch:         args.Fetch,
@@ -339,7 +335,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 			cert:        nil,
 			certSigCov:  nil,
-			certRaw:     nil,
+			certWire:    nil,
 			certIsValid: false,
 
 			crossSchemaIsValid: false,
@@ -359,7 +355,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 	// The code below might seem to have a lot of redundancy - this is intentional.
 	args.cert = nil
 	args.certSigCov = nil
-	args.certRaw = nil
+	args.certWire = nil
 	args.certIsValid = false
 	args.certExpiryHandled = false
 	args.crossSchemaIsValid = false
@@ -370,6 +366,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		(tc.isTrustAnchor(cached.data.Name()) || len(cached.sigCovered) > 0) {
 		args.cert = cached.data
 		args.certSigCov = cached.sigCovered
+		args.certWire = cached.rawData
 		args.certIsValid = tc.isTrustAnchor(cached.data.Name())
 
 		// Continue validation with cached cert
@@ -421,7 +418,7 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 		// Call again with the fetched cert
 		args.cert = res.Data
 		args.certSigCov = res.SigCovered
-		args.certRaw = utils.If(!res.IsLocal, res.RawData, nil) // prevent double insert
+		args.certWire = res.RawData
 		args.certIsValid = tc.isTrustAnchor(res.Data.Name())
 
 		// Continue validation with fetched cert
@@ -447,23 +444,25 @@ func (tc *TrustConfig) validateCrossSchema(args TrustConfigValidateArgs) {
 	// Check validity period of the cross schema.
 	if CertIsExpired(crossData) {
 		runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
-			Data: args.Data,
-			Cert: crossData,
+			Data:    args.Data,
+			RawData: args.RawData,
+			Cert:    crossData,
 		}, func(err error) {
 			if err != nil {
 				args.Callback(false, err)
 				return
 			}
-			tc.validateCrossSchemaData(args, crossData, crossDataSigCov, true)
+			tc.validateCrossSchemaData(args, crossData, crossWire, crossDataSigCov, true)
 		})
 		return
 	}
-	tc.validateCrossSchemaData(args, crossData, crossDataSigCov, false)
+	tc.validateCrossSchemaData(args, crossData, crossWire, crossDataSigCov, false)
 }
 
 func (tc *TrustConfig) validateCrossSchemaData(
 	args TrustConfigValidateArgs,
 	crossData ndn.Data,
+	crossDataRaw enc.Wire,
 	crossDataSigCov enc.Wire,
 	crossSchemaExpired bool,
 ) {
@@ -488,6 +487,7 @@ func (tc *TrustConfig) validateCrossSchemaData(
 	// Validate the cross schema signer to sign the original data
 	tc.Validate(TrustConfigValidateArgs{
 		Data:       crossData,
+		RawData:    crossDataRaw,
 		DataSigCov: crossDataSigCov,
 
 		Fetch:              args.Fetch,
@@ -507,8 +507,9 @@ func (tc *TrustConfig) handleSelfSignedCert(args TrustConfigValidateArgs, keyLoc
 	}
 	if !args.certExpiryHandled && (args.crossSchemaExpired || certDataExpired) {
 		runCertExpiryPolicy(args.OnCertExpired, ndn.CertExpiredCallbackArgs{
-			Data: args.Data,
-			Cert: args.Data,
+			Data:    args.Data,
+			RawData: args.RawData,
+			Cert:    args.Data,
 		}, func(err error) {
 			if err != nil {
 				args.Callback(false, err)
@@ -552,7 +553,7 @@ func (tc *TrustConfig) handleSelfSignedCert(args TrustConfigValidateArgs, keyLoc
 	tc.exploreCertList(certListArgs{
 		args:         args,
 		anchorCert:   args.Data,
-		anchorRaw:    args.certRaw,
+		anchorRaw:    args.RawData,
 		anchorKey:    anchorKeyName,
 		visitedLists: map[string]struct{}{},
 		visitedCerts: map[string]struct{}{},
@@ -564,15 +565,9 @@ func (tc *TrustConfig) PromoteAnchor(cert ndn.Data, raw enc.Wire) {
 	if cert == nil {
 		return
 	}
-	tc.certCache.Put(cert)
+	tc.certCache.put(cert, nil, raw)
 	name := cert.Name()
-
-	// Persist the trust anchor if not already present and raw is available.
-	if len(raw) > 0 {
-		tc.mutex.Lock()
-		_ = tc.keychain.InsertCert(raw.Join())
-		tc.mutex.Unlock()
-	}
+	tc.storeCertIfMissing(cert, raw)
 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
@@ -582,6 +577,23 @@ func (tc *TrustConfig) PromoteAnchor(cert ndn.Data, raw enc.Wire) {
 		}
 	}
 	tc.roots = append(tc.roots, name)
+}
+
+// storeCertIfMissing persists a certificate without inserting it twice.
+func (tc *TrustConfig) storeCertIfMissing(cert ndn.Data, wire enc.Wire) {
+	if cert == nil || len(wire) == 0 {
+		return
+	}
+
+	tc.mutex.Lock()
+	stored, err := tc.keychain.Store().Get(cert.Name(), false)
+	if err == nil && len(stored) == 0 {
+		err = tc.keychain.InsertCert(wire.Join())
+	}
+	tc.mutex.Unlock()
+	if err != nil {
+		log.Error(tc, "Failed to store certificate", "name", cert.Name(), "err", err)
+	}
 }
 
 func (tc *TrustConfig) isTrustedAnchorKey(keyLocator enc.Name) bool {
@@ -616,6 +628,7 @@ type certListArgs struct {
 	anchorRaw    enc.Wire
 	anchorKey    enc.Name
 	listData     ndn.Data
+	listRaw      enc.Wire
 	visitedLists map[string]struct{}
 	visitedCerts map[string]struct{}
 }
@@ -628,8 +641,8 @@ func (tc *TrustConfig) exploreCertList(args certListArgs, prefix enc.Name) {
 	}
 	args.visitedLists[key] = struct{}{}
 
-	if cached, ok := tc.certListCache.Get(prefix); ok {
-		tc.processCertList(args, cached, nil, nil)
+	if cached, ok := tc.certListCache.get(prefix); ok {
+		tc.processCertList(args, cached.data, nil, cached.rawData)
 		return
 	}
 
@@ -652,12 +665,21 @@ func (tc *TrustConfig) exploreCertList(args certListArgs, prefix enc.Name) {
 			return
 		}
 
-		raw := utils.If(!res.IsLocal, res.RawData, nil)
-		tc.processCertList(args, res.Data, res.SigCovered, raw)
+		tc.processCertList(
+			args,
+			res.Data,
+			res.SigCovered,
+			res.RawData,
+		)
 	})
 }
 
-func (tc *TrustConfig) processCertList(args certListArgs, listData ndn.Data, listSigCov enc.Wire, raw enc.Wire) {
+func (tc *TrustConfig) processCertList(
+	args certListArgs,
+	listData ndn.Data,
+	listSigCov enc.Wire,
+	listRaw enc.Wire,
+) {
 	if listData == nil {
 		args.args.Callback(false, fmt.Errorf("certlist missing"))
 		return
@@ -672,7 +694,7 @@ func (tc *TrustConfig) processCertList(args certListArgs, listData ndn.Data, lis
 			args.args.Callback(false, fmt.Errorf("certlist invalid"))
 			return
 		}
-		tc.certListCache.Put(args.anchorKey, listData)
+		tc.certListCache.put(args.anchorKey, listData, listRaw)
 	}
 
 	names, err := DecodeCertList(listData.Content())
@@ -680,12 +702,19 @@ func (tc *TrustConfig) processCertList(args certListArgs, listData ndn.Data, lis
 		args.args.Callback(false, fmt.Errorf("certlist invalid: %w", err))
 		return
 	}
-	if len(raw) > 0 {
-		if err := tc.keychain.Store().Put(listData.Name(), raw.Join()); err != nil {
+	if len(listRaw) > 0 {
+		tc.mutex.Lock()
+		stored, err := tc.keychain.Store().Get(listData.Name(), false)
+		if err == nil && len(stored) == 0 {
+			err = tc.keychain.Store().Put(listData.Name(), listRaw.Join())
+		}
+		tc.mutex.Unlock()
+		if err != nil {
 			log.Warn(tc, "Failed to store CertList", "name", listData.Name(), "err", err)
 		}
 	}
 	args.listData = listData
+	args.listRaw = listRaw
 	tc.tryListedCerts(args, names, 0)
 }
 
@@ -709,7 +738,7 @@ func (tc *TrustConfig) tryListedCerts(args certListArgs, names []enc.Name, idx i
 
 	if cached, ok := tc.certCache.get(name); ok &&
 		(tc.isTrustAnchor(cached.data.Name()) || len(cached.sigCovered) > 0) {
-		tc.validateListedCert(args, names, idx, cached.data, cached.sigCovered, nil)
+		tc.validateListedCert(args, names, idx, cached.data, cached.sigCovered, cached.rawData)
 		return
 	}
 
@@ -742,7 +771,7 @@ func (tc *TrustConfig) validateListedCert(
 	idx int,
 	cert ndn.Data,
 	certSigCov enc.Wire,
-	certRaw enc.Wire,
+	certWire enc.Wire,
 ) {
 	next := func() {
 		tc.tryListedCerts(args, names, idx+1)
@@ -766,18 +795,15 @@ func (tc *TrustConfig) validateListedCert(
 	tc.validateCertListSigner(args, cert, func() {
 		tc.Validate(TrustConfigValidateArgs{
 			Data:       cert,
+			RawData:    certWire,
 			DataSigCov: certSigCov,
 
 			Fetch:             args.args.Fetch,
 			UseDataNameFwHint: args.args.UseDataNameFwHint,
 			Callback: func(valid bool, err error) {
 				if valid && err == nil {
-					tc.certCache.put(cert, certSigCov)
-					if len(certRaw) > 0 {
-						tc.mutex.Lock()
-						_ = tc.keychain.InsertCert(certRaw.Join())
-						tc.mutex.Unlock()
-					}
+					tc.certCache.put(cert, certSigCov, certWire)
+					tc.storeCertIfMissing(cert, certWire)
 					tc.PromoteAnchor(args.anchorCert, args.anchorRaw)
 					args.args.Callback(true, nil)
 					return
@@ -801,8 +827,9 @@ func (tc *TrustConfig) validateCertListSigner(args certListArgs, cert ndn.Data, 
 	}
 
 	runCertExpiryPolicy(args.args.OnCertExpired, ndn.CertExpiredCallbackArgs{
-		Data: args.listData,
-		Cert: cert,
+		Data:    args.listData,
+		RawData: args.listRaw,
+		Cert:    cert,
 	}, func(err error) {
 		if err != nil {
 			onReject()

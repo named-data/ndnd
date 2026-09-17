@@ -54,6 +54,7 @@ func (c *Client) ValidateExt(args ndn.ValidateExtArgs) {
 
 	c.trust.Validate(sec.TrustConfigValidateArgs{
 		Data:              args.Data,
+		RawData:           args.RawData,
 		DataSigCov:        args.SigCovered,
 		Callback:          args.Callback,
 		OverrideName:      overrideName,

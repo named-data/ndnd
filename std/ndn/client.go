@@ -158,6 +158,9 @@ type ExpressRArgs struct {
 type ValidateExtArgs struct {
 	// Data packet to validate.
 	Data Data
+	// RawData is the complete wire encoding of Data. It may be nil when the
+	// caller only has the parsed packet.
+	RawData enc.Wire
 	// Signature covered wire.
 	SigCovered enc.Wire
 	// Callback for the result.
