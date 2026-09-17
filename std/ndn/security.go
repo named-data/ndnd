@@ -55,6 +55,9 @@ type SigChecker func(name enc.Name, sigCovered enc.Wire, sig Signature) bool
 type CertExpiredCallbackArgs struct {
 	// Data is the packet whose validation depends on Cert's validity.
 	Data Data
+	// RawData is the complete wire encoding of Data. It may be nil when the
+	// validation caller only supplied the parsed packet.
+	RawData enc.Wire
 	// Cert is the certificate or cross-schema packet authorizing Data.
 	Cert Data
 }
