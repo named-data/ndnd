@@ -4,6 +4,12 @@ Status: Experimental Design Specification
 
 Design revision: 1 (not encoded on the wire)
 
+This specification describes the current [log service](../merkle/api.go),
+[Merkle core and client](../std/merklelog/),
+[wire models](../std/ndn/merklelog/definitions.go), and
+[trust validator](../std/security/trust_config.go). Implementation limits are
+called out below; the auditor model remains future work.
+
 ## Abstract
 
 An expired certificate does not necessarily make every packet signed by its
@@ -109,8 +115,9 @@ were submitted together.
 
 `IngestTime` is an integer count of whole milliseconds since the Unix epoch in
 the inclusive range 0 through 9,223,372,036,854. Sub-millisecond values are
-invalid. The on-the-wire encoding is the minimum-length unsigned integer that
-represents the value.
+invalid. The on-the-wire encoding is a big-endian NDN non-negative integer,
+using the shortest permitted width (1, 2, 4, or 8 bytes) that represents the
+value.
 
 ### 2.3. Hashing and tree shape
 
@@ -124,6 +131,14 @@ The domain bytes distinguish leaves from interior nodes. The complete leaf
 input includes the `LogEntry` TLV with type `0x1E12`, its canonical length,
 and its raw TLV-VALUE. A proof carries the unmodified TLV-VALUE; the verifier
 MUST restore the fixed outer type and canonical length before hashing.
+
+The tree accepts only complete entries matching their canonical encoding: one
+`IngestTime` followed by the ordered `DataHash` TLVs, with canonical type,
+length, and integer encodings. The proof verifier applies the same check after
+restoring the outer wrapper, so the preserved TLV-VALUE must be canonical too.
+Reordered fields, additional fields, repeated `IngestTime`, or non-canonical
+inner encodings are rejected. Canonicality is checked by comparison with a
+re-encoding; the hash input retains the received entry value.
 
 For more than one leaf, the split point is the largest power of two strictly
 smaller than the leaf count. For five leaves:
@@ -145,13 +160,20 @@ or extra siblings, invalid lengths, out-of-range indexes, and root mismatches.
 
 ### 2.4. Time and complexity
 
-The log MUST assign each accepted leaf an `IngestTime` strictly greater than
-every previously assigned `IngestTime`. The log MUST guarantee this property
-across all observable appends, regardless of clock behaviour or transient
-failures. It does not make the clock trustworthy.
+The log assigns each new leaf the current Unix time truncated to milliseconds,
+or the last committed ingestion time plus one millisecond, whichever is later.
+The tree MUST reject an entry whose time is not strictly later than its
+predecessor's. The last committed time is restored on restart. An append that
+fails before committing does not reserve a timestamp; a later attempt may
+reuse that candidate time. Monotonicity therefore applies to committed leaves
+and does not make the clock trustworthy or bound its drift from wall time.
 
-Incremental root calculation, proof size, and proof verification require
-`O(log N)` hash work or space.
+For `N` leaves and `B` hashes in the proven entry, incremental root calculation
+uses `O(log N)` tree-hash work. The sibling path contains `O(log N)` hashes,
+but the proof also carries the entire entry: total proof size and verification
+work are `O(B + log N)`. The current implementation keeps entries, leaf hashes,
+and the hash index in memory. It generates a proof by recomputing sibling
+subtrees from leaf hashes, requiring `O(N)` hash work per proof.
 
 ## 3. TLV wire format
 
@@ -193,8 +215,10 @@ InclusionProof = LogEntry LeafIndex *SiblingHash
 LogEntry       = IngestTime 1*DataHash
 ```
 
-Every hash is 32 bytes. `TreeSize` and `LeafIndex` are unsigned natural
-numbers.
+Valid hashes are 32 bytes. An append result with status `FAILED` can echo a
+request's invalid-length `DataHash` as described in Section 4. `TreeSize`,
+`LeafIndex`, and `Status` are unsigned NDN non-negative integers; the encoder
+uses the shortest permitted width of 1, 2, 4, or 8 bytes.
 
 Append status values and invariants are:
 
@@ -202,7 +226,8 @@ Append status values and invariants are:
 Value  Name       LeafIndex       Meaning
 ----------------------------------------------------------
 0      OK         REQUIRED        hash was placed in a new leaf
-1      DUPLICATE  REQUIRED        hash already belongs to an existing leaf
+1      DUPLICATE  REQUIRED        hash was already logged, including earlier
+                                 in this request
 2      FAILED     MUST be absent  hash was not appended
 ```
 
@@ -295,15 +320,22 @@ dependent on the new entry become `FAILED`; pre-existing duplicates remain
 remain in request order.
 
 The client validates the signed response, result count, corresponding hashes,
-status values, and `LeafIndex` presence for `OK` and `DUPLICATE`. Append
-responses contain no root or proof.
+status values, `LeafIndex` presence for `OK` and `DUPLICATE`, and its absence
+for `FAILED`. The supplied client rejects empty submissions and invalid-length
+hashes locally, before sending a command. Append responses contain no root or
+proof.
 
 Append requests and responses are not segmented. Their fully encoded Interest
 and Data packets MUST NOT exceed the 8,800-byte maximum NDN packet size. The
-command transport rejects an oversized packet; a requester MUST split a larger
+current Merkle client and command handler do not preflight those sizes or split
+batches automatically; oversized-packet handling depends on the transport. A
+requester MUST allow for both request and response overhead and split a larger
 submission into multiple commands, each becoming a separate batching and
-timestamp boundary. Retrying a newly signed command is safe because hashes have
-first-ingestion semantics. Check responses use segmentation as described below.
+timestamp boundary. The append commits before the response is encoded and
+sent, so a response failure does not roll back the append. Retrying a newly
+signed command is safe because hashes have first-ingestion semantics. The
+append client performs no automatic retries. Check responses use segmentation
+as described below.
 
 ## 5. Check protocol
 
@@ -322,9 +354,10 @@ Consumer/expiry policy                         Merkle log
 ```
 
 The initial Interest contains exactly one generic 32-byte hash after
-`P/32=check` and sets `CanBePrefix`. Exact names ending in version and segment
-are used to retrieve already-produced segments. Other shapes receive no
-response.
+`P/32=check` and sets `CanBePrefix` and `MustBeFresh`. The service requires
+`CanBePrefix` for this name shape but does not enforce `MustBeFresh`. Exact
+names ending in version and segment are used to retrieve already-produced
+segments. Other shapes receive no response.
 
 The log evaluates each check against one atomic tree snapshot and resolves the
 requested hash to its first leaf index. If present, it returns the complete
@@ -334,12 +367,22 @@ the same leaf.
 
 The response is a metadata-free, standard NDN segmented object. Every segment
 MUST be signed and authenticated, and all segments MUST represent the same
-tree snapshot. An unversioned query MUST use the latest tree size.
+tree snapshot. An unversioned query that reaches the service uses the tree
+size at the time the service takes its snapshot.
+
+The service uses the Object producer's default four-second `FreshnessPeriod`
+and reuses stored segments for an already-produced hash/version pair. A fresh
+cached response may satisfy an unversioned Interest even after the tree has
+grown. `MustBeFresh` does not guarantee the latest tree size or establish a
+checkpoint age. The client verifies the returned snapshot but does not track
+previously observed roots or enforce a minimum tree size.
 
 For an empty tree (`TreeSize = 0`), every check returns `NOT_FOUND` with the
 empty-tree root. A versioned segment Interest whose `TreeSize` is no longer
 available, or whose segment number is past the last segment, MUST receive no
-response.
+response. Versioned requests only look up cached segments; they do not generate
+proofs for arbitrary historical tree sizes. Previously produced segments can
+remain available after the tree grows or the service restarts.
 
 Before succeeding, the client MUST:
 
@@ -354,16 +397,30 @@ For an empty tree, the root MUST equal `SHA256("")`.
 
 ## 6. Persistence
 
-The log MUST durably preserve ordered entries, the hash-to-first-leaf mapping,
-tree size, root, and last ingestion time. Appends are atomic: any external
-observation refers to either the complete state before the append or the
-complete state after the append, never an intermediate state.
+The service stores ordered entries, the hash-to-first-leaf mapping, tree size,
+root, frontier, and last ingestion time in a dedicated Badger database with
+synchronous writes. Each append updates these records in one transaction.
+Only after the store reports success does the in-memory tree advance. The
+service serializes appends and check snapshots with one mutex, so a snapshot
+contains either the complete state before an append or the complete state
+after it.
 
-The log MUST ensure its current state is consistent with the ordered entries.
-Inconsistencies — including non-contiguous leaves, duplicate first-ingestion
-records, non-monotonic ingestion times, invalid indexes, or a mismatched tree
-root — MUST cause the log to refuse any operation that depends on the
-inconsistent state.
+On opening the tree, the implementation replays all entries and compares the
+reconstructed state and hash index with the persisted records. Non-contiguous
+leaves, duplicate hashes, non-increasing ingestion times, invalid indexes, or
+inconsistent root, frontier, or last ingestion time cause startup to fail.
+
+Each store append checks the expected tree size, stored frontier/root state,
+new entry, and affected index records. A rejected write leaves the in-memory
+tree unchanged. This is not a continuous integrity audit: checks and duplicate
+lookups use the in-memory tree without rereading the database. A store error
+does not disable subsequent reads or automatically reload the tree. The
+service assumes a single writer and an atomic store with reliable commit
+reporting; recovery from an ambiguous commit outcome is not implemented.
+
+Signed check objects use a separate packet database. Their creation and
+retention are independent of the log transaction; a committed leaf remains
+committed even if producing or sending its response fails.
 
 ## 7. Expired-certificate integration
 
@@ -394,6 +451,13 @@ bound the larger validation operation with a deadline.
 
 ### 7.1. Recursive validation
 
+The validator invokes the policy when the authorizing certificate is outside
+its validity period, when the current Data is itself a certificate outside its
+validity period, or when an expired cross-schema packet is being recursively
+validated. The implementation's expiry predicate also includes not-yet-valid
+certificates and certificates with missing validity endpoints. The history
+policy still requires the authorizer's complete, ordered validity interval.
+
 For Data `D` signed by child certificate `C1`, itself signed by `C2`:
 
 ```text
@@ -404,7 +468,8 @@ For Data `D` signed by child certificate `C1`, itself signed by `C2`:
        +-- Check(SHA256(wire(D)))
 ```
 
-If `C1` is expired, the callback MAY be invoked twice:
+If `C1` is expired and is not already a trust anchor, successful recursive
+validation requires two policy acceptances:
 
 1. `Data=D, Cert=C1`: `D` MUST have been logged during `C1` validity.
 2. `Data=C1, Cert=C2`: the exact `C1` packet MUST have been logged during `C2`
@@ -425,18 +490,29 @@ recursive validation and any intermediate storage. A non-anchor certificate
 retained as evidence is not, by itself, a reusable validation decision; its
 chain and expiry relation are revalidated each time the evidence is consumed.
 An asynchronous policy MUST resolve each validation relation exactly once.
+The validator resumes a relation only on the first completion; subsequent
+completion calls are ignored. There is no built-in policy deadline.
 
 ### 7.3. Trust-anchor promotion
 
-Use of the history policy MUST NOT by itself prevent trust-anchor promotion.
-After an authorized `CertList` (see [certlist.md](certlist.md)) supplies a
-listed certificate for the same key and that certificate's complete validation
-succeeds, including any required history checks, the self-signed anchor
-candidate MAY be promoted. Promotion is a decision of the trust configuration's
-anchor-admission policy; the history policy itself MUST NOT promote. Once
-promoted, the certificate MUST be treated like another trust anchor under that
-trust configuration. Ordinary non-anchor retention MUST NOT perform this
-promotion.
+Use of the history policy does not prevent trust-anchor promotion. The current
+trust validator promotes a self-signed anchor candidate after an authorized
+`CertList` (see [certlist.md](certlist.md)) supplies a certificate with the same
+key content and that certificate validates successfully, or is already a
+trust anchor. The history policy itself does not perform the promotion.
+
+If the listed certificate is expired, the `CertList` packet must also pass the
+policy with `Data=CertList, Cert=listed certificate`. Its exact wire must have
+been logged during the listed certificate's validity. Recursive validation of
+the listed certificate applies any additional history checks. An expired
+self-signed candidate also requires evidence for its own wire against its own
+validity period before the validator explores the `CertList`.
+
+Once promoted, the candidate is treated as a trust anchor in that trust
+configuration. Later validations can terminate their chain at it without
+revalidating the admitting `CertList` and listed certificate. Expiry checks for
+the current packet-to-anchor relation still apply. Ordinary non-anchor
+retention does not perform this promotion.
 
 ## 8. Trust and security considerations
 
@@ -539,9 +615,11 @@ but cannot detect a split view without gossip.
 This model would require signed checkpoint publication, consistency proofs,
 entry retrieval by index or incremental feed, approval encoding, gossip, a
 minimum-age requirement on checkpoint acceptance, and checks against a
-specified tree size. This revision's `Check` operation always proves against
-the latest root. An auditor retrieving entries would also see every hash in
-each batched leaf.
+specified tree size. This revision's unversioned `Check` takes a current
+snapshot when it reaches the service, but caches may return an earlier
+snapshot. It does not support generating a proof at a caller-selected tree
+size. An auditor retrieving entries would also see every hash in each batched
+leaf.
 
 ## 10. Open design issues
 
@@ -551,7 +629,9 @@ Deferred work includes:
 2. signed checkpoints and consistency proofs;
 3. auditor or witness approvals and gossip;
 4. cryptographic or independently verifiable non-inclusion;
-5. requester retry semantics;
+5. configurable requester retries and recovery from ambiguous commit outcomes;
 6. scalable proof generation;
-7. check-response retention and garbage collection; and
-8. explicit version negotiation and stable type allocation.
+7. check-response retention and garbage collection;
+8. explicit version negotiation and stable type allocation;
+9. checkpoint freshness and minimum-tree-size requirements; and
+10. continuous store-integrity auditing and service behaviour after store errors.
