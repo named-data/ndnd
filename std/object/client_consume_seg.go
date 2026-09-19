@@ -296,6 +296,7 @@ func (s *rrSegFetcher) handleData(args ndn.ExpressCallbackArgs, state *ConsumeSt
 			} else {
 				s.handleValidatedData(args, state)
 			}
+			s.check() // Validation may finish after handleResult checks for more segments.
 		},
 	})
 }
