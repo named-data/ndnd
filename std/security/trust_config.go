@@ -1,6 +1,8 @@
 package security
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"sync"
 
@@ -107,11 +109,53 @@ func (tc *TrustConfig) InsertRevoke(wire enc.Wire) error {
 	if !isRevocationRecordName(data.Name()) {
 		return fmt.Errorf("not a revocation record name: %s", data.Name())
 	}
+	record, err := revocationtlv.ParseRevocationRecord(enc.NewWireView(data.Content()), false)
+	if err != nil {
+		return fmt.Errorf("failed to parse revocation record content: %w", err)
+	}
+	if len(record.PublicKeyHash) != sha256.Size {
+		return fmt.Errorf("invalid revocation public-key hash length: %d", len(record.PublicKeyHash))
+	}
 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
+	if current, _ := tc.keychain.Store().Get(data.Name(), false); len(current) > 0 {
+		if bytes.Equal(current, wire.Join()) {
+			return nil
+		}
+		return fmt.Errorf("conflicting revocation record already stored: %s", data.Name())
+	}
 	// HACK: revocation records live in keychain.Store() until we have a dedicated store.
 	return tc.keychain.Store().Put(data.Name(), wire.Join())
+}
+
+// CheckRevoke returns the stored revocation record for cert. A nil record
+// means the certificate has no locally stored revocation.
+func (tc *TrustConfig) CheckRevoke(cert ndn.Data) (*revocationtlv.RevocationRecord, error) {
+	if cert == nil {
+		return nil, fmt.Errorf("certificate is nil")
+	}
+	recordName, ok := revocationRecordName(cert)
+	if !ok {
+		return nil, fmt.Errorf("invalid certificate name: %s", cert.Name())
+	}
+
+	tc.mutex.RLock()
+	wire, err := tc.keychain.Store().Get(recordName, false)
+	tc.mutex.RUnlock()
+	if err != nil || len(wire) == 0 {
+		return nil, nil
+	}
+
+	data, _, err := spec.Spec{}.ReadData(enc.NewBufferView(wire))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse stored revocation record: %w", err)
+	}
+	record, err := revocationtlv.ParseRevocationRecord(enc.NewWireView(data.Content()), false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse stored revocation content: %w", err)
+	}
+	return record, nil
 }
 
 // SetSchema atomically replaces the trust schema.
@@ -198,7 +242,8 @@ func (tc *TrustConfig) Validate(args TrustConfigValidateArgs) {
 
 	// Bail if the data is a cert and is not fresh
 	if t, ok := args.Data.ContentType().Get(); ok && t == ndn.ContentTypeKey {
-		if !args.IgnoreValidity.GetOr(false) && CertIsExpired(args.Data) {
+		if !isRevocationRecordName(args.Data.Name()) &&
+			!args.IgnoreValidity.GetOr(false) && CertIsExpired(args.Data) {
 			args.Callback(false, fmt.Errorf("certificate is expired: %s", args.Data.Name()))
 			return
 		}

@@ -2,6 +2,7 @@ package security_test
 
 import (
 	"crypto/elliptic"
+	"crypto/sha256"
 	_ "embed"
 	"fmt"
 	"math"
@@ -1092,9 +1093,28 @@ func TestTrustConfigRevocation(t *testing.T) {
 
 	require.Error(t, trust.InsertRevoke(nil))
 	require.Error(t, trust.InsertRevoke(aliceCertWire))
+	_, err = trust.CheckRevoke(nil)
+	require.Error(t, err)
 
 	recordWire := makeRevocationRecordWire(t, aliceCertData, rootSigner)
 	require.NoError(t, trust.InsertRevoke(recordWire))
+	require.NoError(t, trust.InsertRevoke(recordWire))
+	conflictingRecord := tu.NoErr(sec.RevokeCert(sec.RevokeCertArgs{
+		Cert:      aliceCertData,
+		Signer:    rootSigner,
+		Timestamp: optional.Some(time.Now().Add(time.Minute)),
+	}))
+	require.Error(t, trust.InsertRevoke(conflictingRecord))
+	stored, err := trust.CheckRevoke(aliceCertData)
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+	require.Equal(t, sha256.Sum256(aliceCertData.Content().Join()), [32]byte(stored.PublicKeyHash))
+
+	reloadedTrust, err := sec.NewTrustConfig(keychain, schema, []enc.Name{rootCertData.Name()})
+	require.NoError(t, err)
+	stored, err = reloadedTrust.CheckRevoke(aliceCertData)
+	require.NoError(t, err)
+	require.NotNil(t, stored)
 
 	recordData, _, err := spec.Spec{}.ReadData(enc.NewWireView(recordWire))
 	require.NoError(t, err)
