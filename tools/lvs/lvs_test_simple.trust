@@ -1,0 +1,6 @@
+#site: "a"/"blog"
+#root: #site/#KEY
+#article: #site/"article"/category/year/month <= #author
+#author: #site/role/author/#KEY & { role: "author" } <= #admin
+#admin: #site/"admin"/admin/#KEY <= #root
+#KEY: "KEY"/_/_/_

@@ -1,0 +1,114 @@
+// ========================================================
+// Trust policy for the Ownly Workspace application
+// ========================================================
+
+// Standard NDN conventions
+#KEY: "KEY"/_/_/_
+#KEY: "KEY"/_/_
+
+// Specific conventions
+#TC: "KEY"/_/"NDNCERT"/_
+#TC: "KEY"/_/"NDNCERT"
+#ANCHOR: "KEY"/_/"self"/_
+#ANCHOR: "KEY"/_/"self"
+#PREKEY: "KEY"/_/"pre"/_
+#PREKEY: "KEY"/_/"pre"
+#IDCERT: "KEY"/_/"identity"/_
+#IDCERT: "KEY"/_/"identity"
+#EPHEMERAL: "KEY"/_/"ephemeral"/_
+#EPHEMERAL: "KEY"/_/"ephemeral"
+#CL: "KEY"/_/"32=auth"/_
+#CL: "KEY"/_/"32=auth"
+#ANSI: "KEY"/_/"anchor"/_
+#ANSI: "KEY"/_/"anchor"
+
+// Name of workspace
+#owner: "ndn"/owner10
+#owner: "ndn"/owner20/owner21
+#owner: "ndn"/owner30/owner31/owner32
+#owner: "ndn"/owner40/owner41/owner42/owner43
+#owner: "ndn"/owner50/owner51/owner52/owner53/owner54
+#owner: "ndn"/owner60/owner61/owner62/owner63/owner64/owner65
+
+// Name of user
+#user: "ndn"/user10
+#user: "ndn"/user20/user21
+#user: "ndn"/user30/user31/user32
+#user: "ndn"/user40/user41/user42/user43
+#user: "ndn"/user50/user51/user52/user53/user54
+#user: "ndn"/user60/user61/user62/user63/user64/user65
+
+// Name of directed request requester
+#requester: "ndn"/requester10
+#requester: "ndn"/requester20/requester21
+#requester: "ndn"/requester30/requester31/requester32
+#requester: "ndn"/requester40/requester41/requester42/requester43
+#requester: "ndn"/requester50/requester51/requester52/requester53/requester54
+#requester: "ndn"/requester60/requester61/requester62/requester63/requester64/requester65
+
+// Testbed trust model
+#testbed_site_cert: /"ndn"/_/_/#KEY <= #testbed_root_cert
+#testbed_root_cert: /"ndn"/#KEY
+#testbed_owner_cert: #owner/#TC <= #testbed_site_cert | #testbed_root_cert
+#testbed_user_cert: #user/#TC <= #testbed_site_cert | #testbed_root_cert
+
+// Owner identity and fast-join ephemeral identity
+#ownerid_cert:    #owner/#IDCERT
+#userid_cert:     #user/#IDCERT
+#ephemeral_cert:  #user/#EPHEMERAL <= #ownerid_cert
+
+// Wksp Anchor
+#wksp_anchor: #owner/wksp/#ANCHOR
+
+// Mutual authentication (part 1)
+#wksp_cl: #owner/wksp/#CL <= #wksp_anchor
+#wksp_precert: #owner/wksp/#PREKEY <= #ownerid_cert
+
+// Mutual authentication (part 2)
+// Precert may be signed by either the user's own self-signed identity cert
+// (legacy path: user already has a long-term #IDCERT) or an ephemeral cert
+// (fast-join path: user has a starter #EPHEMERAL signed by the owner's
+// identity cert). The signer must satisfy one of the two rules below.
+#user_precert: #owner/wksp/#user/#PREKEY <= #userid_cert | #ephemeral_cert
+
+// Final certificates
+#owner_cert: #owner/wksp/"32=owner"/#ANSI <= #wksp_anchor
+#user_cert: #owner/wksp/#user/#ANSI <= #wksp_anchor
+
+// Boot group
+#boot_data: #owner/wksp/"32=boot"/"32=owner"/_/_ <= #owner_cert
+#boot_data: #owner/wksp/"32=boot"/#user/_/_ <= #user_precert | #user_cert
+
+// Normal group
+#group: #owner/wksp/group
+#group_data: #group/"32=owner"/_/_ <= #owner_cert
+#group_data: #group/#user/_/_ <= #user_cert
+#group_awareness: #group/"32=owner"/_/"32=aware"/_ <= #owner_cert
+#group_awareness: #group/#user/_/"32=aware"/_ <= #user_cert
+#group_blob: #group/"32=owner"/_/"32=blob"/_ <= #owner_cert
+#group_blob: #group/#user/_/"32=blob"/_ <= #user_cert
+
+// This rule is only used for finding a valid key for the workspace
+#wksp_detect_key: #owner/wksp/"32=KD" <= #owner_cert | #user_cert
+#wksp_detect_key: #owner/wksp/"32=KD"/"32=fast"/#user <= #ephemeral_cert
+#wksp_detect_root: #owner/wksp/"32=RD" <= #wksp_anchor
+#wksp_detect_pre: #owner/wksp/"32=PD" <= #user_precert
+#wksp_detect_tb: #owner/wksp/"32=TD" <= #testbed_owner_cert | #testbed_user_cert
+
+// Invitations
+#invite: #owner/wksp/"32=boot"/"32=INVITE"/#user <= #wksp_anchor
+
+// Republish Request for SOS
+#refresh_req: #owner/wksp/"root"/"32=REFRESH_REQ"/#user/_/_/#requester/_ <= #user_cert | #owner_cert
+
+// MLS state reset Request
+#mls_rst_req: #owner/wksp/"root"/"32=MLS_RST_REQ"/#owner/_/_/#requester/_ <= #owner_cert
+
+// DSK exchange
+#dsk: #owner/wksp/"root"/"32=DSK"/_ <= #owner_cert | #user_cert
+
+// Repo commands, everyone can issue sync join with security config
+#repo_cmd: #owner/KEY/_/"32=repo-cmd"/"32=syncjoin"/#group/"32=sync-cfg" <= #testbed_owner_cert
+#repo_cmd: #user/KEY/_/"32=repo-cmd"/"32=syncjoin"/#group/"32=sync-cfg" <= #testbed_user_cert
+#repo_cmd: #owner/KEY/_/"32=repo-cmd"/"32=syncjoin"/#group/"32=sec-cfg" <= #testbed_owner_cert
+#repo_cmd: #user/KEY/_/"32=repo-cmd"/"32=syncjoin"/#group/"32=sec-cfg" <= #testbed_user_cert
