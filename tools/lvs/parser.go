@@ -1,0 +1,290 @@
+package lvs
+
+import (
+	"fmt"
+	"io"
+	"strings"
+
+	enc "github.com/named-data/ndnd/std/encoding"
+)
+
+type ComponentValue struct {
+	c []byte
+}
+
+type RuleId struct {
+	id string
+}
+
+type Pattern struct {
+	id string
+}
+
+type NameComp struct {
+	compVal ComponentValue
+	ruleId  RuleId
+	pat     Pattern
+}
+
+type NamePat struct {
+	p []NameComp
+}
+
+func (n NamePat) String() string {
+	var sb strings.Builder
+	for _, comp := range n.p {
+		if comp.compVal.c != nil {
+			sb.WriteString("\"" + string(comp.compVal.c) + "\"")
+		} else if comp.pat.id != "" {
+			sb.WriteString(comp.pat.id)
+		} else if comp.ruleId.id != "" {
+			sb.WriteString(comp.ruleId.id)
+		}
+		sb.WriteString("/")
+	}
+
+	return sb.String()
+}
+
+type FnArg struct {
+	compVal ComponentValue
+	pat     Pattern
+}
+
+type FnCall struct {
+	name string
+	args []FnArg
+}
+
+type Constraint struct {
+	compVal ComponentValue
+	pat     Pattern
+	fnCall  FnCall
+}
+
+type TagConstraint struct {
+	pat     Pattern
+	options []Constraint
+}
+
+type Rule struct {
+	id   RuleId
+	name NamePat
+	// A list of component constraint sets.
+	// In disjunctive normal form, e.g. (a^b^c)V(d^e)
+	compCons [][]TagConstraint
+	// A list of signing key names. Any of them can be used.
+	signCons []RuleId
+}
+
+func (r *Rule) String() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%s\t%s\t", r.id.id, r.name.String()))
+
+	for _, cc := range r.compCons {
+		sb.WriteString("{")
+		for _, tc := range cc {
+			sb.WriteString(tc.pat.id + ":")
+			for _, co := range tc.options {
+				sb.WriteString(fmt.Sprint(co) + ",")
+			}
+		}
+		sb.WriteString("} | ")
+	}
+
+	sb.WriteString(fmt.Sprint("\t", r.signCons))
+
+	return sb.String()
+}
+
+type LvsFile struct {
+	rules []Rule
+}
+
+func (l *LvsFile) String() string {
+	var sb strings.Builder
+
+	for _, rule := range l.rules {
+		sb.WriteString(rule.String())
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
+type Parser struct {
+	lexer Lexer
+	tok   Token
+	lit   string
+}
+
+func NewParser(reader io.Reader) *Parser {
+	lexer := *NewLexer(reader)
+	return &Parser{lexer: lexer}
+}
+
+func (p *Parser) parse() LvsFile {
+	var rules []Rule
+
+	for {
+		var rule Rule
+		p.nextToken()
+
+		if p.tok == NEWLINE {
+			continue
+		}
+
+		if p.tok == EOF {
+			return LvsFile{rules}
+		}
+
+		// if p.tok != lexer.RULE_IDENT {
+		rule.id.id = p.lit
+		p.nextToken()
+		// if p.tok != lexer.COLON {
+		rule.name = p.parseName()
+		if p.tok == CONSTRAINT {
+			rule.compCons = p.parseCompCons()
+		}
+
+		if p.tok == SIGNER_ARROW {
+			rule.signCons = p.parseSignCons()
+		}
+
+		rules = append(rules, rule)
+	}
+}
+
+func (p *Parser) nextToken() {
+	_, p.tok, p.lit = p.lexer.Next()
+}
+
+func (p *Parser) parseName() NamePat {
+	var pat []NameComp
+
+	for {
+		p.nextToken()
+		// fmt.Printf("%d:%d\t%s\t%s\t%s\n", pos.line, pos.col, p.tok, p.lit, pat)
+		switch p.tok {
+		case SLASH:
+			continue
+		case STR:
+			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
+			pat = append(pat, NameComp{compVal: ComponentValue{comp.Bytes()}}) // remove quotes
+		case TAG_IDENT:
+			pat = append(pat, NameComp{pat: Pattern{id: p.lit}})
+		case RULE_IDENT:
+			pat = append(pat, NameComp{ruleId: RuleId{id: p.lit}})
+		}
+
+		p.nextToken()
+		if p.tok != SLASH {
+			return NamePat{p: pat}
+		}
+	}
+}
+
+func (p *Parser) parseCompCons() [][]TagConstraint {
+	var conSets [][]TagConstraint
+
+	for {
+		p.nextToken()
+		switch p.tok {
+		case OPEN_BRACKET:
+			conSets = append(conSets, p.parseConSet())
+		case CLOSE_BRACKET: // this should never happen
+			continue
+		case OR:
+			continue
+		default:
+			return conSets
+		}
+	}
+}
+
+func (p *Parser) parseConSet() []TagConstraint {
+	var conSet []TagConstraint
+
+	for {
+		p.nextToken()
+
+		switch p.tok {
+		case TAG_IDENT:
+			constraint := TagConstraint{pat: Pattern{id: p.lit}}
+			p.nextToken() // skip colon
+			op, done := p.parseConOptions()
+			constraint.options = op
+			conSet = append(conSet, constraint)
+			if done {
+				return conSet
+			}
+		case COMMA, OR:
+			continue
+		default:
+			return conSet
+		}
+	}
+}
+
+func (p *Parser) parseConOptions() (cons []Constraint, done bool) {
+	var options []Constraint
+
+	for {
+		p.nextToken()
+
+		switch p.tok {
+		case STR:
+			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
+			options = append(options, Constraint{compVal: ComponentValue{comp.Bytes()}})
+		case TAG_IDENT:
+			options = append(options, Constraint{pat: Pattern{p.lit}})
+		case FN_IDENT:
+			fnCall := FnCall{name: p.lit}
+			fnCall.args = p.parseFnArgs()
+			options = append(options, Constraint{fnCall: fnCall})
+		case CLOSE_BRACKET:
+			return options, true
+		case OR:
+			continue
+		default: // comma
+			return options, false
+		}
+	}
+}
+
+func (p *Parser) parseFnArgs() []FnArg {
+	var args []FnArg
+
+	for {
+		p.nextToken() // TODO: check open or close parenthesis
+		p.nextToken()
+
+		switch p.tok {
+		case STR:
+			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
+			args = append(args, FnArg{compVal: ComponentValue{comp.Bytes()}})
+		case TAG_IDENT:
+			args = append(args, FnArg{pat: Pattern{p.lit}})
+		case COMMA:
+			continue
+		default:
+			return args
+		}
+	}
+}
+
+func (p *Parser) parseSignCons() []RuleId {
+	var signers []RuleId
+
+	for {
+		p.nextToken()
+
+		// if p.tok != RULE_IDENT {
+		signers = append(signers, RuleId{p.lit})
+
+		p.nextToken()
+		if p.tok != OR {
+			return signers
+		}
+	}
+}
