@@ -2,6 +2,7 @@ package lvs
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"unicode"
 )
@@ -12,6 +13,7 @@ const (
 	EOF = iota
 	NEWLINE
 	ILLEGAL
+	UNCLOSED_STR
 	STR
 	RULE_IDENT
 	TAG_IDENT
@@ -30,13 +32,14 @@ const (
 )
 
 var tokens = []string{
-	EOF:        "EOF",
-	NEWLINE:    "NEWLINE",
-	ILLEGAL:    "ILLEGAL",
-	STR:        "STR",
-	RULE_IDENT: "RULE_IDENT",
-	TAG_IDENT:  "TAG_IDENT",
-	FN_IDENT:   "FN_IDENT",
+	EOF:          "EOF",
+	NEWLINE:      "NEWLINE",
+	ILLEGAL:      "ILLEGAL",
+	UNCLOSED_STR: "UNCLOSED_STR",
+	STR:          "STR",
+	RULE_IDENT:   "RULE_IDENT",
+	TAG_IDENT:    "TAG_IDENT",
+	FN_IDENT:     "FN_IDENT",
 
 	COLON:         ":",
 	SLASH:         "/",
@@ -57,6 +60,10 @@ func (t Token) String() string {
 type Position struct {
 	line int
 	col  int
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("%v:%v", p.line, p.col)
 }
 
 type Lexer struct {
@@ -95,7 +102,7 @@ func (l *Lexer) Next() (Position, Token, string) {
 			return l.pos, COLON, ":"
 		case '/':
 			if l.atComment() {
-				l.skipComment()
+				l.SkipLine()
 			} else {
 				return l.pos, SLASH, "/"
 			}
@@ -131,7 +138,12 @@ func (l *Lexer) Next() (Position, Token, string) {
 			return startPos, FN_IDENT, "$" + l.readIdent()
 		case '"':
 			startPos := l.pos
-			return startPos, STR, l.readString()
+			str, err := l.readString()
+			if err != nil {
+				l.backup()
+				return startPos, UNCLOSED_STR, str
+			}
+			return startPos, STR, str
 		default:
 			if unicode.IsSpace(r) {
 				continue
@@ -176,7 +188,7 @@ func (l *Lexer) atComment() bool {
 	return next[0] == '/'
 }
 
-func (l *Lexer) skipComment() {
+func (l *Lexer) SkipLine() {
 	for {
 		r, _, err := l.reader.ReadRune()
 		if err != nil {
@@ -219,7 +231,7 @@ func (l *Lexer) readIdent() string {
 	}
 }
 
-func (l *Lexer) readString() string {
+func (l *Lexer) readString() (string, error) {
 	var str string
 	for {
 		r, _, err := l.reader.ReadRune()
@@ -238,7 +250,9 @@ func (l *Lexer) readString() string {
 
 			str = str + string(r) + string(n)
 		case '"':
-			return "\"" + str + "\""
+			return "\"" + str + "\"", nil
+		case '\n':
+			return "", fmt.Errorf("Unclosed string")
 		default:
 			str = str + string(r)
 		}

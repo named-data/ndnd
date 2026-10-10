@@ -1,6 +1,7 @@
 package lvs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -101,6 +102,17 @@ type LvsFile struct {
 	rules []Rule
 }
 
+type SyntaxError struct {
+	pos      Position
+	expected Token
+	gotToken Token
+	gotLit   string
+}
+
+func (e SyntaxError) Error() string {
+	return fmt.Sprintf("%v Expected %v, got %v %v", e.pos, e.expected, e.gotToken, e.gotLit)
+}
+
 func (l *LvsFile) String() string {
 	var sb strings.Builder
 
@@ -113,6 +125,7 @@ func (l *LvsFile) String() string {
 }
 
 type Parser struct {
+	pos   Position
 	lexer Lexer
 	tok   Token
 	lit   string
@@ -123,8 +136,9 @@ func NewParser(reader io.Reader) *Parser {
 	return &Parser{lexer: lexer}
 }
 
-func (p *Parser) parse() LvsFile {
+func (p *Parser) Parse() (LvsFile, error) {
 	var rules []Rule
+	var err error // Collect all the syntax errors before outputting
 
 	for {
 		var rule Rule
@@ -135,20 +149,49 @@ func (p *Parser) parse() LvsFile {
 		}
 
 		if p.tok == EOF {
-			return LvsFile{rules}
+			return LvsFile{rules}, err
 		}
 
-		// if p.tok != lexer.RULE_IDENT {
+		if p.tok != RULE_IDENT {
+			err = errors.Join(err, SyntaxError{pos: p.pos, expected: RULE_IDENT, gotToken: p.tok, gotLit: p.lit})
+			p.lexer.SkipLine()
+			continue
+		}
+
 		rule.id.id = p.lit
 		p.nextToken()
-		// if p.tok != lexer.COLON {
-		rule.name = p.parseName()
+		if p.tok != COLON {
+			err = errors.Join(err, SyntaxError{pos: p.pos, expected: COLON, gotToken: p.tok, gotLit: p.lit})
+			p.lexer.SkipLine()
+			continue
+		}
+
+		rn, pnErr := p.parseName()
+		if pnErr != nil {
+			err = errors.Join(err, pnErr)
+			p.lexer.SkipLine()
+			continue
+		}
+		rule.name = rn
+
 		if p.tok == CONSTRAINT {
 			rule.compCons = p.parseCompCons()
 		}
 
 		if p.tok == SIGNER_ARROW {
-			rule.signCons = p.parseSignCons()
+			signCons, errSignCon := p.parseSignCons()
+			rule.signCons = signCons
+			if errSignCon != nil {
+				err = errors.Join(err, errSignCon)
+				p.lexer.SkipLine()
+				continue
+			}
+		}
+
+		if p.tok != NEWLINE {
+			err = errors.Join(err, SyntaxError{pos: p.pos, expected: NEWLINE, gotToken: p.tok, gotLit: p.lit})
+			p.lexer.SkipLine()
+			continue
 		}
 
 		rules = append(rules, rule)
@@ -156,30 +199,31 @@ func (p *Parser) parse() LvsFile {
 }
 
 func (p *Parser) nextToken() {
-	_, p.tok, p.lit = p.lexer.Next()
+	p.pos, p.tok, p.lit = p.lexer.Next()
 }
 
-func (p *Parser) parseName() NamePat {
+func (p *Parser) parseName() (NamePat, error) {
 	var pat []NameComp
 
 	for {
 		p.nextToken()
-		// fmt.Printf("%d:%d\t%s\t%s\t%s\n", pos.line, pos.col, p.tok, p.lit, pat)
 		switch p.tok {
 		case SLASH:
 			continue
 		case STR:
-			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
-			pat = append(pat, NameComp{compVal: ComponentValue{comp.Bytes()}}) // remove quotes
+			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1]) // remove quotes
+			pat = append(pat, NameComp{compVal: ComponentValue{comp.Bytes()}})
 		case TAG_IDENT:
 			pat = append(pat, NameComp{pat: Pattern{id: p.lit}})
 		case RULE_IDENT:
 			pat = append(pat, NameComp{ruleId: RuleId{id: p.lit}})
+		default:
+			return NamePat{}, fmt.Errorf("%v Expected component value, tag, or rule identifier, got %v", p.pos, p.tok)
 		}
 
 		p.nextToken()
 		if p.tok != SLASH {
-			return NamePat{p: pat}
+			return NamePat{p: pat}, nil
 		}
 	}
 }
@@ -192,11 +236,9 @@ func (p *Parser) parseCompCons() [][]TagConstraint {
 		switch p.tok {
 		case OPEN_BRACKET:
 			conSets = append(conSets, p.parseConSet())
-		case CLOSE_BRACKET: // this should never happen
-			continue
 		case OR:
 			continue
-		default:
+		default: // If there is unexpected symbol, it will be caught outside of this function
 			return conSets
 		}
 	}
@@ -273,18 +315,23 @@ func (p *Parser) parseFnArgs() []FnArg {
 	}
 }
 
-func (p *Parser) parseSignCons() []RuleId {
+func (p *Parser) parseSignCons() ([]RuleId, error) {
 	var signers []RuleId
 
 	for {
 		p.nextToken()
 
-		// if p.tok != RULE_IDENT {
+		if p.tok != RULE_IDENT {
+			errPos := p.pos
+			p.lexer.SkipLine()
+			return nil, SyntaxError{pos: errPos, expected: RULE_IDENT, gotToken: p.tok, gotLit: p.lit}
+		}
+
 		signers = append(signers, RuleId{p.lit})
 
 		p.nextToken()
 		if p.tok != OR {
-			return signers
+			return signers, nil
 		}
 	}
 }

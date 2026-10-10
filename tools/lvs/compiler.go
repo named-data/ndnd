@@ -3,16 +3,31 @@ package lvs
 import (
 	"cmp"
 	"encoding/hex"
-	"io"
+	"errors"
+	"fmt"
 	"maps"
 	"math"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
 
 	trust "github.com/named-data/ndnd/std/security/trust_schema"
 	"github.com/named-data/ndnd/std/types/optional"
+	"github.com/spf13/cobra"
 )
+
+type ToolLvs struct{}
+
+func (t *ToolLvs) Configure(cmd *cobra.Command) {
+	cmd.AddCommand(&cobra.Command{
+		Use:     "compile-lvs FILE",
+		Short:   "Compile a Light-VerSec trust schema to TLV",
+		Run:     t.CompileLvs,
+		Args:    cobra.ExactArgs(1),
+		Example: `  ndnd sec compile-lvs schema.trust > schema.tlv`,
+	})
+}
 
 type Compiler struct {
 	lvsFile      LvsFile
@@ -81,9 +96,26 @@ func (rc *RuleChain) patternMovement(depth int, prevTags map[int]struct{}) PMove
 				encodedOpt.Tag = optional.Some(uint64(p))
 				consSetStr += "t=" + opt.pat.id
 			} else if opt.fnCall.name != "" {
-				// TODO: implement fncall
+				encodedOpt.Fn = &trust.LvsUserFnCall{}
+				encodedOpt.Fn.FnId = []byte(opt.fnCall.name)
+				consSetStr += opt.fnCall.name + "("
+				for _, arg := range opt.fnCall.args {
+					encodedArg := &trust.LvsUserFnArg{}
+					if arg.compVal.c != nil {
+						encodedArg.Value = arg.compVal.c
+						consSetStr += "v=" + hex.EncodeToString(arg.compVal.c)
+					} else {
+						if arg.pat.id == "" { // Should be unreachable by parser validation
+							panic("Expected component value or pattern in function arguments")
+						}
+						p, _ := strconv.Atoi(arg.pat.id)
+						encodedArg.Tag = optional.Some(uint64(p))
+						consSetStr += "t=" + arg.pat.id
+					}
+					encodedOpt.Fn.Args = append(encodedOpt.Fn.Args, encodedArg)
+				}
+				consSetStr += ")"
 			}
-
 			encodedCons.ConsOptions = append(encodedCons.ConsOptions, &encodedOpt)
 			consSetStr += ","
 		}
@@ -98,7 +130,9 @@ func (c *Compiler) fixSigningReferences() {
 	for i := range c.nodePool {
 		var signCons []uint64
 		for _, rid := range c.signConStrs[c.nodePool[i].Id] {
-			// TODO: add non-existing key signature check
+			if _, ok := c.ruleNodeIds[rid]; !ok {
+				panic(fmt.Errorf("Signed by a non-existing key %v", rid))
+			}
 			signCons = append(signCons, c.ruleNodeIds[rid]...)
 		}
 		slices.Sort(signCons)
@@ -110,7 +144,7 @@ func NewCompiler(lvsFile LvsFile) *Compiler {
 	return &Compiler{lvsFile: lvsFile}
 }
 
-func (c *Compiler) compile() trust.LvsModel {
+func (c *Compiler) Compile() trust.LvsModel {
 	c.sortRuleReferences()
 	c.genPatternNumbers()
 	c.replicateRules()
@@ -183,14 +217,22 @@ func (c *Compiler) sortRuleReferences() {
 	for _, rule := range c.lvsFile.rules {
 		for _, comp := range rule.name.p {
 			if comp.ruleId.id != "" {
-				// if _, ok := ruleIdSet[comp]; !ok { // nonexisting
-				// if comp.ruleId.id[1] == "_" { // temporary reference
+				if _, ok := ruleIdSet[comp.ruleId.id]; !ok {
+					panic(fmt.Errorf("Rule %v refers to a non-existing rule %v", rule.id.id, comp.ruleId.id))
+				}
+				if comp.ruleId.id[1] == '_' {
+					panic(fmt.Errorf("Rule %v refers to a temporary rule %v", rule.id.id, comp.pat.id))
+				}
 				adjList[rule.id.id] = append(adjList[rule.id.id], comp.ruleId.id)
 			}
 		}
 	}
 
-	c.ruleIds = topOrder(ruleIdSet, adjList)
+	rids, err := topOrder(ruleIdSet, adjList)
+	if err != nil {
+		panic(err)
+	}
+	c.ruleIds = rids
 	c.ruleRefs = adjList
 
 	idxLookup := make(map[string]int)
@@ -203,16 +245,20 @@ func (c *Compiler) sortRuleReferences() {
 	})
 }
 
-func topOrder[T cmp.Ordered](nodes map[T]struct{}, graph map[T][]T) []T {
+func topOrder[T cmp.Ordered](nodes map[T]struct{}, graph map[T][]T) ([]T, error) {
 	inDegrees := make(map[T]int)
 
 	for node := range nodes {
 		inDegrees[node] = 0
 	}
 
-	for _, edges := range graph {
+	for src, edges := range graph {
 		for _, dst := range edges {
-			// TODO: check if src and dst in nodes
+			_, sok := nodes[src]
+			_, dok := nodes[dst]
+			if !sok || !dok {
+				return nil, fmt.Errorf("Reference relation %v->%v refers to a not existing identifier", src, dst)
+			}
 			inDegrees[dst]++
 		}
 	}
@@ -229,10 +275,9 @@ func topOrder[T cmp.Ordered](nodes map[T]struct{}, graph map[T][]T) []T {
 		}
 
 		if len(currentRound) == 0 {
-			panic("can")
+			return nil, errors.New("Loop detected for nodes") // TODO: make this print the actual nodes or some other diagnostic information
 		}
 
-		// TODO: check if current round is empty, if so, it's loop
 		slices.Sort(currentRound)
 
 		for _, src := range currentRound {
@@ -245,7 +290,7 @@ func topOrder[T cmp.Ordered](nodes map[T]struct{}, graph map[T][]T) []T {
 	}
 
 	slices.Reverse(sorted)
-	return sorted
+	return sorted, nil
 }
 
 func (c *Compiler) genPatternNumbers() {
@@ -288,6 +333,10 @@ func (c *Compiler) genPatternNumbers() {
 				if con.pat.id[0] == '_' {
 					var sb strings.Builder
 
+					if _, ok := tempPats[con.pat.id]; !ok {
+						panic(fmt.Errorf("Pattern %v never occurs before.", con.pat.id))
+					}
+
 					for _, pat := range tempPats[con.pat.id] {
 						sb.WriteString(" " + pat)
 					}
@@ -300,18 +349,28 @@ func (c *Compiler) genPatternNumbers() {
 				for opInd := range con.options {
 					op := &(con.options)[opInd]
 					if op.pat.id != "" {
-						// if op.pat.id[0] == '_' {
-						op.pat.id = c.namedPats[op.pat.id]
-						// TODO: add else for if it is temporary, which should not be used in pattern constraint
+						if op.pat.id[0] == '_' {
+							panic(fmt.Errorf("Temporary pattern %v cannot be used on the right hand side of any pattern constraint", op.pat.id))
+						}
+						pid, ok := c.namedPats[op.pat.id]
+						if !ok {
+							panic(fmt.Errorf("Pattern %v never occurs before.", op.pat.id))
+						}
+						op.pat.id = pid
 					} else if op.fnCall.name != "" {
 						for _, arg := range op.fnCall.args {
 							if arg.pat.id == "" {
 								continue
 							}
 
-							// if arg.pat.id[0] == '_' {
-							arg.pat.id = c.namedPats[arg.pat.id]
-							// TODO: add else for if temporary
+							if arg.pat.id[0] == '_' {
+								panic(fmt.Errorf("Temporary pattern %v cannot be used on the right hand side of any pattern constraint", op.pat.id))
+							}
+							pid, ok := c.namedPats[arg.pat.id]
+							if !ok {
+								panic(fmt.Errorf("Pattern %v never occurs before.", op.pat.id))
+							}
+							arg.pat.id = pid
 						}
 					}
 				}
@@ -360,7 +419,10 @@ func (c *Compiler) replicateRules() {
 					}
 				}
 
-				// TODO: check newChains is not empty
+				if len(newChains) == 0 {
+					panic("Empty chain list during rule replication")
+				}
+
 				curChains = newChains
 			}
 		}
@@ -370,7 +432,6 @@ func (c *Compiler) replicateRules() {
 		} else {
 			c.repRules[rule.id.id] = append(c.repRules[rule.id.id], curChains...)
 		}
-
 	}
 }
 
@@ -445,7 +506,7 @@ func (c *Compiler) generateNode(depth int, context []RuleChain, parent optional.
 	for _, pmStr := range pMoveStrs {
 		newContext = make([]RuleChain, 0)
 
-		tag := math.MaxInt // TODO: make this cleaner
+		tag := math.MaxInt
 		var consSets []*trust.LvsPatternConstraint
 		for _, pm := range pMoves {
 			if pm.consSetStr == pmStr {
@@ -457,7 +518,9 @@ func (c *Compiler) generateNode(depth int, context []RuleChain, parent optional.
 			}
 		}
 
-		// TODO: check if newContext is empty here
+		if len(newContext) == 0 {
+			panic("Empty context during node generation")
+		}
 
 		var edge trust.LvsPatternEdge
 		if tag >= 0 {
@@ -475,9 +538,15 @@ func (c *Compiler) generateNode(depth int, context []RuleChain, parent optional.
 	return node.Id
 }
 
-func CompileLvs(reader io.Reader) trust.LvsModel {
+func (*ToolLvs) CompileLvs(_ *cobra.Command, args []string) {
+	reader, err := os.Open(args[0])
 	parser := NewParser(reader)
-	lvsFile := parser.parse()
+	lvsFile, err := parser.Parse()
+	if err != nil {
+		panic(err)
+	}
+
 	compiler := NewCompiler(lvsFile)
-	return compiler.compile()
+	out := compiler.Compile()
+	os.Stdout.Write(out.Bytes())
 }

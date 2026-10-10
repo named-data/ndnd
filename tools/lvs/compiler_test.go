@@ -101,33 +101,36 @@ var COMPLEX_TEST = []byte{
 //go:embed lvs_test_ownly.tlv
 var OWNLY_TEST []byte
 
-func compileFromFileName(fileName string) []byte {
+func compileFromFileName(t *testing.T, fileName string) []byte {
 	reader, err := os.Open(fileName)
-	if err != nil {
-		panic(err)
-	}
+	require.Nil(t, err)
 
 	defer reader.Close()
 
-	model := lvs.CompileLvs(reader)
+	parser := lvs.NewParser(reader)
+	lvsFile, err := parser.Parse()
+	require.Nil(t, err)
+
+	compiler := lvs.NewCompiler(lvsFile)
+	model := compiler.Compile()
 
 	return model.Bytes()
 }
 
 func TestCompileSimple(t *testing.T) {
-	simpleTlv := compileFromFileName("lvs_test_simple.trust")
+	simpleTlv := compileFromFileName(t, "lvs_test_simple.trust")
 
 	require.True(t, bytes.Equal(simpleTlv, SIMPLE_TEST))
 }
 
 func TestCompileComplex(t *testing.T) {
-	complexTlv := compileFromFileName("lvs_test_complex.trust")
+	complexTlv := compileFromFileName(t, "lvs_test_complex.trust")
 
 	require.True(t, bytes.Equal(complexTlv, COMPLEX_TEST))
 }
 
 func TestCompileOwnly(t *testing.T) {
-	ownlyTlv := compileFromFileName("lvs_test_ownly.trust")
+	ownlyTlv := compileFromFileName(t, "lvs_test_ownly.trust")
 
 	require.True(t, bytes.Equal(ownlyTlv, OWNLY_TEST))
 }
