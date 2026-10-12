@@ -299,16 +299,15 @@ func (p *Parser) parseFnArgs() []FnArg {
 
 	for {
 		p.nextToken() // TODO: check open or close parenthesis
-		p.nextToken()
 
 		switch p.tok {
+		case FN_OPEN, COMMA:
+			continue
 		case STR:
 			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
 			args = append(args, FnArg{compVal: ComponentValue{comp.Bytes()}})
 		case TAG_IDENT:
 			args = append(args, FnArg{pat: Pattern{p.lit}})
-		case COMMA:
-			continue
 		default:
 			return args
 		}

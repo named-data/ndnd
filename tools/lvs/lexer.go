@@ -112,6 +112,10 @@ func (l *Lexer) Next() (Position, Token, string) {
 			return l.pos, OPEN_BRACKET, "{"
 		case '}':
 			return l.pos, CLOSE_BRACKET, "}"
+		case '(':
+			return l.pos, FN_OPEN, "("
+		case ')':
+			return l.pos, FN_CLOSE, ")"
 		case ',':
 			return l.pos, COMMA, ","
 		case '|':

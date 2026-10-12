@@ -3,6 +3,7 @@ package lvs_test
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"os"
 	"testing"
 
@@ -101,6 +102,9 @@ var COMPLEX_TEST = []byte{
 //go:embed lvs_test_ownly.tlv
 var OWNLY_TEST []byte
 
+//go:embed lvs_test_constraints.tlv
+var CONSTRAINTS_TEST []byte
+
 func compileFromFileName(t *testing.T, fileName string) []byte {
 	reader, err := os.Open(fileName)
 	require.Nil(t, err)
@@ -109,6 +113,9 @@ func compileFromFileName(t *testing.T, fileName string) []byte {
 
 	parser := lvs.NewParser(reader)
 	lvsFile, err := parser.Parse()
+	if err != nil {
+		fmt.Println(err)
+	}
 	require.Nil(t, err)
 
 	compiler := lvs.NewCompiler(lvsFile)
@@ -133,4 +140,10 @@ func TestCompileOwnly(t *testing.T) {
 	ownlyTlv := compileFromFileName(t, "lvs_test_ownly.trust")
 
 	require.True(t, bytes.Equal(ownlyTlv, OWNLY_TEST))
+}
+
+func TestCompileConstraints(t *testing.T) {
+	tempTlv := compileFromFileName(t, "lvs_test_constraints.trust")
+
+	require.True(t, bytes.Equal(tempTlv, CONSTRAINTS_TEST))
 }

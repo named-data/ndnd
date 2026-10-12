@@ -126,20 +126,6 @@ func (rc *RuleChain) patternMovement(depth int, prevTags map[int]struct{}) PMove
 	return PMove{tag, consSet, consSetStr, *rc}
 }
 
-func (c *Compiler) fixSigningReferences() {
-	for i := range c.nodePool {
-		var signCons []uint64
-		for _, rid := range c.signConStrs[c.nodePool[i].Id] {
-			if _, ok := c.ruleNodeIds[rid]; !ok {
-				panic(fmt.Errorf("Signed by a non-existing key %v", rid))
-			}
-			signCons = append(signCons, c.ruleNodeIds[rid]...)
-		}
-		slices.Sort(signCons)
-		c.nodePool[i].SignCons = signCons
-	}
-}
-
 func NewCompiler(lvsFile LvsFile) *Compiler {
 	return &Compiler{lvsFile: lvsFile}
 }
@@ -362,7 +348,8 @@ func (c *Compiler) genPatternNumbers() {
 						}
 						op.pat.id = pid
 					} else if op.fnCall.name != "" {
-						for _, arg := range op.fnCall.args {
+						for argInd := range op.fnCall.args {
+							arg := &(op.fnCall.args)[argInd]
 							if arg.pat.id == "" {
 								continue
 							}
@@ -540,6 +527,20 @@ func (c *Compiler) generateNode(depth int, context []RuleChain, parent optional.
 		node.PatternEdges = append(node.PatternEdges, &edge)
 	}
 	return node.Id
+}
+
+func (c *Compiler) fixSigningReferences() {
+	for i := range c.nodePool {
+		var signCons []uint64
+		for _, rid := range c.signConStrs[c.nodePool[i].Id] {
+			if _, ok := c.ruleNodeIds[rid]; !ok {
+				panic(fmt.Errorf("Signed by a non-existing key %v", rid))
+			}
+			signCons = append(signCons, c.ruleNodeIds[rid]...)
+		}
+		slices.Sort(signCons)
+		c.nodePool[i].SignCons = signCons
+	}
 }
 
 func (*ToolLvs) CompileLvs(_ *cobra.Command, args []string) {
