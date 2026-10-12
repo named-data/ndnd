@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/log"
 	"github.com/named-data/ndnd/std/merklelog"
@@ -44,13 +45,23 @@ type Log struct {
 	appendHandlerAttached bool
 	checkHandlerAttached  bool
 	started               bool
+
+	requestMutex  sync.Mutex
+	requestWindow time.Time
+	requestCount  int
+	requests      chan struct{}
+	stopping      bool
+	workers       sync.WaitGroup
+	proofMutex    sync.Mutex
+	proofNames    []enc.Name
 }
 
 // NewLog creates a stopped Merkle history log service.
 func NewLog(config *Config) *Log {
 	return &Log{
-		config: config,
-		now:    time.Now,
+		config:   config,
+		now:      time.Now,
+		requests: make(chan struct{}, maxConcurrentRequests),
 	}
 }
 
@@ -103,7 +114,18 @@ func (m *Log) Start() (err error) {
 	if err != nil {
 		return fmt.Errorf("create trust configuration: %w", err)
 	}
-	m.trust.UseDataNameFwHint = true
+	// Append names identify this log, while requester certificates live under
+	// their issuing sites. Leave UseDataNameFwHint disabled to route by certificate name.
+
+	// Proof responses are disposable. Recreate them with current credentials,
+	// including after key rotation, without changing the committed tree.
+	if err = m.packetStore.RemovePrefix(merklelog.CheckPrefix(m.config.nameN)); err != nil {
+		return fmt.Errorf("clear proof cache: %w", err)
+	}
+	m.requests = make(chan struct{}, maxConcurrentRequests)
+	m.stopping = false
+	m.requestCount = 0
+	m.proofNames = nil
 
 	m.engine = engine.NewBasicEngine(engine.NewDefaultFace())
 	if err = m.engine.Start(); err != nil {
@@ -115,7 +137,7 @@ func (m *Log) Start() (err error) {
 		return fmt.Errorf("start Object client: %w", err)
 	}
 	m.clientStarted = true
-	if err = m.client.AttachCommandHandler(merklelog.AppendPrefix(m.config.nameN), m.onAppend); err != nil {
+	if err = m.engine.AttachHandler(merklelog.AppendPrefix(m.config.nameN), m.onAppendInterest); err != nil {
 		return fmt.Errorf("attach append handler: %w", err)
 	}
 	m.appendHandlerAttached = true
@@ -141,6 +163,10 @@ func (m *Log) Stop() error {
 
 func (m *Log) stop() error {
 	var errs []error
+	m.requestMutex.Lock()
+	m.stopping = true
+	m.requestMutex.Unlock()
+	m.workers.Wait()
 	if m.client != nil {
 		if m.started {
 			m.client.WithdrawPrefix(m.config.nameN, nil)
