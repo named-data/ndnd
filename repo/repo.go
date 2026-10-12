@@ -12,7 +12,6 @@ import (
 	"github.com/named-data/ndnd/std/object/storage"
 	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/security/keychain"
-	"github.com/named-data/ndnd/std/security/trust_schema"
 )
 
 type Repo struct {
@@ -46,6 +45,11 @@ func (r *Repo) String() string {
 func (r *Repo) Start() (err error) {
 	log.Info(r, "Starting NDN Data Repository", "dir", r.config.StorageDir)
 
+	schema, err := r.config.managementSchema()
+	if err != nil {
+		return err
+	}
+
 	// Make object store database
 	r.store, err = storage.NewBadgerStore(r.config.StorageDir + "/badger")
 	if err != nil {
@@ -64,9 +68,6 @@ func (r *Repo) Start() (err error) {
 		return err
 	}
 	r.keychain = kc
-
-	// TODO: enforce trust schema defined by repo provider
-	schema := trust_schema.NewNullSchema()
 
 	// TODO: handle app-specific case
 	anchors := r.config.TrustAnchorNames()
@@ -88,8 +89,8 @@ func (r *Repo) Start() (err error) {
 		return err
 	}
 
-	// Attach managmemt interest handler
-	if err := r.client.AttachCommandHandler(r.config.NameN, r.onMgmtCmd); err != nil {
+	// Keep certificate Interests outside the management handler.
+	if err := r.client.AttachCommandHandler(r.config.NameN.Append(enc.NewKeywordComponent("cmd")), r.onMgmtCmd); err != nil {
 		return err
 	}
 	r.client.AnnouncePrefix(ndn.Announcement{
@@ -110,7 +111,7 @@ func (r *Repo) Stop() error {
 	clear(r.groupsSvs)
 
 	r.client.WithdrawPrefix(r.config.NameN, nil)
-	if err := r.client.DetachCommandHandler(r.config.NameN); err != nil {
+	if err := r.client.DetachCommandHandler(r.config.NameN.Append(enc.NewKeywordComponent("cmd"))); err != nil {
 		log.Warn(r, "Failed to detach command handler", "err", err)
 	}
 

@@ -9,5 +9,15 @@ repo:
   # [required] List of full names of all trust anchors
   trust_anchors:
     - "/ndn/KEY/%27%C4%B2%2A%9F%7B%81%27/ndn/v=1651246789556"
+  # [optional] Path to a compiled LVS schema for management commands,
+  # security-config objects, certificate chains, and response signing.
+  # Incoming commands are checked by their embedded Data name, which can
+  # differ from the command Interest destination.
+  # Authorize response names (including their parameters digest) under
+  # <name>/32=cmd with the repo's certified key in the keychain above.
+  # With a schema, responses fail if no authorized signing key is available.
+  # When omitted, any anchor-certified user is accepted and responses use
+  # digest signatures. Per-group schemas remain controlled by SyncJoin.
+  # trust_schema: /etc/ndn/repo/management-schema.tlv
   # [optional] If true, skip certificate validity checks when consuming data (e.g. SVS snapshots)
   ignore_validity: false

@@ -8,6 +8,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	sec "github.com/named-data/ndnd/std/security"
+	"github.com/named-data/ndnd/std/security/trust_schema"
 )
 
 type Config struct {
@@ -19,6 +20,8 @@ type Config struct {
 	KeyChainUri string `json:"keychain"`
 	// List of trust anchor full names.
 	TrustAnchors []string `json:"trust_anchors"`
+	// TrustSchema is the path to a compiled LVS management trust schema.
+	TrustSchema string `json:"trust_schema"`
 	// IgnoreValidity skips validity period checks when fetching remote data (e.g. SVS snapshots).
 	IgnoreValidity bool `json:"ignore_validity"`
 
@@ -66,6 +69,22 @@ func (c *Config) certExpiredCallback() ndn.CertExpiredCallback {
 		return sec.IgnoreExpiredCert
 	}
 	return sec.ValidateAtSignatureTime
+}
+
+// managementSchema governs command validation and response signer selection.
+func (c *Config) managementSchema() (ndn.TrustSchema, error) {
+	if c.TrustSchema == "" {
+		return trust_schema.NewNullSchema(), nil
+	}
+	wire, err := os.ReadFile(c.TrustSchema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read management trust schema: %w", err)
+	}
+	schema, err := trust_schema.NewLvsSchema(wire)
+	if err != nil {
+		return nil, fmt.Errorf("invalid management trust schema: %w", err)
+	}
+	return schema, nil
 }
 
 // (AI GENERATED DESCRIPTION): Returns a new Config with default placeholder values: empty Name and StorageDir strings, and a nil NameN slice.
