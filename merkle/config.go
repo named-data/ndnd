@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/security/trust_schema"
 )
 
@@ -17,13 +18,16 @@ type Config struct {
 	StorageDir string `json:"storage_dir"`
 	// KeyChainUri specifies the keychain location.
 	KeyChainUri string `json:"keychain"`
-	// TrustSchema is the path to a compiled LVS trust schema.
+	// TrustSchema is the path to a compiled LVS trust schema; omitted uses NullSchema.
 	TrustSchema string `json:"trust_schema"`
 	// TrustAnchors lists the full names of validation trust anchors.
 	TrustAnchors []string `json:"trust_anchors"`
+	// MaxEntries bounds the persistent tree. At capacity, existing proofs and
+	// duplicate retries remain available; new entries are refused.
+	MaxEntries uint64 `json:"max_entries"`
 
 	nameN        enc.Name
-	trustSchema  *trust_schema.LvsSchema
+	trustSchema  ndn.TrustSchema
 	trustAnchors []enc.Name
 }
 
@@ -42,11 +46,11 @@ func (c *Config) Parse() error {
 	if c.KeyChainUri == "" {
 		return fmt.Errorf("keychain must be set")
 	}
-	if c.TrustSchema == "" {
-		return fmt.Errorf("trust-schema must be set")
-	}
 	if len(c.TrustAnchors) == 0 {
 		return fmt.Errorf("no trust anchors provided")
+	}
+	if c.MaxEntries == 0 {
+		c.MaxEntries = 1000000
 	}
 
 	anchors := make([]enc.Name, len(c.TrustAnchors))
@@ -60,17 +64,21 @@ func (c *Config) Parse() error {
 		}
 	}
 
-	trustSchemaPath, err := filepath.Abs(c.TrustSchema)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute trust schema path: %w", err)
-	}
-	trustSchemaWire, err := os.ReadFile(trustSchemaPath)
-	if err != nil {
-		return fmt.Errorf("failed to read trust schema: %w", err)
-	}
-	schema, err := trust_schema.NewLvsSchema(trustSchemaWire)
-	if err != nil {
-		return fmt.Errorf("failed to parse trust schema: %w", err)
+	var schema ndn.TrustSchema = trust_schema.NewNullSchema()
+	trustSchemaPath := c.TrustSchema
+	if trustSchemaPath != "" {
+		trustSchemaPath, err = filepath.Abs(trustSchemaPath)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute trust schema path: %w", err)
+		}
+		trustSchemaWire, err := os.ReadFile(trustSchemaPath)
+		if err != nil {
+			return fmt.Errorf("failed to read trust schema: %w", err)
+		}
+		schema, err = trust_schema.NewLvsSchema(trustSchemaWire)
+		if err != nil {
+			return fmt.Errorf("failed to parse trust schema: %w", err)
+		}
 	}
 
 	storageDir, err := filepath.Abs(c.StorageDir)

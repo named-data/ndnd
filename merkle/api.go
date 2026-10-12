@@ -11,22 +11,119 @@ import (
 	"github.com/named-data/ndnd/std/merklelog"
 	"github.com/named-data/ndnd/std/ndn"
 	defn "github.com/named-data/ndnd/std/ndn/merklelog"
+	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/types/optional"
 )
 
 const requestFreshnessWindow = time.Minute
 
+const (
+	maxAppendHashes       = 100 // Keep both command and acknowledgement below packet limits.
+	maxConcurrentRequests = 8
+	maxRequestsPerSecond  = 20
+	maxProofCacheEntries  = 128
+)
+
+// Bound work before certificate discovery or proof generation.
+func (m *Log) admit() bool {
+	m.requestMutex.Lock()
+	defer m.requestMutex.Unlock()
+	if m.stopping {
+		return false
+	}
+	now := m.now()
+	if now.Sub(m.requestWindow) >= time.Second {
+		m.requestWindow, m.requestCount = now, 0
+	}
+	if m.requestCount >= maxRequestsPerSecond {
+		return false
+	}
+	select {
+	case m.requests <- struct{}{}:
+		m.requestCount++
+		return true
+	default:
+		return false
+	}
+}
+
+func (m *Log) release() {
+	if m.requests != nil {
+		<-m.requests
+	}
+}
+
+func (m *Log) startWork() bool {
+	m.requestMutex.Lock()
+	defer m.requestMutex.Unlock()
+	if m.stopping {
+		return false
+	}
+	m.workers.Add(1)
+	return true
+}
+
+func (m *Log) onAppendInterest(args ndn.InterestHandlerArgs) {
+	if !m.admit() {
+		return
+	}
+	data, covered, err := spec.Spec{}.ReadData(enc.NewWireView(args.Interest.AppParam()))
+	if err != nil {
+		m.release()
+		return
+	}
+	if err = m.validateRequestName(data.Name(), merklelog.AppendPrefix(m.config.nameN)); err != nil {
+		m.release()
+		return
+	}
+	m.client.Validate(data, covered, func(valid bool, err error) {
+		if !valid {
+			m.release()
+			return
+		}
+		m.onAppend(data.Name(), data.Content(), func(content enc.Wire) error {
+			defer m.release()
+			if content == nil {
+				return fmt.Errorf("append refused")
+			}
+			key := m.client.SuggestSigner(args.Interest.Name())
+			if key == nil {
+				return fmt.Errorf("no response signer available")
+			}
+			packet, err := spec.Spec{}.MakeData(args.Interest.Name(), &ndn.DataConfig{}, content, key)
+			if err != nil {
+				return err
+			}
+			return args.Reply(packet.Wire)
+		})
+	})
+}
+
 func (m *Log) onAppend(name enc.Name, content enc.Wire, reply func(enc.Wire) error) {
 	if err := m.validateRequestName(name, merklelog.AppendPrefix(m.config.nameN)); err != nil {
 		log.Debug(m, "Rejected append request", "err", err)
+		_ = reply(nil)
 		return
 	}
 	request, err := defn.ParseAppendRequest(enc.NewWireView(content), false)
 	if err != nil {
 		log.Debug(m, "Failed to parse append request", "err", err)
+		_ = reply(nil)
+		return
+	}
+	if !m.startWork() {
+		_ = reply(nil)
 		return
 	}
 	go func() {
+		defer m.workers.Done()
+		responseName := merklelog.AppendPrefix(m.config.nameN).Append(enc.Component{
+			Typ: enc.TypeParametersSha256DigestComponent, Val: make([]byte, 32),
+		})
+		if m.client.SuggestSigner(responseName) == nil {
+			_ = reply(nil)
+			return
+		}
 		response, appendErr := m.append(request)
 		if appendErr != nil {
 			log.Error(m, "Failed to append Data hashes", "err", appendErr)
@@ -35,6 +132,8 @@ func (m *Log) onAppend(name enc.Name, content enc.Wire, reply func(enc.Wire) err
 			if err := reply(response.Encode()); err != nil {
 				log.Warn(m, "Failed to reply to append request", "err", err)
 			}
+		} else {
+			_ = reply(nil)
 		}
 	}()
 }
@@ -67,9 +166,20 @@ func (m *Log) onCheck(args ndn.InterestHandlerArgs) {
 		log.Debug(m, "Rejected check Interest", "name", name)
 		return
 	}
+	if !m.admit() {
+		return
+	}
+	if !m.startWork() {
+		m.release()
+		return
+	}
 	dataHash := bytes.Clone(name[hashIndex].Val)
 
 	go func() {
+		defer m.workers.Done()
+		defer m.release()
+		m.proofMutex.Lock()
+		defer m.proofMutex.Unlock()
 		response, err := m.check(dataHash)
 		if err != nil {
 			log.Debug(m, "Rejected check Interest", "err", err)
@@ -80,12 +190,19 @@ func (m *Log) onCheck(args ndn.InterestHandlerArgs) {
 		segmentName := objectName.Append(enc.NewSegmentComponent(0))
 		wire, err := m.packetStore.Get(segmentName, false)
 		if err == nil && wire == nil {
+			if len(m.proofNames) >= maxProofCacheEntries {
+				if err := m.packetStore.RemovePrefix(m.proofNames[0]); err != nil {
+					return
+				}
+				m.proofNames = m.proofNames[1:]
+			}
 			_, err = m.client.Produce(ndn.ProduceArgs{
 				Name:       objectName,
 				Content:    response.Encode(),
 				NoMetadata: true,
 			})
 			if err == nil {
+				m.proofNames = append(m.proofNames, objectName.Clone())
 				wire, err = m.packetStore.Get(segmentName, false)
 			}
 		}
@@ -106,6 +223,9 @@ func (m *Log) onCheck(args ndn.InterestHandlerArgs) {
 func (m *Log) append(request *defn.AppendRequest) (*defn.AppendResponse, error) {
 	if request == nil || len(request.DataHashes) == 0 {
 		return nil, fmt.Errorf("append request has no Data hashes")
+	}
+	if len(request.DataHashes) > maxAppendHashes {
+		return nil, fmt.Errorf("append request exceeds %d Data hashes", maxAppendHashes)
 	}
 
 	m.treeMutex.Lock()
@@ -145,6 +265,10 @@ func (m *Log) append(request *defn.AppendRequest) (*defn.AppendResponse, error) 
 	}
 	if len(newHashes) == 0 {
 		return response, nil
+	}
+	if m.config.MaxEntries > 0 && m.tree.Size() >= m.config.MaxEntries {
+		markAppendFailed(response, pending)
+		return response, fmt.Errorf("Merkle log entry limit reached")
 	}
 
 	entryWire, err := merklelog.EncodeLogEntry(&defn.LogEntry{
