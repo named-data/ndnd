@@ -343,7 +343,11 @@ func (c *Compiler) genPatternNumbers() {
 
 					con.pat.id = sb.String()
 				} else {
-					con.pat.id = c.namedPats[con.pat.id]
+					id, ok := c.namedPats[con.pat.id]
+					if !ok {
+						panic(fmt.Errorf("Pattern %v never occurs before.", con.pat.id))
+					}
+					con.pat.id = id
 				}
 
 				for opInd := range con.options {

@@ -188,8 +188,8 @@ func (p *Parser) Parse() (LvsFile, error) {
 			}
 		}
 
-		if p.tok != NEWLINE {
-			err = errors.Join(err, SyntaxError{pos: p.pos, expected: NEWLINE, gotToken: p.tok, gotLit: p.lit})
+		if p.tok != NEWLINE && p.tok != EOF {
+			err = errors.Join(err, fmt.Errorf("%v Expected NEWLINE or EOF, got %v", p.pos, p.tok))
 			p.lexer.SkipLine()
 			continue
 		}
