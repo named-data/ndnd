@@ -213,17 +213,29 @@ func revocationRecordName(cert ndn.Data) (enc.Name, bool) {
 	return recordName.Append(certName.At(-2)), true
 }
 
-func isRevocationRecordName(name enc.Name) bool {
+// CertNameFromRevocationRecordName returns the certificate name encoded by a
+// revocation record name.
+func CertNameFromRevocationRecordName(name enc.Name) (enc.Name, error) {
 	name = stripImplicitDigest(name)
-	if len(name) < 6 || name.At(-1).Typ != enc.TypeGenericNameComponent || !name.At(-2).IsVersion() {
-		return false
+	if len(name) < 6 ||
+		!name.At(-5).IsGeneric("REVOKE") ||
+		!name.At(-2).IsVersion() ||
+		!name.At(-1).Equal(name.At(-3)) {
+		return nil, fmt.Errorf("invalid revocation record name: %s", name)
 	}
 
 	certName := make(enc.Name, len(name)-1)
 	copy(certName, name.Prefix(-1))
 	certName[len(name)-5] = enc.NewGenericComponent("KEY")
 
-	_, err := GetIdentityFromCertName(certName)
+	if _, err := GetIdentityFromCertName(certName); err != nil {
+		return nil, fmt.Errorf("invalid revocation record name %s: %w", name, err)
+	}
+	return certName, nil
+}
+
+func isRevocationRecordName(name enc.Name) bool {
+	_, err := CertNameFromRevocationRecordName(name)
 	return err == nil
 }
 

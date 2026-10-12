@@ -205,6 +205,26 @@ func TestCertificateRevocationRecord(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, ndn.ContentTypeKey, contentType)
 	require.NotEmpty(t, recordData.Content())
+
+	certName, err := sec.CertNameFromRevocationRecordName(recordData.Name())
+	require.NoError(t, err)
+	require.True(t, aliceCert.Name().Equal(certName))
+}
+
+func TestCertNameFromRevocationRecordNameRejectsMalformedNames(t *testing.T) {
+	tests := []string{
+		"/REVOKE/key/issuer/v=1/issuer",
+		"/test/alice/REVOKE/key/issuer/not-version/issuer",
+		"/test/alice/REVOKE/key/issuer/v=1/v=2",
+		"/test/alice/KEY/key/issuer/v=1/issuer",
+	}
+
+	for _, value := range tests {
+		t.Run(value, func(t *testing.T) {
+			_, err := sec.CertNameFromRevocationRecordName(tu.NoErr(enc.NameFromStr(value)))
+			require.Error(t, err)
+		})
+	}
 }
 
 func revocationTestIssuer(t *testing.T) enc.Component {
