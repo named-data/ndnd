@@ -143,7 +143,7 @@ func TestCompileOwnly(t *testing.T) {
 }
 
 func TestCompileConstraints(t *testing.T) {
-	tempTlv := compileFromFileName(t, "lvs_test_constraints.trust")
+	constraintsTlv := compileFromFileName(t, "lvs_test_constraints.trust")
 
-	require.True(t, bytes.Equal(tempTlv, CONSTRAINTS_TEST))
+	require.True(t, bytes.Equal(constraintsTlv, CONSTRAINTS_TEST))
 }
