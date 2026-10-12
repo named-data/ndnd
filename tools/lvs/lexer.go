@@ -102,7 +102,11 @@ func (l *Lexer) Next() (Position, Token, string) {
 			return l.pos, COLON, ":"
 		case '/':
 			if l.atComment() {
+				startPos := l.pos
 				l.SkipLine()
+				if startPos.col != 1 {
+					return startPos, NEWLINE, "\n"
+				}
 			} else {
 				return l.pos, SLASH, "/"
 			}
