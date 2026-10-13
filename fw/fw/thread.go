@@ -68,6 +68,7 @@ type Thread struct {
 	deadNonceList *table.DeadNonceList
 	shouldQuit    chan interface{}
 	HasQuit       chan interface{}
+	csErase       chan csEraseRequest
 
 	// Counters
 	nInInterests          atomic.Uint64
@@ -80,6 +81,20 @@ type Thread struct {
 	nCsMisses             atomic.Uint64
 }
 
+// csEraseRequest is a request from the management thread to erase Content
+// Store entries under a name prefix. The reply channel is buffered so the
+// forwarding goroutine never blocks on it.
+type csEraseRequest struct {
+	name  enc.Name
+	limit int
+	reply chan csEraseResult
+}
+
+type csEraseResult struct {
+	nErased int
+	more    bool
+}
+
 // NewThread creates a new forwarding thread
 func NewThread(id int) *Thread {
 	t := new(Thread)
@@ -89,6 +104,7 @@ func NewThread(id int) *Thread {
 	t.strategies = InstantiateStrategies(t)
 	t.deadNonceList = table.NewDeadNonceList()
 	t.shouldQuit = make(chan interface{}, 1)
+	t.csErase = make(chan csEraseRequest)
 	t.HasQuit = make(chan interface{})
 	return t
 }
@@ -143,6 +159,9 @@ func (t *Thread) Run() {
 			t.deadNonceList.RemoveExpiredEntries()
 		case <-t.pitCS.UpdateTicker():
 			t.pitCS.Update()
+		case req := <-t.csErase:
+			n, more := t.pitCS.EraseCsDataUnderPrefix(req.name, req.limit)
+			req.reply <- csEraseResult{nErased: n, more: more}
 		case <-t.shouldQuit:
 			continue
 		}
@@ -170,6 +189,17 @@ func (t *Thread) QueueData(data *defn.Pkt) {
 	default:
 		core.Log.Error(t, "Data dropped due to full queue")
 	}
+}
+
+// EraseCsDataUnderPrefix erases up to limit Content Store entries under the
+// given prefix in this thread's Content Store. It blocks until the forwarding
+// goroutine has serviced the request, and reports whether further matching
+// entries remain.
+func (t *Thread) EraseCsDataUnderPrefix(name enc.Name, limit int) (int, bool) {
+	reply := make(chan csEraseResult, 1)
+	t.csErase <- csEraseRequest{name: name, limit: limit, reply: reply}
+	result := <-reply
+	return result.nErased, result.more
 }
 
 // (AI GENERATED DESCRIPTION): Processes an incoming Interest packet: verifies its validity, enforces hop limits and scope, checks for nonces and dead‑nonce loops, updates the PIT and content store, selects and filters next‑hops via the FIB, and forwards the Interest according to the chosen forwarding strategy.

@@ -407,6 +407,47 @@ func (p *PitCsTree) eraseCsDataFromReplacementStrategy(index uint64) {
 	}
 }
 
+// EraseCsDataUnderPrefix erases up to limit Content Store entries whose names
+// fall under the given prefix, and reports whether further matching entries
+// remain. With limit < 1 nothing is erased and only the remain flag is
+// reported. It must be called from the goroutine that owns the table.
+func (p *PitCsTree) EraseCsDataUnderPrefix(name enc.Name, limit int) (int, bool) {
+	node := p.root.findExactMatchEntryEnc(name)
+	if node == nil {
+		return 0, false
+	}
+
+	// Collect one node past the limit so the caller can tell whether another
+	// erase command would still find entries under this prefix.
+	var targets []*pitCsTreeNode
+	var collect func(n *pitCsTreeNode)
+	collect = func(n *pitCsTreeNode) {
+		if len(targets) > limit {
+			return
+		}
+		if n.csEntry != nil {
+			targets = append(targets, n)
+		}
+		for _, child := range n.children {
+			collect(child)
+		}
+	}
+	collect(node)
+
+	more := len(targets) > limit
+	if more {
+		targets = targets[:limit]
+	}
+	for _, target := range targets {
+		entry := target.csEntry
+		p.csReplacement.BeforeErase(entry.index, entry.wire)
+		target.csEntry = nil
+		delete(p.csMap, entry.index)
+		p.nCsEntries.Add(-1)
+	}
+	return len(targets), more
+}
+
 // Given a pitCsTreeNode that is the longest prefix match of an interest, look for any
 // CS data rechable from this pitCsTreeNode. This function must be called only after
 // the interest as far as possible with the nodes components in the PitCSTree.
