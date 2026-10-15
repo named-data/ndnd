@@ -1,2 +1,0 @@
-#key: "key"
-#data: a/b & { b: $eq(a), a: "can" } | { a: $eq(b), b: "other" } <= #key
