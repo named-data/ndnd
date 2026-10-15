@@ -279,6 +279,14 @@ func (t *UnicastTCPTransport) CloseConn() {
 // Close the connection permanently - this will not attempt to reconnect.
 func (t *UnicastTCPTransport) Close() {
 	t.closed = true
-	t.rechan <- false
+	// Non-blocking send: a previous Close may have already queued the signal
+	// while runReceive had exited without receiving it (e.g. after the
+	// socket was closed). A second blocking send would then deadlock forever,
+	// leaking the transport goroutines and wedging the face expiration
+	// sweeper on the same channel.
+	select {
+	case t.rechan <- false:
+	default:
+	}
 	t.CloseConn()
 }
