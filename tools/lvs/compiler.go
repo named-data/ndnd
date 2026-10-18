@@ -189,7 +189,8 @@ func (c *Compiler) sortRuleReferences() {
 	ruleIdSet := make(map[string]struct{})
 	tempRuleNumber := 1
 
-	for _, rule := range c.lvsFile.rules {
+	for i := range c.lvsFile.rules {
+		rule := &c.lvsFile.rules[i]
 		if rule.id.id[1] == '_' {
 			rule.id.id += "#" + strconv.Itoa(tempRuleNumber)
 			tempRuleNumber++
@@ -206,7 +207,7 @@ func (c *Compiler) sortRuleReferences() {
 				if _, ok := ruleIdSet[comp.ruleId.id]; !ok {
 					panic(fmt.Errorf("Rule %v refers to a non-existing rule %v", rule.id.id, comp.ruleId.id))
 				}
-				if comp.ruleId.id[1] == '_' {
+				if comp.ruleId.id[1] == '_' { // there is # at 0, so index is 1
 					panic(fmt.Errorf("Rule %v refers to a temporary rule %v", rule.id.id, comp.pat.id))
 				}
 				adjList[rule.id.id] = append(adjList[rule.id.id], comp.ruleId.id)
