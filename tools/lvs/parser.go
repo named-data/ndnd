@@ -35,7 +35,7 @@ func (n NamePat) String() string {
 	var sb strings.Builder
 	for _, comp := range n.p {
 		if comp.compVal.c != nil {
-			sb.WriteString("\"" + string(comp.compVal.c) + "\"")
+			sb.WriteString("c: \"\"" + string(comp.compVal.c) + "\"")
 		} else if comp.pat.id != "" {
 			sb.WriteString(comp.pat.id)
 		} else if comp.ruleId.id != "" {
@@ -175,7 +175,13 @@ func (p *Parser) Parse() (LvsFile, error) {
 		rule.name = rn
 
 		if p.tok == CONSTRAINT {
-			rule.compCons = p.parseCompCons()
+			cc, ccErr := p.parseCompCons()
+			if ccErr != nil {
+				err = errors.Join(err, ccErr)
+				p.lexer.SkipLine()
+				continue
+			}
+			rule.compCons = cc
 		}
 
 		if p.tok == SIGNER_ARROW {
@@ -211,7 +217,10 @@ func (p *Parser) parseName() (NamePat, error) {
 		case SLASH:
 			continue
 		case STR:
-			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1]) // remove quotes
+			comp, err := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1]) // remove quotes
+			if err != nil {
+				return NamePat{}, err
+			}
 			pat = append(pat, NameComp{compVal: ComponentValue{comp.Bytes()}})
 		case TAG_IDENT:
 			pat = append(pat, NameComp{pat: Pattern{id: p.lit}})
@@ -228,23 +237,27 @@ func (p *Parser) parseName() (NamePat, error) {
 	}
 }
 
-func (p *Parser) parseCompCons() [][]TagConstraint {
+func (p *Parser) parseCompCons() ([][]TagConstraint, error) {
 	var conSets [][]TagConstraint
 
 	for {
 		p.nextToken()
 		switch p.tok {
 		case OPEN_BRACKET:
-			conSets = append(conSets, p.parseConSet())
+			cs, err := p.parseConSet()
+			if err != nil {
+				return nil, err
+			}
+			conSets = append(conSets, cs)
 		case OR:
 			continue
 		default: // If there is unexpected symbol, it will be caught outside of this function
-			return conSets
+			return conSets, nil
 		}
 	}
 }
 
-func (p *Parser) parseConSet() []TagConstraint {
+func (p *Parser) parseConSet() ([]TagConstraint, error) {
 	var conSet []TagConstraint
 
 	for {
@@ -254,21 +267,24 @@ func (p *Parser) parseConSet() []TagConstraint {
 		case TAG_IDENT:
 			constraint := TagConstraint{pat: Pattern{id: p.lit}}
 			p.nextToken() // skip colon
-			op, done := p.parseConOptions()
+			op, done, err := p.parseConOptions()
+			if err != nil {
+				return nil, err
+			}
 			constraint.options = op
 			conSet = append(conSet, constraint)
 			if done {
-				return conSet
+				return conSet, nil
 			}
 		case COMMA, OR:
 			continue
 		default:
-			return conSet
+			return conSet, nil
 		}
 	}
 }
 
-func (p *Parser) parseConOptions() (cons []Constraint, done bool) {
+func (p *Parser) parseConOptions() (cons []Constraint, done bool, err error) {
 	var options []Constraint
 
 	for {
@@ -276,25 +292,32 @@ func (p *Parser) parseConOptions() (cons []Constraint, done bool) {
 
 		switch p.tok {
 		case STR:
-			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
+			comp, err := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
+			if err != nil {
+				return nil, true, err
+			}
 			options = append(options, Constraint{compVal: ComponentValue{comp.Bytes()}})
 		case TAG_IDENT:
 			options = append(options, Constraint{pat: Pattern{p.lit}})
 		case FN_IDENT:
 			fnCall := FnCall{name: p.lit}
-			fnCall.args = p.parseFnArgs()
+			args, err := p.parseFnArgs()
+			if err != nil {
+				return nil, true, err
+			}
+			fnCall.args = args
 			options = append(options, Constraint{fnCall: fnCall})
 		case CLOSE_BRACKET:
-			return options, true
+			return options, true, nil
 		case OR:
 			continue
 		default: // comma
-			return options, false
+			return options, false, nil
 		}
 	}
 }
 
-func (p *Parser) parseFnArgs() []FnArg {
+func (p *Parser) parseFnArgs() ([]FnArg, error) {
 	var args []FnArg
 
 	for {
@@ -304,12 +327,15 @@ func (p *Parser) parseFnArgs() []FnArg {
 		case FN_OPEN, COMMA:
 			continue
 		case STR:
-			comp, _ := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
+			comp, err := enc.ComponentFromStr(p.lit[1 : len(p.lit)-1])
+			if err != nil {
+				return nil, err
+			}
 			args = append(args, FnArg{compVal: ComponentValue{comp.Bytes()}})
 		case TAG_IDENT:
 			args = append(args, FnArg{pat: Pattern{p.lit}})
 		default:
-			return args
+			return args, nil
 		}
 	}
 }
