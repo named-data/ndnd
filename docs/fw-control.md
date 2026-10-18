@@ -8,6 +8,14 @@ You can also use the [nfdc](https://docs.named-data.net/NFD/24.07/manpages/nfdc.
 
 The status command shows general status of the forwarder, including its version, uptime, data structure counters, and global packet counters.
 
+## `ndnd fw status-report`
+
+The status-report command prints the NDNd status document as XML. It includes measured forwarder counters, channels, faces, FIB and RIB entries, content-store statistics, strategy choices, BIFT and PET state, and DV summary data when the DV status service is available. Fields that NDNd does not measure, such as NFD NameTree and Nack counters, are not included.
+
+## `ndnd fw status-server`
+
+The status-server command serves the XML status document and its XSLT view over HTTP on port 6380. It uses the same management datasets as status-report. When DV status is unavailable, the report marks it unavailable instead of fabricating DV values.
+
 ## `ndnd fw face-list`
 
 The face list command prints the face table, which contains information about faces.
