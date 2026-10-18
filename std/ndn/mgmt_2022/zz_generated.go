@@ -7260,3 +7260,333 @@ func ParseCsInfoMsg(reader enc.WireView, ignoreCritical bool) (*CsInfoMsg, error
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
+
+type ChannelStatusEncoder struct {
+	Length uint
+}
+
+type ChannelStatusParsingContext struct {
+}
+
+func (encoder *ChannelStatusEncoder) Init(value *ChannelStatus) {
+
+	l := uint(0)
+	l += 1
+	l += uint(enc.TLNum(len(value.LocalUri)).EncodingLength())
+	l += uint(len(value.LocalUri))
+	encoder.Length = l
+
+}
+
+func (context *ChannelStatusParsingContext) Init() {
+
+}
+
+func (encoder *ChannelStatusEncoder) EncodeInto(value *ChannelStatus, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = byte(129)
+	pos += 1
+	pos += uint(enc.TLNum(len(value.LocalUri)).EncodeInto(buf[pos:]))
+	copy(buf[pos:], value.LocalUri)
+	pos += uint(len(value.LocalUri))
+}
+
+func (encoder *ChannelStatusEncoder) Encode(value *ChannelStatus) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *ChannelStatusParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*ChannelStatus, error) {
+
+	var handled_LocalUri bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &ChannelStatus{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 129:
+				if true {
+					handled = true
+					handled_LocalUri = true
+					{
+						var builder strings.Builder
+						_, err = reader.CopyN(&builder, int(l))
+						if err == nil {
+							value.LocalUri = builder.String()
+						}
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_LocalUri && err == nil {
+		err = enc.ErrSkipRequired{Name: "LocalUri", TypeNum: 129}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *ChannelStatus) Encode() enc.Wire {
+	encoder := ChannelStatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *ChannelStatus) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseChannelStatus(reader enc.WireView, ignoreCritical bool) (*ChannelStatus, error) {
+	context := ChannelStatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type ChannelStatusMsgEncoder struct {
+	Length uint
+
+	Vals_subencoder []struct {
+		Vals_encoder ChannelStatusEncoder
+	}
+}
+
+type ChannelStatusMsgParsingContext struct {
+	Vals_context ChannelStatusParsingContext
+}
+
+func (encoder *ChannelStatusMsgEncoder) Init(value *ChannelStatusMsg) {
+	{
+		Vals_l := len(value.Vals)
+		encoder.Vals_subencoder = make([]struct {
+			Vals_encoder ChannelStatusEncoder
+		}, Vals_l)
+		for i := 0; i < Vals_l; i++ {
+			pseudoEncoder := &encoder.Vals_subencoder[i]
+			pseudoValue := struct {
+				Vals *ChannelStatus
+			}{
+				Vals: value.Vals[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Vals != nil {
+					encoder.Vals_encoder.Init(value.Vals)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.Vals != nil {
+		for seq_i, seq_v := range value.Vals {
+			pseudoEncoder := &encoder.Vals_subencoder[seq_i]
+			pseudoValue := struct {
+				Vals *ChannelStatus
+			}{
+				Vals: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Vals != nil {
+					l += 1
+					l += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodingLength())
+					l += encoder.Vals_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *ChannelStatusMsgParsingContext) Init() {
+	context.Vals_context.Init()
+}
+
+func (encoder *ChannelStatusMsgEncoder) EncodeInto(value *ChannelStatusMsg, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Vals != nil {
+		for seq_i, seq_v := range value.Vals {
+			pseudoEncoder := &encoder.Vals_subencoder[seq_i]
+			pseudoValue := struct {
+				Vals *ChannelStatus
+			}{
+				Vals: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Vals != nil {
+					buf[pos] = byte(130)
+					pos += 1
+					pos += uint(enc.TLNum(encoder.Vals_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Vals_encoder.Length > 0 {
+						encoder.Vals_encoder.EncodeInto(value.Vals, buf[pos:])
+						pos += encoder.Vals_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *ChannelStatusMsgEncoder) Encode(value *ChannelStatusMsg) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *ChannelStatusMsgParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*ChannelStatusMsg, error) {
+
+	var handled_Vals bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &ChannelStatusMsg{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 130:
+				if true {
+					handled = true
+					handled_Vals = true
+					if value.Vals == nil {
+						value.Vals = make([]*ChannelStatus, 0)
+					}
+					{
+						pseudoValue := struct {
+							Vals *ChannelStatus
+						}{}
+						{
+							value := &pseudoValue
+							value.Vals, err = context.Vals_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.Vals = append(value.Vals, pseudoValue.Vals)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Vals && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *ChannelStatusMsg) Encode() enc.Wire {
+	encoder := ChannelStatusMsgEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *ChannelStatusMsg) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseChannelStatusMsg(reader enc.WireView, ignoreCritical bool) (*ChannelStatusMsg, error) {
+	context := ChannelStatusMsgParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}

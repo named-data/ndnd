@@ -239,6 +239,16 @@ type FaceStatusMsg struct {
 	Vals []*FaceStatus `tlv:"0x80"`
 }
 
+type ChannelStatus struct {
+	//+field:string
+	LocalUri string `tlv:"0x81"`
+}
+
+type ChannelStatusMsg struct {
+	//+field:sequence:*ChannelStatus:struct:ChannelStatus
+	Vals []*ChannelStatus `tlv:"0x82"`
+}
+
 type FaceQueryFilterValue struct {
 	//+field:natural:optional
 	FaceId optional.Optional[uint64] `tlv:"0x69"`

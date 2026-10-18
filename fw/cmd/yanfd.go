@@ -63,9 +63,6 @@ func (y *YaNFD) Start() {
 	// Create null face
 	face.MakeNullLinkService(face.MakeNullTransport()).Run(nil)
 
-	// Start management thread
-	go mgmt.MakeMgmtThread().Run()
-
 	// Create forwarding threads
 	if fw.CfgNumThreads() < 1 || fw.CfgNumThreads() > fw.MaxFwThreads {
 		core.Log.Fatal(y, "Number of forwarding threads out of range", "range", fmt.Sprintf("[1, %d]", fw.MaxFwThreads))
@@ -83,6 +80,7 @@ func (y *YaNFD) Start() {
 
 	// Set up listeners for faces
 	listenerCount := 0
+	channelURIs := make([]string, 0)
 
 	// Create unicast TCP face
 	if core.C.Faces.Tcp.Enabled {
@@ -96,13 +94,15 @@ func (y *YaNFD) Start() {
 
 		for _, tcpAddr := range tcpAddrs {
 			uri := fmt.Sprintf("tcp://%s", tcpAddr)
-			tcpListener, err := face.MakeTCPListener(defn.DecodeURIString(uri))
+			localURI := defn.DecodeURIString(uri)
+			tcpListener, err := face.MakeTCPListener(localURI)
 			if err != nil {
 				core.Log.Error(y, "Unable to create TCP listener", "uri", uri, "err", err)
 			} else {
 				listenerCount++
 				go tcpListener.Run()
 				y.tcpListeners = append(y.tcpListeners, tcpListener)
+				channelURIs = append(channelURIs, localURI.String())
 				core.Log.Info(y, "Created unicast TCP listener", "uri", uri)
 			}
 		}
@@ -116,13 +116,15 @@ func (y *YaNFD) Start() {
 			Zone: zone,
 		})
 
-		udpListener, err := face.MakeUDPListener(defn.DecodeURIString(uri))
+		localURI := defn.DecodeURIString(uri)
+		udpListener, err := face.MakeUDPListener(localURI)
 		if err != nil {
 			core.Log.Error(y, "Unable to create UDP listener", "uri", uri, "err", err)
 		} else {
 			listenerCount++
 			go udpListener.Run()
 			y.udpListeners = append(y.udpListeners, udpListener)
+			channelURIs = append(channelURIs, localURI.String())
 			core.Log.Info(y, "Created unicast UDP listener", "uri", uri)
 		}
 	}
@@ -197,6 +199,7 @@ func (y *YaNFD) Start() {
 			listenerCount++
 			go unixListener.Run()
 			y.unixListener = unixListener
+			channelURIs = append(channelURIs, uri.String())
 			core.Log.Info(y, "Created unix stream listener", "uri", uri)
 		}
 	}
@@ -218,6 +221,7 @@ func (y *YaNFD) Start() {
 			listenerCount++
 			go wsListener.Run()
 			y.wsListener = wsListener
+			channelURIs = append(channelURIs, cfg.URL().String())
 			core.Log.Info(y, "Created WebSocket listener", "uri", cfg.URL().String())
 		}
 	}
@@ -238,6 +242,7 @@ func (y *YaNFD) Start() {
 			listenerCount++
 			go h3Listener.Run()
 			y.h3Listener = h3Listener
+			channelURIs = append(channelURIs, cfg.URL().String())
 			core.Log.Info(y, "Created HTTP/3 WebTransport listener", "uri", cfg.URL().String())
 		}
 	}
@@ -247,6 +252,9 @@ func (y *YaNFD) Start() {
 		core.Log.Fatal(y, "No face or listener is successfully created. Quit.")
 		os.Exit(2)
 	}
+
+	// Start management thread after listener setup so channel status is complete.
+	go mgmt.MakeMgmtThreadWithChannels(channelURIs).Run()
 }
 
 // Stop shuts down YaNFD.

@@ -48,6 +48,11 @@ func (m *Thread) String() string {
 
 // MakeMgmtThread creates a new management thread.
 func MakeMgmtThread() *Thread {
+	return MakeMgmtThreadWithChannels(nil)
+}
+
+// MakeMgmtThreadWithChannels creates a management thread with listener URIs for the faces/channels dataset.
+func MakeMgmtThreadWithChannels(channelURIs []string) *Thread {
 	m := &Thread{
 		modules: make(map[string]Module),
 		timer:   basic_engine.NewTimer(),
@@ -57,7 +62,7 @@ func MakeMgmtThread() *Thread {
 	}
 
 	m.registerModule("cs", new(ContentStoreModule))
-	m.registerModule("faces", new(FaceModule))
+	m.registerModule("faces", &FaceModule{channelURIs: channelURIs})
 	m.registerModule("fib", new(FIBModule))
 	m.registerModule("pet", newPETModule())
 	m.registerModule("bift", newBiftModule())

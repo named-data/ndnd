@@ -24,7 +24,8 @@ import (
 
 // FaceModule is the module that handles Face Management.
 type FaceModule struct {
-	manager *Thread
+	manager     *Thread
+	channelURIs []string
 
 	eventMu          sync.RWMutex
 	eventSeq         uint64
@@ -81,6 +82,8 @@ func (f *FaceModule) handleIncomingInterest(interest *Interest) {
 		f.events(interest, verb)
 	case "list":
 		f.list(interest)
+	case "channels":
+		f.channels(interest)
 	case "query":
 		f.query(interest)
 	default:
@@ -616,6 +619,26 @@ func (f *FaceModule) list(interest *Interest) {
 	f.manager.sendStatusDataset(interest, name, dataset.Encode())
 }
 
+func (f *FaceModule) channels(interest *Interest) {
+	if len(interest.Name()) > len(LOCAL_PREFIX)+2 {
+		// Ignore because contains version and/or segment components
+		return
+	}
+
+	name := LOCAL_PREFIX.
+		Append(enc.NewGenericComponent("faces")).
+		Append(enc.NewGenericComponent("channels"))
+	f.manager.sendStatusDataset(interest, name, f.channelStatusDataset().Encode())
+}
+
+func (f *FaceModule) channelStatusDataset() *mgmt.ChannelStatusMsg {
+	dataset := &mgmt.ChannelStatusMsg{}
+	for _, uri := range f.channelURIs {
+		dataset.Vals = append(dataset.Vals, &mgmt.ChannelStatus{LocalUri: uri})
+	}
+	return dataset
+}
+
 // (AI GENERATED DESCRIPTION): Responds to a FaceQuery interest by filtering the local FaceTable according to the supplied FaceQueryFilter and sending back a dataset of matching FaceStatusMsg entries.
 func (f *FaceModule) query(interest *Interest) {
 	if len(interest.Name()) < len(LOCAL_PREFIX)+3 {
@@ -727,7 +750,7 @@ func (f *FaceModule) createDataset(selectedFace face.LinkService) *mgmt.FaceStat
 		NOutData:        selectedFace.NOutData(),
 		NOutNacks:       0,
 		NInBytes:        selectedFace.NInBytes(),
-		NOutBytes:       selectedFace.NInBytes(),
+		NOutBytes:       selectedFace.NOutBytes(),
 	}
 	if selectedFace.ExpirationPeriod() != 0 {
 		faceDataset.ExpirationPeriod = optional.Some(uint64(selectedFace.ExpirationPeriod().Milliseconds()))
