@@ -8,7 +8,7 @@
 package mgmt
 
 import (
-	"encoding/json"
+	"fmt"
 
 	"github.com/named-data/ndnd/fw/bier"
 	"github.com/named-data/ndnd/fw/core"
@@ -105,7 +105,7 @@ func (b *BiftModule) list(interest *Interest) {
 		return
 	}
 
-	status, err := json.Marshal(bier.Bift.Status())
+	status, err := makeBiftStatus(bier.Bift.Status())
 	if err != nil {
 		b.manager.sendCtrlResp(interest, 500, "Unable to encode BIFT status", nil)
 		return
@@ -114,5 +114,50 @@ func (b *BiftModule) list(interest *Interest) {
 	name := LOCAL_PREFIX.
 		Append(enc.NewGenericComponent("bift")).
 		Append(enc.NewGenericComponent("list"))
-	b.manager.sendStatusDataset(interest, name, enc.Wire{status})
+	b.manager.sendStatusDataset(interest, name, status.Encode())
+}
+
+func makeBiftStatus(snapshot bier.BiftStatus) (*mgmt.BiftStatusMsg, error) {
+	status := &mgmt.BiftStatusMsg{
+		Version:   mgmt.BiftStatusVersion,
+		Entries:   make([]*mgmt.BiftStatusEntry, 0, len(snapshot.Entries)),
+		Neighbors: make([]*mgmt.BiftStatusNeighbor, 0, len(snapshot.Neighbors)),
+	}
+	if snapshot.BierIndex >= 0 {
+		status.BierIndex = optional.Some(uint64(snapshot.BierIndex))
+	}
+
+	for _, entry := range snapshot.Entries {
+		if entry.BfrId < 0 {
+			return nil, fmt.Errorf("negative BFR-ID %d", entry.BfrId)
+		}
+		routerName, err := enc.NameFromStr(entry.RouterName)
+		if err != nil {
+			return nil, fmt.Errorf("parse BIFT router name %q: %w", entry.RouterName, err)
+		}
+		statusEntry := &mgmt.BiftStatusEntry{
+			RouterName: routerName,
+			BfrId:      uint64(entry.BfrId),
+			NextHops:   append([]uint64(nil), entry.NextHops...),
+			FbmBits:    biftBitPositions(entry.FbmBits),
+		}
+		status.Entries = append(status.Entries, statusEntry)
+	}
+	for _, neighbor := range snapshot.Neighbors {
+		status.Neighbors = append(status.Neighbors, &mgmt.BiftStatusNeighbor{
+			FaceId:  neighbor.FaceID,
+			FbmBits: biftBitPositions(neighbor.FbmBits),
+		})
+	}
+	return status, nil
+}
+
+func biftBitPositions(bits []int) []uint64 {
+	positions := make([]uint64, 0, len(bits))
+	for _, bit := range bits {
+		if bit >= 0 {
+			positions = append(positions, uint64(bit))
+		}
+	}
+	return positions
 }

@@ -26,25 +26,25 @@ type BiftEntry struct {
 	Fbm        []byte   // Forwarding Bit Mask for this neighbor
 }
 
-// BiftStatusEntry is a JSON-friendly snapshot of one BIFT entry.
+// BiftStatusEntry is a snapshot of one BIFT entry.
 type BiftStatusEntry struct {
-	BfrId      int      `json:"bfr_id"`
-	RouterName string   `json:"router_name"`
-	NextHops   []uint64 `json:"next_hops"`
-	FbmBits    []int    `json:"fbm_bits"`
+	BfrId      int
+	RouterName string
+	NextHops   []uint64
+	FbmBits    []int
 }
 
-// BiftStatusNeighbor is a JSON-friendly snapshot of one BIFT neighbor entry.
+// BiftStatusNeighbor is a snapshot of one BIFT neighbor entry.
 type BiftStatusNeighbor struct {
-	FaceID  uint64 `json:"face_id"`
-	FbmBits []int  `json:"fbm_bits"`
+	FaceID  uint64
+	FbmBits []int
 }
 
-// BiftStatus is a JSON-friendly snapshot of the current BIFT state.
+// BiftStatus is a deterministic snapshot of the current BIFT state.
 type BiftStatus struct {
-	BierIndex int                  `json:"bier_index"`
-	Entries   []BiftStatusEntry    `json:"entries"`
-	Neighbors []BiftStatusNeighbor `json:"neighbors"`
+	BierIndex int
+	Entries   []BiftStatusEntry
+	Neighbors []BiftStatusNeighbor
 }
 
 // Bift is the global Bit Index Forwarding Table.

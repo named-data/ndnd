@@ -1,12 +1,8 @@
 package dv
 
 import (
-	"fmt"
-	"slices"
-	"strings"
 	"time"
 
-	"github.com/named-data/ndnd/dv/table"
 	"github.com/named-data/ndnd/dv/tlv"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/log"
@@ -121,117 +117,8 @@ func (dv *Router) mgmtOnPrefix(args ndn.InterestHandlerArgs) {
 			return
 		}
 
-		entries := dv.pfx.SnapshotEntries()
-		now := time.Now().UTC()
-		var out strings.Builder
-		out.WriteString("Prefix list:\n")
-
-		if len(entries) == 0 {
-			out.WriteString("  (empty)\n")
-		} else {
-			type prefixListEntry struct {
-				name          enc.Name
-				egressExpires map[string]string
-				localNexthops string
-			}
-
-			prefixes := make(map[string]*prefixListEntry)
-			egressSet := make(map[string]struct{})
-			for _, entry := range entries {
-				remaining := "never"
-				if validity := entry.ValidityPeriod; validity != nil {
-					if validity.NotAfter != "" {
-						if end, err := time.Parse(spec.TimeFmt, validity.NotAfter); err == nil {
-							d := end.Sub(now)
-							if d <= 0 {
-								remaining = "0s"
-							} else {
-								remaining = d.Round(time.Second).String()
-							}
-						} else {
-							remaining = "invalid"
-						}
-					}
-				}
-
-				key := entry.Name.TlvStr()
-				group := prefixes[key]
-				if group == nil {
-					group = &prefixListEntry{
-						name:          entry.Name.Clone(),
-						egressExpires: make(map[string]string),
-						localNexthops: "none",
-					}
-					prefixes[key] = group
-				}
-
-				egress := entry.Router.String()
-				egressSet[egress] = struct{}{}
-				group.egressExpires[egress] = remaining
-
-				if entry.Router.Equal(dv.config.RouterName()) && len(entry.NextHops) > 0 {
-					nextHops := make([]table.PrefixNextHop, len(entry.NextHops))
-					copy(nextHops, entry.NextHops)
-					slices.SortFunc(nextHops, func(a, b table.PrefixNextHop) int {
-						if a.Face == b.Face {
-							if a.Cost == b.Cost {
-								return 0
-							}
-							if a.Cost < b.Cost {
-								return -1
-							}
-							return 1
-						}
-						if a.Face < b.Face {
-							return -1
-						}
-						return 1
-					})
-
-					parts := make([]string, 0, len(nextHops))
-					for _, nh := range nextHops {
-						parts = append(parts, fmt.Sprintf("face=%d(cost=%d)", nh.Face, nh.Cost))
-					}
-					group.localNexthops = strings.Join(parts, ", ")
-				}
-			}
-
-			prefixKeys := make([]string, 0, len(prefixes))
-			for key := range prefixes {
-				prefixKeys = append(prefixKeys, key)
-			}
-			slices.Sort(prefixKeys)
-
-			for _, key := range prefixKeys {
-				group := prefixes[key]
-
-				egresses := make([]string, 0, len(group.egressExpires))
-				for egress := range group.egressExpires {
-					egresses = append(egresses, egress)
-				}
-				slices.Sort(egresses)
-
-				egressParts := make([]string, 0, len(egresses))
-				for _, egress := range egresses {
-					egressParts = append(egressParts, fmt.Sprintf("%s(expires=%s)", egress, group.egressExpires[egress]))
-				}
-
-				fmt.Fprintf(&out,
-					"  prefix=%s egresses={%s} nexthops={%s}\n",
-					group.name, strings.Join(egressParts, ", "), group.localNexthops)
-			}
-
-			egressRouters := make([]string, 0, len(egressSet))
-			for router := range egressSet {
-				egressRouters = append(egressRouters, router)
-			}
-			slices.Sort(egressRouters)
-			out.WriteString("  egressRouters={")
-			out.WriteString(strings.Join(egressRouters, ", "))
-			out.WriteString("}\n")
-		}
-
-		replyData(enc.Wire{[]byte(out.String())}, nil, "Failed to make prefix-list response Data")
+		status := makePrefixStateStatus(dv.pfx.SnapshotEntries())
+		replyData(status.Encode(), nil, "Failed to make prefix-list response Data")
 	case cmdAnnounce:
 		if len(interestName) != mgmtPrefixLen+4 {
 			log.Warn(dv, "Invalid prefix Interest", "name", interestName)

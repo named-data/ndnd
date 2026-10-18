@@ -50,7 +50,9 @@ ndnd dv prefix-withdraw prefix=/example
 
 ## `ndnd dv prefix-list`
 
-The `prefix-list` command prints the local view of the DV prefix state database (PSD), including any validity window and remaining time before expiration.
+The `prefix-list` command formats a snapshot of the DV prefix-state database (PSD), including the prefix, advertising router, multicast flag, validity window, and local next hops.
+
+The machine-readable dataset is returned at `/localhost/dv/prefix/list` using the versioned `dv/tlv.PrefixStateStatus` TLV model. Version 1 entries are ordered by prefix name and router name; next hops are ordered by face ID and cost. The command formats this same dataset as text.
 
 ```bash
 # Show prefix list

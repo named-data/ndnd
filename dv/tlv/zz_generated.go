@@ -2134,3 +2134,727 @@ func ParsePrefixInsertionInnerContent(reader enc.WireView, ignoreCritical bool) 
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
+
+type PrefixStateStatusEncoder struct {
+	Length uint
+
+	Entries_subencoder []struct {
+		Entries_encoder PrefixStateStatusEntryEncoder
+	}
+}
+
+type PrefixStateStatusParsingContext struct {
+	Entries_context PrefixStateStatusEntryParsingContext
+}
+
+func (encoder *PrefixStateStatusEncoder) Init(value *PrefixStateStatus) {
+
+	{
+		Entries_l := len(value.Entries)
+		encoder.Entries_subencoder = make([]struct {
+			Entries_encoder PrefixStateStatusEntryEncoder
+		}, Entries_l)
+		for i := 0; i < Entries_l; i++ {
+			pseudoEncoder := &encoder.Entries_subencoder[i]
+			pseudoValue := struct {
+				Entries *PrefixStateStatusEntry
+			}{
+				Entries: value.Entries[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					encoder.Entries_encoder.Init(value.Entries)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	l += 3
+	l += uint(1 + enc.Nat(value.Version).EncodingLength())
+	if value.Entries != nil {
+		for seq_i, seq_v := range value.Entries {
+			pseudoEncoder := &encoder.Entries_subencoder[seq_i]
+			pseudoValue := struct {
+				Entries *PrefixStateStatusEntry
+			}{
+				Entries: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *PrefixStateStatusParsingContext) Init() {
+
+	context.Entries_context.Init()
+}
+
+func (encoder *PrefixStateStatusEncoder) EncodeInto(value *PrefixStateStatus, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = 253
+	binary.BigEndian.PutUint16(buf[pos+1:], uint16(415))
+	pos += 3
+
+	buf[pos] = byte(enc.Nat(value.Version).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	if value.Entries != nil {
+		for seq_i, seq_v := range value.Entries {
+			pseudoEncoder := &encoder.Entries_subencoder[seq_i]
+			pseudoValue := struct {
+				Entries *PrefixStateStatusEntry
+			}{
+				Entries: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(417))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
+						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
+						pos += encoder.Entries_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *PrefixStateStatusEncoder) Encode(value *PrefixStateStatus) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PrefixStateStatusParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixStateStatus, error) {
+
+	var handled_Version bool = false
+	var handled_Entries bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PrefixStateStatus{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 415:
+				if true {
+					handled = true
+					handled_Version = true
+					value.Version = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.Version = uint64(value.Version<<8) | uint64(x)
+						}
+					}
+				}
+			case 417:
+				if true {
+					handled = true
+					handled_Entries = true
+					if value.Entries == nil {
+						value.Entries = make([]*PrefixStateStatusEntry, 0)
+					}
+					{
+						pseudoValue := struct {
+							Entries *PrefixStateStatusEntry
+						}{}
+						{
+							value := &pseudoValue
+							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.Entries = append(value.Entries, pseudoValue.Entries)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Version && err == nil {
+		err = enc.ErrSkipRequired{Name: "Version", TypeNum: 415}
+	}
+	if !handled_Entries && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PrefixStateStatus) Encode() enc.Wire {
+	encoder := PrefixStateStatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PrefixStateStatus) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePrefixStateStatus(reader enc.WireView, ignoreCritical bool) (*PrefixStateStatus, error) {
+	context := PrefixStateStatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PrefixStateStatusEntryEncoder struct {
+	Length uint
+
+	Name_length            uint
+	ValidityPeriod_encoder spec_2022.ValidityPeriodEncoder
+	Router_length          uint
+
+	NextHops_subencoder []struct {
+		NextHops_encoder PrefixStateNextHopEncoder
+	}
+}
+
+type PrefixStateStatusEntryParsingContext struct {
+	ValidityPeriod_context spec_2022.ValidityPeriodParsingContext
+
+	NextHops_context PrefixStateNextHopParsingContext
+}
+
+func (encoder *PrefixStateStatusEntryEncoder) Init(value *PrefixStateStatusEntry) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+	if value.ValidityPeriod != nil {
+		encoder.ValidityPeriod_encoder.Init(value.ValidityPeriod)
+	}
+	if value.Router != nil {
+		encoder.Router_length = 0
+		for _, c := range value.Router {
+			encoder.Router_length += uint(c.EncodingLength())
+		}
+	}
+
+	{
+		NextHops_l := len(value.NextHops)
+		encoder.NextHops_subencoder = make([]struct {
+			NextHops_encoder PrefixStateNextHopEncoder
+		}, NextHops_l)
+		for i := 0; i < NextHops_l; i++ {
+			pseudoEncoder := &encoder.NextHops_subencoder[i]
+			pseudoValue := struct {
+				NextHops *PrefixStateNextHop
+			}{
+				NextHops: value.NextHops[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.NextHops != nil {
+					encoder.NextHops_encoder.Init(value.NextHops)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	if value.ValidityPeriod != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.ValidityPeriod_encoder.Length).EncodingLength())
+		l += encoder.ValidityPeriod_encoder.Length
+	}
+	if value.Router != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.Router_length).EncodingLength())
+		l += encoder.Router_length
+	}
+	if value.Multicast {
+		l += 3
+		l += 1
+	}
+	if value.NextHops != nil {
+		for seq_i, seq_v := range value.NextHops {
+			pseudoEncoder := &encoder.NextHops_subencoder[seq_i]
+			pseudoValue := struct {
+				NextHops *PrefixStateNextHop
+			}{
+				NextHops: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.NextHops != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.NextHops_encoder.Length).EncodingLength())
+					l += encoder.NextHops_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *PrefixStateStatusEntryParsingContext) Init() {
+
+	context.ValidityPeriod_context.Init()
+
+	context.NextHops_context.Init()
+}
+
+func (encoder *PrefixStateStatusEntryEncoder) EncodeInto(value *PrefixStateStatusEntry, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.ValidityPeriod != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(253))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.ValidityPeriod_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.ValidityPeriod_encoder.Length > 0 {
+			encoder.ValidityPeriod_encoder.EncodeInto(value.ValidityPeriod, buf[pos:])
+			pos += encoder.ValidityPeriod_encoder.Length
+		}
+	}
+	if value.Router != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(419))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.Router_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Router {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.Multicast {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(421))
+		pos += 3
+		buf[pos] = byte(0)
+		pos += 1
+	}
+	if value.NextHops != nil {
+		for seq_i, seq_v := range value.NextHops {
+			pseudoEncoder := &encoder.NextHops_subencoder[seq_i]
+			pseudoValue := struct {
+				NextHops *PrefixStateNextHop
+			}{
+				NextHops: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.NextHops != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(423))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.NextHops_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.NextHops_encoder.Length > 0 {
+						encoder.NextHops_encoder.EncodeInto(value.NextHops, buf[pos:])
+						pos += encoder.NextHops_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *PrefixStateStatusEntryEncoder) Encode(value *PrefixStateStatusEntry) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PrefixStateStatusEntryParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixStateStatusEntry, error) {
+
+	var handled_Name bool = false
+	var handled_ValidityPeriod bool = false
+	var handled_Router bool = false
+	var handled_Multicast bool = false
+	var handled_NextHops bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PrefixStateStatusEntry{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			case 253:
+				if true {
+					handled = true
+					handled_ValidityPeriod = true
+					value.ValidityPeriod, err = context.ValidityPeriod_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 419:
+				if true {
+					handled = true
+					handled_Router = true
+					delegate := reader.Delegate(int(l))
+					value.Router, err = delegate.ReadName()
+				}
+			case 421:
+				if true {
+					handled = true
+					handled_Multicast = true
+					value.Multicast = true
+					err = reader.Skip(int(l))
+				}
+			case 423:
+				if true {
+					handled = true
+					handled_NextHops = true
+					if value.NextHops == nil {
+						value.NextHops = make([]*PrefixStateNextHop, 0)
+					}
+					{
+						pseudoValue := struct {
+							NextHops *PrefixStateNextHop
+						}{}
+						{
+							value := &pseudoValue
+							value.NextHops, err = context.NextHops_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.NextHops = append(value.NextHops, pseudoValue.NextHops)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+	if !handled_ValidityPeriod && err == nil {
+		value.ValidityPeriod = nil
+	}
+	if !handled_Router && err == nil {
+		value.Router = nil
+	}
+	if !handled_Multicast && err == nil {
+		value.Multicast = false
+	}
+	if !handled_NextHops && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PrefixStateStatusEntry) Encode() enc.Wire {
+	encoder := PrefixStateStatusEntryEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PrefixStateStatusEntry) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePrefixStateStatusEntry(reader enc.WireView, ignoreCritical bool) (*PrefixStateStatusEntry, error) {
+	context := PrefixStateStatusEntryParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type PrefixStateNextHopEncoder struct {
+	Length uint
+}
+
+type PrefixStateNextHopParsingContext struct {
+}
+
+func (encoder *PrefixStateNextHopEncoder) Init(value *PrefixStateNextHop) {
+
+	l := uint(0)
+	l += 1
+	l += uint(1 + enc.Nat(value.Face).EncodingLength())
+	l += 1
+	l += uint(1 + enc.Nat(value.Cost).EncodingLength())
+	encoder.Length = l
+
+}
+
+func (context *PrefixStateNextHopParsingContext) Init() {
+
+}
+
+func (encoder *PrefixStateNextHopEncoder) EncodeInto(value *PrefixStateNextHop, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = byte(105)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.Face).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	buf[pos] = byte(106)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.Cost).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+}
+
+func (encoder *PrefixStateNextHopEncoder) Encode(value *PrefixStateNextHop) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *PrefixStateNextHopParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*PrefixStateNextHop, error) {
+
+	var handled_Face bool = false
+	var handled_Cost bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &PrefixStateNextHop{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 105:
+				if true {
+					handled = true
+					handled_Face = true
+					value.Face = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.Face = uint64(value.Face<<8) | uint64(x)
+						}
+					}
+				}
+			case 106:
+				if true {
+					handled = true
+					handled_Cost = true
+					value.Cost = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.Cost = uint64(value.Cost<<8) | uint64(x)
+						}
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Face && err == nil {
+		err = enc.ErrSkipRequired{Name: "Face", TypeNum: 105}
+	}
+	if !handled_Cost && err == nil {
+		err = enc.ErrSkipRequired{Name: "Cost", TypeNum: 106}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *PrefixStateNextHop) Encode() enc.Wire {
+	encoder := PrefixStateNextHopEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *PrefixStateNextHop) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParsePrefixStateNextHop(reader enc.WireView, ignoreCritical bool) (*PrefixStateNextHop, error) {
+	context := PrefixStateNextHopParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}

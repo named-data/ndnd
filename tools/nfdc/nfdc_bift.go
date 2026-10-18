@@ -1,14 +1,13 @@
 package nfdc
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/named-data/ndnd/fw/bier"
 	enc "github.com/named-data/ndnd/std/encoding"
+	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	"github.com/spf13/cobra"
 )
 
@@ -57,14 +56,23 @@ func (t *Tool) ExecBiftList(_ *cobra.Command, _ []string) {
 		return
 	}
 
-	var status bier.BiftStatus
-	if err := json.Unmarshal(data.Join(), &status); err != nil {
+	status, err := mgmt.ParseBiftStatusMsg(enc.NewWireView(data), false)
+	if err != nil || status == nil {
 		fmt.Fprintf(os.Stderr, "Error parsing BIFT status: %+v\n", err)
 		os.Exit(1)
 		return
 	}
+	if status.Version != mgmt.BiftStatusVersion {
+		fmt.Fprintf(os.Stderr, "Unsupported BIFT status version: %d\n", status.Version)
+		os.Exit(1)
+		return
+	}
 
-	fmt.Printf("BIFT: bier-index=%d\n", status.BierIndex)
+	bierIndex := "disabled"
+	if index, ok := status.BierIndex.Get(); ok {
+		bierIndex = strconv.FormatUint(index, 10)
+	}
+	fmt.Printf("BIFT: version=%d bier-index=%s\n", status.Version, bierIndex)
 	for _, entry := range status.Entries {
 		fmt.Printf("  index=%d router=%s nexthops={%s} fbm={%s}\n",
 			entry.BfrId, entry.RouterName, formatBiftNextHops(entry.NextHops), formatBitList(entry.FbmBits))
@@ -76,18 +84,18 @@ func (t *Tool) ExecBiftList(_ *cobra.Command, _ []string) {
 
 	fmt.Println("BIFT neighbors:")
 	for _, neighbor := range status.Neighbors {
-		fmt.Printf("  faceid=%d fbm={%s}\n", neighbor.FaceID, formatBitList(neighbor.FbmBits))
+		fmt.Printf("  faceid=%d fbm={%s}\n", neighbor.FaceId, formatBitList(neighbor.FbmBits))
 	}
 }
 
-func formatBitList(bits []int) string {
+func formatBitList(bits []uint64) string {
 	if len(bits) == 0 {
 		return ""
 	}
 
 	parts := make([]string, 0, len(bits))
 	for _, bit := range bits {
-		parts = append(parts, strconv.Itoa(bit))
+		parts = append(parts, strconv.FormatUint(bit, 10))
 	}
 	return strings.Join(parts, ", ")
 }

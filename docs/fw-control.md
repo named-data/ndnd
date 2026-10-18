@@ -98,6 +98,9 @@ The fib-list command prints the existing FIB entries.
 
 The bift-list command prints the current Bit Index Forwarding Table (BIFT)
 entries, including each router's BFR-ID, next-hop face ID, and forwarding bit mask.
+The `/localhost/nfd/bift/list` status dataset uses the versioned `mgmt_2022.BiftStatusMsg`
+TLV model. Version 1 includes the optional local BIER index, BIFT entries, and
+neighbor forwarding masks. The CLI formats this same dataset as text.
 
 ## `ndnd fw pet-list`
 

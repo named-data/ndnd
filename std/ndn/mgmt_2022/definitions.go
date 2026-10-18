@@ -337,6 +337,41 @@ type PetStatus struct {
 	Entries []*PetEntry `tlv:"0x80"`
 }
 
+// BiftStatusVersion is the current wire version of BiftStatusMsg.
+const BiftStatusVersion uint64 = 1
+
+// BiftStatusMsg is a versioned snapshot of the BIFT and its neighbors.
+type BiftStatusMsg struct {
+	//+field:natural
+	Version uint64 `tlv:"0x259"`
+	//+field:natural:optional
+	BierIndex optional.Optional[uint64] `tlv:"0x25A"`
+	//+field:sequence:*BiftStatusEntry:struct:BiftStatusEntry
+	Entries []*BiftStatusEntry `tlv:"0x25B"`
+	//+field:sequence:*BiftStatusNeighbor:struct:BiftStatusNeighbor
+	Neighbors []*BiftStatusNeighbor `tlv:"0x25D"`
+}
+
+// BiftStatusEntry describes a router entry in the BIFT.
+type BiftStatusEntry struct {
+	//+field:name
+	RouterName enc.Name `tlv:"0x07"`
+	//+field:natural
+	BfrId uint64 `tlv:"0x25F"`
+	//+field:sequence:uint64:natural:uint64
+	NextHops []uint64 `tlv:"0x261"`
+	//+field:sequence:uint64:natural:uint64
+	FbmBits []uint64 `tlv:"0x263"`
+}
+
+// BiftStatusNeighbor describes a neighbor face and its forwarding bit mask.
+type BiftStatusNeighbor struct {
+	//+field:natural
+	FaceId uint64 `tlv:"0x69"`
+	//+field:sequence:uint64:natural:uint64
+	FbmBits []uint64 `tlv:"0x265"`
+}
+
 type StrategyChoice struct {
 	//+field:name
 	Name enc.Name `tlv:"0x07"`

@@ -80,6 +80,36 @@ PREFIX-OP-ADD-TYPE = 304
 PREFIX-OP-REMOVE-TYPE = 306
 ```
 
+### 3.1. Local prefix-state status dataset
+
+`/localhost/dv/prefix/list` returns a snapshot of the prefix-state database.
+The Data Content contains the following fields:
+
+```abnf
+PrefixStateStatus = StatusVersion *PrefixStateEntry
+StatusVersion = STATUS-VERSION-TYPE TLV-LENGTH NonNegativeInteger
+PrefixStateEntry = PREFIX-STATE-ENTRY-TYPE TLV-LENGTH
+                   Name [ValidityPeriod] StatusRouter [Multicast] *StatusNextHop
+StatusRouter = STATUS-ROUTER-TYPE TLV-LENGTH *NameComponent
+Multicast = MULTICAST-TYPE TLV-LENGTH
+StatusNextHop = STATUS-NEXT-HOP-TYPE TLV-LENGTH FaceId FaceCost
+FaceId = FACE-ID-TYPE TLV-LENGTH NonNegativeInteger
+FaceCost = FACE-COST-TYPE TLV-LENGTH NonNegativeInteger
+
+STATUS-VERSION-TYPE = 415
+PREFIX-STATE-ENTRY-TYPE = 417
+STATUS-ROUTER-TYPE = 419
+MULTICAST-TYPE = 421
+STATUS-NEXT-HOP-TYPE = 423
+FACE-ID-TYPE = 105
+FACE-COST-TYPE = 106
+```
+
+StatusVersion is 1. Multicast has an empty value; its presence indicates a
+multicast prefix. ValidityPeriod uses the existing validity-period encoding.
+Entries are ordered by prefix and router TLV bytes, and next hops by face ID
+and cost. These fields extend the 400-series DV status types.
+
 ## 4. Protocol Operation
 
 ### RIB State

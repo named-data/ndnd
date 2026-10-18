@@ -77,6 +77,39 @@ type Status struct {
 	NPsdEntries uint64 `tlv:"0x19D"`
 }
 
+// PrefixStateStatusVersion is the current wire version of PrefixStateStatus.
+const PrefixStateStatusVersion = uint64(1)
+
+// PrefixStateStatus is a deterministic snapshot of the DV prefix-state database.
+type PrefixStateStatus struct {
+	//+field:natural
+	Version uint64 `tlv:"0x19F"`
+	//+field:sequence:*PrefixStateStatusEntry:struct:PrefixStateStatusEntry
+	Entries []*PrefixStateStatusEntry `tlv:"0x1A1"`
+}
+
+// PrefixStateStatusEntry describes one prefix advertised by one router.
+type PrefixStateStatusEntry struct {
+	//+field:name
+	Name enc.Name `tlv:"0x07"`
+	//+field:struct:spec_2022.ValidityPeriod
+	ValidityPeriod *spec_2022.ValidityPeriod `tlv:"0xFD"`
+	//+field:name
+	Router enc.Name `tlv:"0x1A3"`
+	//+field:bool
+	Multicast bool `tlv:"0x1A5"`
+	//+field:sequence:*PrefixStateNextHop:struct:PrefixStateNextHop
+	NextHops []*PrefixStateNextHop `tlv:"0x1A7"`
+}
+
+// PrefixStateNextHop describes a local next hop for a prefix-state entry.
+type PrefixStateNextHop struct {
+	//+field:natural
+	Face uint64 `tlv:"0x69"`
+	//+field:natural
+	Cost uint64 `tlv:"0x6A"`
+}
+
 type PrefixInsertion struct {
 	//+field:sequence:[]byte:binary:[]byte
 	StapledCertificates [][]byte `tlv:"0x216"`
