@@ -18,7 +18,8 @@ import (
 const LVS_VERSION uint64 = 0x00011000
 
 type LvsSchema struct {
-	m *LvsModel
+	m       *LvsModel
+	userFns map[string]func(enc.Component, [][]byte) bool
 }
 
 type LvsCtx = map[uint64]enc.Component
@@ -87,6 +88,10 @@ func NewLvsSchema(buf []byte) (*LvsSchema, error) {
 	}
 
 	return &LvsSchema{m: model}, nil
+}
+
+func (s *LvsSchema) SetUserFns(userFns map[string]func(enc.Component, [][]byte) bool) {
+	s.userFns = userFns
 }
 
 // (AI GENERATED DESCRIPTION): Collects all `LvsNode` objects that match the given name in the `LvsSchema` and returns them as a slice.
@@ -276,8 +281,25 @@ func (s *LvsSchema) checkCons(
 					break
 				}
 			} else if op.Fn != nil {
-				// user functions are not supported
-				panic("LVS user functions are not supported")
+				fnId := op.Fn.FnId
+				if _, ok := s.userFns[string(fnId)]; !ok {
+					panic(fmt.Errorf("User function %v is undefined", string(fnId)))
+				}
+
+				var args [][]byte
+				for _, arg := range op.Fn.Args {
+					k, tag := arg.Tag.Get()
+					if tag {
+						args = append(args, context[k].Bytes())
+					} else {
+						args = append(args, arg.Value)
+					}
+				}
+
+				if s.userFns[string(fnId)](value, args) {
+					satisfied = true
+					break
+				}
 			} else {
 				panic("invalid constraint option")
 			}

@@ -100,3 +100,11 @@ Delete a certificate from the keychain.
 # Delete a certificate by name
 ndnd sec cert-delete dir:///etc/app/keys /ndn/bob/KEY/%A6%0Ei%1F%A8J%D4%8E/self/v=1
 ```
+## `ndnd sec compile-lvs`
+
+Compile a LightVersec schema to TLV bytes
+
+```bash
+# Compile an lvs trust schema
+ndnd sec compile-lvs schema.trust > schema.tlv
+```
