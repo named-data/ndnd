@@ -87,6 +87,10 @@ func (encoder *CaProfileEncoder) Init(value *CaProfile) {
 	}
 	l += 1
 	l += uint(1 + enc.Nat(value.MaxValidPeriod).EncodingLength())
+	if optval, ok := value.MaxSuffixLength.Get(); ok {
+		l += 1
+		l += uint(1 + enc.Nat(optval).EncodingLength())
+	}
 	if value.CaCert != nil {
 		l += 1
 		l += uint(enc.TLNum(encoder.CaCert_length).EncodingLength())
@@ -145,6 +149,14 @@ func (encoder *CaProfileEncoder) EncodeInto(value *CaProfile, buf []byte) {
 
 	buf[pos] = byte(enc.Nat(value.MaxValidPeriod).EncodeInto(buf[pos+1:]))
 	pos += uint(1 + buf[pos])
+	if optval, ok := value.MaxSuffixLength.Get(); ok {
+		buf[pos] = byte(143)
+		pos += 1
+
+		buf[pos] = byte(enc.Nat(optval).EncodeInto(buf[pos+1:]))
+		pos += uint(1 + buf[pos])
+
+	}
 	if value.CaCert != nil {
 		buf[pos] = byte(137)
 		pos += 1
@@ -172,6 +184,7 @@ func (context *CaProfileParsingContext) Parse(reader enc.WireView, ignoreCritica
 	var handled_CaInfo bool = false
 	var handled_ParamKey bool = false
 	var handled_MaxValidPeriod bool = false
+	var handled_MaxSuffixLength bool = false
 	var handled_CaCert bool = false
 
 	progress := -1
@@ -262,6 +275,29 @@ func (context *CaProfileParsingContext) Parse(reader enc.WireView, ignoreCritica
 						}
 					}
 				}
+			case 143:
+				if true {
+					handled = true
+					handled_MaxSuffixLength = true
+					{
+						optval := uint64(0)
+						optval = uint64(0)
+						{
+							for i := 0; i < int(l); i++ {
+								x := byte(0)
+								x, err = reader.ReadByte()
+								if err != nil {
+									if err == io.EOF {
+										err = io.ErrUnexpectedEOF
+									}
+									break
+								}
+								optval = uint64(optval<<8) | uint64(x)
+							}
+						}
+						value.MaxSuffixLength.Set(optval)
+					}
+				}
 			case 137:
 				if true {
 					handled = true
@@ -297,6 +333,9 @@ func (context *CaProfileParsingContext) Parse(reader enc.WireView, ignoreCritica
 	}
 	if !handled_MaxValidPeriod && err == nil {
 		err = enc.ErrSkipRequired{Name: "MaxValidPeriod", TypeNum: 139}
+	}
+	if !handled_MaxSuffixLength && err == nil {
+		value.MaxSuffixLength.Unset()
 	}
 	if !handled_CaCert && err == nil {
 		value.CaCert = nil
