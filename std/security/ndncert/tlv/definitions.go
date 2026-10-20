@@ -16,6 +16,8 @@ type CaProfile struct {
 	ParamKey []string `tlv:"0x85"`
 	//+field:natural
 	MaxValidPeriod uint64 `tlv:"0x8B"`
+	//+field:natural:optional
+	MaxSuffixLength optional.Optional[uint64] `tlv:"0x8F"`
 	//+field:wire
 	CaCert enc.Wire `tlv:"0x89"`
 }

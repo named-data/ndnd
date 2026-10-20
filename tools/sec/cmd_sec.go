@@ -21,5 +21,6 @@ Reference:
 	new(ToolKeychain).configure(cmd)
 	new(ToolPem).configure(cmd)
 	new(lvs.ToolLvs).Configure(cmd)
+	cmd.AddCommand(CmdCertServer())
 	return cmd
 }
