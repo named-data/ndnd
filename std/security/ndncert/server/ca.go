@@ -23,6 +23,9 @@ import (
 	"github.com/named-data/ndnd/std/utils"
 )
 
+const maxValidityGrace = 120 * time.Second
+const maxValidityDurationSeconds = uint64((1<<63 - 1 - int64(maxValidityGrace)) / int64(time.Second))
+
 type CaServer struct {
 	engine  ndn.Engine
 	config  *CaConfig
@@ -445,15 +448,28 @@ func (ca *CaServer) validateCertRequest(certReq ndn.Data, wire enc.Wire, interes
 	start := notBefore.Unwrap()
 	end := notAfter.Unwrap()
 	maxValiditySeconds, err := ca.config.GetMaxValidityPeriodSeconds()
-	maxValidity := time.Duration(maxValiditySeconds) * time.Second
+	if err != nil {
+		return 6, "max-validity-period is invalid"
+	}
+	maxValidity, ok := checkedValidityDuration(maxValiditySeconds)
+	if !ok {
+		return 6, "max-validity-period is invalid"
+	}
 	now := time.Now()
-	grace := 120 * time.Second
-	if err != nil || end.Before(start) || start.Before(now.Add(-grace)) ||
+	grace := maxValidityGrace
+	if end.Before(start) || start.Before(now.Add(-grace)) ||
 		end.After(now.Add(maxValidity+grace)) || end.Sub(start) > maxValidity {
 		return 6, "requested validity period is invalid or exceeds max-validity-period"
 	}
 
 	return 0, ""
+}
+
+func checkedValidityDuration(seconds uint64) (time.Duration, bool) {
+	if seconds > maxValidityDurationSeconds {
+		return 0, false
+	}
+	return time.Duration(seconds) * time.Second, true
 }
 
 // CHALLENGE handler

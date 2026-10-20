@@ -55,6 +55,15 @@ func TestValidateCertRequestPolicy(t *testing.T) {
 	require.Equal(t, uint64(5), code)
 }
 
+func TestCheckedValidityDuration(t *testing.T) {
+	duration, ok := checkedValidityDuration(maxValidityDurationSeconds)
+	require.True(t, ok)
+	require.Equal(t, maxValidityDurationSeconds, uint64(duration/time.Second))
+
+	_, ok = checkedValidityDuration(maxValidityDurationSeconds + 1)
+	require.False(t, ok)
+}
+
 func newPolicyTestCA(t *testing.T) *CaServer {
 	caPrefix, err := enc.NameFromStr("/ndnd/ucla")
 	require.NoError(t, err)
