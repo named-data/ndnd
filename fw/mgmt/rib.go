@@ -8,6 +8,7 @@
 package mgmt
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/named-data/ndnd/fw/face"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/ndn"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	spec "github.com/named-data/ndnd/std/ndn/spec_2022"
 	"github.com/named-data/ndnd/std/types/optional"
@@ -158,7 +160,7 @@ func (r *RIBModule) unregister(interest *Interest) {
 	core.Log.Info(r, "Removed route", "name", params.Name, "faceid", faceID, "origin", origin)
 }
 
-// (AI GENERATED DESCRIPTION): Handles a PrefixAnnouncement Interest by validating its name and application parameters and replying with a 501 Not Implemented response, since the announcement logic is not yet implemented.
+// Handles a rib/announce Interest by validating the embedded PrefixAnnouncement Data packet, inserting the announced prefix into the RIB with origin prefixann toward the face the command arrived on, and replying with the created route parameters.
 func (r *RIBModule) announce(interest *Interest) {
 	if len(interest.Name()) != len(LOCAL_PREFIX)+3 || interest.Name()[len(LOCAL_PREFIX)+2].Typ != enc.TypeParametersSha256DigestComponent {
 		r.manager.sendCtrlResp(interest, 400, "Name is incorrect", nil)
@@ -177,10 +179,107 @@ func (r *RIBModule) announce(interest *Interest) {
 		r.manager.sendCtrlResp(interest, 400, "PrefixAnnouncement is invalid", nil)
 		return
 	}
-	if data != nil {
+
+	prefix, expiration, cost, err := parsePrefixAnnouncement(data)
+	if err != nil {
+		core.Log.Warn(r, "Invalid PrefixAnnouncement", "err", err)
+		r.manager.sendCtrlResp(interest, 400, "PrefixAnnouncement is invalid", nil)
+		return
 	}
 
-	r.manager.sendCtrlResp(interest, 501, "PrefixAnnouncement not implemented yet", nil)
+	// The announced route always points back toward the face the command
+	// arrived on, and expires when the PrefixAnnouncement says it should,
+	// mirroring NFD's rib-manager.
+	faceID := interest.inFace.Unwrap()
+	flags := uint64(mgmt.RouteFlagChildInherit)
+	table.Rib.AddEncRoute(prefix, &table.Route{
+		FaceID:           faceID,
+		Origin:           uint64(mgmt.RouteOriginPrefixAnn),
+		Cost:             cost,
+		Flags:            flags,
+		ExpirationPeriod: &expiration,
+	})
+
+	core.Log.Info(r, "Created announced route", "name", prefix, "faceid", faceID,
+		"cost", cost, "expires", expiration)
+
+	r.manager.sendCtrlResp(interest, 200, "OK", &mgmt.ControlArgs{
+		Name:             prefix,
+		FaceId:           optional.Some(faceID),
+		Origin:           optional.Some(uint64(mgmt.RouteOriginPrefixAnn)),
+		Cost:             optional.Some(cost),
+		Flags:            optional.Some(flags),
+		ExpirationPeriod: optional.Some(uint64(expiration.Milliseconds())),
+	})
+}
+
+// parsePrefixAnnouncement extracts the announced prefix, route expiration and
+// route cost from a PrefixAnnouncement Data packet. The announced prefix is
+// the portion of the Data name before the PA keyword component, which may be
+// followed by version and segment components. ValidityPeriod in the content
+// is ignored; the route expiration comes from ExpirationPeriod alone.
+func parsePrefixAnnouncement(data ndn.Data) (enc.Name, time.Duration, uint64, error) {
+	name := data.Name()
+
+	paIndex := -1
+	if len(name) >= 3 && name[len(name)-3].IsKeyword("PA") &&
+		name[len(name)-2].IsVersion() && name[len(name)-1].IsSegment() {
+		paIndex = len(name) - 3
+	} else if len(name) >= 1 && name[len(name)-1].IsKeyword("PA") {
+		paIndex = len(name) - 1
+	}
+	if paIndex < 1 {
+		return nil, 0, 0, errors.New("name does not contain a PA keyword component after the announced prefix")
+	}
+	prefix := name[:paIndex]
+
+	expiration := uint64(0)
+	hasExpiration := false
+	cost := uint64(0)
+	view := enc.NewWireView(data.Content())
+	for !view.IsEOF() {
+		typ, err := view.ReadTLNum()
+		if err != nil {
+			return nil, 0, 0, errors.New("content is not valid TLV")
+		}
+		length, err := view.ReadTLNum()
+		if err != nil {
+			return nil, 0, 0, errors.New("content is not valid TLV")
+		}
+		switch typ {
+		case 0x6d: // ExpirationPeriod
+			expiration, err = readNni(&view, int(length))
+			hasExpiration = true
+		case 0x6a: // Cost
+			cost, err = readNni(&view, int(length))
+		default: // ValidityPeriod and unknown elements
+			err = view.Skip(int(length))
+		}
+		if err != nil {
+			return nil, 0, 0, errors.New("content is not valid TLV")
+		}
+	}
+	if !hasExpiration {
+		return nil, 0, 0, errors.New("content is missing ExpirationPeriod")
+	}
+
+	return prefix, time.Duration(expiration) * time.Millisecond, cost, nil
+}
+
+// readNni reads a non-negative integer TLV value of 1, 2, 4 or 8 bytes.
+func readNni(view *enc.WireView, length int) (uint64, error) {
+	if length != 1 && length != 2 && length != 4 && length != 8 {
+		return 0, errors.New("non-negative integer must be 1, 2, 4 or 8 bytes")
+	}
+	buf, err := view.ReadBuf(length)
+	if err != nil {
+		return 0, err
+	}
+	val := uint64(0)
+	for _, b := range buf {
+		val = val<<8 | uint64(b)
+	}
+	return val, nil
 }
 
 // (AI GENERATED DESCRIPTION): Responds to a “/local/rib/list” Interest by collecting all current RIB entries, encoding them into a mgmt.RibStatus dataset, and sending the dataset back as a Data packet with a name derived from the Interest’s prefix and the components “rib”/“list”.
