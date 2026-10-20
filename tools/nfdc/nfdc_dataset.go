@@ -12,10 +12,6 @@ import (
 
 // (AI GENERATED DESCRIPTION): Fetches and returns the raw wire representation of a Data packet identified by the supplied suffix, using a consume‑only client to retrieve the content or report an error.
 func (t *Tool) fetchStatusDataset(suffix enc.Name) (enc.Wire, error) {
-	return t.fetchNamedStatusDataset(t.Prefix().Append(suffix...))
-}
-
-func (t *Tool) fetchNamedStatusDataset(name enc.Name) (enc.Wire, error) {
 	// consume-only client, no need for a store
 	client := object.NewClient(t.engine, nil, nil)
 	client.Start()
@@ -23,7 +19,7 @@ func (t *Tool) fetchNamedStatusDataset(name enc.Name) (enc.Wire, error) {
 
 	ch := make(chan ndn.ConsumeState)
 	client.ConsumeExt(ndn.ConsumeExtArgs{
-		Name:       name,
+		Name:       t.Prefix().Append(suffix...),
 		NoMetadata: true, // NFD has no RDR metadata
 		Callback:   func(status ndn.ConsumeState) { ch <- status },
 	})
