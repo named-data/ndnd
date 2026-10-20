@@ -86,6 +86,10 @@ func TestNDNdDVStatusFromWire(t *testing.T) {
 	}, parsed)
 }
 
+func TestNDNdDVStatusName(t *testing.T) {
+	require.Equal(t, "/localhost/nlsr/status", dvStatusName().String())
+}
+
 func TestNDNdStatusFaceFlags(t *testing.T) {
 	flags := mgmt.FaceFlagLocalFieldsEnabled | mgmt.FaceFlagLpReliabilityEnabled | mgmt.FaceFlagCongestionMarkingEnabled
 	require.Equal(t, "local-fields, lp-reliability, congestion-marking", faceFlagsName(flags))

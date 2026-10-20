@@ -346,11 +346,7 @@ func (t *Tool) populateStrategies(report *ndndStatusReport) error {
 }
 
 func (t *Tool) populateDVStatus(report *ndndStatusReport) {
-	data, err := t.fetchDataPacket(enc.Name{
-		enc.LOCALHOST,
-		enc.NewGenericComponent("nlsr"),
-		enc.NewGenericComponent("status"),
-	})
+	data, err := t.fetchDataPacket(dvStatusName())
 	if err != nil {
 		return
 	}
@@ -358,6 +354,14 @@ func (t *Tool) populateDVStatus(report *ndndStatusReport) {
 	status, err := ndndDVStatusFromWire(data.Content())
 	if err == nil {
 		report.DV = status
+	}
+}
+
+func dvStatusName() enc.Name {
+	return enc.Name{
+		enc.LOCALHOST,
+		enc.NewGenericComponent("nlsr"),
+		enc.NewGenericComponent("status"),
 	}
 }
 
