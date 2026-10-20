@@ -23,7 +23,7 @@ See the project [overview](https://named-data.net/project/), architecture [detai
 
 Pre-built static binaries for all supported platforms are available on the [releases](https://github.com/named-data/ndnd/releases) page. Linux-based systems may also utilize the provided [Docker images](https://github.com/named-data/ndnd/pkgs/container/ndnd).
 
-NDNd is written in pure Go and requires [Go 1.23](https://go.dev/doc/install) or later to build from source.
+NDNd is written in pure Go and requires [Go 1.25](https://go.dev/doc/install) or later to build from source.
 Once Go is installed, run `make` to build the `ndnd` executable, followed by `make install` to install it globally.
 
 # 🌟 Usage
