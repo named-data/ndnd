@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 
@@ -31,10 +32,14 @@ func (m *AeadMessage) TLV() *tlv.CipherMsg {
 }
 
 // (AI GENERATED DESCRIPTION): Populates an AeadMessage's IV, AuthTag, and CipherText fields from a provided tlv.CipherMsg.
-func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) {
+func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) error {
+	if t == nil || len(t.InitVec) != AeadSizeNonce || len(t.AuthNTag) != AeadSizeTag {
+		return fmt.Errorf("invalid AEAD message: expected a %d-byte IV and %d-byte authentication tag", AeadSizeNonce, AeadSizeTag)
+	}
 	m.IV = [AeadSizeNonce]byte(t.InitVec)
 	m.AuthTag = [AeadSizeTag]byte(t.AuthNTag)
 	m.CipherText = t.Payload
+	return nil
 }
 
 type AeadCounter struct {

@@ -94,4 +94,9 @@ func TestLoadConfigSample(t *testing.T) {
 	require.NotEmpty(t, cfg.CaPrefix)
 	require.NotEmpty(t, cfg.MaxValidityPeriod)
 	require.NotEmpty(t, cfg.SupportedChallenges)
+	require.Equal(t, []ProbeParameterConfig{{Key: "email"}}, cfg.ProbeParameters)
+	require.Equal(t, "/", cfg.NameAssignment["email"])
+	profile, err := cfg.ToCaProfile(nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"email"}, profile.ParamKey)
 }

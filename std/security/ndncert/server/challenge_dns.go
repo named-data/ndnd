@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/named-data/ndnd/std/security/ndncert"
 )
@@ -73,6 +75,9 @@ func (h *ChallengeDnsHandler) HandleChallenge(params ndncert.ParamMap, state *Re
 		}
 
 		if err != nil {
+			if state.IncrementAttempts() {
+				state.MarkFailure("DNS validation attempts exhausted")
+			}
 			return retry, "wrong-record", nil
 		}
 
@@ -83,6 +88,9 @@ func (h *ChallengeDnsHandler) HandleChallenge(params ndncert.ParamMap, state *Re
 			}
 		}
 
+		if state.IncrementAttempts() {
+			state.MarkFailure("DNS validation attempts exhausted")
+		}
 		return retry, "wrong-record", nil
 	}
 
@@ -93,5 +101,7 @@ func (h *ChallengeDnsHandler) lookupTXT(name string) ([]string, error) {
 	if h.DNSResolver != nil {
 		return h.DNSResolver(name)
 	}
-	return net.LookupTXT(name)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return net.DefaultResolver.LookupTXT(ctx, name)
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/ecdh"
+	"sync"
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
@@ -17,6 +18,14 @@ const (
 )
 
 type RequestState struct {
+	// Serialize challenge processing, including AEAD counters and state changes.
+	mu sync.Mutex
+	// Cleanup may inspect expiry while a challenge is performing network I/O.
+	expiryMu      sync.RWMutex
+	expiresAt     time.Time
+	receivedIV    [ndncert.AeadSizeNonce]byte
+	hasReceivedIV bool
+
 	RequestID []byte
 	CaPrefix  enc.Name
 	Status    uint64
@@ -40,7 +49,6 @@ type RequestState struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	ExpiresAt time.Time
 }
 
 func NewRequestState(requestID []byte, caPrefix enc.Name) *RequestState {
@@ -54,7 +62,7 @@ func NewRequestState(requestID []byte, caPrefix enc.Name) *RequestState {
 		ChallengeState:       make(map[string][]byte),
 		CreatedAt:            now,
 		UpdatedAt:            now,
-		ExpiresAt:            now.Add(24 * time.Hour),
+		expiresAt:            now.Add(24 * time.Hour),
 	}
 }
 
@@ -73,7 +81,19 @@ func (r *RequestState) RemainingAttempts() int {
 }
 
 func (r *RequestState) IsExpired() bool {
-	return time.Now().After(r.ExpiresAt)
+	return time.Now().After(r.ExpiresAt())
+}
+
+func (r *RequestState) ExpiresAt() time.Time {
+	r.expiryMu.RLock()
+	defer r.expiryMu.RUnlock()
+	return r.expiresAt
+}
+
+func (r *RequestState) SetExpiresAt(expiry time.Time) {
+	r.expiryMu.Lock()
+	defer r.expiryMu.Unlock()
+	r.expiresAt = expiry
 }
 
 func (r *RequestState) SetChallengeStateValue(key string, value []byte) {

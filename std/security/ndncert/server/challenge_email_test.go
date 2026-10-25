@@ -47,7 +47,7 @@ func TestEmailChallengeFlow(t *testing.T) {
 	require.Equal(t, "Verification code", sender.subject)
 	require.Contains(t, sender.body, "042817")
 	require.NotContains(t, string(state.ChallengeState[emailCodeHashKey]), "042817")
-	require.WithinDuration(t, time.Now().Add(emailCodeLifetime), state.ExpiresAt, time.Second)
+	require.WithinDuration(t, time.Now().Add(emailCodeLifetime), state.ExpiresAt(), time.Second)
 	require.Equal(t, 1, sender.calls)
 
 	responseParams, status, err = handler.HandleChallenge(ndncert.ParamMap{

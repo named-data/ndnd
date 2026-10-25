@@ -100,14 +100,17 @@ func (m *MemoryStorage) CleanExpired() (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	now := time.Now()
 	deleted := 0
 
 	for key, state := range m.store {
-		if now.After(state.ExpiresAt) {
+		// Keep the expiry check and deletion atomic with respect to an expiry
+		// update. SetExpiresAt never holds the storage mutex.
+		state.expiryMu.RLock()
+		if time.Now().After(state.expiresAt) {
 			delete(m.store, key)
 			deleted++
 		}
+		state.expiryMu.RUnlock()
 	}
 
 	return deleted, nil

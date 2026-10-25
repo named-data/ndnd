@@ -77,3 +77,29 @@ ndnd certcli -o alice -k alice.key -c email testbed.root.pem
 
 # Enter the email address and code as before
 ```
+
+## Go CA authorization and challenges
+
+The Go CA sample is `std/examples/ndncert/ca.conf.sample`. PROBE suggests
+identities, but does not grant permission to request them. The server enforces
+the naming policy even when a client skips PROBE:
+
+- Email verification authorizes exactly the identity computed by the configured
+  `name-assignment.email` rule. For example, with CA prefix `/example` and rule
+  `/`, `alice@example.org` authorizes `/example/org/example/alice`.
+- DNS verification authorizes exactly `CA-prefix/<domain>`, where `<domain>` is
+  one generic name component containing a canonical lowercase DNS hostname.
+  For example, proving `example.org` authorizes `/example/example.org`, not its
+  descendants or other names below the CA prefix.
+
+CHALLENGE Interests must be signed by the key in the original certificate
+request. Each request also requires an unchanged random IV prefix and increasing
+authenticated AEAD counters; stale/replayed ciphertext is rejected without
+repeating the challenge state transition. Clients must retain their send counter
+throughout a request. Completed requests cannot issue another certificate.
+
+SMTP and DNS verification run outside the packet-processing loop with bounded
+concurrency and network I/O deadlines. Overlapping work on the same request, or
+work beyond the concurrency limit, receives a busy error rather than being queued
+without a bound. Failed DNS checks, including lookup errors, consume one of the
+request's advertised attempts; after exhaustion, start a new request.

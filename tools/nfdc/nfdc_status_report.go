@@ -148,8 +148,7 @@ func encodeNdndStatusXML(report *ndndStatusReport) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	output := make([]byte, 0, len(xml.Header)+len(encoded)+96)
-	output = append(output, xml.Header...)
+	output := []byte(xml.Header)
 	output = append(output, "<?xml-stylesheet type=\"text/xsl\" href=\"ndnd-status.xsl\"?>\n"...)
 	output = append(output, encoded...)
 	return output, nil

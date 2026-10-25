@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"crypto/ecdh"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"strings"
@@ -25,6 +27,7 @@ import (
 
 const maxValidityGrace = 120 * time.Second
 const maxValidityDurationSeconds = uint64((1<<63 - 1 - int64(maxValidityGrace)) / int64(time.Second))
+const maxConcurrentChallenges = 16
 
 type CaServer struct {
 	engine  ndn.Engine
@@ -32,13 +35,14 @@ type CaServer struct {
 	storage Storage
 	signer  ndn.Signer
 
-	caCertWire  enc.Wire
-	caPrefix    enc.Name
-	caProfile   *tlv.CaProfile
-	objectStore ndn.Store // RDR store - needed for serving CA profile
-	emailSender EmailSender
+	caCertWire     enc.Wire
+	caPrefix       enc.Name
+	caProfile      *tlv.CaProfile
+	objectStore    ndn.Store // RDR store - needed for serving CA profile
+	emailSender    EmailSender
+	challengeSlots chan struct{}
 	// TODO: remove for final version, DNSResolver is only useful for testing with mock dns records
-	// 	if nil then net.LookupTXT is used
+	// 	if nil, the default DNS resolver is used with a deadline
 	DNSResolver func(domain string) ([]string, error)
 	// MockDNS skips DNS verification entirely (for demo/testing)
 	MockDNS bool
@@ -59,14 +63,15 @@ func NewCaServer(engine ndn.Engine, config *CaConfig, caCertWire enc.Wire, signe
 	objStore := storage.NewMemoryStore()
 
 	server := &CaServer{
-		engine:      engine,
-		config:      config,
-		storage:     store,
-		signer:      signer,
-		caCertWire:  caCertWire,
-		caPrefix:    caPrefix,
-		caProfile:   caProfile,
-		objectStore: objStore,
+		engine:         engine,
+		config:         config,
+		storage:        store,
+		signer:         signer,
+		caCertWire:     caCertWire,
+		caPrefix:       caPrefix,
+		caProfile:      caProfile,
+		objectStore:    objStore,
+		challengeSlots: make(chan struct{}, maxConcurrentChallenges),
 	}
 
 	return server, nil
@@ -474,6 +479,20 @@ func checkedValidityDuration(seconds uint64) (time.Duration, bool) {
 
 // CHALLENGE handler
 func (ca *CaServer) onChallenge(args ndn.InterestHandlerArgs) {
+	// SMTP and DNS must not block the engine's packet-processing goroutine.
+	// Do not queue unbounded work when the CA is busy.
+	select {
+	case ca.challengeSlots <- struct{}{}:
+		go func() {
+			defer func() { <-ca.challengeSlots }()
+			ca.handleChallenge(args)
+		}()
+	default:
+		ca.sendError(args, 100, "CA is busy; retry later")
+	}
+}
+
+func (ca *CaServer) handleChallenge(args ndn.InterestHandlerArgs) {
 	// fetch request ID from Interest name: /<ca-prefix>/CA/CHALLENGE/<request-id>
 	name := args.Interest.Name()
 	baseLen := len(ca.caPrefix) + 2 // caPrefix + CA + CHALLENGE
@@ -499,9 +518,24 @@ func (ca *CaServer) onChallenge(args ndn.InterestHandlerArgs) {
 		ca.sendError(args, 8, "request not found or expired")
 		return
 	}
+	// Concurrent requests must not race challenge state, expiry updates, or
+	// send/receive counters. Reject overlapping work instead of blocking workers.
+	if !state.mu.TryLock() {
+		ca.sendError(args, 100, "request is busy; retry later")
+		return
+	}
+	defer state.mu.Unlock()
 
 	if state.IsExpired() {
 		ca.sendError(args, 9, "request expired")
+		return
+	}
+	if err := ca.validateChallengeSignature(args, state); err != nil {
+		ca.sendError(args, 7, err.Error())
+		return
+	}
+	if state.Status == StatusSuccess || state.Status == StatusFailure {
+		ca.sendError(args, 9, "request is already complete")
 		return
 	}
 
@@ -517,6 +551,10 @@ func (ca *CaServer) onChallenge(args ndn.InterestHandlerArgs) {
 		ca.sendError(args, 10, fmt.Sprintf("failed to decrypt parameters: %v", err))
 		return
 	}
+	if state.Status != StatusBeforeChallenge && challengeName != "" && challengeName != state.ChallengeType {
+		ca.sendError(args, 11, "cannot change challenge type")
+		return
+	}
 
 	// on first CHALLENGE, client selects the challenge type
 	if state.Status == StatusBeforeChallenge && challengeName != "" {
@@ -530,6 +568,10 @@ func (ca *CaServer) onChallenge(args ndn.InterestHandlerArgs) {
 		}
 		if !supported {
 			ca.sendError(args, 11, fmt.Sprintf("unsupported challenge: %s", challengeName))
+			return
+		}
+		if err := ca.validateChallengeIdentity(challengeName, params, state); err != nil {
+			ca.sendError(args, 11, err.Error())
 			return
 		}
 		state.ChallengeType = challengeName
@@ -738,7 +780,9 @@ func (ca *CaServer) decryptChallengeParams(encParams enc.Wire, state *RequestSta
 	}
 
 	var aeadMsg ndncert.AeadMessage
-	aeadMsg.FromTLV(cipherMsg)
+	if err := aeadMsg.FromTLV(cipherMsg); err != nil {
+		return "", nil, err
+	}
 	// decrypt w/ request ID as additional data
 	plaintext, err := ndncert.AeadDecrypt(state.AesKey, aeadMsg, state.RequestID)
 	if err != nil {
@@ -750,6 +794,17 @@ func (ca *CaServer) decryptChallengeParams(encParams enc.Wire, state *RequestSta
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to parse challenge request: %w", err)
 	}
+	// Only authenticated, well-formed messages advance the receive counter.
+	// The peer uses one random IV prefix and increasing block counters for this
+	// request. Authentication alone does not prevent replay of a valid message.
+	counter := binary.LittleEndian.Uint32(aeadMsg.IV[ndncert.AeadSizeRand:])
+	if counter == 0 || (state.hasReceivedIV &&
+		(!bytes.Equal(aeadMsg.IV[:ndncert.AeadSizeRand], state.receivedIV[:ndncert.AeadSizeRand]) ||
+			counter <= binary.LittleEndian.Uint32(state.receivedIV[ndncert.AeadSizeRand:]))) {
+		return "", nil, fmt.Errorf("replayed or invalid challenge IV")
+	}
+	state.receivedIV = aeadMsg.IV
+	state.hasReceivedIV = true
 
 	return chReq.Challenge, chReq.Params, nil
 }

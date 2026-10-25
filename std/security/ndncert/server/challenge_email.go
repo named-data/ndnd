@@ -189,7 +189,7 @@ func (h *ChallengeEmailHandler) HandleChallenge(params ndncert.ParamMap, state *
 		state.SetChallengeStateValue(emailCodeHashKey, hashEmailCode(salt, code))
 		state.Status = StatusChallenge
 		state.UpdatedAt = time.Now()
-		state.ExpiresAt = state.UpdatedAt.Add(emailCodeLifetime)
+		state.SetExpiresAt(state.UpdatedAt.Add(emailCodeLifetime))
 		return nil, "need-code", nil
 
 	case StatusChallenge:
@@ -202,7 +202,7 @@ func (h *ChallengeEmailHandler) HandleChallenge(params ndncert.ParamMap, state *
 		if !hasSalt || !hasHash {
 			return nil, "", fmt.Errorf("email challenge state is missing")
 		}
-		if time.Now().After(state.ExpiresAt) {
+		if state.IsExpired() {
 			state.MarkFailure("email code expired")
 			clearEmailCode(state)
 			return nil, "expired", nil
