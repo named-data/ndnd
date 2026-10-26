@@ -10,17 +10,38 @@ The status command shows general status of the forwarder, including its version,
 
 ## `ndnd fw status-report`
 
-The status-report command prints the NDNd status document as XML. It includes general forwarder counters, faces, FIB and RIB entries, content-store statistics, strategy choices, and DV status when the DV service is available. The DV section includes reachable routers, next hops, costs, and learned prefix announcements from the [DV routing dataset](dv-control.md#routing-status-dataset). Fields that NDNd does not provide, such as NameTree, Measurements, and Nack counters, are not included.
+The status-report command prints the NDNd status document as XML by default. Use `--format json` for JSON output. It includes general forwarder counters, faces, FIB and RIB entries, content-store statistics, strategy choices, and DV status when the DV service is available. The DV section includes reachable routers, next hops, costs, and learned prefix announcements from the [DV routing dataset](dv-control.md#routing-status-dataset). Fields that NDNd does not provide, such as NameTree, Measurements, and Nack counters, are not included.
+
+The JSON field types are fixed, independent of the current value:
+
+| Fields | JSON type |
+|---|---|
+| Cumulative packet/byte counters and content-store hits/misses | Decimal string |
+| Face identifiers, FIB/RIB costs, congestion intervals and thresholds | Decimal string |
+| Table sizes, neighbor counts, and content-store capacity | Number |
+| DV router/prefix costs, MTUs, and expiration periods in milliseconds | Number |
+
+Strings preserve exact full-width integers, including zero and small values.
+Numbers represent operational quantities such as current table sizes and
+bounded DV costs. XML and HTML output retain their existing representations.
+
+The dataset reader accepts reachable router costs below `16` and announced
+prefix costs below `4294967295`, using NDNd's existing DV infinity limits.
+A dataset containing a cost outside these ranges is rejected and its DV
+routing details are marked unavailable in all report formats; other status
+sections remain available.
 
 ## `ndnd fw status-server`
 
-The status-server command serves a server-rendered HTML status page at `/` and a machine-readable XML report at `/status.xml` over HTTP on port 6380. The XML endpoint returns `application/xml` and uses the same encoder as `status-report`. Both formats use the same management datasets. Missing DV status or an unavailable routing dataset is explicitly marked, including when querying an older DV router.
+The status-server command serves a server-rendered HTML status page at `/` and machine-readable reports at `/status.xml` (`application/xml`) and `/status.json` (`application/json`) over HTTP on port 6380. These endpoints use the same encoders as `status-report`. All formats use the same management datasets. Missing DV status or an unavailable routing dataset is explicitly marked, including when querying an older DV router.
 
 ```sh
 ndnd fw status-report > status.xml
+ndnd fw status-report --format json > status.json
 ndnd fw status-server
 # Open http://localhost:6380/
 curl http://localhost:6380/status.xml
+curl http://localhost:6380/status.json
 ```
 
 Both status commands accept repeatable `--trust-anchor FILE` options for DV

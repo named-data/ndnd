@@ -28,7 +28,7 @@ func statusTrustName(t *testing.T, value string) enc.Name {
 	return name
 }
 
-func statusTrustProducer(t *testing.T, router string) (ndn.Store, []byte) {
+func statusTrustProducer(t *testing.T, router string, prefixCost uint64) (ndn.Store, []byte) {
 	t.Helper()
 	store := storage.NewMemoryStore()
 	rootKey, err := signer.KeygenEd25519(sec.MakeKeyName(statusTrustName(t, "/example")))
@@ -54,7 +54,7 @@ func statusTrustProducer(t *testing.T, router string) (ndn.Store, []byte) {
 	dataset := &dvtlv.RoutingStatus{Status: status, Routers: []*dvtlv.RouterStatus{{Name: requested}}}
 	for i := range 1000 {
 		dataset.Routers[0].Prefixes = append(dataset.Routers[0].Prefixes,
-			&dvtlv.PrefixOpAdd{Name: statusTrustName(t, fmt.Sprintf("/application/prefix-%04d", i))})
+			&dvtlv.PrefixOpAdd{Name: statusTrustName(t, fmt.Sprintf("/application/prefix-%04d", i)), Cost: prefixCost})
 	}
 	_, err = object.Produce(ndn.ProduceArgs{
 		Name: dvconfig.StatusDatasetPrefix(requested).WithVersion(1), Content: dataset.Encode(),
@@ -124,15 +124,19 @@ func (e *statusTrustEngine) Express(packet *ndn.EncodedInterest, callback ndn.Ex
 }
 
 func TestStatusReportValidatesDVDataset(t *testing.T) {
-	for _, scenario := range []string{"valid", "metadata", "segment-0", "segment-1", "wrong-router", "untrusted-root", "no-anchors"} {
+	for _, scenario := range []string{"valid", "metadata", "segment-0", "segment-1", "wrong-router", "untrusted-root", "no-anchors", "invalid-cost"} {
 		t.Run(scenario, func(t *testing.T) {
 			router := "/example/a"
 			if scenario == "wrong-router" {
 				router = "/example/b"
 			}
-			store, root := statusTrustProducer(t, router)
+			cost := uint64(0)
+			if scenario == "invalid-cost" {
+				cost = 1<<53 + 1
+			}
+			store, root := statusTrustProducer(t, router, cost)
 			if scenario == "untrusted-root" {
-				_, root = statusTrustProducer(t, "/example/a")
+				_, root = statusTrustProducer(t, "/example/a", 0)
 			}
 			transport := &statusTrustEngine{Engine: engine.NewBasicEngine(face.NewDummyFace()),
 				store: store, queue: make(chan func(), 512), tamper: scenario}
@@ -158,14 +162,18 @@ func TestStatusReportValidatesDVDataset(t *testing.T) {
 				tool.statusTrustAnchors = []string{path}
 			}
 			require.NoError(t, tool.configureStatusTrust())
-			var report ndndStatusReport
+			report := ndndStatusReport{General: ndndGeneralStatus{NFIBEntries: 7}}
 			err := tool.populateDVStatus(&report)
 			if scenario == "valid" || scenario == "no-anchors" {
 				require.NoError(t, err)
+			} else if scenario == "invalid-cost" {
+				require.ErrorContains(t, err, "parse DV routing dataset")
+				require.ErrorContains(t, err, "prefix cost")
 			} else {
 				require.ErrorContains(t, err, "fetch or validate DV routing dataset")
 			}
 			require.True(t, report.DV.Available)
+			require.Equal(t, uint64(7), report.General.NFIBEntries)
 			require.Equal(t, scenario == "valid", report.DV.DatasetAvailable)
 			if scenario == "valid" {
 				require.Len(t, report.DV.Routers[0].Prefixes, 1000)

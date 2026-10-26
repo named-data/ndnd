@@ -1,6 +1,7 @@
 package nfdc
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -17,131 +18,139 @@ import (
 )
 
 type ndndStatusReport struct {
-	XMLName      xml.Name          `xml:"ndndStatus"`
-	GeneratedAt  string            `xml:"generatedAt,attr"`
-	General      ndndGeneralStatus `xml:"general"`
-	Faces        ndndFaces         `xml:"faces"`
-	FIB          ndndFIB           `xml:"fib"`
-	RIB          ndndRIB           `xml:"rib"`
-	ContentStore ndndContentStore  `xml:"contentStore"`
-	Strategies   ndndStrategies    `xml:"strategies"`
-	DV           ndndDVStatus      `xml:"dv"`
+	XMLName      xml.Name          `xml:"ndndStatus" json:"-"`
+	GeneratedAt  string            `xml:"generatedAt,attr" json:"generatedAt"`
+	General      ndndGeneralStatus `xml:"general" json:"general"`
+	Faces        ndndFaces         `xml:"faces" json:"faces"`
+	FIB          ndndFIB           `xml:"fib" json:"fib"`
+	RIB          ndndRIB           `xml:"rib" json:"rib"`
+	ContentStore ndndContentStore  `xml:"contentStore" json:"contentStore"`
+	Strategies   ndndStrategies    `xml:"strategies" json:"strategies"`
+	DV           ndndDVStatus      `xml:"dv" json:"dv"`
 }
 
 type ndndGeneralStatus struct {
-	Version               string `xml:"version"`
-	StartTime             string `xml:"startTime"`
-	CurrentTime           string `xml:"currentTime"`
-	Uptime                string `xml:"uptime"`
-	NFIBEntries           uint64 `xml:"nFibEntries"`
-	NPITEntries           uint64 `xml:"nPitEntries"`
-	NCsEntries            uint64 `xml:"nCsEntries"`
-	NInInterests          uint64 `xml:"nInInterests"`
-	NOutInterests         uint64 `xml:"nOutInterests"`
-	NInData               uint64 `xml:"nInData"`
-	NOutData              uint64 `xml:"nOutData"`
-	NSatisfiedInterests   uint64 `xml:"nSatisfiedInterests"`
-	NUnsatisfiedInterests uint64 `xml:"nUnsatisfiedInterests"`
+	Version               string `xml:"version" json:"version"`
+	StartTime             string `xml:"startTime" json:"startTime"`
+	CurrentTime           string `xml:"currentTime" json:"currentTime"`
+	Uptime                string `xml:"uptime" json:"uptime"`
+	NFIBEntries           uint64 `xml:"nFibEntries" json:"nFibEntries"`
+	NPITEntries           uint64 `xml:"nPitEntries" json:"nPitEntries"`
+	NCsEntries            uint64 `xml:"nCsEntries" json:"nCsEntries"`
+	NInInterests          uint64 `xml:"nInInterests" json:"nInInterests,string"`
+	NOutInterests         uint64 `xml:"nOutInterests" json:"nOutInterests,string"`
+	NInData               uint64 `xml:"nInData" json:"nInData,string"`
+	NOutData              uint64 `xml:"nOutData" json:"nOutData,string"`
+	NSatisfiedInterests   uint64 `xml:"nSatisfiedInterests" json:"nSatisfiedInterests,string"`
+	NUnsatisfiedInterests uint64 `xml:"nUnsatisfiedInterests" json:"nUnsatisfiedInterests,string"`
 }
 
 type ndndFace struct {
-	ID                         uint64  `xml:"faceId,attr"`
-	RemoteURI                  string  `xml:"remoteUri"`
-	LocalURI                   string  `xml:"localUri"`
-	Scope                      string  `xml:"scope"`
-	Persistency                string  `xml:"persistency"`
-	LinkType                   string  `xml:"linkType"`
-	MTU                        *uint64 `xml:"mtu,omitempty"`
-	BaseCongestionMarkInterval *uint64 `xml:"baseCongestionMarkInterval,omitempty"`
-	DefaultCongestionThreshold *uint64 `xml:"defaultCongestionThreshold,omitempty"`
-	Flags                      string  `xml:"flags"`
-	ExpirationMilliseconds     *uint64 `xml:"expirationMilliseconds,omitempty"`
-	NInInterests               uint64  `xml:"nInInterests"`
-	NInData                    uint64  `xml:"nInData"`
-	NInBytes                   uint64  `xml:"nInBytes"`
-	NOutInterests              uint64  `xml:"nOutInterests"`
-	NOutData                   uint64  `xml:"nOutData"`
-	NOutBytes                  uint64  `xml:"nOutBytes"`
+	ID                         uint64  `xml:"faceId,attr" json:"faceId,string"`
+	RemoteURI                  string  `xml:"remoteUri" json:"remoteUri"`
+	LocalURI                   string  `xml:"localUri" json:"localUri"`
+	Scope                      string  `xml:"scope" json:"scope"`
+	Persistency                string  `xml:"persistency" json:"persistency"`
+	LinkType                   string  `xml:"linkType" json:"linkType"`
+	MTU                        *uint64 `xml:"mtu,omitempty" json:"mtu,omitempty"`
+	BaseCongestionMarkInterval *uint64 `xml:"baseCongestionMarkInterval,omitempty" json:"baseCongestionMarkInterval,omitempty,string"`
+	DefaultCongestionThreshold *uint64 `xml:"defaultCongestionThreshold,omitempty" json:"defaultCongestionThreshold,omitempty,string"`
+	Flags                      string  `xml:"flags" json:"flags"`
+	ExpirationMilliseconds     *uint64 `xml:"expirationMilliseconds,omitempty" json:"expirationMilliseconds,omitempty"`
+	NInInterests               uint64  `xml:"nInInterests" json:"nInInterests,string"`
+	NInData                    uint64  `xml:"nInData" json:"nInData,string"`
+	NInBytes                   uint64  `xml:"nInBytes" json:"nInBytes,string"`
+	NOutInterests              uint64  `xml:"nOutInterests" json:"nOutInterests,string"`
+	NOutData                   uint64  `xml:"nOutData" json:"nOutData,string"`
+	NOutBytes                  uint64  `xml:"nOutBytes" json:"nOutBytes,string"`
 }
 
 type ndndDVStatus struct {
-	Available        bool           `xml:"available,attr"`
-	Version          string         `xml:"version"`
-	NetworkName      string         `xml:"networkName"`
-	RouterName       string         `xml:"routerName"`
-	NRibEntries      uint64         `xml:"nRibEntries"`
-	NNeighbors       uint64         `xml:"nNeighbors"`
-	NFibEntries      uint64         `xml:"nFibEntries"`
-	DatasetAvailable bool           `xml:"datasetAvailable,attr"`
-	Routers          []ndndDVRouter `xml:"routers>router"`
+	Available        bool           `xml:"available,attr" json:"available"`
+	Version          string         `xml:"version" json:"version"`
+	NetworkName      string         `xml:"networkName" json:"networkName"`
+	RouterName       string         `xml:"routerName" json:"routerName"`
+	NRibEntries      uint64         `xml:"nRibEntries" json:"nRibEntries"`
+	NNeighbors       uint64         `xml:"nNeighbors" json:"nNeighbors"`
+	NFibEntries      uint64         `xml:"nFibEntries" json:"nFibEntries"`
+	DatasetAvailable bool           `xml:"datasetAvailable,attr" json:"datasetAvailable"`
+	Routers          []ndndDVRouter `xml:"routers>router" json:"routers"`
 }
 
 type ndndDVRouter struct {
-	Name     string         `xml:"name,attr"`
-	NextHop  string         `xml:"nextHop"`
-	Cost     uint64         `xml:"cost"`
-	Prefixes []ndndDVPrefix `xml:"prefixes>prefix"`
+	Name     string         `xml:"name,attr" json:"name"`
+	NextHop  string         `xml:"nextHop" json:"nextHop"`
+	Cost     uint64         `xml:"cost" json:"cost"`
+	Prefixes []ndndDVPrefix `xml:"prefixes>prefix" json:"prefixes"`
 }
 
 type ndndDVPrefix struct {
-	Name string `xml:"name,attr"`
-	Cost uint64 `xml:"cost,attr"`
+	Name string `xml:"name,attr" json:"name"`
+	Cost uint64 `xml:"cost,attr" json:"cost"`
 }
 
 type ndndFaces struct {
-	Entries []ndndFace `xml:"face"`
+	Entries []ndndFace `xml:"face" json:"entries"`
 }
 
 type ndndFIBEntry struct {
-	Prefix   string        `xml:"prefix,attr"`
-	NextHops []ndndNextHop `xml:"nextHop"`
+	Prefix   string        `xml:"prefix,attr" json:"prefix"`
+	NextHops []ndndNextHop `xml:"nextHop" json:"nextHop"`
 }
 
 type ndndFIB struct {
-	Entries []ndndFIBEntry `xml:"entry"`
+	Entries []ndndFIBEntry `xml:"entry" json:"entries"`
 }
 
 type ndndRIBEntry struct {
-	Prefix string      `xml:"prefix,attr"`
-	Routes []ndndRoute `xml:"route"`
+	Prefix string      `xml:"prefix,attr" json:"prefix"`
+	Routes []ndndRoute `xml:"route" json:"route"`
 }
 
 type ndndRIB struct {
-	Entries []ndndRIBEntry `xml:"entry"`
+	Entries []ndndRIBEntry `xml:"entry" json:"entries"`
 }
 
 type ndndNextHop struct {
-	FaceID uint64 `xml:"faceId,attr"`
-	Cost   uint64 `xml:"cost,attr"`
+	FaceID uint64 `xml:"faceId,attr" json:"faceId,string"`
+	Cost   uint64 `xml:"cost,attr" json:"cost,string"`
 }
 
 type ndndRoute struct {
-	FaceID           uint64  `xml:"faceId,attr"`
-	Origin           string  `xml:"origin,attr"`
-	Cost             uint64  `xml:"cost,attr"`
-	Flags            string  `xml:"flags,attr"`
-	ExpirationMillis *uint64 `xml:"expirationMilliseconds,attr,omitempty"`
+	FaceID           uint64  `xml:"faceId,attr" json:"faceId,string"`
+	Origin           string  `xml:"origin,attr" json:"origin"`
+	Cost             uint64  `xml:"cost,attr" json:"cost,string"`
+	Flags            string  `xml:"flags,attr" json:"flags"`
+	ExpirationMillis *uint64 `xml:"expirationMilliseconds,attr,omitempty" json:"expirationMilliseconds,omitempty"`
 }
 
 type ndndContentStore struct {
-	Capacity uint64 `xml:"capacity,attr"`
-	Admit    bool   `xml:"admit,attr"`
-	Serve    bool   `xml:"serve,attr"`
-	Entries  uint64 `xml:"entries,attr"`
-	Hits     uint64 `xml:"hits,attr"`
-	Misses   uint64 `xml:"misses,attr"`
+	Capacity uint64 `xml:"capacity,attr" json:"capacity"`
+	Admit    bool   `xml:"admit,attr" json:"admit"`
+	Serve    bool   `xml:"serve,attr" json:"serve"`
+	Entries  uint64 `xml:"entries,attr" json:"entries"`
+	Hits     uint64 `xml:"hits,attr" json:"hits,string"`
+	Misses   uint64 `xml:"misses,attr" json:"misses,string"`
 }
 
 type ndndStrategy struct {
-	Prefix   string `xml:"prefix,attr"`
-	Strategy string `xml:"strategy,attr"`
+	Prefix   string `xml:"prefix,attr" json:"prefix"`
+	Strategy string `xml:"strategy,attr" json:"strategy"`
 }
 
 type ndndStrategies struct {
-	Entries []ndndStrategy `xml:"strategy"`
+	Entries []ndndStrategy `xml:"strategy" json:"entries"`
 }
 
 func (t *Tool) RunStatusReport(_ *cobra.Command, _ []string) error {
+	encode := encodeNdndStatusXML
+	switch t.statusFormat {
+	case "xml":
+	case "json":
+		encode = encodeNdndStatusJSON
+	default:
+		return fmt.Errorf("unsupported status format %q: use xml or json", t.statusFormat)
+	}
 	if err := t.configureStatusTrust(); err != nil {
 		return err
 	}
@@ -152,7 +161,7 @@ func (t *Tool) RunStatusReport(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("unable to build NDNd status report: %w", err)
 	}
-	encoded, err := encodeNdndStatusXML(report)
+	encoded, err := encode(report)
 	if err != nil {
 		return fmt.Errorf("unable to encode NDNd status report: %w", err)
 	}
@@ -168,6 +177,10 @@ func encodeNdndStatusXML(report *ndndStatusReport) ([]byte, error) {
 		return nil, err
 	}
 	return append([]byte(xml.Header), encoded...), nil
+}
+
+func encodeNdndStatusJSON(report *ndndStatusReport) ([]byte, error) {
+	return json.MarshalIndent(report, "", "  ")
 }
 
 func (t *Tool) buildNdndStatusReport() (*ndndStatusReport, error) {
@@ -410,11 +423,17 @@ func ndndDVStatusFromDataset(wire enc.Wire, router enc.Name) (ndndDVStatus, erro
 	status := ndndDVStatusFromStatus(dataset.Status)
 	status.DatasetAvailable = true
 	for _, item := range dataset.Routers {
+		if item.Cost >= dvconfig.CostInfinity {
+			return ndndDVStatus{}, fmt.Errorf("router cost %d for %s must be less than %d", item.Cost, item.Name, dvconfig.CostInfinity)
+		}
 		route := ndndDVRouter{Name: item.Name.String(), Cost: item.Cost}
 		if item.NextHop != nil {
 			route.NextHop = item.NextHop.Name.String()
 		}
 		for _, prefix := range item.Prefixes {
+			if prefix.Cost >= dvconfig.CostPfxInfinity {
+				return ndndDVStatus{}, fmt.Errorf("prefix cost %d for %s must be less than %d", prefix.Cost, prefix.Name, dvconfig.CostPfxInfinity)
+			}
 			route.Prefixes = append(route.Prefixes, ndndDVPrefix{Name: prefix.Name.String(), Cost: prefix.Cost})
 		}
 		status.Routers = append(status.Routers, route)

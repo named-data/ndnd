@@ -27,7 +27,7 @@ func Cmds() []*cobra.Command {
 		Run:   t.ExecStatusGeneral,
 	}, {
 		Use:   "status-report",
-		Short: "Print the NDNd status report as XML",
+		Short: "Print the NDNd status report as XML or JSON",
 		Args:  cobra.NoArgs,
 		RunE:  t.RunStatusReport,
 	}, {
@@ -98,6 +98,9 @@ func Cmds() []*cobra.Command {
 		Run:   cmd("strategy-choice", "unset", []string{}),
 	}}
 	for _, command := range commands {
+		if command.Use == "status-report" {
+			command.Flags().StringVar(&t.statusFormat, "format", "xml", "Report format: xml or json")
+		}
 		if command.Use == "status-report" || command.Use == "status-server" {
 			command.Flags().StringArrayVar(&t.statusTrustAnchors, "trust-anchor", nil,
 				"Trusted DV root certificate file (PEM or binary; repeat for multiple files)")
@@ -110,6 +113,7 @@ type Tool struct {
 	engine             ndn.Engine
 	statusTrustAnchors []string
 	statusTrust        *sec.TrustConfig
+	statusFormat       string
 }
 
 // (AI GENERATED DESCRIPTION): Initializes the tool's engine with a new BasicEngine using a default face if not already set, then starts the engine, exiting the program on startup failure.

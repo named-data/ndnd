@@ -45,7 +45,21 @@ func statusServerHandler(buildReport func() (*ndndStatusReport, error)) http.Han
 	var reportMu sync.Mutex
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if (r.URL.Path != "/" && r.URL.Path != "/status.xml") || r.Method != http.MethodGet {
+		if r.Method != http.MethodGet {
+			http.NotFound(w, r)
+			return
+		}
+		encode := renderNDNdStatusHTML
+		contentType := "text/html; charset=utf-8"
+		switch r.URL.Path {
+		case "/":
+		case "/status.xml":
+			contentType = "application/xml; charset=utf-8"
+			encode = encodeNdndStatusXML
+		case "/status.json":
+			contentType = "application/json; charset=utf-8"
+			encode = encodeNdndStatusJSON
+		default:
 			http.NotFound(w, r)
 			return
 		}
@@ -63,14 +77,7 @@ func statusServerHandler(buildReport func() (*ndndStatusReport, error)) http.Han
 			return
 		}
 
-		var encoded []byte
-		contentType := "text/html; charset=utf-8"
-		if r.URL.Path == "/status.xml" {
-			contentType = "application/xml; charset=utf-8"
-			encoded, err = encodeNdndStatusXML(report)
-		} else {
-			encoded, err = renderNDNdStatusHTML(report)
-		}
+		encoded, err := encode(report)
 		if err != nil {
 			http.Error(w, "NDNd status is temporarily unavailable", http.StatusInternalServerError)
 			return

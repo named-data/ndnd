@@ -1,8 +1,10 @@
 package nfdc
 
 import (
+	"encoding/json"
 	"testing"
 
+	dvconfig "github.com/named-data/ndnd/dv/config"
 	dvtlv "github.com/named-data/ndnd/dv/tlv"
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
@@ -11,6 +13,122 @@ import (
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNDNdStatusJSONFields(t *testing.T) {
+	zero := uint64(0)
+	report := &ndndStatusReport{
+		GeneratedAt: "2026-10-26T00:00:00Z",
+		General:     ndndGeneralStatus{NInData: ^uint64(0), NFIBEntries: 3},
+		Faces:       ndndFaces{Entries: []ndndFace{{ID: 7, MTU: &zero, NInBytes: 1<<53 + 1}}},
+		FIB: ndndFIB{Entries: []ndndFIBEntry{{Prefix: "/app/data",
+			NextHops: []ndndNextHop{{FaceID: 7, Cost: ^uint64(0)}},
+		}}},
+		ContentStore: ndndContentStore{Capacity: 1000, Entries: 2, Hits: ^uint64(0)},
+		RIB: ndndRIB{Entries: []ndndRIBEntry{{Prefix: "/app/data",
+			Routes: []ndndRoute{{FaceID: 7, Cost: ^uint64(0), ExpirationMillis: &zero}},
+		}}},
+		DV: ndndDVStatus{Available: true, DatasetAvailable: true, NNeighbors: 1,
+			Routers: []ndndDVRouter{{Name: "/example/a", Cost: 2, Prefixes: []ndndDVPrefix{{Name: "/app/data", Cost: 3}}}},
+		},
+	}
+	wire, err := encodeNdndStatusJSON(report)
+	require.NoError(t, err)
+	var parsed ndndStatusReport
+	require.NoError(t, json.Unmarshal(wire, &parsed))
+	require.Equal(t, report, &parsed)
+	var document map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(wire, &document))
+	require.Contains(t, document, "generatedAt")
+	require.NotContains(t, document, "XMLName")
+	var general map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(document["general"], &general))
+	require.Equal(t, `"18446744073709551615"`, string(general["nInData"]))
+	require.Equal(t, `"0"`, string(general["nInInterests"]))
+	require.Equal(t, "3", string(general["nFibEntries"]))
+	var faces struct {
+		Entries []map[string]json.RawMessage `json:"entries"`
+	}
+	require.NoError(t, json.Unmarshal(document["faces"], &faces))
+	require.Equal(t, `"7"`, string(faces.Entries[0]["faceId"]))
+	require.Equal(t, `"9007199254740993"`, string(faces.Entries[0]["nInBytes"]))
+	require.Equal(t, "0", string(faces.Entries[0]["mtu"]))
+	require.NotContains(t, faces.Entries[0], "expirationMilliseconds")
+	var dv struct {
+		Neighbors json.RawMessage `json:"nNeighbors"`
+		Routers   []struct {
+			Cost     json.RawMessage `json:"cost"`
+			Prefixes []struct {
+				Cost json.RawMessage `json:"cost"`
+			} `json:"prefixes"`
+		} `json:"routers"`
+	}
+	require.NoError(t, json.Unmarshal(document["dv"], &dv))
+	require.Equal(t, "2", string(dv.Routers[0].Cost))
+	require.Equal(t, "3", string(dv.Routers[0].Prefixes[0].Cost))
+	require.Equal(t, "1", string(dv.Neighbors))
+	var cs map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(document["contentStore"], &cs))
+	require.Equal(t, "1000", string(cs["capacity"]))
+	require.Equal(t, "2", string(cs["entries"]))
+	require.Equal(t, `"18446744073709551615"`, string(cs["hits"]))
+	for _, table := range []struct{ section, routes string }{{"fib", "nextHop"}, {"rib", "route"}} {
+		var entries struct {
+			Entries []map[string]json.RawMessage `json:"entries"`
+		}
+		require.NoError(t, json.Unmarshal(document[table.section], &entries))
+		var routes []map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(entries.Entries[0][table.routes], &routes))
+		require.Equal(t, `"18446744073709551615"`, string(routes[0]["cost"]))
+		require.Equal(t, `"7"`, string(routes[0]["faceId"]))
+		if table.section == "rib" {
+			require.Equal(t, "0", string(routes[0]["expirationMilliseconds"]))
+		}
+	}
+}
+
+func TestStatusReportRejectsInvalidFormatBeforeConnecting(t *testing.T) {
+	tool := Tool{statusFormat: "yaml"}
+	require.ErrorContains(t, tool.RunStatusReport(nil, nil), "unsupported status format")
+	require.Nil(t, tool.engine)
+}
+
+func TestDVRoutingDatasetCostBounds(t *testing.T) {
+	router := statusTrustName(t, "/example/a")
+	prefix := statusTrustName(t, "/app/data")
+	for _, tc := range []struct {
+		name                   string
+		routerCost, prefixCost uint64
+		err                    string
+	}{
+		{"zero", 0, 0, ""},
+		{"maximum-reachable", dvconfig.CostInfinity - 1, dvconfig.CostPfxInfinity - 1, ""},
+		{"router-infinity", dvconfig.CostInfinity, 0, "router cost"},
+		{"router-max-uint64", ^uint64(0), 0, "router cost"},
+		{"prefix-infinity", 0, dvconfig.CostPfxInfinity, "prefix cost"},
+		{"prefix-above-safe-integer", 0, 1<<53 + 1, "prefix cost"},
+		{"prefix-max-uint64", 0, ^uint64(0), "prefix cost"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dataset := &dvtlv.RoutingStatus{
+				Status: &dvtlv.Status{RouterName: &dvtlv.Destination{Name: router}},
+				Routers: []*dvtlv.RouterStatus{{Name: router, Cost: tc.routerCost,
+					Prefixes: []*dvtlv.PrefixOpAdd{{Name: prefix, Cost: tc.prefixCost}},
+				}},
+			}
+			status, err := ndndDVStatusFromDataset(dataset.Encode(), router)
+			if tc.err != "" {
+				require.ErrorContains(t, err, tc.err)
+				require.False(t, status.DatasetAvailable)
+				require.Empty(t, status.Routers)
+				return
+			}
+			require.NoError(t, err)
+			require.True(t, status.DatasetAvailable)
+			require.Equal(t, tc.routerCost, status.Routers[0].Cost)
+			require.Equal(t, tc.prefixCost, status.Routers[0].Prefixes[0].Cost)
+		})
+	}
+}
 
 type statusPacketTestEngine struct {
 	ndn.Engine
