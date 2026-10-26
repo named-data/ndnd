@@ -25,6 +25,16 @@ func Cmds() []*cobra.Command {
 		Args:  cobra.NoArgs,
 		Run:   t.ExecStatusGeneral,
 	}, {
+		Use:   "status-report",
+		Short: "Print the NDNd status report as XML",
+		Args:  cobra.NoArgs,
+		RunE:  t.RunStatusReport,
+	}, {
+		Use:   "status-server",
+		Short: "Serve the NDNd status report over HTTP",
+		Args:  cobra.NoArgs,
+		RunE:  t.RunStatusServer,
+	}, {
 		Use:   "face-list",
 		Short: "Print face table",
 		Args:  cobra.NoArgs,

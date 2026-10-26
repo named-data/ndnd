@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NDNd Status</title>
+  <style>
+    body { color: #202124; font: 15px/1.45 sans-serif; margin: 0; }
+    main { margin: 24px auto; max-width: 1440px; padding: 0 20px; }
+    h1 { border-bottom: 2px solid #99ccb2; padding-bottom: 10px; }
+    h2 { font-size: 1.2rem; margin: 28px 0 8px; }
+    table { border-collapse: collapse; margin: 8px 0 20px; width: 100%; }
+    th, td { border-bottom: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #eaf4ef; color: #555; font-weight: 500; white-space: nowrap; }
+    tbody tr:nth-child(even) { background: #f5f5f5; }
+    .table-wrap { overflow-x: auto; }
+    .empty, footer { color: #666; }
+    footer { border-top: 1px solid #ddd; margin-top: 28px; padding: 12px 0; text-align: right; }
+    @media (max-width: 700px) { main { margin: 12px auto; padding: 0 12px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>NDNd Status</h1>
+    <p>Generated <time>{{.GeneratedAt}}</time></p>
+  </header>
+
+  <section>
+    <h2>General Status</h2>
+    <table><tbody>
+      <tr><th>Version</th><td>{{.General.Version}}</td><th>Start time</th><td>{{.General.StartTime}}</td></tr>
+      <tr><th>Current time</th><td>{{.General.CurrentTime}}</td><th>Uptime</th><td>{{.General.Uptime}}</td></tr>
+      <tr><th>FIB entries</th><td>{{.General.NFIBEntries}}</td><th>PIT entries</th><td>{{.General.NPITEntries}}</td></tr>
+      <tr><th>CS entries</th><td>{{.General.NCsEntries}}</td><th>In Interests</th><td>{{.General.NInInterests}}</td></tr>
+      <tr><th>Out Interests</th><td>{{.General.NOutInterests}}</td><th>In Data</th><td>{{.General.NInData}}</td></tr>
+      <tr><th>Out Data</th><td>{{.General.NOutData}}</td><th>Satisfied Interests</th><td>{{.General.NSatisfiedInterests}}</td></tr>
+      <tr><th>Unsatisfied Interests</th><td>{{.General.NUnsatisfiedInterests}}</td><td></td><td></td></tr>
+    </tbody></table>
+  </section>
+
+  <section>
+    <h2>Faces</h2>
+    <div class="table-wrap"><table><thead><tr>
+      <th>ID</th><th>Remote URI</th><th>Local URI</th><th>Scope</th><th>Persistency</th><th>Link type</th>
+      <th>MTU</th><th>Base mark interval (ns)</th><th>Congestion threshold (bytes)</th><th>Flags</th><th>Expiry (ms)</th>
+      <th>In Interests</th><th>In Data</th><th>In Bytes</th><th>Out Interests</th><th>Out Data</th><th>Out Bytes</th>
+    </tr></thead><tbody>
+      {{range .Faces.Entries}}
+      <tr>
+        <td>{{.ID}}</td><td>{{.RemoteURI}}</td><td>{{.LocalURI}}</td><td>{{.Scope}}</td><td>{{.Persistency}}</td><td>{{.LinkType}}</td>
+        <td>{{optionalUint .MTU}}</td><td>{{optionalUint .BaseCongestionMarkInterval}}</td>
+        <td>{{optionalUint .DefaultCongestionThreshold}}</td><td>{{.Flags}}</td>
+        <td>{{if .ExpirationMilliseconds}}{{optionalUint .ExpirationMilliseconds}}{{else}}not set{{end}}</td>
+        <td>{{.NInInterests}}</td><td>{{.NInData}}</td><td>{{.NInBytes}}</td>
+        <td>{{.NOutInterests}}</td><td>{{.NOutData}}</td><td>{{.NOutBytes}}</td>
+      </tr>
+      {{else}}<tr><td class="empty" colspan="17">No faces</td></tr>{{end}}
+    </tbody></table></div>
+  </section>
+
+  <section>
+    <h2>FIB</h2>
+    <div class="table-wrap"><table><thead><tr><th>Prefix</th><th>Next hops</th></tr></thead><tbody>
+      {{range .FIB.Entries}}<tr><td>{{.Prefix}}</td><td>{{range .NextHops}}face {{.FaceID}} (cost {{.Cost}})<br>{{end}}</td></tr>
+      {{else}}<tr><td class="empty" colspan="2">No entries</td></tr>{{end}}
+    </tbody></table></div>
+  </section>
+
+  <section>
+    <h2>RIB</h2>
+    <div class="table-wrap"><table><thead><tr><th>Prefix</th><th>Face</th><th>Origin</th><th>Cost</th><th>Flags</th><th>Expiry (ms)</th></tr></thead><tbody>
+      {{range .RIB.Entries}}{{ $prefix := .Prefix }}{{range .Routes}}<tr><td>{{$prefix}}</td><td>{{.FaceID}}</td><td>{{.Origin}}</td><td>{{.Cost}}</td><td>{{.Flags}}</td><td>{{optionalUint .ExpirationMillis}}</td></tr>{{end}}
+      {{else}}<tr><td class="empty" colspan="6">No entries</td></tr>{{end}}
+    </tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Content Store</h2>
+    <table><thead><tr><th>Capacity</th><th>Admit</th><th>Serve</th><th>Entries</th><th>Hits</th><th>Misses</th></tr></thead><tbody>
+      <tr><td>{{.ContentStore.Capacity}}</td><td>{{.ContentStore.Admit}}</td><td>{{.ContentStore.Serve}}</td>
+        <td>{{.ContentStore.Entries}}</td><td>{{.ContentStore.Hits}}</td><td>{{.ContentStore.Misses}}</td></tr>
+    </tbody></table>
+  </section>
+
+  <section>
+    <h2>Strategy Choices</h2>
+    <table><thead><tr><th>Prefix</th><th>Strategy</th></tr></thead><tbody>
+      {{range .Strategies.Entries}}<tr><td>{{.Prefix}}</td><td>{{.Strategy}}</td></tr>
+      {{else}}<tr><td class="empty" colspan="2">No entries</td></tr>{{end}}
+    </tbody></table>
+  </section>
+
+  <section>
+    <h2>DV</h2>
+    {{if .DV.Available}}
+    <table><tbody>
+      <tr><th>Version</th><td>{{.DV.Version}}</td><th>Network</th><td>{{.DV.NetworkName}}</td></tr>
+      <tr><th>Router</th><td>{{.DV.RouterName}}</td><th>RIB entries</th><td>{{.DV.NRibEntries}}</td></tr>
+      <tr><th>Neighbors</th><td>{{.DV.NNeighbors}}</td><th>FIB entries</th><td>{{.DV.NFibEntries}}</td></tr>
+    </tbody></table>
+    {{if .DV.DatasetAvailable}}
+    <h3>Reachable routers and prefix announcements</h3>
+    <div class="table-wrap"><table><thead><tr><th>Router</th><th>Next hop</th><th>Router cost</th><th>Announced prefixes</th></tr></thead><tbody>
+      {{range .DV.Routers}}<tr><td>{{.Name}}</td><td>{{.NextHop}}</td><td>{{.Cost}}</td><td>{{range .Prefixes}}{{.Name}} (cost {{.Cost}})<br>{{else}}No prefixes{{end}}</td></tr>
+      {{else}}<tr><td class="empty" colspan="4">No reachable routers</td></tr>{{end}}
+    </tbody></table></div>
+    {{else}}<p class="empty">DV routing dataset unavailable</p>{{end}}
+    {{else}}<p class="empty">DV status unavailable</p>{{end}}
+  </section>
+
+  <footer>NDNd status generated {{.GeneratedAt}}.</footer>
+</main>
+</body>
+</html>
