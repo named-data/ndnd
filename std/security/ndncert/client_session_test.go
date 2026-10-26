@@ -77,7 +77,7 @@ func TestClientNewSession(t *testing.T) {
 		if bytes.Equal(params.EcdhPub, previousPub) {
 			t.Fatal("NEW reused an ephemeral ECDH key")
 		}
-		if c.aeadCtr == previousCounter || c.aeadCtr.block != 0 {
+		if c.aeadCtr == previousCounter || c.aeadCtr.nextSendBlock != 0 {
 			t.Fatal("NEW reused IV state")
 		}
 		previousPub = bytes.Clone(params.EcdhPub)
@@ -109,7 +109,7 @@ func TestClientNewSession(t *testing.T) {
 			t.Fatalf("request %d: unexpected error %v", i, err)
 		}
 		// Exercise reset of both sending and receiving state on reuse.
-		c.aeadCtr.block = 100
+		c.aeadCtr.nextSendBlock = 100
 	}
 }
 
