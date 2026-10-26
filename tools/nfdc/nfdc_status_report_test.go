@@ -75,7 +75,6 @@ func TestNDNdStatusXMLFields(t *testing.T) {
 	encoded, err := encodeNdndStatusXML(report)
 	require.NoError(t, err)
 	xmlText := string(encoded)
-	require.Contains(t, xmlText, `<?xml-stylesheet type="text/xsl" href="ndnd-status.xsl"?>`)
 
 	for _, field := range []string{
 		`<strategy prefix="/ndn" strategy="/strategy/example">`,

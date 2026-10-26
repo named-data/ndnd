@@ -6,23 +6,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestStatusServerServesStylesheet(t *testing.T) {
-	handler := statusServerHandler(nil)
-	request := httptest.NewRequest(http.MethodGet, "/ndnd-status.xsl", nil)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	require.Equal(t, http.StatusOK, response.Code)
-	require.True(t, strings.HasPrefix(response.Header().Get("Content-Type"), "application/xslt+xml"))
-	require.Equal(t, ndndStatusXSL, response.Body.Bytes())
-}
 
 func TestStatusServerServesPage(t *testing.T) {
 	handler := statusServerHandler(func() (*ndndStatusReport, error) {

@@ -13,9 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-//go:embed ndnd-status.xsl
-var ndndStatusXSL []byte
-
 //go:embed ndnd-status.html
 var ndndStatusHTMLSource string
 
@@ -44,14 +41,6 @@ func (t *Tool) RunStatusServer(_ *cobra.Command, _ []string) error {
 func statusServerHandler(buildReport func() (*ndndStatusReport, error)) http.Handler {
 	var reportMu sync.Mutex
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ndnd-status.xsl", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		w.Header().Set("Content-Type", "application/xslt+xml; charset=utf-8")
-		_, _ = w.Write(ndndStatusXSL)
-	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if (r.URL.Path != "/" && r.URL.Path != "/status.xml") || r.Method != http.MethodGet {
 			http.NotFound(w, r)
