@@ -5,8 +5,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
-	"math"
 
 	"github.com/named-data/ndnd/std/security/ndncert/tlv"
 )
@@ -37,9 +37,32 @@ func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) {
 	m.CipherText = t.Payload
 }
 
+// AeadCounter holds the send IV state of one NDNCERT session. It must not be
+// reused with a new session key or shared between concurrent operations.
 type AeadCounter struct {
-	block  uint32
-	random [AeadSizeRand]byte
+	// uint64 represents the exhausted state (2^32) without wrapping to zero.
+	nextSendBlock uint64
+	sendPrefix    [AeadSizeRand]byte
+}
+
+const aeadCounterLimit = uint64(1) << 32
+
+// Empty CHALLENGE plaintext is invalid and would otherwise reuse an IV because
+// it consumes zero blocks. Integer division avoids floating-point rounding and
+// adding 15 to a potentially large int.
+func aeadBlocks(length int) (uint64, error) {
+	if length <= 0 {
+		return 0, fmt.Errorf("AEAD plaintext must not be empty")
+	}
+	blocks := uint64(length / aes.BlockSize)
+	if length%aes.BlockSize != 0 {
+		blocks++
+	}
+	// GCM itself limits a message to 2^32-2 blocks.
+	if blocks > aeadCounterLimit-2 {
+		return 0, fmt.Errorf("AEAD message exceeds GCM block limit")
+	}
+	return blocks, nil
 }
 
 // (AI GENERATED DESCRIPTION): Creates a new AeadCounter initialized with a zero block counter and a freshly generated random byte sequence.
@@ -49,8 +72,7 @@ func NewAeadCounter() *AeadCounter {
 		panic(randReadErr.Error())
 	}
 	return &AeadCounter{
-		block:  0,
-		random: [AeadSizeRand]byte(randomBytes),
+		sendPrefix: [AeadSizeRand]byte(randomBytes),
 	}
 }
 
@@ -61,6 +83,16 @@ func AeadEncrypt(
 	info []byte,
 	counter *AeadCounter,
 ) (*AeadMessage, error) {
+	if counter == nil {
+		return nil, fmt.Errorf("AEAD session counter is required")
+	}
+	blocks, err := aeadBlocks(len(plaintext))
+	if err != nil {
+		return nil, err
+	}
+	if counter.nextSendBlock >= aeadCounterLimit || blocks > aeadCounterLimit-counter.nextSendBlock {
+		return nil, fmt.Errorf("AEAD send counter exhausted")
+	}
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return nil, err
@@ -71,17 +103,18 @@ func AeadEncrypt(
 		return nil, err
 	}
 
-	// Make initialization vector
-	counter.block += uint32(math.Ceil(float64(float32(len(plaintext)) / float32(AeadSizeTag))))
-	cblock := make([]byte, 4)
-	binary.LittleEndian.PutUint32(cblock, counter.block)
-	iv := append(counter.random[:], cblock...)
+	// NDNCERT v0.3: use the current counter, in network byte order, then
+	// advance by the number of plaintext AES blocks after encryption.
+	var iv [AeadSizeNonce]byte
+	copy(iv[:], counter.sendPrefix[:])
+	binary.BigEndian.PutUint32(iv[AeadSizeRand:], uint32(counter.nextSendBlock))
 
 	// Encrypt and seal
-	output := aesgcm.Seal(nil, iv, plaintext, info)
+	output := aesgcm.Seal(nil, iv[:], plaintext, info)
+	counter.nextSendBlock += blocks
 
 	return &AeadMessage{
-		IV:         [AeadSizeNonce]byte(iv),
+		IV:         iv,
 		AuthTag:    ([AeadSizeTag]byte)(output[len(plaintext):]),
 		CipherText: output[:len(plaintext)],
 	}, nil
