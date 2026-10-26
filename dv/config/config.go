@@ -174,6 +174,11 @@ func (c *Config) RouterName() enc.Name {
 	return c.routerNameN
 }
 
+// StatusDatasetPrefix names a router's remotely retrievable DV status dataset.
+func StatusDatasetPrefix(router enc.Name) enc.Name {
+	return router.Clone().Append(enc.NewKeywordComponent("DV"), enc.NewKeywordComponent("STATUS"))
+}
+
 // (AI GENERATED DESCRIPTION): Retrieves and returns the advertisement sync prefix stored in the configuration as an `enc.Name`.
 func (c *Config) AdvertisementSyncPrefix() enc.Name {
 	return c.advSyncPfxN
