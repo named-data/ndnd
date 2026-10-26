@@ -36,7 +36,9 @@ dataset routes alone do not route certificate names. DV routers already enable
 this option on their own trust configuration.
 The existing `/localhost/nlsr/status` summary remains available.
 
-The dataset content has these TLV fields (see `dv/tlv/definitions.go`):
+The dataset content has these TLV fields. The complete wire grammar, including
+the nested status fields, is specified in the
+[routing status dataset specification](../dv/SPEC.md#routing-status-dataset).
 
 | Field | Type | Value |
 |---|---|---|

@@ -26,6 +26,9 @@ Advertisement Data                = /localhop/<router>/32=DV/32=ADV/t=<boot>/v=<
 Prefix Group SVS                  = /<network>/32=DV/32=PFS/32=svs
 Prefix Data                       = /<network>/32=DV/32=PFS/<router>/t=<boot>/seq=<seq>/v=0
 Prefix Snapshot                   = /<network>/32=DV/32=PFS/<router>/t=<boot>/32=SNAP/v=<seq>
+Routing Status Discovery Interest = /<router>/32=DV/32=STATUS/32=metadata
+Routing Status Metadata Data      = /<router>/32=DV/32=STATUS/32=metadata/v=<version>/seg=0
+Routing Status Data               = /<router>/32=DV/32=STATUS/v=<version>/seg=<segment>
 
 <router>  = router's unique name in the network
 <network> = globally unique network prefix
@@ -79,6 +82,57 @@ PREFIX-OP-RESET-TYPE = 302
 PREFIX-OP-ADD-TYPE = 304
 PREFIX-OP-REMOVE-TYPE = 306
 ```
+
+### Routing status dataset
+
+A router serves its routing status as a versioned, segmented object.
+An RDR metadata discovery Interest uses `CanBePrefix` and `MustBeFresh`;
+the metadata identifies the versioned object name and final segment.
+After reassembling the segments, the Data Content has the following format.
+`RoutingStatus` has no outer TLV wrapper.
+
+```abnf
+RoutingStatus = Status
+                *RouterStatus
+
+Status = STATUS-TYPE TLV-LENGTH
+         Version
+         NetworkName
+         RouterName
+         NRibEntries
+         NNeighbors
+         NFibEntries
+
+Version = VERSION-TYPE TLV-LENGTH *OCTET
+NetworkName = NETWORK-NAME-TYPE TLV-LENGTH Name
+RouterName = ROUTER-NAME-TYPE TLV-LENGTH Name
+NRibEntries = N-RIB-ENTRIES-TYPE TLV-LENGTH NonNegativeInteger
+NNeighbors = N-NEIGHBORS-TYPE TLV-LENGTH NonNegativeInteger
+NFibEntries = N-FIB-ENTRIES-TYPE TLV-LENGTH NonNegativeInteger
+
+RouterStatus = ROUTER-STATUS-TYPE TLV-LENGTH
+               Name
+               NextHop
+               Cost
+               *PrefixOpAdd
+
+VERSION-TYPE = 401
+NETWORK-NAME-TYPE = 403
+ROUTER-NAME-TYPE = 405
+N-RIB-ENTRIES-TYPE = 407
+N-NEIGHBORS-TYPE = 409
+N-FIB-ENTRIES-TYPE = 411
+STATUS-TYPE = 416
+ROUTER-STATUS-TYPE = 418
+```
+
+`Status` identifies the responding router and its network, reports the NDNd
+version as a UTF-8 string, and includes its RIB, neighbor, and FIB entry counts.
+Each `RouterStatus` describes a reachable router, its selected next hop and
+routing cost, and its learned prefix announcements. `NextHop`, `Cost`, and
+`PrefixOpAdd` use the definitions above. Unreachable routers are omitted.
+Router entries and each router's prefix entries are sorted by canonical NDN
+name order.
 
 ## 4. Protocol Operation
 
