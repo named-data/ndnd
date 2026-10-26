@@ -23,6 +23,29 @@ ndnd fw status-server
 curl http://localhost:6380/status.xml
 ```
 
+Both status commands accept repeatable `--trust-anchor FILE` options for DV
+routing dataset validation. Each file contains one or more trusted NDN root
+certificates in PEM or binary format; private keys are not required. Metadata
+and every data segment are validated against these anchors and the built-in
+[DV trust schema](../dv/config/schema.trust). Certificate retrieval uses the
+data name as a forwarding hint.
+
+```sh
+ndnd fw status-report --trust-anchor network-root.cert
+ndnd fw status-server --trust-anchor network-root.cert
+```
+
+Without trust anchors, or when validation fails, DV routing details are marked
+unavailable. There is no unvalidated fallback for the routing dataset. General
+forwarder datasets and the local DV summary continue to use the existing
+management connection's trust model; these are not authenticated by the DV
+schema.
+
+When DV validation is configured, failures are logged to stderr with the router
+name and the underlying retrieval, validation, or parsing error. The report
+still includes available forwarder status. Omitting trust anchors intentionally
+disables the routing dataset and does not produce a warning.
+
 ## `ndnd fw face-list`
 
 The face list command prints the face table, which contains information about faces.

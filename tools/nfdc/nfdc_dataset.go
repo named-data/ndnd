@@ -7,13 +7,14 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/ndn"
 	"github.com/named-data/ndnd/std/object"
+	sec "github.com/named-data/ndnd/std/security"
 	"github.com/named-data/ndnd/std/types/optional"
 	"github.com/named-data/ndnd/std/utils"
 )
 
 func (t *Tool) fetchStatusDataset(suffix enc.Name) (enc.Wire, error) {
 	// NFD management datasets have no RDR metadata.
-	return t.fetchObjectDataset(t.Prefix().Append(suffix...), true)
+	return t.fetchObjectDataset(t.Prefix().Append(suffix...), true, nil)
 }
 
 func (t *Tool) fetchDataPacket(name enc.Name) (ndn.Data, error) {
@@ -43,9 +44,9 @@ func (t *Tool) fetchDataPacket(name enc.Name) (ndn.Data, error) {
 	return result.Data, nil
 }
 
-func (t *Tool) fetchObjectDataset(name enc.Name, noMetadata bool) (enc.Wire, error) {
+func (t *Tool) fetchObjectDataset(name enc.Name, noMetadata bool, trust *sec.TrustConfig) (enc.Wire, error) {
 	// This client only consumes; it does not need to attach a producer handler.
-	client := object.NewClient(t.engine, nil, nil)
+	client := object.NewClient(t.engine, nil, trust)
 	ch := make(chan ndn.ConsumeState, 1)
 	client.ConsumeExt(ndn.ConsumeExtArgs{
 		Name: name, NoMetadata: noMetadata,

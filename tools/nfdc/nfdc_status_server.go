@@ -26,6 +26,9 @@ var ndndStatusHTML = template.Must(template.New("ndnd-status").Funcs(template.Fu
 }).Parse(ndndStatusHTMLSource))
 
 func (t *Tool) RunStatusServer(_ *cobra.Command, _ []string) error {
+	if err := t.configureStatusTrust(); err != nil {
+		return err
+	}
 	t.Start()
 	defer t.Stop()
 

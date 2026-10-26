@@ -11,6 +11,7 @@ import (
 	dvconfig "github.com/named-data/ndnd/dv/config"
 	dvtlv "github.com/named-data/ndnd/dv/tlv"
 	enc "github.com/named-data/ndnd/std/encoding"
+	"github.com/named-data/ndnd/std/log"
 	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	"github.com/spf13/cobra"
 )
@@ -141,6 +142,9 @@ type ndndStrategies struct {
 }
 
 func (t *Tool) RunStatusReport(_ *cobra.Command, _ []string) error {
+	if err := t.configureStatusTrust(); err != nil {
+		return err
+	}
 	t.Start()
 	defer t.Stop()
 
@@ -210,7 +214,8 @@ func (t *Tool) buildNdndStatusReport() (*ndndStatusReport, error) {
 	if err := t.populateStrategies(report); err != nil {
 		return nil, err
 	}
-	t.populateDVStatus(report)
+	// DV is optional; its errors are logged without discarding forwarder status.
+	_ = t.populateDVStatus(report)
 	return report, nil
 }
 
@@ -356,29 +361,42 @@ func (t *Tool) populateStrategies(report *ndndStatusReport) error {
 	return nil
 }
 
-func (t *Tool) populateDVStatus(report *ndndStatusReport) {
+func (t *Tool) populateDVStatus(report *ndndStatusReport) (err error) {
+	defer func() {
+		if err != nil && t.statusTrust != nil {
+			log.Warn(nil, "DV routing dataset unavailable", "router", report.DV.RouterName, "err", err)
+		}
+	}()
 	data, err := t.fetchDataPacket(dvStatusName())
 	if err != nil {
-		return
+		return fmt.Errorf("fetch local DV summary: %w", err)
 	}
 
 	status, err := ndndDVStatusFromWire(data.Content())
 	if err != nil {
-		return
+		return fmt.Errorf("parse local DV summary: %w", err)
 	}
 	report.DV = status
-	router, err := enc.NameFromStr(status.RouterName)
-	if err != nil || len(router) == 0 {
-		return
+	if t.statusTrust == nil {
+		return nil
 	}
-	wire, err := t.fetchObjectDataset(dvconfig.StatusDatasetPrefix(router), false)
+	router, err := enc.NameFromStr(status.RouterName)
 	if err != nil {
-		return
+		return fmt.Errorf("parse DV router name %q: %w", status.RouterName, err)
+	}
+	if len(router) == 0 {
+		return fmt.Errorf("local DV summary contains an empty router name")
+	}
+	wire, err := t.fetchObjectDataset(dvconfig.StatusDatasetPrefix(router), false, t.statusTrust)
+	if err != nil {
+		return fmt.Errorf("fetch or validate DV routing dataset: %w", err)
 	}
 	status, err = ndndDVStatusFromDataset(wire, router)
-	if err == nil {
-		report.DV = status
+	if err != nil {
+		return fmt.Errorf("parse DV routing dataset: %w", err)
 	}
+	report.DV = status
+	return nil
 }
 
 func ndndDVStatusFromDataset(wire enc.Wire, router enc.Name) (ndndDVStatus, error) {

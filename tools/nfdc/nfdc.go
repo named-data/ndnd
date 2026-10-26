@@ -7,6 +7,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/ndn"
+	sec "github.com/named-data/ndnd/std/security"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +20,7 @@ func Cmds() []*cobra.Command {
 		}
 	}
 
-	return []*cobra.Command{{
+	commands := []*cobra.Command{{
 		Use:   "status",
 		Short: "Print general status",
 		Args:  cobra.NoArgs,
@@ -96,10 +97,19 @@ func Cmds() []*cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		Run:   cmd("strategy-choice", "unset", []string{}),
 	}}
+	for _, command := range commands {
+		if command.Use == "status-report" || command.Use == "status-server" {
+			command.Flags().StringArrayVar(&t.statusTrustAnchors, "trust-anchor", nil,
+				"Trusted DV root certificate file (PEM or binary; repeat for multiple files)")
+		}
+	}
+	return commands
 }
 
 type Tool struct {
-	engine ndn.Engine
+	engine             ndn.Engine
+	statusTrustAnchors []string
+	statusTrust        *sec.TrustConfig
 }
 
 // (AI GENERATED DESCRIPTION): Initializes the tool's engine with a new BasicEngine using a default face if not already set, then starts the engine, exiting the program on startup failure.
