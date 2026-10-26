@@ -131,6 +131,9 @@ func (c *Client) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error)
 	}
 
 	// Send NEW request to CA
+	if err := c.resetSession(); err != nil {
+		return nil, fmt.Errorf("failed to initialize certificate session: %w", err)
+	}
 	newParams := tlv.NewReq{
 		EcdhPub: c.ecdhKey.Public().(*ecdh.PublicKey).Bytes(),
 		CertReq: csr,
@@ -191,6 +194,9 @@ func (c *Client) Challenge(
 	newRes *tlv.NewRes,
 	prevRes *tlv.ChallengeRes,
 ) (*tlv.ChallengeRes, error) {
+	if c.ecdhKey == nil || c.aeadCtr == nil {
+		return nil, fmt.Errorf("NEW must initialize a certificate session before CHALLENGE")
+	}
 	var prevParams ParamMap = nil
 	var prevStatus optional.Optional[string]
 
