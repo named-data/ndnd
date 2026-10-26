@@ -15,6 +15,8 @@ import (
 	sig "github.com/named-data/ndnd/std/security/signer"
 )
 
+// Client supports one active certificate request at a time. Sequential requests
+// generate fresh ECDH keys and IV state for each NEW step.
 type Client struct {
 	engine ndn.Engine
 	signer ndn.Signer
@@ -46,12 +48,6 @@ func NewClient(engine ndn.Engine, caCert []byte) (*Client, error) {
 	// returned by start due to multiple clients.
 	client := object.NewClient(engine, storage.NewMemoryStore(), nil)
 
-	// Generate ECDH Key used for encryption
-	ecdhKey, err := EcdhKeygen()
-	if err != nil {
-		return nil, err
-	}
-
 	// Get CA prefix from CA certificate
 	caPrefix, err := sec.GetIdentityFromCertName(cert.Name())
 	if err != nil {
@@ -64,10 +60,20 @@ func NewClient(engine ndn.Engine, caCert []byte) (*Client, error) {
 		caCert:   cert,
 		caPrefix: caPrefix,
 
-		client:  client,
-		ecdhKey: ecdhKey,
-		aeadCtr: NewAeadCounter(),
+		client: client,
 	}, nil
+}
+
+// resetSession creates fresh key agreement and IV state for every NEW step,
+// including sequential requests made with the same Client instance.
+func (c *Client) resetSession() error {
+	c.ecdhKey, c.aeadCtr = nil, nil
+	key, err := EcdhKeygen()
+	if err != nil {
+		return err
+	}
+	c.ecdhKey, c.aeadCtr = key, NewAeadCounter()
+	return nil
 }
 
 // SetSigner sets the signer for the client.
