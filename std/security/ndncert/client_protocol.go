@@ -279,8 +279,10 @@ func (c *Client) Challenge(
 	}
 
 	chResAeadMsg := AeadMessage{}
-	chResAeadMsg.FromTLV(chResEnc)
-	chResBytes, err := AeadDecrypt([16]byte(symkey), chResAeadMsg, newRes.ReqId)
+	if err := chResAeadMsg.FromTLV(chResEnc); err != nil {
+		return nil, fmt.Errorf("invalid CHALLENGE cipher response: %w", err)
+	}
+	chResBytes, err := AeadDecrypt([16]byte(symkey), chResAeadMsg, newRes.ReqId, c.aeadCtr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt CHALLENGE response: %w", err)
 	}
