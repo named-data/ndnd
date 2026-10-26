@@ -128,6 +128,7 @@ func (dv *Router) updateFib() {
 		proute := dv.config.PrefixTableGroupPrefix().
 			Append(router.Name()...)
 		register(proute, fes, 0)
+		register(config.StatusDatasetPrefix(router.Name()), fes, 0)
 
 		// Add entries to all prefixes announced by this router
 		for _, prefix := range dv.pfx.GetRouter(router.Name()).Prefixes {

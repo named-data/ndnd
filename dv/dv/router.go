@@ -37,6 +37,11 @@ type Router struct {
 	// single mutex for all operations
 	mutex sync.Mutex
 
+	// Cache a bounded set of versioned status snapshots for segment fetches.
+	statusMu      sync.Mutex
+	statusUpdated time.Time
+	statusObjects *storage.MemoryFifoDir
+
 	// channel to stop the DV
 	stop chan bool
 	// heartbeat for outgoing Advertisements
@@ -98,12 +103,13 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 
 	// Create the DV router
 	dv := &Router{
-		engine: engine,
-		config: config,
-		trust:  trust,
-		client: object.NewClient(engine, store, trust),
-		nfdc:   nfdc.NewNfdMgmtThread(engine),
-		mutex:  sync.Mutex{},
+		engine:        engine,
+		config:        config,
+		trust:         trust,
+		client:        object.NewClient(engine, store, trust),
+		nfdc:          nfdc.NewNfdMgmtThread(engine),
+		mutex:         sync.Mutex{},
+		statusObjects: storage.NewMemoryFifoDir(32),
 	}
 
 	// Initialize advertisement module
@@ -238,6 +244,9 @@ func (dv *Router) register() (err error) {
 	if err != nil {
 		return err
 	}
+	if err = dv.engine.AttachHandler(config.StatusDatasetPrefix(dv.config.RouterName()), dv.onStatusDataset); err != nil {
+		return err
+	}
 
 	// Register routes to forwarder
 	pfxs := []enc.Name{
@@ -246,6 +255,7 @@ func (dv *Router) register() (err error) {
 		dv.pfxSvs.SyncPrefix(),
 		dv.pfxSvs.DataPrefix(),
 		dv.config.MgmtPrefix(),
+		config.StatusDatasetPrefix(dv.config.RouterName()),
 	}
 	for _, prefix := range pfxs {
 		dv.nfdc.Exec(nfdc.NfdMgmtCmd{
