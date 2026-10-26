@@ -14,12 +14,13 @@ The status-report command prints the NDNd status document as XML. It includes ge
 
 ## `ndnd fw status-server`
 
-The status-server command serves a server-rendered HTML status page over HTTP on port 6380. The `status-report` command continues to emit XML with an XSLT stylesheet reference. Both use the same management datasets. Missing DV status or an unavailable routing dataset is explicitly marked, including when querying an older DV router.
+The status-server command serves a server-rendered HTML status page at `/` and a machine-readable XML report at `/status.xml` over HTTP on port 6380. The XML endpoint returns `application/xml` and uses the same encoder as `status-report`, including its XSLT stylesheet reference. Both formats use the same management datasets. Missing DV status or an unavailable routing dataset is explicitly marked, including when querying an older DV router.
 
 ```sh
 ndnd fw status-report > status.xml
 ndnd fw status-server
 # Open http://localhost:6380/
+curl http://localhost:6380/status.xml
 ```
 
 ## `ndnd fw face-list`

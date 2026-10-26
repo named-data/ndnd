@@ -1,9 +1,11 @@
 package nfdc
 
 import (
+	"encoding/xml"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -38,10 +40,50 @@ func TestStatusServerServesPage(t *testing.T) {
 
 func TestStatusServerDatasetFailure(t *testing.T) {
 	handler := statusServerHandler(func() (*ndndStatusReport, error) { return nil, errors.New("internal detail") })
+	for _, path := range []string{"/", "/status.xml"} {
+		t.Run(path, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+			require.Equal(t, http.StatusServiceUnavailable, response.Code)
+			require.NotContains(t, response.Body.String(), "internal detail")
+		})
+	}
+}
+
+func TestStatusServerServesXML(t *testing.T) {
+	report := &ndndStatusReport{
+		General: ndndGeneralStatus{Version: "test<&>version", NFIBEntries: 3},
+		DV: ndndDVStatus{Available: true, DatasetAvailable: true,
+			Routers: []ndndDVRouter{{Name: "/example/a", Prefixes: []ndndDVPrefix{{Name: "/app/data", Cost: 3}}}},
+		},
+	}
+	calls := 0
+	handler := statusServerHandler(func() (*ndndStatusReport, error) { calls++; return report, nil })
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
-	require.Equal(t, http.StatusServiceUnavailable, response.Code)
-	require.NotContains(t, response.Body.String(), "internal detail")
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/status.xml", nil))
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, "application/xml; charset=utf-8", response.Header().Get("Content-Type"))
+	require.Equal(t, strconv.Itoa(response.Body.Len()), response.Header().Get("Content-Length"))
+	require.Equal(t, 1, calls)
+	expected, err := encodeNdndStatusXML(report)
+	require.NoError(t, err)
+	require.Equal(t, expected, response.Body.Bytes())
+	var parsed ndndStatusReport
+	require.NoError(t, xml.Unmarshal(response.Body.Bytes(), &parsed))
+	require.Equal(t, report.General, parsed.General)
+	require.Equal(t, report.DV, parsed.DV)
+}
+
+func TestStatusServerRejectsInvalidXMLRequests(t *testing.T) {
+	handler := statusServerHandler(nil)
+	for _, request := range []*http.Request{
+		httptest.NewRequest(http.MethodPost, "/status.xml", nil),
+		httptest.NewRequest(http.MethodGet, "/status.xml/extra", nil),
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		require.Equal(t, http.StatusNotFound, response.Code)
+	}
 }
 
 func TestStatusServerCollectorPanicReleasesLock(t *testing.T) {
@@ -82,7 +124,10 @@ func TestStatusServerRejectsConcurrentReports(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	secondDone := make(chan struct{})
-	go func() { handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil)); close(secondDone) }()
+	go func() {
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/status.xml", nil))
+		close(secondDone)
+	}()
 	select {
 	case <-secondDone:
 	case <-time.After(2 * time.Second):

@@ -53,7 +53,7 @@ func statusServerHandler(buildReport func() (*ndndStatusReport, error)) http.Han
 		_, _ = w.Write(ndndStatusXSL)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" || r.Method != http.MethodGet {
+		if (r.URL.Path != "/" && r.URL.Path != "/status.xml") || r.Method != http.MethodGet {
 			http.NotFound(w, r)
 			return
 		}
@@ -71,12 +71,19 @@ func statusServerHandler(buildReport func() (*ndndStatusReport, error)) http.Han
 			return
 		}
 
-		encoded, err := renderNDNdStatusHTML(report)
+		var encoded []byte
+		contentType := "text/html; charset=utf-8"
+		if r.URL.Path == "/status.xml" {
+			contentType = "application/xml; charset=utf-8"
+			encoded, err = encodeNdndStatusXML(report)
+		} else {
+			encoded, err = renderNDNdStatusHTML(report)
+		}
 		if err != nil {
 			http.Error(w, "NDNd status is temporarily unavailable", http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Content-Length", fmt.Sprint(len(encoded)))
 		_, _ = w.Write(encoded)
 	})
