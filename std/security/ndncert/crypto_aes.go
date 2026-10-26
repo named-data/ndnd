@@ -1,6 +1,7 @@
 package ndncert
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -30,19 +31,28 @@ func (m *AeadMessage) TLV() *tlv.CipherMsg {
 	}
 }
 
-// (AI GENERATED DESCRIPTION): Populates an AeadMessage's IV, AuthTag, and CipherText fields from a provided tlv.CipherMsg.
-func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) {
+// FromTLV decodes an AEAD message, rejecting invalid IV and tag lengths.
+func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) error {
+	if t == nil || len(t.InitVec) != AeadSizeNonce || len(t.AuthNTag) != AeadSizeTag {
+		return fmt.Errorf("invalid AEAD message: expected a %d-byte IV and %d-byte authentication tag", AeadSizeNonce, AeadSizeTag)
+	}
 	m.IV = [AeadSizeNonce]byte(t.InitVec)
 	m.AuthTag = [AeadSizeTag]byte(t.AuthNTag)
 	m.CipherText = t.Payload
+	return nil
 }
 
-// AeadCounter holds the send IV state of one NDNCERT session. It must not be
+// AeadCounter holds both directions of one NDNCERT session. It must not be
 // reused with a new session key or shared between concurrent operations.
 type AeadCounter struct {
 	// uint64 represents the exhausted state (2^32) without wrapping to zero.
 	nextSendBlock uint64
 	sendPrefix    [AeadSizeRand]byte
+	peerPrefix    [AeadSizeRand]byte
+
+	// Zero means no peer message has been accepted; messages consume at least
+	// one block, so every accepted message makes this positive.
+	nextPeerBlock uint64
 }
 
 const aeadCounterLimit = uint64(1) << 32
@@ -120,12 +130,22 @@ func AeadEncrypt(
 	}, nil
 }
 
-// (AI GENERATED DESCRIPTION): Decrypts an AEAD‑protected message using AES‑GCM with the given key and additional authenticated data.
+// AeadDecrypt authenticates a peer message and checks its IV against the session.
+// Use the same counter for every encryption and decryption in one session;
+// receive state advances only when authentication and IV validation succeed.
 func AeadDecrypt(
 	key [AeadSizeTag]byte,
 	message AeadMessage,
 	info []byte,
+	counter *AeadCounter,
 ) ([]byte, error) {
+	if counter == nil {
+		return nil, fmt.Errorf("AEAD session counter is required")
+	}
+	blocks, err := aeadBlocks(len(message.CipherText))
+	if err != nil {
+		return nil, err
+	}
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return nil, err
@@ -137,12 +157,35 @@ func AeadDecrypt(
 		return nil, err
 	}
 
-	ciphertext := append(message.CipherText, message.AuthTag[:]...)
+	// Do not overwrite the caller's packet buffer while assembling GCM input.
+	ciphertext := make([]byte, len(message.CipherText)+AeadSizeTag)
+	copy(ciphertext, message.CipherText)
+	copy(ciphertext[len(message.CipherText):], message.AuthTag[:])
 
-	plaintext, err := aesgcm.Open(nil, nonce, ciphertext, info[:])
+	plaintext, err := aesgcm.Open(ciphertext[:0], nonce, ciphertext, info)
 	if err != nil {
 		return nil, err
 	}
+	// Authenticate before changing receive state: forged packets cannot reserve
+	// counters or change the expected random prefix. Counter ranges may have
+	// gaps, but must never overlap or wrap. Each direction has its own prefix.
+	start := uint64(binary.BigEndian.Uint32(message.IV[AeadSizeRand:]))
+	if bytes.Equal(message.IV[:AeadSizeRand], counter.sendPrefix[:]) {
+		return nil, fmt.Errorf("AEAD peer reused the local IV random prefix")
+	}
+	if blocks > aeadCounterLimit-start {
+		return nil, fmt.Errorf("AEAD receive counter would wrap")
+	}
+	if counter.nextPeerBlock > 0 {
+		if !bytes.Equal(message.IV[:AeadSizeRand], counter.peerPrefix[:]) {
+			return nil, fmt.Errorf("AEAD peer IV prefix changed")
+		}
+		if start < counter.nextPeerBlock {
+			return nil, fmt.Errorf("AEAD counter was replayed or overlaps previously received blocks")
+		}
+	}
+	copy(counter.peerPrefix[:], message.IV[:AeadSizeRand])
+	counter.nextPeerBlock = start + blocks
 
 	return plaintext, nil
 }
