@@ -15,21 +15,9 @@ func (t *Tool) ExecPetList(_ *cobra.Command, _ []string) {
 	t.Start()
 	defer t.Stop()
 
-	suffix := enc.Name{
-		enc.NewGenericComponent("pet"),
-		enc.NewGenericComponent("list"),
-	}
-
-	data, err := t.fetchStatusDataset(suffix)
+	status, err := t.fetchPetStatus()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching status dataset: %+v\n", err)
-		os.Exit(1)
-		return
-	}
-
-	status, err := mgmt.ParsePetStatus(enc.NewWireView(data), true)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing PET status: %+v\n", err)
+		fmt.Fprintf(os.Stderr, "Error fetching PET status: %+v\n", err)
 		os.Exit(1)
 		return
 	}
@@ -54,4 +42,16 @@ func (t *Tool) ExecPetList(_ *cobra.Command, _ []string) {
 		fmt.Printf("  %s egress={%s} nexthops={%s}%s\n",
 			entry.Name, strings.Join(egressList, ", "), strings.Join(nexthops, ", "), multicastStr)
 	}
+}
+
+func (t *Tool) fetchPetStatus() (*mgmt.PetStatus, error) {
+	data, err := t.fetchStatusDataset(enc.Name{enc.NewGenericComponent("pet"), enc.NewGenericComponent("list")})
+	if err != nil {
+		return nil, fmt.Errorf("fetch PET: %w", err)
+	}
+	status, err := mgmt.ParsePetStatus(enc.NewWireView(data), true)
+	if err != nil {
+		return nil, fmt.Errorf("parse PET: %w", err)
+	}
+	return status, nil
 }

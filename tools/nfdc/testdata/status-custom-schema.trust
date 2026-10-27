@@ -1,0 +1,24 @@
+// Network name from config
+#network: net10
+#network: net20/net21
+#network: net30/net31/net32
+// Router name from config
+#router: #network/router
+
+// Advertisement data and broadcast
+#advertisement_data: /"localhop"/#router/"32=DV"/"32=ADV"/_ <= #router_cert
+
+// Read-only routing status dataset
+#status_data: #router/"32=DV"/"32=STATUS" <= #router_cert
+
+// Prefix state database
+#prefix_state: #network/"32=DV"/"32=PSD"
+// Prefix state database data
+#prefix_state_data: #prefix_state/#router/_/_ <= #router_cert
+
+// Certificate definitions
+#network_cert: #network/#KEY
+#router_cert: #router/"router-key"/#KEY <= #network_cert
+
+// Standard NDN conventions
+#KEY: "KEY"/_/_/_
