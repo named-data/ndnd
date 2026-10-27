@@ -19,5 +19,6 @@ Reference:
 	new(ToolSignCert).configure(cmd)
 	new(ToolKeychain).configure(cmd)
 	new(ToolPem).configure(cmd)
+	cmd.AddCommand(CmdCertServer())
 	return cmd
 }
