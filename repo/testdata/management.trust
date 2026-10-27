@@ -1,0 +1,9 @@
+#KEY: "KEY"/_/_/_
+#root: "ndnd"/#KEY
+#user: "ndnd"/"users"/user
+#user_cert: #user/#KEY <= #root
+#command: #user/"32=repo" <= #user_cert
+#security_config: #user/"32=repo-security" <= #user_cert
+#repo: "ndnd"/"site"/"repo"
+#repo_cert: #repo/#KEY <= #root
+#response: #repo/"32=cmd"/_ <= #repo_cert
