@@ -2134,3 +2134,536 @@ func ParsePrefixInsertionInnerContent(reader enc.WireView, ignoreCritical bool) 
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
+
+type RoutingStatusEncoder struct {
+	Length uint
+
+	Status_encoder     StatusEncoder
+	Routers_subencoder []struct {
+		Routers_encoder RouterStatusEncoder
+	}
+}
+
+type RoutingStatusParsingContext struct {
+	Status_context  StatusParsingContext
+	Routers_context RouterStatusParsingContext
+}
+
+func (encoder *RoutingStatusEncoder) Init(value *RoutingStatus) {
+	if value.Status != nil {
+		encoder.Status_encoder.Init(value.Status)
+	}
+	{
+		Routers_l := len(value.Routers)
+		encoder.Routers_subencoder = make([]struct {
+			Routers_encoder RouterStatusEncoder
+		}, Routers_l)
+		for i := 0; i < Routers_l; i++ {
+			pseudoEncoder := &encoder.Routers_subencoder[i]
+			pseudoValue := struct {
+				Routers *RouterStatus
+			}{
+				Routers: value.Routers[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Routers != nil {
+					encoder.Routers_encoder.Init(value.Routers)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.Status != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.Status_encoder.Length).EncodingLength())
+		l += encoder.Status_encoder.Length
+	}
+	if value.Routers != nil {
+		for seq_i, seq_v := range value.Routers {
+			pseudoEncoder := &encoder.Routers_subencoder[seq_i]
+			pseudoValue := struct {
+				Routers *RouterStatus
+			}{
+				Routers: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Routers != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.Routers_encoder.Length).EncodingLength())
+					l += encoder.Routers_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *RoutingStatusParsingContext) Init() {
+	context.Status_context.Init()
+	context.Routers_context.Init()
+}
+
+func (encoder *RoutingStatusEncoder) EncodeInto(value *RoutingStatus, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Status != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(416))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.Status_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.Status_encoder.Length > 0 {
+			encoder.Status_encoder.EncodeInto(value.Status, buf[pos:])
+			pos += encoder.Status_encoder.Length
+		}
+	}
+	if value.Routers != nil {
+		for seq_i, seq_v := range value.Routers {
+			pseudoEncoder := &encoder.Routers_subencoder[seq_i]
+			pseudoValue := struct {
+				Routers *RouterStatus
+			}{
+				Routers: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Routers != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(418))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.Routers_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Routers_encoder.Length > 0 {
+						encoder.Routers_encoder.EncodeInto(value.Routers, buf[pos:])
+						pos += encoder.Routers_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *RoutingStatusEncoder) Encode(value *RoutingStatus) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *RoutingStatusParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*RoutingStatus, error) {
+
+	var handled_Status bool = false
+	var handled_Routers bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &RoutingStatus{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 416:
+				if true {
+					handled = true
+					handled_Status = true
+					value.Status, err = context.Status_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 418:
+				if true {
+					handled = true
+					handled_Routers = true
+					if value.Routers == nil {
+						value.Routers = make([]*RouterStatus, 0)
+					}
+					{
+						pseudoValue := struct {
+							Routers *RouterStatus
+						}{}
+						{
+							value := &pseudoValue
+							value.Routers, err = context.Routers_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.Routers = append(value.Routers, pseudoValue.Routers)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Status && err == nil {
+		value.Status = nil
+	}
+	if !handled_Routers && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *RoutingStatus) Encode() enc.Wire {
+	encoder := RoutingStatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *RoutingStatus) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseRoutingStatus(reader enc.WireView, ignoreCritical bool) (*RoutingStatus, error) {
+	context := RoutingStatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type RouterStatusEncoder struct {
+	Length uint
+
+	Name_length     uint
+	NextHop_encoder DestinationEncoder
+
+	Prefixes_subencoder []struct {
+		Prefixes_encoder PrefixOpAddEncoder
+	}
+}
+
+type RouterStatusParsingContext struct {
+	NextHop_context DestinationParsingContext
+
+	Prefixes_context PrefixOpAddParsingContext
+}
+
+func (encoder *RouterStatusEncoder) Init(value *RouterStatus) {
+	if value.Name != nil {
+		encoder.Name_length = 0
+		for _, c := range value.Name {
+			encoder.Name_length += uint(c.EncodingLength())
+		}
+	}
+	if value.NextHop != nil {
+		encoder.NextHop_encoder.Init(value.NextHop)
+	}
+
+	{
+		Prefixes_l := len(value.Prefixes)
+		encoder.Prefixes_subencoder = make([]struct {
+			Prefixes_encoder PrefixOpAddEncoder
+		}, Prefixes_l)
+		for i := 0; i < Prefixes_l; i++ {
+			pseudoEncoder := &encoder.Prefixes_subencoder[i]
+			pseudoValue := struct {
+				Prefixes *PrefixOpAdd
+			}{
+				Prefixes: value.Prefixes[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Prefixes != nil {
+					encoder.Prefixes_encoder.Init(value.Prefixes)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.Name != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.Name_length).EncodingLength())
+		l += encoder.Name_length
+	}
+	if value.NextHop != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.NextHop_encoder.Length).EncodingLength())
+		l += encoder.NextHop_encoder.Length
+	}
+	l += 1
+	l += uint(1 + enc.Nat(value.Cost).EncodingLength())
+	if value.Prefixes != nil {
+		for seq_i, seq_v := range value.Prefixes {
+			pseudoEncoder := &encoder.Prefixes_subencoder[seq_i]
+			pseudoValue := struct {
+				Prefixes *PrefixOpAdd
+			}{
+				Prefixes: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Prefixes != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.Prefixes_encoder.Length).EncodingLength())
+					l += encoder.Prefixes_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *RouterStatusParsingContext) Init() {
+
+	context.NextHop_context.Init()
+
+	context.Prefixes_context.Init()
+}
+
+func (encoder *RouterStatusEncoder) EncodeInto(value *RouterStatus, buf []byte) {
+
+	pos := uint(0)
+
+	if value.Name != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.Name_length).EncodeInto(buf[pos:]))
+		for _, c := range value.Name {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.NextHop != nil {
+		buf[pos] = byte(206)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.NextHop_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.NextHop_encoder.Length > 0 {
+			encoder.NextHop_encoder.EncodeInto(value.NextHop, buf[pos:])
+			pos += encoder.NextHop_encoder.Length
+		}
+	}
+	buf[pos] = byte(208)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.Cost).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	if value.Prefixes != nil {
+		for seq_i, seq_v := range value.Prefixes {
+			pseudoEncoder := &encoder.Prefixes_subencoder[seq_i]
+			pseudoValue := struct {
+				Prefixes *PrefixOpAdd
+			}{
+				Prefixes: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Prefixes != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(304))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.Prefixes_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Prefixes_encoder.Length > 0 {
+						encoder.Prefixes_encoder.EncodeInto(value.Prefixes, buf[pos:])
+						pos += encoder.Prefixes_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *RouterStatusEncoder) Encode(value *RouterStatus) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *RouterStatusParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*RouterStatus, error) {
+
+	var handled_Name bool = false
+	var handled_NextHop bool = false
+	var handled_Cost bool = false
+	var handled_Prefixes bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &RouterStatus{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 7:
+				if true {
+					handled = true
+					handled_Name = true
+					delegate := reader.Delegate(int(l))
+					value.Name, err = delegate.ReadName()
+				}
+			case 206:
+				if true {
+					handled = true
+					handled_NextHop = true
+					value.NextHop, err = context.NextHop_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 208:
+				if true {
+					handled = true
+					handled_Cost = true
+					value.Cost = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.Cost = uint64(value.Cost<<8) | uint64(x)
+						}
+					}
+				}
+			case 304:
+				if true {
+					handled = true
+					handled_Prefixes = true
+					if value.Prefixes == nil {
+						value.Prefixes = make([]*PrefixOpAdd, 0)
+					}
+					{
+						pseudoValue := struct {
+							Prefixes *PrefixOpAdd
+						}{}
+						{
+							value := &pseudoValue
+							value.Prefixes, err = context.Prefixes_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.Prefixes = append(value.Prefixes, pseudoValue.Prefixes)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_Name && err == nil {
+		value.Name = nil
+	}
+	if !handled_NextHop && err == nil {
+		value.NextHop = nil
+	}
+	if !handled_Cost && err == nil {
+		err = enc.ErrSkipRequired{Name: "Cost", TypeNum: 208}
+	}
+	if !handled_Prefixes && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *RouterStatus) Encode() enc.Wire {
+	encoder := RouterStatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *RouterStatus) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseRouterStatus(reader enc.WireView, ignoreCritical bool) (*RouterStatus, error) {
+	context := RouterStatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
