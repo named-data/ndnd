@@ -8,6 +8,79 @@ You can also use the [nfdc](https://docs.named-data.net/NFD/24.07/manpages/nfdc.
 
 The status command shows general status of the forwarder, including its version, uptime, data structure counters, and global packet counters.
 
+## `ndnd fw status-report`
+
+The status-report command prints the NDNd status document as XML by default. Use `--format json` for JSON output. It includes general forwarder counters, faces, FIB, RIB, PET, and BIER/BIFT entries, content-store statistics, strategy choices, and DV status when the DV service is available. The DV section includes reachable routers, next hops, costs, and learned prefix announcements from the [DV routing dataset](dv-control.md#routing-status-dataset). Fields that NDNd does not provide, such as NameTree, Measurements, and Nack counters, are not included.
+
+DV2-specific sections include PET prefix-to-egress mappings, direct next-hop
+faces and costs, and multicast flags. The BIER/BIFT section reports whether
+BIER is enabled, the local bit index, router-to-BFR-ID mappings, next-hop
+faces, and neighbor forwarding masks as bit-position lists. Disabled BIER
+is explicit and distinct from enabled bit index zero. Both sections come
+from the local forwarder's management datasets; DV routing/PSD information
+comes from the signed router dataset when trust anchors are configured.
+
+The JSON field types are fixed, independent of the current value:
+
+| Fields | JSON type |
+|---|---|
+| Cumulative packet/byte counters and content-store hits/misses | Decimal string |
+| Face identifiers, FIB/RIB/PET costs, congestion intervals and thresholds | Decimal string |
+| Table sizes, neighbor counts, and content-store capacity | Number |
+| DV router costs, BIER bit indices, MTUs, and expiration periods in milliseconds | Number |
+
+Strings preserve exact full-width integers, including zero and small values.
+Numbers represent operational quantities such as current table sizes and
+bounded DV costs. XML and HTML output retain their existing representations.
+
+The dataset reader accepts reachable router costs below `16`, using NDNd's existing DV infinity limit.
+A dataset containing a cost outside this range is rejected and its DV
+routing details are marked unavailable in all report formats; other status
+sections remain available.
+
+## `ndnd fw status-server`
+
+The status-server command serves a server-rendered HTML status page at `/` and machine-readable reports at `/status.xml` (`application/xml`) and `/status.json` (`application/json`) over HTTP on port 6380. These endpoints use the same encoders as `status-report`. All formats use the same management datasets. Missing DV status or an unavailable routing dataset is explicitly marked, including when querying an older DV router.
+
+```sh
+ndnd fw status-report > status.xml
+ndnd fw status-report --format json > status.json
+ndnd fw status-server
+# Open http://localhost:6380/
+curl http://localhost:6380/status.xml
+curl http://localhost:6380/status.json
+```
+
+Both status commands accept repeatable `--trust-anchor FILE` options for DV
+routing dataset validation. Each file contains one or more trusted NDN root
+certificates in PEM or binary format; private keys are not required. Metadata
+and every data segment are validated against these anchors and a locally
+selected trust schema. `--trust-schema FILE` loads a compiled LVS schema;
+otherwise the bundled [DV trust schema](../dv/config/schema.trust) is used.
+A custom schema requires at least one trust anchor. Missing or invalid files
+fail at startup. Schema mismatches reject the routing dataset; there is no
+fallback to the bundled schema, `NullSchema`, or unvalidated data after a
+custom schema is selected. Certificate retrieval uses the
+data name as a forwarding hint.
+
+```sh
+ndnd fw status-report --trust-anchor network-root.cert
+ndnd fw status-server --trust-anchor network-root.cert
+# Use the deployment's routing schema, including its status dataset rule:
+ndnd fw status-server --trust-schema dv-schema.tlv --trust-anchor network-root.cert
+```
+
+Without trust anchors, or when validation fails, DV routing details are marked
+unavailable. There is no unvalidated fallback for the routing dataset. General
+forwarder datasets and the local DV summary continue to use the existing
+management connection's trust model; these are not authenticated by the DV
+schema.
+
+When DV validation is configured, failures are logged to stderr with the router
+name and the underlying retrieval, validation, or parsing error. The report
+still includes available forwarder status. Omitting trust anchors intentionally
+disables the routing dataset and does not produce a warning.
+
 ## `ndnd fw face-list`
 
 The face list command prints the face table, which contains information about faces.

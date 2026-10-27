@@ -7,6 +7,7 @@ import (
 	enc "github.com/named-data/ndnd/std/encoding"
 	"github.com/named-data/ndnd/std/engine"
 	"github.com/named-data/ndnd/std/ndn"
+	sec "github.com/named-data/ndnd/std/security"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,16 @@ func Cmds() []*cobra.Command {
 		Short: "Print general status",
 		Args:  cobra.NoArgs,
 		Run:   t.ExecStatusGeneral,
+	}, {
+		Use:   "status-report",
+		Short: "Print the NDNd status report as XML or JSON",
+		Args:  cobra.NoArgs,
+		RunE:  t.RunStatusReport,
+	}, {
+		Use:   "status-server",
+		Short: "Serve the NDNd status report over HTTP",
+		Args:  cobra.NoArgs,
+		RunE:  t.RunStatusServer,
 	}, {
 		Use:   "face-list",
 		Short: "Print face table",
@@ -115,11 +126,24 @@ func Cmds() []*cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		Run:   cmd("strategy-choice", "unset", []string{}),
 	}}...)
+	for _, command := range cmds {
+		if command.Use == "status-report" {
+			command.Flags().StringVar(&t.statusFormat, "format", "xml", "Report format: xml or json")
+		}
+		if command.Use == "status-report" || command.Use == "status-server" {
+			command.Flags().StringVar(&t.statusTrustSchemaPath, "trust-schema", "", "Compiled DV trust schema file (default: bundled DV schema)")
+			command.Flags().StringArrayVar(&t.statusTrustAnchors, "trust-anchor", nil, "Trusted DV root certificate file (PEM or binary; repeat for multiple files)")
+		}
+	}
 	return cmds
 }
 
 type Tool struct {
-	engine ndn.Engine
+	engine                ndn.Engine
+	statusTrustAnchors    []string
+	statusTrustSchemaPath string
+	statusTrust           *sec.TrustConfig
+	statusFormat          string
 }
 
 // (AI GENERATED DESCRIPTION): Initializes the tool's engine with a new BasicEngine using a default face if not already set, then starts the engine, exiting the program on startup failure.
