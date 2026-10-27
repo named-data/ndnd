@@ -363,3 +363,37 @@ type CsQuery struct {
 	PacketSize      uint64
 	FreshnessPeriod uint64
 }
+
+// BiftStatus is the local BIER forwarding status dataset.
+type BiftStatus struct {
+	//+field:struct:BiftGeneralStatus
+	General *BiftGeneralStatus `tlv:"0x300"`
+	//+field:sequence:*BiftEntry:struct:BiftEntry
+	Entries []*BiftEntry `tlv:"0x302"`
+	//+field:sequence:*BiftNeighbor:struct:BiftNeighbor
+	Neighbors []*BiftNeighbor `tlv:"0x304"`
+}
+
+type BiftGeneralStatus struct {
+	// An absent index means BIER is disabled; index zero is valid.
+	//+field:natural:optional
+	BierIndex optional.Optional[uint64] `tlv:"0x306"`
+}
+
+type BiftEntry struct {
+	//+field:natural
+	BfrId uint64 `tlv:"0x306"`
+	//+field:name
+	RouterName enc.Name `tlv:"0x07"`
+	//+field:sequence:uint64:natural
+	NextHops []uint64 `tlv:"0x69"`
+	//+field:sequence:uint64:natural
+	FbmBits []uint64 `tlv:"0x308"`
+}
+
+type BiftNeighbor struct {
+	//+field:natural
+	FaceID uint64 `tlv:"0x69"`
+	//+field:sequence:uint64:natural
+	FbmBits []uint64 `tlv:"0x308"`
+}

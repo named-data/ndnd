@@ -99,6 +99,37 @@ The fib-list command prints the existing FIB entries.
 The bift-list command prints the current Bit Index Forwarding Table (BIFT)
 entries, including each router's BFR-ID, next-hop face ID, and forwarding bit mask.
 
+### BIFT management dataset
+
+`/localhost/nfd/bift/list` serves a segmented TLV dataset, consumed by both
+`bift-list` and the status reports. This replaces DV2's previous JSON wire
+payload; the forwarder and its consumers must be updated together. JSON
+remains available as a report output format through `/status.json`.
+
+```abnf
+BiftStatus = BiftGeneralStatus *BiftEntry *BiftNeighbor
+BiftGeneralStatus = BIFT-GENERAL-TYPE TLV-LENGTH [BierIndex]
+BiftEntry = BIFT-ENTRY-TYPE TLV-LENGTH BierIndex Name *FaceId *FbmBit
+BiftNeighbor = BIFT-NEIGHBOR-TYPE TLV-LENGTH FaceId *FbmBit
+BierIndex = BIER-INDEX-TYPE TLV-LENGTH NonNegativeInteger
+FaceId = FACE-ID-TYPE TLV-LENGTH NonNegativeInteger
+FbmBit = FBM-BIT-TYPE TLV-LENGTH NonNegativeInteger
+
+BIFT-GENERAL-TYPE = 768
+BIFT-ENTRY-TYPE = 770
+BIFT-NEIGHBOR-TYPE = 772
+BIER-INDEX-TYPE = 774
+FBM-BIT-TYPE = 776
+FACE-ID-TYPE = 105
+```
+
+General status is always present. Its absent `BierIndex` indicates disabled
+BIER; a present zero indicates enabled index zero. Within a BIFT entry,
+`BierIndex` identifies the destination router's BFR-ID. Repeated `FaceId`
+fields list next hops. `FbmBit` fields list the set positions of the
+forwarding bit mask. Router entries are sorted by BFR-ID, neighbors by
+face ID, and mask positions in ascending order.
+
 ## `ndnd fw pet-list`
 
 The pet-list command prints the existing PET entries.

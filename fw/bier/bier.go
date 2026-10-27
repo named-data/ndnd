@@ -8,12 +8,15 @@
 package bier
 
 import (
+	"slices"
 	"sort"
 	"sync"
 
 	"github.com/named-data/ndnd/fw/core"
 	"github.com/named-data/ndnd/fw/table"
 	enc "github.com/named-data/ndnd/std/encoding"
+	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
+	"github.com/named-data/ndnd/std/types/optional"
 )
 
 // BiftEntry represents a single entry in the Bit Index Forwarding Table.
@@ -24,27 +27,6 @@ type BiftEntry struct {
 	RouterName enc.Name // Name of the destination router
 	NextHop    uint64   // Face ID to reach this router's next hop
 	Fbm        []byte   // Forwarding Bit Mask for this neighbor
-}
-
-// BiftStatusEntry is a JSON-friendly snapshot of one BIFT entry.
-type BiftStatusEntry struct {
-	BfrId      int      `json:"bfr_id"`
-	RouterName string   `json:"router_name"`
-	NextHops   []uint64 `json:"next_hops"`
-	FbmBits    []int    `json:"fbm_bits"`
-}
-
-// BiftStatusNeighbor is a JSON-friendly snapshot of one BIFT neighbor entry.
-type BiftStatusNeighbor struct {
-	FaceID  uint64 `json:"face_id"`
-	FbmBits []int  `json:"fbm_bits"`
-}
-
-// BiftStatus is a JSON-friendly snapshot of the current BIFT state.
-type BiftStatus struct {
-	BierIndex int                  `json:"bier_index"`
-	Entries   []BiftStatusEntry    `json:"entries"`
-	Neighbors []BiftStatusNeighbor `json:"neighbors"`
 }
 
 // Bift is the global Bit Index Forwarding Table.
@@ -291,24 +273,25 @@ func (b *BiftState) BuildFromFib() {
 	b.rebuildFbmLocked()
 }
 
-func bitPositions(bs []byte) []int {
-	positions := make([]int, 0)
+func bitPositions(bs []byte) []uint64 {
+	positions := make([]uint64, 0)
 	for byteIdx, value := range bs {
 		if value == 0 {
 			continue
 		}
 		for bitIdx := 0; bitIdx < 8; bitIdx++ {
 			if value&(1<<uint(bitIdx)) != 0 {
-				positions = append(positions, (byteIdx*8)+bitIdx)
+				positions = append(positions, uint64(byteIdx*8+bitIdx))
 			}
 		}
 	}
 	return positions
 }
 
-// Status returns a deterministic snapshot of the current BIFT state.
-func (b *BiftState) Status() BiftStatus {
+// Copy the live fields once; output construction uses only this owned copy.
+func (b *BiftState) snapshotEntries() []*BiftEntry {
 	b.mu.RLock()
+	defer b.mu.RUnlock()
 	entries := make([]*BiftEntry, 0, len(b.entries))
 	for _, entry := range b.entries {
 		cloned := *entry
@@ -316,41 +299,34 @@ func (b *BiftState) Status() BiftStatus {
 		cloned.Fbm = BierClone(entry.Fbm)
 		entries = append(entries, &cloned)
 	}
-	b.mu.RUnlock()
+	return entries
+}
 
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].BfrId < entries[j].BfrId
-	})
-
-	status := BiftStatus{
-		BierIndex: CfgBierIndex(),
-		Entries:   make([]BiftStatusEntry, 0, len(entries)),
+// Status returns a deterministic snapshot of the current BIFT state.
+func (b *BiftState) Status() *mgmt.BiftStatus {
+	status := &mgmt.BiftStatus{General: &mgmt.BiftGeneralStatus{}}
+	if index := CfgBierIndex(); index >= 0 {
+		status.General.BierIndex = optional.Some(uint64(index))
 	}
+	entries := b.snapshotEntries()
+	seenFaces := make(map[uint64]struct{})
 	for _, entry := range entries {
-		nextHops := make([]uint64, 0, 1)
-		if entry.NextHop > 0 {
-			nextHops = append(nextHops, entry.NextHop)
+		item := &mgmt.BiftEntry{
+			BfrId: uint64(entry.BfrId), RouterName: entry.RouterName, FbmBits: bitPositions(entry.Fbm),
 		}
-		status.Entries = append(status.Entries, BiftStatusEntry{
-			BfrId:      entry.BfrId,
-			RouterName: entry.RouterName.String(),
-			NextHops:   nextHops,
-			FbmBits:    bitPositions(entry.Fbm),
-		})
+		if entry.NextHop > 0 {
+			item.NextHops = []uint64{entry.NextHop}
+			if _, seen := seenFaces[entry.NextHop]; !seen && entry.Fbm != nil {
+				status.Neighbors = append(status.Neighbors, &mgmt.BiftNeighbor{
+					FaceID: entry.NextHop, FbmBits: slices.Clone(item.FbmBits),
+				})
+				seenFaces[entry.NextHop] = struct{}{}
+			}
+		}
+		status.Entries = append(status.Entries, item)
 	}
-
-	neighbors := b.GetNeighborEntries()
-	sort.Slice(neighbors, func(i, j int) bool {
-		return neighbors[i].FaceID < neighbors[j].FaceID
-	})
-	status.Neighbors = make([]BiftStatusNeighbor, 0, len(neighbors))
-	for _, neighbor := range neighbors {
-		status.Neighbors = append(status.Neighbors, BiftStatusNeighbor{
-			FaceID:  neighbor.FaceID,
-			FbmBits: bitPositions(neighbor.Fbm),
-		})
-	}
-
+	sort.Slice(status.Entries, func(i, j int) bool { return status.Entries[i].BfrId < status.Entries[j].BfrId })
+	sort.Slice(status.Neighbors, func(i, j int) bool { return status.Neighbors[i].FaceID < status.Neighbors[j].FaceID })
 	return status
 }
 
