@@ -2,6 +2,7 @@
 package mgmt_2022
 
 import (
+	"encoding/binary"
 	"io"
 	"strings"
 
@@ -7257,6 +7258,1083 @@ func (value *CsInfoMsg) Bytes() []byte {
 
 func ParseCsInfoMsg(reader enc.WireView, ignoreCritical bool) (*CsInfoMsg, error) {
 	context := CsInfoMsgParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type BiftStatusEncoder struct {
+	Length uint
+
+	General_encoder    BiftGeneralStatusEncoder
+	Entries_subencoder []struct {
+		Entries_encoder BiftEntryEncoder
+	}
+	Neighbors_subencoder []struct {
+		Neighbors_encoder BiftNeighborEncoder
+	}
+}
+
+type BiftStatusParsingContext struct {
+	General_context   BiftGeneralStatusParsingContext
+	Entries_context   BiftEntryParsingContext
+	Neighbors_context BiftNeighborParsingContext
+}
+
+func (encoder *BiftStatusEncoder) Init(value *BiftStatus) {
+	if value.General != nil {
+		encoder.General_encoder.Init(value.General)
+	}
+	{
+		Entries_l := len(value.Entries)
+		encoder.Entries_subencoder = make([]struct {
+			Entries_encoder BiftEntryEncoder
+		}, Entries_l)
+		for i := 0; i < Entries_l; i++ {
+			pseudoEncoder := &encoder.Entries_subencoder[i]
+			pseudoValue := struct {
+				Entries *BiftEntry
+			}{
+				Entries: value.Entries[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					encoder.Entries_encoder.Init(value.Entries)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	{
+		Neighbors_l := len(value.Neighbors)
+		encoder.Neighbors_subencoder = make([]struct {
+			Neighbors_encoder BiftNeighborEncoder
+		}, Neighbors_l)
+		for i := 0; i < Neighbors_l; i++ {
+			pseudoEncoder := &encoder.Neighbors_subencoder[i]
+			pseudoValue := struct {
+				Neighbors *BiftNeighbor
+			}{
+				Neighbors: value.Neighbors[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Neighbors != nil {
+					encoder.Neighbors_encoder.Init(value.Neighbors)
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	if value.General != nil {
+		l += 3
+		l += uint(enc.TLNum(encoder.General_encoder.Length).EncodingLength())
+		l += encoder.General_encoder.Length
+	}
+	if value.Entries != nil {
+		for seq_i, seq_v := range value.Entries {
+			pseudoEncoder := &encoder.Entries_subencoder[seq_i]
+			pseudoValue := struct {
+				Entries *BiftEntry
+			}{
+				Entries: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodingLength())
+					l += encoder.Entries_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.Neighbors != nil {
+		for seq_i, seq_v := range value.Neighbors {
+			pseudoEncoder := &encoder.Neighbors_subencoder[seq_i]
+			pseudoValue := struct {
+				Neighbors *BiftNeighbor
+			}{
+				Neighbors: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Neighbors != nil {
+					l += 3
+					l += uint(enc.TLNum(encoder.Neighbors_encoder.Length).EncodingLength())
+					l += encoder.Neighbors_encoder.Length
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *BiftStatusParsingContext) Init() {
+	context.General_context.Init()
+	context.Entries_context.Init()
+	context.Neighbors_context.Init()
+}
+
+func (encoder *BiftStatusEncoder) EncodeInto(value *BiftStatus, buf []byte) {
+
+	pos := uint(0)
+
+	if value.General != nil {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(768))
+		pos += 3
+		pos += uint(enc.TLNum(encoder.General_encoder.Length).EncodeInto(buf[pos:]))
+		if encoder.General_encoder.Length > 0 {
+			encoder.General_encoder.EncodeInto(value.General, buf[pos:])
+			pos += encoder.General_encoder.Length
+		}
+	}
+	if value.Entries != nil {
+		for seq_i, seq_v := range value.Entries {
+			pseudoEncoder := &encoder.Entries_subencoder[seq_i]
+			pseudoValue := struct {
+				Entries *BiftEntry
+			}{
+				Entries: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Entries != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(770))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.Entries_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Entries_encoder.Length > 0 {
+						encoder.Entries_encoder.EncodeInto(value.Entries, buf[pos:])
+						pos += encoder.Entries_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.Neighbors != nil {
+		for seq_i, seq_v := range value.Neighbors {
+			pseudoEncoder := &encoder.Neighbors_subencoder[seq_i]
+			pseudoValue := struct {
+				Neighbors *BiftNeighbor
+			}{
+				Neighbors: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				if value.Neighbors != nil {
+					buf[pos] = 253
+					binary.BigEndian.PutUint16(buf[pos+1:], uint16(772))
+					pos += 3
+					pos += uint(enc.TLNum(encoder.Neighbors_encoder.Length).EncodeInto(buf[pos:]))
+					if encoder.Neighbors_encoder.Length > 0 {
+						encoder.Neighbors_encoder.EncodeInto(value.Neighbors, buf[pos:])
+						pos += encoder.Neighbors_encoder.Length
+					}
+				}
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *BiftStatusEncoder) Encode(value *BiftStatus) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *BiftStatusParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*BiftStatus, error) {
+
+	var handled_General bool = false
+	var handled_Entries bool = false
+	var handled_Neighbors bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &BiftStatus{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 768:
+				if true {
+					handled = true
+					handled_General = true
+					value.General, err = context.General_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+				}
+			case 770:
+				if true {
+					handled = true
+					handled_Entries = true
+					if value.Entries == nil {
+						value.Entries = make([]*BiftEntry, 0)
+					}
+					{
+						pseudoValue := struct {
+							Entries *BiftEntry
+						}{}
+						{
+							value := &pseudoValue
+							value.Entries, err = context.Entries_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.Entries = append(value.Entries, pseudoValue.Entries)
+					}
+					progress--
+				}
+			case 772:
+				if true {
+					handled = true
+					handled_Neighbors = true
+					if value.Neighbors == nil {
+						value.Neighbors = make([]*BiftNeighbor, 0)
+					}
+					{
+						pseudoValue := struct {
+							Neighbors *BiftNeighbor
+						}{}
+						{
+							value := &pseudoValue
+							value.Neighbors, err = context.Neighbors_context.Parse(reader.Delegate(int(l)), ignoreCritical)
+							_ = value
+						}
+						value.Neighbors = append(value.Neighbors, pseudoValue.Neighbors)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_General && err == nil {
+		value.General = nil
+	}
+	if !handled_Entries && err == nil {
+		// sequence - skip
+	}
+	if !handled_Neighbors && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *BiftStatus) Encode() enc.Wire {
+	encoder := BiftStatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *BiftStatus) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseBiftStatus(reader enc.WireView, ignoreCritical bool) (*BiftStatus, error) {
+	context := BiftStatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type BiftGeneralStatusEncoder struct {
+	Length uint
+}
+
+type BiftGeneralStatusParsingContext struct {
+}
+
+func (encoder *BiftGeneralStatusEncoder) Init(value *BiftGeneralStatus) {
+
+	l := uint(0)
+	if optval, ok := value.BierIndex.Get(); ok {
+		l += 3
+		l += uint(1 + enc.Nat(optval).EncodingLength())
+	}
+	encoder.Length = l
+
+}
+
+func (context *BiftGeneralStatusParsingContext) Init() {
+
+}
+
+func (encoder *BiftGeneralStatusEncoder) EncodeInto(value *BiftGeneralStatus, buf []byte) {
+
+	pos := uint(0)
+
+	if optval, ok := value.BierIndex.Get(); ok {
+		buf[pos] = 253
+		binary.BigEndian.PutUint16(buf[pos+1:], uint16(774))
+		pos += 3
+
+		buf[pos] = byte(enc.Nat(optval).EncodeInto(buf[pos+1:]))
+		pos += uint(1 + buf[pos])
+
+	}
+}
+
+func (encoder *BiftGeneralStatusEncoder) Encode(value *BiftGeneralStatus) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *BiftGeneralStatusParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*BiftGeneralStatus, error) {
+
+	var handled_BierIndex bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &BiftGeneralStatus{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 774:
+				if true {
+					handled = true
+					handled_BierIndex = true
+					{
+						optval := uint64(0)
+						optval = uint64(0)
+						{
+							for i := 0; i < int(l); i++ {
+								x := byte(0)
+								x, err = reader.ReadByte()
+								if err != nil {
+									if err == io.EOF {
+										err = io.ErrUnexpectedEOF
+									}
+									break
+								}
+								optval = uint64(optval<<8) | uint64(x)
+							}
+						}
+						value.BierIndex.Set(optval)
+					}
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_BierIndex && err == nil {
+		value.BierIndex.Unset()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *BiftGeneralStatus) Encode() enc.Wire {
+	encoder := BiftGeneralStatusEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *BiftGeneralStatus) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseBiftGeneralStatus(reader enc.WireView, ignoreCritical bool) (*BiftGeneralStatus, error) {
+	context := BiftGeneralStatusParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type BiftEntryEncoder struct {
+	Length uint
+
+	RouterName_length   uint
+	NextHops_subencoder []struct {
+	}
+	FbmBits_subencoder []struct {
+	}
+}
+
+type BiftEntryParsingContext struct {
+}
+
+func (encoder *BiftEntryEncoder) Init(value *BiftEntry) {
+
+	if value.RouterName != nil {
+		encoder.RouterName_length = 0
+		for _, c := range value.RouterName {
+			encoder.RouterName_length += uint(c.EncodingLength())
+		}
+	}
+	{
+		NextHops_l := len(value.NextHops)
+		encoder.NextHops_subencoder = make([]struct {
+		}, NextHops_l)
+		for i := 0; i < NextHops_l; i++ {
+			pseudoEncoder := &encoder.NextHops_subencoder[i]
+			pseudoValue := struct {
+				NextHops uint64
+			}{
+				NextHops: value.NextHops[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	{
+		FbmBits_l := len(value.FbmBits)
+		encoder.FbmBits_subencoder = make([]struct {
+		}, FbmBits_l)
+		for i := 0; i < FbmBits_l; i++ {
+			pseudoEncoder := &encoder.FbmBits_subencoder[i]
+			pseudoValue := struct {
+				FbmBits uint64
+			}{
+				FbmBits: value.FbmBits[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	l += 3
+	l += uint(1 + enc.Nat(value.BfrId).EncodingLength())
+	if value.RouterName != nil {
+		l += 1
+		l += uint(enc.TLNum(encoder.RouterName_length).EncodingLength())
+		l += encoder.RouterName_length
+	}
+	if value.NextHops != nil {
+		for seq_i, seq_v := range value.NextHops {
+			pseudoEncoder := &encoder.NextHops_subencoder[seq_i]
+			pseudoValue := struct {
+				NextHops uint64
+			}{
+				NextHops: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				l += 1
+				l += uint(1 + enc.Nat(value.NextHops).EncodingLength())
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.FbmBits != nil {
+		for seq_i, seq_v := range value.FbmBits {
+			pseudoEncoder := &encoder.FbmBits_subencoder[seq_i]
+			pseudoValue := struct {
+				FbmBits uint64
+			}{
+				FbmBits: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				l += 3
+				l += uint(1 + enc.Nat(value.FbmBits).EncodingLength())
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *BiftEntryParsingContext) Init() {
+
+}
+
+func (encoder *BiftEntryEncoder) EncodeInto(value *BiftEntry, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = 253
+	binary.BigEndian.PutUint16(buf[pos+1:], uint16(774))
+	pos += 3
+
+	buf[pos] = byte(enc.Nat(value.BfrId).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	if value.RouterName != nil {
+		buf[pos] = byte(7)
+		pos += 1
+		pos += uint(enc.TLNum(encoder.RouterName_length).EncodeInto(buf[pos:]))
+		for _, c := range value.RouterName {
+			pos += uint(c.EncodeInto(buf[pos:]))
+		}
+	}
+	if value.NextHops != nil {
+		for seq_i, seq_v := range value.NextHops {
+			pseudoEncoder := &encoder.NextHops_subencoder[seq_i]
+			pseudoValue := struct {
+				NextHops uint64
+			}{
+				NextHops: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				buf[pos] = byte(105)
+				pos += 1
+
+				buf[pos] = byte(enc.Nat(value.NextHops).EncodeInto(buf[pos+1:]))
+				pos += uint(1 + buf[pos])
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	if value.FbmBits != nil {
+		for seq_i, seq_v := range value.FbmBits {
+			pseudoEncoder := &encoder.FbmBits_subencoder[seq_i]
+			pseudoValue := struct {
+				FbmBits uint64
+			}{
+				FbmBits: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				buf[pos] = 253
+				binary.BigEndian.PutUint16(buf[pos+1:], uint16(776))
+				pos += 3
+
+				buf[pos] = byte(enc.Nat(value.FbmBits).EncodeInto(buf[pos+1:]))
+				pos += uint(1 + buf[pos])
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *BiftEntryEncoder) Encode(value *BiftEntry) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *BiftEntryParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*BiftEntry, error) {
+
+	var handled_BfrId bool = false
+	var handled_RouterName bool = false
+	var handled_NextHops bool = false
+	var handled_FbmBits bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &BiftEntry{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 774:
+				if true {
+					handled = true
+					handled_BfrId = true
+					value.BfrId = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.BfrId = uint64(value.BfrId<<8) | uint64(x)
+						}
+					}
+				}
+			case 7:
+				if true {
+					handled = true
+					handled_RouterName = true
+					delegate := reader.Delegate(int(l))
+					value.RouterName, err = delegate.ReadName()
+				}
+			case 105:
+				if true {
+					handled = true
+					handled_NextHops = true
+					if value.NextHops == nil {
+						value.NextHops = make([]uint64, 0)
+					}
+					{
+						pseudoValue := struct {
+							NextHops uint64
+						}{}
+						{
+							value := &pseudoValue
+							value.NextHops = uint64(0)
+							{
+								for i := 0; i < int(l); i++ {
+									x := byte(0)
+									x, err = reader.ReadByte()
+									if err != nil {
+										if err == io.EOF {
+											err = io.ErrUnexpectedEOF
+										}
+										break
+									}
+									value.NextHops = uint64(value.NextHops<<8) | uint64(x)
+								}
+							}
+							_ = value
+						}
+						value.NextHops = append(value.NextHops, pseudoValue.NextHops)
+					}
+					progress--
+				}
+			case 776:
+				if true {
+					handled = true
+					handled_FbmBits = true
+					if value.FbmBits == nil {
+						value.FbmBits = make([]uint64, 0)
+					}
+					{
+						pseudoValue := struct {
+							FbmBits uint64
+						}{}
+						{
+							value := &pseudoValue
+							value.FbmBits = uint64(0)
+							{
+								for i := 0; i < int(l); i++ {
+									x := byte(0)
+									x, err = reader.ReadByte()
+									if err != nil {
+										if err == io.EOF {
+											err = io.ErrUnexpectedEOF
+										}
+										break
+									}
+									value.FbmBits = uint64(value.FbmBits<<8) | uint64(x)
+								}
+							}
+							_ = value
+						}
+						value.FbmBits = append(value.FbmBits, pseudoValue.FbmBits)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_BfrId && err == nil {
+		err = enc.ErrSkipRequired{Name: "BfrId", TypeNum: 774}
+	}
+	if !handled_RouterName && err == nil {
+		value.RouterName = nil
+	}
+	if !handled_NextHops && err == nil {
+		// sequence - skip
+	}
+	if !handled_FbmBits && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *BiftEntry) Encode() enc.Wire {
+	encoder := BiftEntryEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *BiftEntry) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseBiftEntry(reader enc.WireView, ignoreCritical bool) (*BiftEntry, error) {
+	context := BiftEntryParsingContext{}
+	context.Init()
+	return context.Parse(reader, ignoreCritical)
+}
+
+type BiftNeighborEncoder struct {
+	Length uint
+
+	FbmBits_subencoder []struct {
+	}
+}
+
+type BiftNeighborParsingContext struct {
+}
+
+func (encoder *BiftNeighborEncoder) Init(value *BiftNeighbor) {
+
+	{
+		FbmBits_l := len(value.FbmBits)
+		encoder.FbmBits_subencoder = make([]struct {
+		}, FbmBits_l)
+		for i := 0; i < FbmBits_l; i++ {
+			pseudoEncoder := &encoder.FbmBits_subencoder[i]
+			pseudoValue := struct {
+				FbmBits uint64
+			}{
+				FbmBits: value.FbmBits[i],
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+
+	l := uint(0)
+	l += 1
+	l += uint(1 + enc.Nat(value.FaceID).EncodingLength())
+	if value.FbmBits != nil {
+		for seq_i, seq_v := range value.FbmBits {
+			pseudoEncoder := &encoder.FbmBits_subencoder[seq_i]
+			pseudoValue := struct {
+				FbmBits uint64
+			}{
+				FbmBits: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				l += 3
+				l += uint(1 + enc.Nat(value.FbmBits).EncodingLength())
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+	encoder.Length = l
+
+}
+
+func (context *BiftNeighborParsingContext) Init() {
+
+}
+
+func (encoder *BiftNeighborEncoder) EncodeInto(value *BiftNeighbor, buf []byte) {
+
+	pos := uint(0)
+
+	buf[pos] = byte(105)
+	pos += 1
+
+	buf[pos] = byte(enc.Nat(value.FaceID).EncodeInto(buf[pos+1:]))
+	pos += uint(1 + buf[pos])
+	if value.FbmBits != nil {
+		for seq_i, seq_v := range value.FbmBits {
+			pseudoEncoder := &encoder.FbmBits_subencoder[seq_i]
+			pseudoValue := struct {
+				FbmBits uint64
+			}{
+				FbmBits: seq_v,
+			}
+			{
+				encoder := pseudoEncoder
+				value := &pseudoValue
+				buf[pos] = 253
+				binary.BigEndian.PutUint16(buf[pos+1:], uint16(776))
+				pos += 3
+
+				buf[pos] = byte(enc.Nat(value.FbmBits).EncodeInto(buf[pos+1:]))
+				pos += uint(1 + buf[pos])
+				_ = encoder
+				_ = value
+			}
+		}
+	}
+}
+
+func (encoder *BiftNeighborEncoder) Encode(value *BiftNeighbor) enc.Wire {
+
+	wire := make(enc.Wire, 1)
+	wire[0] = make([]byte, encoder.Length)
+	buf := wire[0]
+	encoder.EncodeInto(value, buf)
+
+	return wire
+}
+
+func (context *BiftNeighborParsingContext) Parse(reader enc.WireView, ignoreCritical bool) (*BiftNeighbor, error) {
+
+	var handled_FaceID bool = false
+	var handled_FbmBits bool = false
+
+	progress := -1
+	_ = progress
+
+	value := &BiftNeighbor{}
+	var err error
+	var startPos int
+	for {
+		startPos = reader.Pos()
+		if startPos >= reader.Length() {
+			break
+		}
+		typ := enc.TLNum(0)
+		l := enc.TLNum(0)
+		typ, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+		l, err = reader.ReadTLNum()
+		if err != nil {
+			return nil, enc.ErrFailToParse{TypeNum: 0, Err: err}
+		}
+
+		err = nil
+		if handled := false; true {
+			switch typ {
+			case 105:
+				if true {
+					handled = true
+					handled_FaceID = true
+					value.FaceID = uint64(0)
+					{
+						for i := 0; i < int(l); i++ {
+							x := byte(0)
+							x, err = reader.ReadByte()
+							if err != nil {
+								if err == io.EOF {
+									err = io.ErrUnexpectedEOF
+								}
+								break
+							}
+							value.FaceID = uint64(value.FaceID<<8) | uint64(x)
+						}
+					}
+				}
+			case 776:
+				if true {
+					handled = true
+					handled_FbmBits = true
+					if value.FbmBits == nil {
+						value.FbmBits = make([]uint64, 0)
+					}
+					{
+						pseudoValue := struct {
+							FbmBits uint64
+						}{}
+						{
+							value := &pseudoValue
+							value.FbmBits = uint64(0)
+							{
+								for i := 0; i < int(l); i++ {
+									x := byte(0)
+									x, err = reader.ReadByte()
+									if err != nil {
+										if err == io.EOF {
+											err = io.ErrUnexpectedEOF
+										}
+										break
+									}
+									value.FbmBits = uint64(value.FbmBits<<8) | uint64(x)
+								}
+							}
+							_ = value
+						}
+						value.FbmBits = append(value.FbmBits, pseudoValue.FbmBits)
+					}
+					progress--
+				}
+			default:
+				if !ignoreCritical && ((typ <= 31) || ((typ & 1) == 1)) {
+					return nil, enc.ErrUnrecognizedField{TypeNum: typ}
+				}
+				handled = true
+				err = reader.Skip(int(l))
+			}
+			if err == nil && !handled {
+			}
+			if err != nil {
+				return nil, enc.ErrFailToParse{TypeNum: typ, Err: err}
+			}
+		}
+	}
+
+	startPos = reader.Pos()
+	err = nil
+
+	if !handled_FaceID && err == nil {
+		err = enc.ErrSkipRequired{Name: "FaceID", TypeNum: 105}
+	}
+	if !handled_FbmBits && err == nil {
+		// sequence - skip
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (value *BiftNeighbor) Encode() enc.Wire {
+	encoder := BiftNeighborEncoder{}
+	encoder.Init(value)
+	return encoder.Encode(value)
+}
+
+func (value *BiftNeighbor) Bytes() []byte {
+	return value.Encode().Join()
+}
+
+func ParseBiftNeighbor(reader enc.WireView, ignoreCritical bool) (*BiftNeighbor, error) {
+	context := BiftNeighborParsingContext{}
 	context.Init()
 	return context.Parse(reader, ignoreCritical)
 }
