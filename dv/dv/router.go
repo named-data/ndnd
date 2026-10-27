@@ -38,6 +38,13 @@ type Router struct {
 	// single mutex for all operations
 	mutex sync.Mutex
 
+	// Cache a bounded set of versioned status snapshots for segment fetches.
+	statusMu      sync.Mutex
+	statusUpdated time.Time
+	statusObjects *storage.MemoryFifoDir
+	// Dataset prefix mappings to remote egress routers, protected by mutex.
+	statusRoutes map[uint64]enc.Name
+
 	// channel to stop the DV
 	stop chan bool
 	// heartbeat for outgoing Advertisements
@@ -123,12 +130,14 @@ func NewRouter(config *config.Config, engine ndn.Engine) (*Router, error) {
 
 	// Create the DV router
 	dv := &Router{
-		engine: engine,
-		config: config,
-		trust:  trust,
-		client: object.NewClient(engine, store, trust),
-		nfdc:   nfdc.NewNfdMgmtThread(engine),
-		mutex:  sync.Mutex{},
+		engine:        engine,
+		config:        config,
+		trust:         trust,
+		client:        object.NewClient(engine, store, trust),
+		nfdc:          nfdc.NewNfdMgmtThread(engine),
+		mutex:         sync.Mutex{},
+		statusObjects: storage.NewMemoryFifoDir(32),
+		statusRoutes:  make(map[uint64]enc.Name),
 	}
 
 	// Initialize advertisement module
@@ -266,6 +275,10 @@ func (dv *Router) register() (err error) {
 		return err
 	}
 
+	if err = dv.engine.AttachHandler(config.StatusDatasetPrefix(dv.config.RouterName()), dv.onStatusDataset); err != nil {
+		return err
+	}
+
 	insertPrefix := dv.pfx.InsertionPrefix()
 	err = dv.engine.AttachHandler(insertPrefix,
 		func(args ndn.InterestHandlerArgs) {
@@ -283,6 +296,7 @@ func (dv *Router) register() (err error) {
 		dv.pfx.DataPrefix(),
 		dv.config.MgmtPrefix(),
 		insertPrefix,
+		config.StatusDatasetPrefix(dv.config.RouterName()),
 	}
 
 	for _, prefix := range pfxs {
