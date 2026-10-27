@@ -8,6 +8,9 @@
 // Advertisement data and broadcast
 #advertisement_data: /"localhop"/#router/"32=DV"/"32=ADV"/_ <= #router_cert
 
+// Read-only routing status dataset
+#status_data: #router/"32=DV"/"32=STATUS" <= #router_cert
+
 // Prefix state database
 #prefix_state: #network/"32=DV"/"32=PSD"
 // Prefix state database data

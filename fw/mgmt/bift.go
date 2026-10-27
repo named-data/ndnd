@@ -8,8 +8,6 @@
 package mgmt
 
 import (
-	"encoding/json"
-
 	"github.com/named-data/ndnd/fw/bier"
 	"github.com/named-data/ndnd/fw/core"
 	enc "github.com/named-data/ndnd/std/encoding"
@@ -105,14 +103,10 @@ func (b *BiftModule) list(interest *Interest) {
 		return
 	}
 
-	status, err := json.Marshal(bier.Bift.Status())
-	if err != nil {
-		b.manager.sendCtrlResp(interest, 500, "Unable to encode BIFT status", nil)
-		return
-	}
+	status := bier.Bift.Status()
 
 	name := LOCAL_PREFIX.
 		Append(enc.NewGenericComponent("bift")).
 		Append(enc.NewGenericComponent("list"))
-	b.manager.sendStatusDataset(interest, name, enc.Wire{status})
+	b.manager.sendStatusDataset(interest, name, status.Encode())
 }

@@ -90,3 +90,22 @@ type PrefixInsertionInnerContent struct {
 	//+field:natural:optional
 	Cost optional.Optional[uint64] `tlv:"0x6a"`
 }
+
+// RoutingStatus is a consistent view of the responding router's DV state.
+type RoutingStatus struct {
+	//+field:struct:Status
+	Status *Status `tlv:"0x1A0"`
+	//+field:sequence:*RouterStatus:struct:RouterStatus
+	Routers []*RouterStatus `tlv:"0x1A2"`
+}
+
+type RouterStatus struct {
+	//+field:name
+	Name enc.Name `tlv:"0x07"`
+	//+field:struct:Destination
+	NextHop *Destination `tlv:"0xCE"`
+	//+field:natural
+	Cost uint64 `tlv:"0xD0"`
+	//+field:sequence:*PrefixOpAdd:struct:PrefixOpAdd
+	Prefixes []*PrefixOpAdd `tlv:"0x130"`
+}

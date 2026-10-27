@@ -1,10 +1,12 @@
 package bier_test
 
 import (
+	"fmt"
 	"testing"
 
 	bier "github.com/named-data/ndnd/fw/bier"
 	enc "github.com/named-data/ndnd/std/encoding"
+	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 )
 
 // TestBierBitManipulation tests the BIER bit manipulation helper functions
@@ -270,7 +272,7 @@ func TestBiftConstruction(t *testing.T) {
 		if status.Entries[0].BfrId != 0 || status.Entries[1].BfrId != 1 || status.Entries[2].BfrId != 5 {
 			t.Fatalf("Status entries not sorted by BFR-ID: %+v", status.Entries)
 		}
-		if status.Entries[0].RouterName != r0.String() {
+		if !status.Entries[0].RouterName.Equal(r0) {
 			t.Fatalf("Unexpected router name for index 0: got %s want %s", status.Entries[0].RouterName, r0)
 		}
 		if len(status.Entries[0].NextHops) != 1 || status.Entries[0].NextHops[0] != 100 {
@@ -352,5 +354,29 @@ func TestBierReplicationMask(t *testing.T) {
 	}
 	if bier.BierGetBit(rep3, 6) {
 		t.Error("Neighbor 3 should not replicate for bit 6")
+	}
+}
+
+func TestBiftStatusTLVIndex(t *testing.T) {
+	for _, index := range []int{-1, 0, 5} {
+		t.Run(fmt.Sprintf("index=%d", index), func(t *testing.T) {
+			defer setBierIndex(index)()
+			snapshot := &bier.BiftState{}
+			status := snapshot.Status()
+			parsed, err := mgmt.ParseBiftStatus(enc.NewWireView(status.Encode()), false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if parsed.General == nil {
+				t.Fatal("missing general status")
+			}
+			value, enabled := parsed.General.BierIndex.Get()
+			if enabled != (index >= 0) {
+				t.Fatalf("index=%d enabled=%t", index, enabled)
+			}
+			if enabled && value != uint64(index) {
+				t.Fatalf("index=%d encoded as %d", index, value)
+			}
+		})
 	}
 }

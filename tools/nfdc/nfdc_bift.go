@@ -1,14 +1,13 @@
 package nfdc
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/named-data/ndnd/fw/bier"
 	enc "github.com/named-data/ndnd/std/encoding"
+	mgmt "github.com/named-data/ndnd/std/ndn/mgmt_2022"
 	"github.com/spf13/cobra"
 )
 
@@ -45,26 +44,18 @@ func (t *Tool) ExecBiftList(_ *cobra.Command, _ []string) {
 	t.Start()
 	defer t.Stop()
 
-	suffix := enc.Name{
-		enc.NewGenericComponent("bift"),
-		enc.NewGenericComponent("list"),
-	}
-
-	data, err := t.fetchStatusDataset(suffix)
+	status, err := t.fetchBiftStatus()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching status dataset: %+v\n", err)
+		fmt.Fprintf(os.Stderr, "Error fetching BIFT status: %+v\n", err)
 		os.Exit(1)
 		return
 	}
 
-	var status bier.BiftStatus
-	if err := json.Unmarshal(data.Join(), &status); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing BIFT status: %+v\n", err)
-		os.Exit(1)
-		return
+	if index, enabled := status.General.BierIndex.Get(); enabled {
+		fmt.Printf("BIFT: bier-index=%d\n", index)
+	} else {
+		fmt.Println("BIFT: bier-index=-1 (disabled)")
 	}
-
-	fmt.Printf("BIFT: bier-index=%d\n", status.BierIndex)
 	for _, entry := range status.Entries {
 		fmt.Printf("  index=%d router=%s nexthops={%s} fbm={%s}\n",
 			entry.BfrId, entry.RouterName, formatBiftNextHops(entry.NextHops), formatBitList(entry.FbmBits))
@@ -80,14 +71,14 @@ func (t *Tool) ExecBiftList(_ *cobra.Command, _ []string) {
 	}
 }
 
-func formatBitList(bits []int) string {
+func formatBitList(bits []uint64) string {
 	if len(bits) == 0 {
 		return ""
 	}
 
 	parts := make([]string, 0, len(bits))
 	for _, bit := range bits {
-		parts = append(parts, strconv.Itoa(bit))
+		parts = append(parts, strconv.FormatUint(bit, 10))
 	}
 	return strings.Join(parts, ", ")
 }
@@ -98,4 +89,19 @@ func formatBiftNextHops(nextHops []uint64) string {
 		parts = append(parts, fmt.Sprintf("faceid=%d", faceID))
 	}
 	return strings.Join(parts, ", ")
+}
+
+func (t *Tool) fetchBiftStatus() (*mgmt.BiftStatus, error) {
+	data, err := t.fetchStatusDataset(enc.Name{enc.NewGenericComponent("bift"), enc.NewGenericComponent("list")})
+	if err != nil {
+		return nil, fmt.Errorf("fetch BIFT: %w", err)
+	}
+	status, err := mgmt.ParseBiftStatus(enc.NewWireView(data), false)
+	if err != nil {
+		return nil, fmt.Errorf("parse BIFT: %w", err)
+	}
+	if status.General == nil {
+		return nil, fmt.Errorf("BIFT status has no general status payload")
+	}
+	return status, nil
 }

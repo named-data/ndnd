@@ -255,6 +255,11 @@ func (c *Config) NetworkName() enc.Name {
 	return c.networkNameN
 }
 
+// StatusDatasetPrefix names a router's remotely retrievable DV status dataset.
+func StatusDatasetPrefix(router enc.Name) enc.Name {
+	return router.Clone().Append(enc.NewKeywordComponent("DV"), enc.NewKeywordComponent("STATUS"))
+}
+
 // (AI GENERATED DESCRIPTION): Returns the router name (enc.Name) stored in the Config instance.
 func (c *Config) RouterName() enc.Name {
 	return c.routerNameN

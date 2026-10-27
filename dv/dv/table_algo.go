@@ -136,6 +136,7 @@ func (dv *Router) updateFib() {
 		}
 	}
 	dv.fib.RemoveUnmarked()
+	dv.updateStatusRoutes(names)
 
 	// Rebuild the BIFT whenever the FIB changes so BIER forwarding paths
 	// are always consistent with the routing table.
