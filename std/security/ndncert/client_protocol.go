@@ -113,16 +113,26 @@ func (c *Client) FetchProbeRedirect(params ParamMap) (probe *tlv.ProbeRes, err e
 	return nil, fmt.Errorf("too many redirects")
 }
 
-// New sends a NEW request to the CA (blocking).
-func (c *Client) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error) {
-	// Signer must be set before this step
-	if c.signer == nil {
-		return nil, fmt.Errorf("signer not set")
+// (AI GENERATED DESCRIPTION): New sends the NEW request for this certificate session (blocking).
+func (s *Session) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error) {
+	if s == nil {
+		return nil, fmt.Errorf("invalid certificate session")
 	}
+	if s.state != sessionStateReady {
+		return nil, fmt.Errorf("certificate session has already attempted NEW")
+	}
+	if s.network == nil || s.ecdhKey == nil || s.aeadCtr == nil {
+		return nil, fmt.Errorf("invalid certificate session")
+	}
+	if challenge == nil {
+		return nil, fmt.Errorf("challenge is required")
+	}
+	s.state = sessionStateNewAttempted
+	defer func() { s.ecdhKey = nil }()
 
 	// Generate self-signed cert as CSR
 	csr, err := sec.SelfSign(sec.SignCertArgs{
-		Signer:    c.signer,
+		Signer:    s.signer,
 		NotBefore: time.Now(),
 		NotAfter:  expiry,
 	})
@@ -132,13 +142,13 @@ func (c *Client) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error)
 
 	// Send NEW request to CA
 	newParams := tlv.NewReq{
-		EcdhPub: c.ecdhKey.Public().(*ecdh.PublicKey).Bytes(),
+		EcdhPub: s.ecdhKey.Public().(*ecdh.PublicKey).Bytes(),
 		CertReq: csr,
 	}
 
 	ch := make(chan ndn.ExpressCallbackArgs, 1)
-	c.client.ExpressR(ndn.ExpressRArgs{
-		Name: c.caPrefix.Append(
+	s.network.ExpressR(ndn.ExpressRArgs{
+		Name: s.caPrefix.Append(
 			enc.NewGenericComponent("CA"),
 			enc.NewGenericComponent("NEW"),
 		),
@@ -147,7 +157,7 @@ func (c *Client) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error)
 			MustBeFresh: true,
 		},
 		AppParam: newParams.Encode(),
-		Signer:   c.signer,
+		Signer:   s.signer,
 		Retries:  3,
 		Callback: func(args ndn.ExpressCallbackArgs) { ch <- args },
 	})
@@ -156,7 +166,7 @@ func (c *Client) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error)
 		return nil, fmt.Errorf("failed NEW fetch: %s (%w)", args.Result, args.Error)
 	}
 
-	if err := c.validate(args); err != nil {
+	if err := s.validate(args); err != nil {
 		return nil, err
 	}
 
@@ -182,15 +192,49 @@ func (c *Client) New(challenge Challenge, expiry time.Time) (*tlv.NewRes, error)
 		return nil, fmt.Errorf("challenge not supported by CA: %s", challenge.Name())
 	}
 
+	symkey, err := EcdhHkdf(s.ecdhKey, newRes.EcdhPub, newRes.Salt, newRes.ReqId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive symmetric key: %w", err)
+	}
+	s.aesKey = [AeadSizeTag]byte(symkey)
+	s.requestID = append([]byte(nil), newRes.ReqId...)
+	s.challenge = challenge
+	s.state = sessionStateChallenge
 	return newRes, nil
 }
 
-// Challenge sends a CHALLENGE request to the CA (blocking).
-func (c *Client) Challenge(
-	challenge Challenge,
-	newRes *tlv.NewRes,
-	prevRes *tlv.ChallengeRes,
-) (*tlv.ChallengeRes, error) {
+// (AI GENERATED DESCRIPTION): Challenge completes the CHALLENGE exchange for this certificate session (blocking).
+func (s *Session) Challenge() (*tlv.ChallengeRes, error) {
+	if s == nil || s.state != sessionStateChallenge {
+		return nil, fmt.Errorf("successful NEW required before CHALLENGE")
+	}
+
+	var prevRes *tlv.ChallengeRes
+	for {
+		chRes, err := s.challengeRound(prevRes)
+		if err != nil {
+			return nil, err
+		}
+
+		switch ChallengeStatus(chRes.Status) {
+		case ChallengeStatusBefore:
+			return chRes, ErrChallengeBefore
+		case ChallengeStatusChallenge:
+			prevRes = chRes
+		case ChallengeStatusPending:
+			// TODO: likely need to wait and retry
+			return chRes, ErrChallengePending
+		case ChallengeStatusSuccess:
+			return chRes, nil
+		case ChallengeStatusFailure:
+			return chRes, ErrChallengeFailed
+		default:
+			return chRes, ErrChallengeStatusUnknown
+		}
+	}
+}
+
+func (s *Session) challengeRound(prevRes *tlv.ChallengeRes) (*tlv.ChallengeRes, error) {
 	var prevParams ParamMap = nil
 	var prevStatus optional.Optional[string]
 
@@ -210,27 +254,21 @@ func (c *Client) Challenge(
 	}
 
 	// Get challenge params
-	params, err := challenge.Request(prevParams, prevStatus)
+	params, err := s.challenge.Request(prevParams, prevStatus)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get challenge params: %w", err)
 	}
 
 	// Create CHALLENGE request for CA
 	chParams := tlv.ChallengeReq{
-		Challenge: challenge.Name(),
+		Challenge: s.challenge.Name(),
 		Params:    params,
-	}
-
-	// Derive symmetric key using ECDH-HKDF
-	symkey, err := EcdhHkdf(c.ecdhKey, newRes.EcdhPub, newRes.Salt, newRes.ReqId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to derive symmetric key: %w", err)
 	}
 
 	// Encrypt and send CHALLENGE request
 	chParamsC, err := AeadEncrypt(
-		[16]byte(symkey), chParams.Encode().Join(),
-		newRes.ReqId, c.aeadCtr)
+		s.aesKey, chParams.Encode().Join(),
+		s.requestID, s.aeadCtr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt CHALLENGE: %w", err)
 	}
@@ -238,18 +276,18 @@ func (c *Client) Challenge(
 	// TODO: implement retrying on failure
 	// ExpressR will sign the packet again failure, this breaks the protocol
 	ch := make(chan ndn.ExpressCallbackArgs, 1)
-	c.client.ExpressR(ndn.ExpressRArgs{
-		Name: c.caPrefix.Append(
+	s.network.ExpressR(ndn.ExpressRArgs{
+		Name: s.caPrefix.Append(
 			enc.NewGenericComponent("CA"),
 			enc.NewGenericComponent("CHALLENGE"),
-			enc.NewGenericBytesComponent(newRes.ReqId),
+			enc.NewGenericBytesComponent(s.requestID),
 		),
 		Config: &ndn.InterestConfig{
 			CanBePrefix: false,
 			MustBeFresh: true,
 		},
 		AppParam: chParamsC.TLV().Encode(),
-		Signer:   c.signer,
+		Signer:   s.signer,
 		Retries:  0,
 		Callback: func(args ndn.ExpressCallbackArgs) { ch <- args },
 	})
@@ -258,7 +296,7 @@ func (c *Client) Challenge(
 		return nil, fmt.Errorf("failed CHALLENGE fetch: %s (%w)", args.Result, args.Error)
 	}
 
-	if err := c.validate(args); err != nil {
+	if err := s.validate(args); err != nil {
 		return nil, err
 	}
 
@@ -273,8 +311,10 @@ func (c *Client) Challenge(
 	}
 
 	chResAeadMsg := AeadMessage{}
-	chResAeadMsg.FromTLV(chResEnc)
-	chResBytes, err := AeadDecrypt([16]byte(symkey), chResAeadMsg, newRes.ReqId)
+	if err := chResAeadMsg.FromTLV(chResEnc); err != nil {
+		return nil, fmt.Errorf("invalid CHALLENGE cipher response: %w", err)
+	}
+	chResBytes, err := AeadDecrypt(s.aesKey, chResAeadMsg, s.requestID, s.aeadCtr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt CHALLENGE response: %w", err)
 	}
@@ -284,22 +324,7 @@ func (c *Client) Challenge(
 		return nil, fmt.Errorf("failed to parse CHALLENGE response: %w", err)
 	}
 
-	switch ChallengeStatus(chRes.Status) {
-	case ChallengeStatusBefore:
-		return chRes, ErrChallengeBefore
-	case ChallengeStatusChallenge:
-		// Continue with the challenge
-		return c.Challenge(challenge, newRes, chRes)
-	case ChallengeStatusPending:
-		// TODO: likely need to wait and retry
-		return chRes, ErrChallengePending
-	case ChallengeStatusSuccess:
-		return chRes, nil
-	case ChallengeStatusFailure:
-		return chRes, ErrChallengeFailed
-	default:
-		return chRes, ErrChallengeStatusUnknown
-	}
+	return chRes, nil
 }
 
 // FetchIssuedCert fetches the issued certificate from the CA (blocking).
@@ -343,7 +368,15 @@ func (c *Client) fetchCert(name enc.Name, fwHint []enc.Name) (ndn.Data, enc.Wire
 
 // validate checks the signature of the data.
 func (c *Client) validate(args ndn.ExpressCallbackArgs) error {
-	valid, err := sig.ValidateData(args.Data, args.SigCovered, c.caCert)
+	return validate(args, c.caCert)
+}
+
+func (s *Session) validate(args ndn.ExpressCallbackArgs) error {
+	return validate(args, s.caCert)
+}
+
+func validate(args ndn.ExpressCallbackArgs, cert ndn.Data) error {
+	valid, err := sig.ValidateData(args.Data, args.SigCovered, cert)
 	if err != nil || !valid {
 		return fmt.Errorf("validation failure for %s: %w", args.Data.Name(), err)
 	}
