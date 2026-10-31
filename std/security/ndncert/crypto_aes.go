@@ -31,7 +31,7 @@ func (m *AeadMessage) TLV() *tlv.CipherMsg {
 	}
 }
 
-// FromTLV decodes an AEAD message, rejecting invalid IV and tag lengths.
+// (AI GENERATED DESCRIPTION): FromTLV decodes an AEAD message, rejecting invalid IV and tag lengths.
 func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) error {
 	if t == nil || len(t.InitVec) != AeadSizeNonce || len(t.AuthNTag) != AeadSizeTag {
 		return fmt.Errorf("invalid AEAD message: expected a %d-byte IV and %d-byte authentication tag", AeadSizeNonce, AeadSizeTag)
@@ -42,22 +42,22 @@ func (m *AeadMessage) FromTLV(t *tlv.CipherMsg) error {
 	return nil
 }
 
-// AeadCounter holds both directions of one NDNCERT session. It must not be
+// (AI GENERATED DESCRIPTION): AeadCounter holds both directions of one NDNCERT session. It must not be
 // reused with a new session key or shared between concurrent operations.
 type AeadCounter struct {
-	// uint64 represents the exhausted state (2^32) without wrapping to zero.
+	// (AI GENERATED DESCRIPTION): uint64 represents the exhausted state (2^32) without wrapping to zero.
 	nextSendBlock uint64
 	sendPrefix    [AeadSizeRand]byte
 	peerPrefix    [AeadSizeRand]byte
 
-	// Zero means no peer message has been accepted; messages consume at least
+	// (AI GENERATED DESCRIPTION): Zero means no peer message has been accepted; messages consume at least
 	// one block, so every accepted message makes this positive.
 	nextPeerBlock uint64
 }
 
 const aeadCounterLimit = uint64(1) << 32
 
-// Empty CHALLENGE plaintext is invalid and would otherwise reuse an IV because
+// (AI GENERATED DESCRIPTION): Empty CHALLENGE plaintext is invalid and would otherwise reuse an IV because
 // it consumes zero blocks. Integer division avoids floating-point rounding and
 // adding 15 to a potentially large int.
 func aeadBlocks(length int) (uint64, error) {
@@ -68,7 +68,7 @@ func aeadBlocks(length int) (uint64, error) {
 	if length%aes.BlockSize != 0 {
 		blocks++
 	}
-	// GCM itself limits a message to 2^32-2 blocks.
+	// (AI GENERATED DESCRIPTION): GCM itself limits a message to 2^32-2 blocks.
 	if blocks > aeadCounterLimit-2 {
 		return 0, fmt.Errorf("AEAD message exceeds GCM block limit")
 	}
@@ -113,7 +113,7 @@ func AeadEncrypt(
 		return nil, err
 	}
 
-	// NDNCERT v0.3: use the current counter, in network byte order, then
+	// (AI GENERATED DESCRIPTION): Use the current counter in network byte order, then
 	// advance by the number of plaintext AES blocks after encryption.
 	var iv [AeadSizeNonce]byte
 	copy(iv[:], counter.sendPrefix[:])
@@ -130,7 +130,7 @@ func AeadEncrypt(
 	}, nil
 }
 
-// AeadDecrypt authenticates a peer message and checks its IV against the session.
+// (AI GENERATED DESCRIPTION): AeadDecrypt authenticates a peer message and checks its IV against the session.
 // Use the same counter for every encryption and decryption in one session;
 // receive state advances only when authentication and IV validation succeed.
 func AeadDecrypt(
@@ -157,7 +157,7 @@ func AeadDecrypt(
 		return nil, err
 	}
 
-	// Do not overwrite the caller's packet buffer while assembling GCM input.
+	// (AI GENERATED DESCRIPTION): Do not overwrite the caller's packet buffer while assembling GCM input.
 	ciphertext := make([]byte, len(message.CipherText)+AeadSizeTag)
 	copy(ciphertext, message.CipherText)
 	copy(ciphertext[len(message.CipherText):], message.AuthTag[:])
@@ -166,7 +166,7 @@ func AeadDecrypt(
 	if err != nil {
 		return nil, err
 	}
-	// Authenticate before changing receive state: forged packets cannot reserve
+	// (AI GENERATED DESCRIPTION): Authenticate before changing receive state: forged packets cannot reserve
 	// counters or change the expected random prefix. Counter ranges may have
 	// gaps, but must never overlap or wrap. Each direction has its own prefix.
 	start := uint64(binary.BigEndian.Uint32(message.IV[AeadSizeRand:]))

@@ -15,8 +15,8 @@ import (
 	sig "github.com/named-data/ndnd/std/security/signer"
 )
 
-// Client supports one active certificate request at a time. Sequential requests
-// generate fresh ECDH keys and IV state for each NEW step.
+// (AI GENERATED DESCRIPTION): Client holds the long-lived configuration used for certificate requests.
+// Each certificate request uses a separate Session.
 type Client struct {
 	engine ndn.Engine
 	signer ndn.Signer
@@ -24,9 +24,31 @@ type Client struct {
 	caCert   ndn.Data
 	caPrefix enc.Name
 
-	client  ndn.Client
-	ecdhKey *ecdh.PrivateKey
-	aeadCtr *AeadCounter
+	client ndn.Client
+}
+
+type sessionState uint8
+
+const (
+	sessionStateReady sessionState = iota
+	sessionStateNewAttempted
+	sessionStateChallenge
+)
+
+// (AI GENERATED DESCRIPTION): Session holds the cryptographic and protocol state of one certificate request.
+// A Session must not be reused for another NEW request or used concurrently.
+type Session struct {
+	network  ndn.Client
+	signer   ndn.Signer
+	caCert   ndn.Data
+	caPrefix enc.Name
+
+	ecdhKey   *ecdh.PrivateKey
+	aesKey    [AeadSizeTag]byte
+	requestID []byte
+	aeadCtr   *AeadCounter
+	challenge Challenge
+	state     sessionState
 }
 
 // NewClient creates a new NDNCERT client.
@@ -64,16 +86,29 @@ func NewClient(engine ndn.Engine, caCert []byte) (*Client, error) {
 	}, nil
 }
 
-// resetSession creates fresh key agreement and IV state for every NEW step,
-// including sequential requests made with the same Client instance.
-func (c *Client) resetSession() error {
-	c.ecdhKey, c.aeadCtr = nil, nil
+// (AI GENERATED DESCRIPTION): NewSession creates the independent state for one certificate request.
+func (c *Client) NewSession() (*Session, error) {
+	if c == nil {
+		return nil, fmt.Errorf("client is required")
+	}
+	if c.signer == nil {
+		return nil, fmt.Errorf("signer not set")
+	}
+	if c.client == nil {
+		return nil, fmt.Errorf("network client not set")
+	}
 	key, err := EcdhKeygen()
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to generate session ECDH key: %w", err)
 	}
-	c.ecdhKey, c.aeadCtr = key, NewAeadCounter()
-	return nil
+	return &Session{
+		network:  c.client,
+		signer:   c.signer,
+		caCert:   c.caCert,
+		caPrefix: c.caPrefix.Clone(),
+		ecdhKey:  key,
+		aeadCtr:  NewAeadCounter(),
+	}, nil
 }
 
 // SetSigner sets the signer for the client.
@@ -258,15 +293,19 @@ func (c *Client) RequestCert(args RequestCertArgs) (*RequestCertResult, error) {
 	}
 
 	// ======  Step 3: NEW ==============
+	session, err := c.NewSession()
+	if err != nil {
+		return nil, err
+	}
 	// Use the longest possible validity period
 	expiry := time.Now().Add(time.Second * time.Duration(profile.MaxValidPeriod-300))
-	newRes, err := c.New(args.Challenge, expiry)
+	_, err = session.New(args.Challenge, expiry)
 	if err != nil {
 		return nil, err
 	}
 
 	// ======  Step 4: CHALLENGE ==============
-	chRes, err := c.Challenge(args.Challenge, newRes, nil)
+	chRes, err := session.Challenge()
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +322,6 @@ func (c *Client) RequestCert(args RequestCertArgs) (*RequestCertResult, error) {
 	return &RequestCertResult{
 		CertData: certData,
 		CertWire: certWire,
-		Signer:   c.signer,
+		Signer:   session.signer,
 	}, nil
 }

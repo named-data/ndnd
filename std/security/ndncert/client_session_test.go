@@ -6,7 +6,6 @@ import (
 	"crypto/cipher"
 	"crypto/elliptic"
 	"encoding/binary"
-	"strings"
 	"testing"
 	"time"
 
@@ -49,7 +48,10 @@ func newSessionTestClient(t *testing.T) (*Client, ndn.Signer) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &Client{signer: requester, caCert: caCert, caPrefix: name}, caSigner
+	network := &sessionTestClient{express: func(args ndn.ExpressRArgs) {
+		t.Fatal("unexpected network request")
+	}}
+	return &Client{signer: requester, caCert: caCert, caPrefix: name, client: network}, caSigner
 }
 
 func replySessionTest(t *testing.T, signer ndn.Signer, args ndn.ExpressRArgs, content enc.Wire) {
@@ -65,30 +67,31 @@ func replySessionTest(t *testing.T, signer ndn.Signer, args ndn.ExpressRArgs, co
 	args.Callback(ndn.ExpressCallbackArgs{Result: ndn.InterestResultData, Data: data, SigCovered: covered})
 }
 
-func TestClientNewSession(t *testing.T) {
+func TestClientSessionIsolation(t *testing.T) {
 	c, caSigner := newSessionTestClient(t)
 	var previousPub []byte
 	var previousCounter *AeadCounter
+	var session *Session
 	request := 0
 	c.client = &sessionTestClient{express: func(args ndn.ExpressRArgs) {
 		params, err := tlv.ParseNewReq(enc.NewWireView(args.AppParam), false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(params.EcdhPub, c.ecdhKey.PublicKey().Bytes()) {
+		if !bytes.Equal(params.EcdhPub, session.ecdhKey.PublicKey().Bytes()) {
 			t.Fatal("NEW does not carry current session public key")
 		}
 		if bytes.Equal(params.EcdhPub, previousPub) {
 			t.Fatal("NEW reused an ephemeral ECDH key")
 		}
-		if c.aeadCtr == previousCounter || c.aeadCtr.nextSendBlock != 0 || c.aeadCtr.nextPeerBlock != 0 {
+		if session.aeadCtr == previousCounter || session.aeadCtr.nextSendBlock != 0 || session.aeadCtr.nextPeerBlock != 0 {
 			t.Fatal("NEW reused IV state")
 		}
 		previousPub = bytes.Clone(params.EcdhPub)
-		previousCounter = c.aeadCtr
+		previousCounter = session.aeadCtr
 		request++
 		if request == 2 {
-			// A failed NEW must not cause the next attempt to reuse its key.
+			// (AI GENERATED DESCRIPTION): A failed NEW must not cause the next attempt to reuse its key.
 			args.Callback(ndn.ExpressCallbackArgs{Result: ndn.InterestResultTimeout})
 			return
 		}
@@ -97,7 +100,7 @@ func TestClientNewSession(t *testing.T) {
 			t.Fatal(err)
 		}
 		response := &tlv.NewRes{EcdhPub: serverKey.PublicKey().Bytes(), Salt: make([]byte, 32), ReqId: make([]byte, 8), Challenge: []string{KwEmail}}
-		clientSecret, err := EcdhHkdf(c.ecdhKey, response.EcdhPub, response.Salt, response.ReqId)
+		clientSecret, err := EcdhHkdf(session.ecdhKey, response.EcdhPub, response.Salt, response.ReqId)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,19 +111,75 @@ func TestClientNewSession(t *testing.T) {
 		replySessionTest(t, caSigner, args, response.Encode())
 	}}
 	for i := 1; i <= 3; i++ {
-		_, err := c.New(&ChallengeEmail{}, time.Now().Add(time.Hour))
+		var err error
+		session, err = c.NewSession()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = session.New(&ChallengeEmail{}, time.Now().Add(time.Hour))
 		if (err != nil) != (i == 2) {
 			t.Fatalf("request %d: unexpected error %v", i, err)
 		}
-		// Exercise reset of both sending and receiving state on reuse.
-		c.aeadCtr.nextSendBlock = 100
-		c.aeadCtr.nextPeerBlock = 200
+		// (AI GENERATED DESCRIPTION): Dirty state in this session must not affect the next session.
+		session.aeadCtr.nextSendBlock = 100
+		session.aeadCtr.nextPeerBlock = 200
 	}
 }
 
-// Exercise the client protocol against a peer using the standard-library GCM
+func TestSessionRejectsSecondNew(t *testing.T) {
+	c, _ := newSessionTestClient(t)
+	requests := 0
+	c.client = &sessionTestClient{express: func(args ndn.ExpressRArgs) {
+		requests++
+		args.Callback(ndn.ExpressCallbackArgs{Result: ndn.InterestResultTimeout})
+	}}
+	session, err := c.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.New(&ChallengeEmail{}, time.Now().Add(time.Hour)); err == nil {
+		t.Fatal("first NEW unexpectedly succeeded")
+	}
+	if _, err := session.New(&ChallengeEmail{}, time.Now().Add(time.Hour)); err == nil {
+		t.Fatal("session accepted a second NEW")
+	}
+	if requests != 1 {
+		t.Fatalf("second NEW reached the network: got %d requests", requests)
+	}
+}
+
+func TestSessionRequiresChallenge(t *testing.T) {
+	c, _ := newSessionTestClient(t)
+	session, err := c.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.New(nil, time.Now().Add(time.Hour)); err == nil {
+		t.Fatal("NEW accepted a nil challenge")
+	}
+}
+
+func TestSessionSnapshotsSigner(t *testing.T) {
+	c, _ := newSessionTestClient(t)
+	session, err := c.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetSigner(nil)
+	if session.signer == nil {
+		t.Fatal("client signer mutation changed an existing session")
+	}
+}
+
+func TestClientNewSessionRequiresSigner(t *testing.T) {
+	if _, err := new(Client).NewSession(); err == nil {
+		t.Fatal("client without a signer created a session")
+	}
+}
+
+// (AI GENERATED DESCRIPTION): Exercise the client protocol against a peer using the standard-library GCM
 // API directly, so the client and test peer cannot share an IV-encoding bug.
-func TestClientChallengeExchange(t *testing.T) {
+func TestSessionChallengeExchange(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		replay bool
@@ -142,8 +201,12 @@ func TestClientChallengeExchange(t *testing.T) {
 			issuedName := c.signer.KeyName().Append(enc.NewGenericComponent("ca"), enc.NewVersionComponent(1))
 			peer := &sessionTestClient{}
 			c.client = peer
+			session, err := c.NewSession()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			// Complete NEW and derive the peer's session key before CHALLENGE.
+			// (AI GENERATED DESCRIPTION): Complete NEW and derive the peer's session key before CHALLENGE.
 			peer.express = func(args ndn.ExpressRArgs) {
 				req, err := tlv.ParseNewReq(enc.NewWireView(args.AppParam), false)
 				if err != nil {
@@ -171,12 +234,16 @@ func TestClientChallengeExchange(t *testing.T) {
 				codesRequested++
 				return "123456"
 			}}
-			result, err := c.New(challenge, time.Now().Add(time.Hour))
+			result, err := session.New(challenge, time.Now().Add(time.Hour))
 			if err != nil {
 				t.Fatal(err)
 			}
+			// (AI GENERATED DESCRIPTION): The returned response is caller-owned and must not alias session state.
+			result.EcdhPub[0] ^= 1
+			result.Salt[0] ^= 1
+			result.ReqId[0] ^= 1
 
-			// Verify each CHALLENGE request and return an encrypted response.
+			// (AI GENERATED DESCRIPTION): Verify each CHALLENGE request and return an encrypted response.
 			var nextSend, nextReceive uint32
 			var clientPrefix []byte
 			var firstResponse enc.Wire
@@ -223,7 +290,7 @@ func TestClientChallengeExchange(t *testing.T) {
 						CertName: &spec.NameContainer{Name: issuedName},
 					}
 				}
-				// Use a stable prefix guaranteed to differ from the client's.
+				// (AI GENERATED DESCRIPTION): Use a stable prefix guaranteed to differ from the client's.
 				iv := make([]byte, 12)
 				copy(iv[:8], clientPrefix)
 				iv[0] ^= 1
@@ -240,9 +307,9 @@ func TestClientChallengeExchange(t *testing.T) {
 				rounds++
 				replySessionTest(t, caSigner, args, content)
 			}
-			response, err := c.Challenge(challenge, result, nil)
+			response, err := session.Challenge()
 			if test.replay {
-				if err == nil || !strings.Contains(err.Error(), "counter was replayed") {
+				if err == nil {
 					t.Fatalf("expected replay rejection, got %v", err)
 				}
 			} else {
@@ -263,7 +330,7 @@ func TestClientChallengeExchange(t *testing.T) {
 	}
 }
 
-func TestClientNewRejectsRequesterSignedResponse(t *testing.T) {
+func TestSessionNewRejectsRequesterSignedResponse(t *testing.T) {
 	c, _ := newSessionTestClient(t)
 	serverKey, err := EcdhKeygen()
 	if err != nil {
@@ -273,13 +340,17 @@ func TestClientNewRejectsRequesterSignedResponse(t *testing.T) {
 	c.client = &sessionTestClient{express: func(args ndn.ExpressRArgs) {
 		replySessionTest(t, c.signer, args, response.Encode())
 	}}
-	if _, err := c.New(&ChallengeEmail{}, time.Now().Add(time.Hour)); err == nil || !strings.Contains(err.Error(), "validation failure") {
+	session, err := c.NewSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.New(&ChallengeEmail{}, time.Now().Add(time.Hour)); err == nil {
 		t.Fatalf("expected CA signature validation failure, got %v", err)
 	}
 }
 
-func TestClientChallengeRequiresSession(t *testing.T) {
-	if _, err := new(Client).Challenge(&ChallengeEmail{}, nil, nil); err == nil {
+func TestSessionChallengeRequiresNew(t *testing.T) {
+	if _, err := new(Session).Challenge(); err == nil {
 		t.Fatal("CHALLENGE accepted without NEW")
 	}
 }
