@@ -9,6 +9,7 @@ package dispatch
 
 import (
 	"github.com/named-data/ndnd/fw/defn"
+	enc "github.com/named-data/ndnd/std/encoding"
 )
 
 // FWThread provides an interface that forwarding threads can satisfy
@@ -18,6 +19,8 @@ type FWThread interface {
 
 	QueueData(packet *defn.Pkt)
 	QueueInterest(packet *defn.Pkt)
+
+	EraseCsDataUnderPrefix(name enc.Name, limit int) (int, bool)
 
 	Counters() defn.FWThreadCounters
 }

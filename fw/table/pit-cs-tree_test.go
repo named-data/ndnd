@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"math/rand"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -120,6 +121,69 @@ func TestIsCsServing(t *testing.T) {
 }
 
 // (AI GENERATED DESCRIPTION): Unit test that verifies PitCS.InsertInterest correctly creates or updates PIT entries, detects duplicate nonces, preserves entry state, and supports prefix relationships between interests.
+func TestEraseCsDataUnderPrefix(t *testing.T) {
+	setReplacementPolicy("lru")
+	CfgSetCsCapacity(1024)
+	pitCS := NewPitCS(func(PitEntry) {})
+
+	// Empty tree: nothing erased, nothing remains
+	name, _ := enc.NameFromStr("/ndn")
+	n, more := pitCS.EraseCsDataUnderPrefix(name, 10)
+	assert.Equal(t, n, 0)
+	assert.False(t, more)
+
+	// Insert data under /ndn and elsewhere
+	name1, _ := enc.NameFromStr("/ndn/a")
+	name2, _ := enc.NameFromStr("/ndn/b/c")
+	name3, _ := enc.NameFromStr("/other")
+	pitCS.InsertData(makeData(name1), VALID_DATA_1)
+	pitCS.InsertData(makeData(name2), VALID_DATA_2)
+	pitCS.InsertData(makeData(name3), VALID_DATA_1)
+	assert.Equal(t, pitCS.CsSize(), 3)
+
+	// Detect-only mode erases nothing but reports matches
+	n, more = pitCS.EraseCsDataUnderPrefix(name, 0)
+	assert.Equal(t, n, 0)
+	assert.True(t, more)
+	assert.Equal(t, pitCS.CsSize(), 3)
+
+	// Limit below the match count: erases up to the limit, reports more
+	n, more = pitCS.EraseCsDataUnderPrefix(name, 1)
+	assert.Equal(t, n, 1)
+	assert.True(t, more)
+	assert.Equal(t, pitCS.CsSize(), 2)
+
+	// Erased entries no longer satisfy interests
+	interest1 := makeInterest(name1)
+	interest1.CanBePrefixV = false
+	interest2 := makeInterest(name2)
+	interest2.CanBePrefixV = false
+	found := pitCS.FindMatchingDataFromCS(interest1) != nil ||
+		pitCS.FindMatchingDataFromCS(interest2) != nil
+	assert.True(t, found) // exactly one remains under /ndn
+
+	// Erase the rest under the prefix; entries outside it are untouched
+	n, more = pitCS.EraseCsDataUnderPrefix(name, 10)
+	assert.Equal(t, n, 1)
+	assert.False(t, more)
+	assert.Equal(t, pitCS.CsSize(), 1)
+
+	interest3 := makeInterest(name3)
+	interest3.CanBePrefixV = false
+	assert.NotNil(t, pitCS.FindMatchingDataFromCS(interest3))
+
+	// Erased entries are also removed from the replacement strategy, so the
+	// next insert after refilling to capacity must not consult stale entries
+	setReplacementPolicy("lru")
+	for i := 0; i < 10; i++ {
+		dname, _ := enc.NameFromStr("/fill/" + strconv.Itoa(i))
+		pitCS.InsertData(makeData(dname), VALID_DATA_1)
+	}
+	n, _ = pitCS.EraseCsDataUnderPrefix(name3, 10)
+	assert.Equal(t, n, 1)
+	assert.Equal(t, pitCS.CsSize(), 10)
+}
+
 func TestInsertInterest(t *testing.T) {
 	setReplacementPolicy("lru")
 
