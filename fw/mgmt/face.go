@@ -565,7 +565,7 @@ func (f *FaceModule) createDataset(selectedFace face.LinkService) *mgmt.FaceStat
 		NOutData:        selectedFace.NOutData(),
 		NOutNacks:       0,
 		NInBytes:        selectedFace.NInBytes(),
-		NOutBytes:       selectedFace.NInBytes(),
+		NOutBytes:       selectedFace.NOutBytes(),
 	}
 	if selectedFace.ExpirationPeriod() != 0 {
 		faceDataset.ExpirationPeriod = optional.Some(uint64(selectedFace.ExpirationPeriod().Milliseconds()))
