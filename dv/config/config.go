@@ -22,6 +22,9 @@ const CostPfxInfinity = uint64(0xFFFFFFFF)
 const NlsrOrigin = uint64(mgmt.RouteOriginNLSR)
 const PrefixInsOrigin = uint64(mgmt.RouteOriginPrefixIns)
 
+// Maximum depth supported by the bundled trust schema.
+const maxRouterSuffixComponents = 4
+
 var MulticastStrategy = enc.LOCALHOST.
 	Append(enc.NewGenericComponent("nfd")).
 	Append(enc.NewGenericComponent("strategy")).
@@ -147,9 +150,9 @@ func (c *Config) Parse() (err error) {
 		return fmt.Errorf("network name is required to be a prefix of router name")
 	}
 
-	// Make sure router length is exactly one more than network
-	if len(c.routerNameN) != len(c.networkNameN)+1 {
-		return fmt.Errorf("router name must be exactly one component longer than network name")
+	routerSuffixLength := len(c.routerNameN) - len(c.networkNameN)
+	if routerSuffixLength == 0 || routerSuffixLength > maxRouterSuffixComponents {
+		return fmt.Errorf("router name must be 1 to %d components longer than network name", maxRouterSuffixComponents)
 	}
 
 	// Validate intervals are not too short

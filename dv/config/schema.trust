@@ -2,8 +2,11 @@
 #network: net10
 #network: net20/net21
 #network: net30/net31/net32
-// Router name from config
-#router: #network/router
+// Router name from config (one to four suffix components)
+#router: #network/router10
+#router: #network/router20/router21
+#router: #network/router30/router31/router32
+#router: #network/router40/router41/router42/router43
 
 // Advertisement data and broadcast
 #advertisement_data: /"localhop"/#router/"32=DV"/"32=ADV"/_ <= #router_cert
