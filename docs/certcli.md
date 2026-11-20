@@ -77,3 +77,45 @@ ndnd certcli -o alice -k alice.key -c email testbed.root.pem
 
 # Enter the email address and code as before
 ```
+
+## Go CA authorization and challenges
+
+Configure a CA using `std/examples/ndncert/ca.conf.sample`, with a CA
+certificate and its matching private key for the configured `ca-prefix`.
+Start the local forwarder before launching the CA:
+
+```sh
+ndnd sec certca ca.conf ca.cert ca.key
+```
+
+For email verification, configure an SMTP server and set the password in the
+environment variable named by `smtp-password-env` (the sample uses
+`NDNCERT_SMTP_PASSWORD`). The CA prefix must be reachable by requesting clients.
+
+Use `--data-dir DIR` to retain CA objects, including issued certificates,
+across restarts. Active request and challenge state remains in memory, so
+clients must start a new request after a CA restart.
+
+PROBE suggests
+identities, but does not grant permission to request them. The server enforces
+the naming policy even when a client skips PROBE:
+
+- Email verification authorizes exactly the identity computed by the configured
+  `name-assignment.email` rule. For example, with CA prefix `/example` and rule
+  `/`, `alice@example.org` authorizes `/example/org/example/alice`.
+- DNS verification authorizes exactly `CA-prefix/<domain>`, where `<domain>` is
+  one generic name component containing a canonical lowercase DNS hostname.
+  For example, proving `example.org` authorizes `/example/example.org`, not its
+  descendants or other names below the CA prefix.
+
+CHALLENGE Interests must be signed by the key in the original certificate
+request. Each request also requires an unchanged random IV prefix and increasing
+authenticated AEAD counters; stale/replayed ciphertext is rejected without
+repeating the challenge state transition. Clients must retain their send counter
+throughout a request. Completed requests cannot issue another certificate.
+
+SMTP and DNS verification run outside the packet-processing loop with bounded
+concurrency and network I/O deadlines. Overlapping work on the same request, or
+work beyond the concurrency limit, receives a busy error rather than being queued
+without a bound. Failed DNS checks, including lookup errors, consume one of the
+request's advertised attempts; after exhaustion, start a new request.

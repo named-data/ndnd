@@ -36,6 +36,39 @@ func testValidateSelfSigned(t *testing.T, certB64 string) {
 	test(false)
 }
 
+func TestValidateInterest(t *testing.T) {
+	tu.SetT(t)
+	keyName := tu.NoErr(enc.NameFromStr("/example/KEY/test"))
+	packetSigner := tu.NoErr(sig.KeygenEd25519(keyName))
+	publicKey := tu.NoErr(packetSigner.Public())
+	certName := tu.NoErr(enc.NameFromStr("/example/KEY/test/self/1"))
+	certWire, err := spec.Spec{}.MakeData(certName, &ndn.DataConfig{
+		ContentType: optional.Some(ndn.ContentTypeKey),
+	}, enc.Wire{publicKey}, packetSigner)
+	require.NoError(t, err)
+	cert, _, err := spec.Spec{}.ReadData(enc.NewWireView(certWire.Wire))
+	require.NoError(t, err)
+
+	encodedInterest, err := spec.Spec{}.MakeInterest(
+		tu.NoErr(enc.NameFromStr("/example/CA/NEW")),
+		&ndn.InterestConfig{},
+		enc.Wire{[]byte("request")},
+		packetSigner,
+	)
+	require.NoError(t, err)
+	interest, covered, err := spec.Spec{}.ReadInterest(enc.NewWireView(encodedInterest.Wire))
+	require.NoError(t, err)
+
+	valid, err := sig.ValidateInterest(interest, covered, cert)
+	require.NoError(t, err)
+	require.True(t, valid)
+
+	covered[0][0] ^= 1
+	valid, err = sig.ValidateInterest(interest, covered, cert)
+	require.NoError(t, err)
+	require.False(t, valid)
+}
+
 // TestEd25519ValidateInterop tests the Ed25519 self-signed certificate validation.
 func TestEd25519ValidateInterop(t *testing.T) {
 	tu.SetT(t)
