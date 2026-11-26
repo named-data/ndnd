@@ -66,6 +66,7 @@ type Thread struct {
 	pitCS         table.PitCsTable
 	strategies    map[uint64]Strategy
 	deadNonceList *table.DeadNonceList
+	nexthopBuf    []*table.FibNextHopEntry // reused for FIB lookups
 	shouldQuit    chan interface{}
 	HasQuit       chan interface{}
 
@@ -253,9 +254,12 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		return
 	}
 
-	// Get strategy for name
-	strategyName := table.FibStrategyTable.FindStrategyEnc(interest.Name())
-	strategy := t.strategies[strategyName.Hash()]
+	// Get strategy and nexthops for name in a single FIB lookup
+	var nexthops []*table.FibNextHopEntry
+	var strategyHash uint64
+	nexthops, strategyHash = table.FibStrategyTable.FindNextHopsAndStrategyEnc(interest.Name(), t.nexthopBuf)
+	t.nexthopBuf = nexthops
+	strategy := t.strategies[strategyHash]
 
 	// Add in-record and determine if already pending
 	// this looks like custom interest again, but again can be changed without much issue?
@@ -328,14 +332,10 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		return
 	}
 
-	// Use forwarding hint if present
-	lookupName := interest.Name()
+	// Use forwarding hint if present to query the FIB for nexthops
 	if fhName != nil {
-		lookupName = fhName
+		nexthops = table.FibStrategyTable.FindNextHopsEnc(fhName)
 	}
-
-	// Query the FIB for all possible nexthops
-	nexthops := table.FibStrategyTable.FindNextHopsEnc(lookupName)
 
 	// If the first component is /localhop, we do not forward interests received
 	// on non-local faces to non-local faces
@@ -481,8 +481,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 	}
 
 	// Get strategy for name
-	strategyName := table.FibStrategyTable.FindStrategyEnc(data.NameV)
-	strategy := t.strategies[strategyName.Hash()]
+	strategy := t.strategies[table.FibStrategyTable.FindStrategyHashEnc(data.NameV)]
 
 	if len(pitEntries) == 1 {
 		// When a single PIT entry matches, we pass the data to the strategy.
@@ -494,7 +493,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 
 		// Invoke strategy's AfterReceiveData
 		if core.Log.HasTrace() {
-			core.Log.Trace(t, "Sending Data", "name", packet.Name, "strategy", strategyName)
+			core.Log.Trace(t, "Sending Data", "name", packet.Name, "strategy", strategy)
 		}
 		strategy.AfterReceiveData(packet, pitEntry, packet.IncomingFaceID)
 

@@ -63,14 +63,18 @@ func newFibStrategyTableHashTable(m uint16) {
 
 	rtEntry := new(baseFibStrategyEntry)
 	rtEntry.name = enc.Name{}
-	rtEntry.strategy = defn.DEFAULT_STRATEGY
+	rtEntry.setStrategy(defn.DEFAULT_STRATEGY)
 	fibStrategyTableHashTable.realTable[enc.Name{}.Hash()] = rtEntry
 }
 
 // findLongestPrefixMatch returns the entry corresponding to the longest
 // prefix match of the given name. It returns nil if no exact match was found.
 func (f *FibStrategyHashTable) findLongestPrefixMatchEnc(name enc.Name) *baseFibStrategyEntry {
-	prefixHash := name.PrefixHash()
+	return f.findLongestPrefixMatchHash(name, name.PrefixHash())
+}
+
+// findLongestPrefixMatchHash is findLongestPrefixMatchEnc with precomputed prefix hashes.
+func (f *FibStrategyHashTable) findLongestPrefixMatchHash(name enc.Name, prefixHash []uint64) *baseFibStrategyEntry {
 	if len(name) <= f.m {
 		// Name length is less than or equal to M, so only need to check real table
 		for pfx := len(name); pfx >= 0; pfx-- {
@@ -275,6 +279,61 @@ func (f *FibStrategyHashTable) FindStrategyEnc(name enc.Name) enc.Name {
 	return nil
 }
 
+// FindNextHopsAndStrategyEnc returns the nexthops (appended to buf[:0]) and strategy hash for name.
+func (f *FibStrategyHashTable) FindNextHopsAndStrategyEnc(name enc.Name, buf []*FibNextHopEntry) ([]*FibNextHopEntry, uint64) {
+	f.fibStrategyRWMutex.RLock()
+	defer f.fibStrategyRWMutex.RUnlock()
+
+	nexthops := buf[:0]
+	prefixHash := name.PrefixHash()
+	entry := f.findLongestPrefixMatchHash(name, prefixHash)
+	if entry == nil {
+		return nexthops, 0
+	}
+
+	foundNexthops := false
+	var strategyHash uint64
+	foundStrategy := false
+	for pfx := len(entry.name); pfx >= 0; pfx-- {
+		val, ok := f.realTable[prefixHash[pfx]]
+		if !ok {
+			continue
+		}
+		if !foundNexthops && len(val.nexthops) > 0 {
+			nexthops = append(nexthops, val.nexthops...)
+			foundNexthops = true
+		}
+		if !foundStrategy && val.strategy != nil {
+			strategyHash = val.strategyHash
+			foundStrategy = true
+		}
+		if foundNexthops && foundStrategy {
+			break
+		}
+	}
+
+	return nexthops, strategyHash
+}
+
+// FindStrategyHashEnc returns the longest-prefix matching strategy name hash for the specified name.
+func (f *FibStrategyHashTable) FindStrategyHashEnc(name enc.Name) uint64 {
+	f.fibStrategyRWMutex.RLock()
+	defer f.fibStrategyRWMutex.RUnlock()
+
+	prefixHash := name.PrefixHash()
+	entry := f.findLongestPrefixMatchHash(name, prefixHash)
+	if entry == nil {
+		return 0
+	}
+
+	for pfx := len(entry.name); pfx >= 0; pfx-- {
+		if val, ok := f.realTable[prefixHash[pfx]]; ok && val.strategy != nil {
+			return val.strategyHash
+		}
+	}
+	return 0
+}
+
 // InsertNextHop adds or updates a nexthop entry for the specified prefix.
 func (f *FibStrategyHashTable) InsertNextHopEnc(name enc.Name, nexthop uint64, cost uint64) {
 	f.fibStrategyRWMutex.Lock()
@@ -368,7 +427,7 @@ func (f *FibStrategyHashTable) SetStrategyEnc(name enc.Name, strategy enc.Name) 
 	defer f.fibStrategyRWMutex.Unlock()
 
 	realEntry := f.insertEntryEnc(name)
-	realEntry.strategy = strategy
+	realEntry.setStrategy(strategy)
 }
 
 // UnsetStrategy unsets the strategy for the specified prefix.
@@ -378,7 +437,7 @@ func (f *FibStrategyHashTable) UnSetStrategyEnc(name enc.Name) {
 
 	entry, ok := f.realTable[name.Hash()]
 	if ok {
-		entry.strategy = nil
+		entry.setStrategy(nil)
 		f.pruneTables(entry)
 	}
 }

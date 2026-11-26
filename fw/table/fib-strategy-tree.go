@@ -40,7 +40,7 @@ func newFibStrategyTableTree() {
 	// Root component will be empty
 	tree.root = new(fibStrategyTreeEntry)
 	tree.root.component = enc.Component{}
-	tree.root.strategy = defn.DEFAULT_STRATEGY
+	tree.root.setStrategy(defn.DEFAULT_STRATEGY)
 	tree.root.name = enc.Name{}
 }
 
@@ -145,6 +145,48 @@ func (f *FibStrategyTree) FindStrategyEnc(name enc.Name) enc.Name {
 	return strategy
 }
 
+// FindNextHopsAndStrategyEnc returns the nexthops (appended to buf[:0]) and strategy hash for name.
+func (f *FibStrategyTree) FindNextHopsAndStrategyEnc(name enc.Name, buf []*FibNextHopEntry) ([]*FibNextHopEntry, uint64) {
+	f.mutex.RLock()
+	defer f.mutex.RUnlock()
+
+	nexthops := buf[:0]
+	foundNexthops := false
+	var strategyHash uint64
+	foundStrategy := false
+
+	// Step up from the longest prefix match until both are found,
+	// since some entries might only have one of nexthops or strategy
+	for entry := f.root.findLongestPrefixEntryEnc(name); entry != nil; entry = entry.parent {
+		if !foundNexthops && len(entry.nexthops) > 0 {
+			nexthops = append(nexthops, entry.nexthops...)
+			foundNexthops = true
+		}
+		if !foundStrategy && entry.strategy != nil {
+			strategyHash = entry.strategyHash
+			foundStrategy = true
+		}
+		if foundNexthops && foundStrategy {
+			break
+		}
+	}
+
+	return nexthops, strategyHash
+}
+
+// FindStrategyHashEnc returns the longest-prefix matching strategy name hash for the specified name.
+func (f *FibStrategyTree) FindStrategyHashEnc(name enc.Name) uint64 {
+	f.mutex.RLock()
+	defer f.mutex.RUnlock()
+
+	for entry := f.root.findLongestPrefixEntryEnc(name); entry != nil; entry = entry.parent {
+		if entry.strategy != nil {
+			return entry.strategyHash
+		}
+	}
+	return 0
+}
+
 // InsertNextHop adds or updates a nexthop entry for the specified prefix.
 func (f *FibStrategyTree) InsertNextHopEnc(name enc.Name, nexthop uint64, cost uint64) {
 	f.mutex.Lock()
@@ -234,7 +276,7 @@ func (f *FibStrategyTree) SetStrategyEnc(name enc.Name, strategy enc.Name) {
 	defer f.mutex.Unlock()
 
 	entry := f.fillTreeToPrefixEnc(name)
-	entry.strategy = strategy.Clone()
+	entry.setStrategy(strategy.Clone())
 }
 
 // UnsetStrategy unsets the strategy for the specified prefix.
@@ -244,7 +286,7 @@ func (f *FibStrategyTree) UnSetStrategyEnc(name enc.Name) {
 
 	entry := f.root.findExactMatchEntryEnc(name)
 	if entry != nil {
-		entry.strategy = nil
+		entry.setStrategy(nil)
 		entry.pruneIfEmpty()
 	}
 }
