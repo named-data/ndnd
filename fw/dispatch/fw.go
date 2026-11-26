@@ -33,7 +33,7 @@ func InitializeFWThreads(faces []FWThread) {
 
 // GetFWThread returns the specified forwarding thread or nil if it does not exist.
 func GetFWThread(id int) FWThread {
-	if id < 0 || id > len(FWDispatch) {
+	if id < 0 || id >= len(FWDispatch) {
 		return nil
 	}
 	return FWDispatch[id]
