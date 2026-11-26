@@ -453,17 +453,19 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 		return
 	}
 
-	// Add to Content Store
-	if t.pitCS.IsCsAdmitting() {
-		t.pitCS.InsertData(data, packet.Raw.Join())
-	}
-
 	// Check for matching PIT entries
 	pitEntries := t.pitCS.FindInterestPrefixMatchByDataEnc(data, pitToken)
 	if len(pitEntries) == 0 {
-		// Unsolicited Data - nothing more to do
+		// Unsolicited Data - drop without caching (like NFD's default drop-all policy).
+		// This also avoids duplicate caching when local-origin Data is dispatched
+		// to every thread that matches a prefix of its name.
 		core.Log.Debug(t, "Unsolicited data", "name", packet.Name, "faceid", packet.IncomingFaceID)
 		return
+	}
+
+	// Add to Content Store
+	if t.pitCS.IsCsAdmitting() {
+		t.pitCS.InsertData(data, packet.Raw.Join())
 	}
 
 	// Get strategy for name
