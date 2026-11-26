@@ -94,7 +94,7 @@ func (f *fibStrategyTreeEntry) pruneIfEmpty() {
 	for entry := f; entry.parent != nil && len(entry.children) == 0 && len(entry.nexthops) == 0 && entry.strategy == nil; entry = entry.parent {
 		// Remove from parent's children
 		for i, child := range entry.parent.children {
-			if child == f {
+			if child == entry {
 				if i < len(entry.parent.children)-1 {
 					copy(entry.parent.children[i:], entry.parent.children[i+1:])
 				}
