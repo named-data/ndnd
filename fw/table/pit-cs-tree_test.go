@@ -511,7 +511,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 
 	pitCS.InsertData(data1, VALID_DATA_1)
 	csEntry1 := pitCS.FindMatchingDataFromCS(interest1)
-	_, csWire, _ := csEntry1.Copy()
+	_, csWire, _ := csEntry1.Parse()
 	assert.Equal(t, pitCS.CsSize(), 1)
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_1))
 
@@ -519,7 +519,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	// Should not result in a new CsEntry
 	pitCS.InsertData(data1, VALID_DATA_1)
 	csEntry1 = pitCS.FindMatchingDataFromCS(interest1)
-	_, csWire, _ = csEntry1.Copy()
+	_, csWire, _ = csEntry1.Parse()
 	assert.Equal(t, pitCS.CsSize(), 1)
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_1))
 
@@ -534,7 +534,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	pitCS.InsertData(data2, VALID_DATA_2)
 
 	csEntry2 := pitCS.FindMatchingDataFromCS(interest2)
-	_, csWire, _ = csEntry2.Copy()
+	_, csWire, _ = csEntry2.Parse()
 	assert.Equal(t, pitCS.CsSize(), 2)
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_2))
 
@@ -544,7 +544,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	interest3.CanBePrefixV = true
 
 	csEntry3 := pitCS.FindMatchingDataFromCS(interest3)
-	_, csWire, _ = csEntry3.Copy()
+	_, csWire, _ = csEntry3.Parse()
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_1))
 
 	// Reduced CS capacity to check that eviction occurs

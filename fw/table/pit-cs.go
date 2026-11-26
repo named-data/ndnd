@@ -118,7 +118,7 @@ type PitOutRecord struct {
 type CsEntry interface {
 	Index() uint64 // the hash of the entry, for fast lookup
 	StaleTime() time.Time
-	Copy() (*defn.FwData, []byte, error)
+	Parse() (*defn.FwData, []byte, error)
 }
 
 type baseCsEntry struct {
@@ -284,15 +284,17 @@ func (bce *baseCsEntry) StaleTime() time.Time {
 	return bce.staleTime
 }
 
-// (AI GENERATED DESCRIPTION): Creates a duplicate of the entry’s wire data, parses it into a `FwData` packet, and returns both the parsed data and the raw byte slice (or an error).
-func (bce *baseCsEntry) Copy() (*defn.FwData, []byte, error) {
-	wire := make([]byte, len(bce.wire))
-	copy(wire, bce.wire)
-
-	data, err := defn.ParseFwPacket(enc.NewBufferView(wire), false)
+// Parse decodes the entry's wire into a FwData packet, returning both the
+// parsed data and the raw wire (or an error).
+//
+// The returned wire (and slices of it in the parsed data) are shared with
+// the CS and must not be modified. This is safe because the CS never writes
+// into a stored wire: refreshing an entry replaces the slice instead.
+func (bce *baseCsEntry) Parse() (*defn.FwData, []byte, error) {
+	data, err := defn.ParseFwPacket(enc.NewBufferView(bce.wire), false)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return data.Data, wire, nil
+	return data.Data, bce.wire, nil
 }

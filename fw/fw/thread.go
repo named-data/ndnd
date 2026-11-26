@@ -277,7 +277,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 				// Parse the cached data packet and replace in the pending one
 				// This is not the fastest way to do it, but simplifies everything
 				// significantly. We can optimize this later.
-				csData, csWire, err := csEntry.Copy()
+				csData, csWire, err := csEntry.Parse()
 				if csData != nil && csWire != nil {
 					// Mark PIT entry as expired
 					table.UpdateExpirationTimer(pitEntry, time.Now())
@@ -290,9 +290,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 					strategy.AfterContentStoreHit(packet, pitEntry, incomingFace.FaceID())
 					return
 				} else if err != nil {
-					core.Log.Error(t, "Error copying CS entry", "err", err)
+					core.Log.Error(t, "Error parsing CS entry", "err", err)
 				} else {
-					core.Log.Error(t, "Error copying CS entry", "err", "csData is nil")
+					core.Log.Error(t, "Error parsing CS entry", "err", "csData is nil")
 				}
 			} else {
 				// Update counters
