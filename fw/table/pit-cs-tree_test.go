@@ -554,3 +554,43 @@ func FindMatchingDataFromCS(t *testing.T) {
 	pitCS.InsertData(data2, VALID_DATA_2)
 	assert.Equal(t, pitCS.CsSize(), 1)
 }
+
+// (AI GENERATED DESCRIPTION): Tests that evicting Data from the CS also prunes the name tree nodes that held it, while keeping nodes still used by PIT entries.
+func TestCsEvictionPrunesTree(t *testing.T) {
+	setReplacementPolicy("lru")
+	CfgSetCsCapacity(10)
+	defer CfgSetCsCapacity(1024)
+
+	countNodes := func(n *pitCsTreeNode) int {
+		var walk func(*pitCsTreeNode) int
+		walk = func(n *pitCsTreeNode) int {
+			c := 1
+			for _, child := range n.children {
+				c += walk(child)
+			}
+			return c
+		}
+		return walk(n)
+	}
+
+	pitCS := NewPitCS(func(PitEntry) {})
+
+	// A pending Interest whose node must survive eviction of Data below it
+	pitName, _ := enc.NameFromStr("/a/b/pending")
+	pitCS.InsertInterest(makeInterest(pitName), nil, 1)
+
+	for i := range 1000 {
+		name := enc.Name{
+			enc.NewGenericComponent("a"),
+			enc.NewGenericComponent("b"),
+			enc.NewNumberComponent(enc.TypeSequenceNumNameComponent, uint64(i)),
+			enc.NewGenericComponent("x"),
+		}
+		pitCS.InsertData(&defn.FwData{NameV: name}, []byte{0x06, 0x00})
+	}
+	assert.Equal(t, 10, pitCS.CsSize())
+
+	// root + /a + /a/b + /a/b/pending + 10 * (/a/b/<seq> + /a/b/<seq>/x)
+	assert.Equal(t, 4+10*2, countNodes(pitCS.root))
+	assert.NotNil(t, pitCS.FindInterestExactMatchEnc(makeInterest(pitName)))
+}

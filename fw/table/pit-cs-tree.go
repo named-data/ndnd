@@ -404,6 +404,9 @@ func (p *PitCsTree) eraseCsDataFromReplacementStrategy(index uint64) {
 		entry.node.csEntry = nil
 		delete(p.csMap, index)
 		p.nCsEntries.Add(-1)
+
+		// Remove the tree nodes that only existed to hold this entry
+		entry.node.pruneIfEmpty()
 	}
 }
 
