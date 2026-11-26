@@ -273,7 +273,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 
 		// Check CS for matching entry
 		if t.pitCS.IsCsServing() {
-			csEntry := t.pitCS.FindMatchingDataFromCS(interest)
+			csEntry := t.pitCS.FindMatchingDataFromCSForPit(pitEntry, interest)
 			if csEntry != nil {
 				// Update counters
 				t.nCsHits.Add(1)
@@ -477,7 +477,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 
 	// Add to Content Store
 	if t.pitCS.IsCsAdmitting() {
-		t.pitCS.InsertData(data, packet.Raw.Join())
+		t.pitCS.InsertDataForPit(pitEntries[0], data, packet.Raw.Join())
 	}
 
 	// Get strategy for name

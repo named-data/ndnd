@@ -342,7 +342,18 @@ func (p *PitCsTree) pitTokenIdx(token uint32) uint32 {
 // If MustBeFresh is set to true in the Interest, only non-stale CS entries
 // will be returned.
 func (p *PitCsTree) FindMatchingDataFromCS(interest *defn.FwInterest) CsEntry {
-	node := p.root.findExactMatchEntryEnc(interest.NameV)
+	return p.findMatchingDataFromCSAt(p.root.findExactMatchEntryEnc(interest.NameV), interest)
+}
+
+// FindMatchingDataFromCSForPit is FindMatchingDataFromCS for an Interest that was
+// just inserted into pitEntry, reusing the entry's name tree node instead of looking it up.
+func (p *PitCsTree) FindMatchingDataFromCSForPit(pitEntry PitEntry, interest *defn.FwInterest) CsEntry {
+	return p.findMatchingDataFromCSAt(pitEntry.(*nameTreePitEntry).node, interest)
+}
+
+// findMatchingDataFromCSAt finds the best matching CS entry for an Interest,
+// given the name tree node exactly matching the Interest name (or nil).
+func (p *PitCsTree) findMatchingDataFromCSAt(node *pitCsTreeNode, interest *defn.FwInterest) CsEntry {
 	if node != nil {
 		if !interest.CanBePrefixV {
 			if node.csEntry != nil &&
@@ -361,6 +372,22 @@ func (p *PitCsTree) FindMatchingDataFromCS(interest *defn.FwInterest) CsEntry {
 
 // InsertData inserts a Data packet into the Content Store.
 func (p *PitCsTree) InsertData(data *defn.FwData, wire []byte) {
+	p.insertDataAt(nil, data, wire)
+}
+
+// InsertDataForPit inserts a Data packet that satisfied pitEntry into the Content Store.
+// If the PIT entry has the same name as the Data, its name tree node is reused.
+func (p *PitCsTree) InsertDataForPit(pitEntry PitEntry, data *defn.FwData, wire []byte) {
+	var node *pitCsTreeNode
+	if e := pitEntry.(*nameTreePitEntry); e.node != nil && e.encname.Equal(data.NameV) {
+		node = e.node
+	}
+	p.insertDataAt(node, data, wire)
+}
+
+// insertDataAt inserts a Data packet into the Content Store, given the
+// name tree node for the Data name (or nil to look it up).
+func (p *PitCsTree) insertDataAt(node *pitCsTreeNode, data *defn.FwData, wire []byte) {
 	index := data.NameV.Hash()
 	staleTime := time.Now()
 	if data.MetaInfo != nil && data.MetaInfo.FreshnessPeriod.IsSet() {
@@ -379,7 +406,9 @@ func (p *PitCsTree) InsertData(data *defn.FwData, wire []byte) {
 	} else {
 		// New entry
 		p.nCsEntries.Add(1)
-		node := p.root.fillTreeToPrefixEnc(data.NameV)
+		if node == nil {
+			node = p.root.fillTreeToPrefixEnc(data.NameV)
+		}
 		node.csEntry = &nameTreeCsEntry{
 			node: node,
 			baseCsEntry: baseCsEntry{

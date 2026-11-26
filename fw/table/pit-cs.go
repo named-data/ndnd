@@ -30,8 +30,12 @@ type PitCsTable interface {
 
 	// InsertData inserts a Data into the CS.
 	InsertData(data *defn.FwData, wire []byte)
+	// InsertDataForPit inserts a Data that satisfied pitEntry into the CS.
+	InsertDataForPit(pitEntry PitEntry, data *defn.FwData, wire []byte)
 	// FindMatchingDataFromCS finds a matching Data in the CS.
 	FindMatchingDataFromCS(interest *defn.FwInterest) CsEntry
+	// FindMatchingDataFromCSForPit finds a matching Data in the CS for an Interest just inserted into pitEntry.
+	FindMatchingDataFromCSForPit(pitEntry PitEntry, interest *defn.FwInterest) CsEntry
 	// CsSize returns the number of entries in the CS.
 	CsSize() int
 	// IsCsAdmitting returns whether the CS is admitting new entries.

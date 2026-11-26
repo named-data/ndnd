@@ -594,3 +594,37 @@ func TestCsEvictionPrunesTree(t *testing.T) {
 	assert.Equal(t, 4+10*2, countNodes(pitCS.root))
 	assert.NotNil(t, pitCS.FindInterestExactMatchEnc(makeInterest(pitName)))
 }
+
+// (AI GENERATED DESCRIPTION): Tests that the PIT-entry based CS insert and lookup reuse the PIT entry's name tree node when names match, and fall back to a lookup otherwise.
+func TestCsForPit(t *testing.T) {
+	setReplacementPolicy("lru")
+	CfgSetCsCapacity(1024)
+	pitCS := NewPitCS(func(PitEntry) {})
+
+	pkt, _ := defn.ParseFwPacket(enc.NewBufferView(VALID_DATA_1), false)
+	data := pkt.Data
+
+	// Exact name PIT entry: node is reused
+	interest := makeInterest(data.NameV)
+	pitEntry, _ := pitCS.InsertInterest(interest, nil, 1)
+	assert.Nil(t, pitCS.FindMatchingDataFromCSForPit(pitEntry, interest))
+	pitCS.InsertDataForPit(pitEntry, data, VALID_DATA_1)
+	assert.Equal(t, 1, pitCS.CsSize())
+	assert.Same(t, pitEntry.(*nameTreePitEntry).node, pitCS.csMap[data.NameV.Hash()].node)
+
+	csEntry := pitCS.FindMatchingDataFromCSForPit(pitEntry, interest)
+	assert.NotNil(t, csEntry)
+	assert.Equal(t, pitCS.FindMatchingDataFromCS(interest), csEntry)
+
+	// Prefix PIT entry with a different name: Data goes to its own node
+	pkt, _ = defn.ParseFwPacket(enc.NewBufferView(VALID_DATA_2), false)
+	data2 := pkt.Data
+	prefixInterest := makeInterest(data2.NameV[:2])
+	prefixInterest.CanBePrefixV = true
+	prefixEntry, _ := pitCS.InsertInterest(prefixInterest, nil, 1)
+	pitCS.InsertDataForPit(prefixEntry, data2, VALID_DATA_2)
+	assert.Equal(t, 2, pitCS.CsSize())
+	assert.NotSame(t, prefixEntry.(*nameTreePitEntry).node, pitCS.csMap[data2.NameV.Hash()].node)
+	assert.True(t, pitCS.csMap[data2.NameV.Hash()].node.name.Equal(data2.NameV))
+	assert.NotNil(t, pitCS.FindMatchingDataFromCSForPit(prefixEntry, prefixInterest))
+}
