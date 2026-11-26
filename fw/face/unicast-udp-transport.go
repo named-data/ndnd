@@ -8,10 +8,12 @@
 package face
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
@@ -128,7 +130,15 @@ func (t *UnicastUDPTransport) sendFrame(frame []byte) {
 
 	_, err := t.conn.Write(frame)
 	if err != nil {
-		core.Log.Warn(t, "Unable to send on socket - Face DOWN")
+		// A connected UDP socket reports an earlier ICMP port unreachable
+		// as ECONNREFUSED on the next write. This only means the remote end
+		// is not listening right now (e.g. it is restarting), so keep the face.
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			core.Log.Debug(t, "Remote endpoint refused connection", "err", err)
+			return
+		}
+
+		core.Log.Warn(t, "Unable to send on socket - Face DOWN", "err", err)
 		t.Close()
 		return
 	}
