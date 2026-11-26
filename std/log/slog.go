@@ -52,6 +52,13 @@ func (l *Logger) Level() Level {
 	return l.level
 }
 
+// HasTrace returns true if trace messages are logged.
+// Use it to guard Trace calls in hot paths: the arguments of a Trace call
+// are boxed into interfaces (and may allocate) even when it is not logged.
+func (l *Logger) HasTrace() bool {
+	return l.level <= LevelTrace
+}
+
 // Generic level message.
 func (l *Logger) log(t Tag, msg string, level Level, v ...any) {
 	if l.level > level {

@@ -235,7 +235,9 @@ func (l *linkServiceBase) dispatchInterest(pkt *defn.Pkt) {
 
 	// Hash name to thread
 	thread := fw.HashNameToFwThread(pkt.Name)
-	core.Log.Trace(l, "Dispatched Interest", "thread", thread)
+	if core.Log.HasTrace() {
+		core.Log.Trace(l, "Dispatched Interest", "thread", thread)
+	}
 	dispatch.GetFWThread(thread).QueueInterest(pkt)
 }
 
@@ -257,7 +259,9 @@ func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 			return
 		}
 
-		core.Log.Trace(l, "Dispatched Data", "thread", thread)
+		if core.Log.HasTrace() {
+			core.Log.Trace(l, "Dispatched Data", "thread", thread)
+		}
 		fwThread.QueueData(pkt)
 		return
 	}
@@ -268,7 +272,9 @@ func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 	if l.Scope() == defn.Local {
 		for i, match := range fw.HashNameToAllPrefixFwThreads(pkt.Name) {
 			if match {
-				core.Log.Trace(l, "Prefix dispatched local-origin Data", "thread", i)
+				if core.Log.HasTrace() {
+					core.Log.Trace(l, "Prefix dispatched local-origin Data", "thread", i)
+				}
 				dispatch.GetFWThread(i).QueueData(pkt)
 			}
 		}
@@ -277,6 +283,8 @@ func (l *linkServiceBase) dispatchData(pkt *defn.Pkt) {
 
 	// Only exact-match for now (no CanBePrefix)
 	thread := fw.HashNameToFwThread(pkt.Name)
-	core.Log.Trace(l, "Dispatched Data", "thread", thread)
+	if core.Log.HasTrace() {
+		core.Log.Trace(l, "Dispatched Data", "thread", thread)
+	}
 	dispatch.GetFWThread(thread).QueueData(pkt)
 }

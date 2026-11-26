@@ -319,3 +319,26 @@ func TestNdnGetAllForwardingStrategies(t *testing.T) {
 	nextHops = fse[2].GetNextHops()
 	assert.Equal(t, 0, len(nextHops))
 }
+
+// (AI GENERATED DESCRIPTION): Tests that removing the last nexthop of a deep prefix prunes every now-empty ancestor node from the FIB tree, not just the leaf.
+func TestNdnRemoveNextHopPrunesAncestors(t *testing.T) {
+	newFibStrategyTableTree()
+	tree := FibStrategyTable.(*FibStrategyTree)
+
+	name, _ := enc.NameFromStr("/a/b/c/d")
+	FibStrategyTable.InsertNextHopEnc(name, 1, 10)
+	assert.Len(t, tree.root.children, 1)
+
+	FibStrategyTable.RemoveNextHopEnc(name, 1)
+	assert.Empty(t, tree.root.children)
+
+	// Ancestors that still carry information must be kept
+	keep, _ := enc.NameFromStr("/a/b")
+	FibStrategyTable.InsertNextHopEnc(keep, 2, 10)
+	FibStrategyTable.InsertNextHopEnc(name, 1, 10)
+	FibStrategyTable.RemoveNextHopEnc(name, 1)
+	entry := tree.root.findExactMatchEntryEnc(keep)
+	assert.NotNil(t, entry)
+	assert.Empty(t, entry.children)
+	assert.Len(t, entry.nexthops, 1)
+}

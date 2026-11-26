@@ -56,7 +56,7 @@ func MakeUnicastTCPTransport(
 	// Construct transport
 	t := new(UnicastTCPTransport)
 	t.makeTransportBase(remoteURI, localURI, persistency, defn.NonLocal, defn.PointToPoint, defn.MaxNDNPacketSize)
-	t.expirationTime = utils.IdPtr(time.Now().Add(CfgTCPLifetime()))
+	t.expirationTime = utils.IdPtr(core.Now().Add(CfgTCPLifetime()))
 	t.rechan = make(chan bool, 2)
 
 	// Set scope
@@ -100,7 +100,7 @@ func AcceptUnicastTCPTransport(
 	// Construct transport
 	t := new(UnicastTCPTransport)
 	t.makeTransportBase(remoteURI, localURI, persistency, defn.NonLocal, defn.PointToPoint, defn.MaxNDNPacketSize)
-	t.expirationTime = utils.IdPtr(time.Now().Add(CfgTCPLifetime()))
+	t.expirationTime = utils.IdPtr(core.Now().Add(CfgTCPLifetime()))
 	t.rechan = make(chan bool, 1)
 
 	conn, success := remoteConn.(*net.TCPConn)
@@ -231,7 +231,7 @@ func (t *UnicastTCPTransport) sendFrame(frame []byte) {
 	}
 
 	t.nOutBytes += uint64(len(frame))
-	*t.expirationTime = time.Now().Add(CfgTCPLifetime())
+	*t.expirationTime = core.Now().Add(CfgTCPLifetime())
 }
 
 // (AI GENERATED DESCRIPTION): Runs the receive loop for a UnicastTCPTransport, reading TLV frames from the socket, dispatching them to the link service, and automatically reconnecting or closing the face depending on connection state and persistency.
@@ -244,7 +244,7 @@ func (t *UnicastTCPTransport) runReceive() {
 		if t.conn != nil {
 			err := ndn_io.ReadTlvStream(t.conn, func(b []byte) bool {
 				t.nInBytes += uint64(len(b))
-				*t.expirationTime = time.Now().Add(CfgTCPLifetime())
+				*t.expirationTime = core.Now().Add(CfgTCPLifetime())
 				t.linkService.handleIncomingFrame(b)
 				return true
 			}, nil)

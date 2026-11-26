@@ -42,7 +42,9 @@ func (s *BestRoute) AfterContentStoreHit(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.Log.Trace(s, "AfterContentStoreHit", "name", packet.Name, "faceid", inFace)
+	if core.Log.HasTrace() {
+		core.Log.Trace(s, "AfterContentStoreHit", "name", packet.Name, "faceid", inFace)
+	}
 	s.SendData(packet, pitEntry, inFace, 0) // 0 indicates ContentStore is source
 }
 
@@ -52,9 +54,13 @@ func (s *BestRoute) AfterReceiveData(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.Log.Trace(s, "AfterReceiveData", "name", packet.Name, "inrecords", len(pitEntry.InRecords()))
+	if core.Log.HasTrace() {
+		core.Log.Trace(s, "AfterReceiveData", "name", packet.Name, "inrecords", len(pitEntry.InRecords()))
+	}
 	for faceID := range pitEntry.InRecords() {
-		core.Log.Trace(s, "Forwarding Data", "name", packet.Name, "faceid", faceID)
+		if core.Log.HasTrace() {
+			core.Log.Trace(s, "Forwarding Data", "name", packet.Name, "faceid", faceID)
+		}
 		s.SendData(packet, pitEntry, faceID, inFace)
 	}
 }
@@ -74,7 +80,7 @@ func (s *BestRoute) AfterReceiveInterest(
 	// Sort nexthops by cost and send to best-possible nexthop
 	sort.Slice(nexthops, func(i, j int) bool { return nexthops[i].Cost < nexthops[j].Cost })
 
-	now := time.Now()
+	now := core.Now()
 	for pass := range 2 {
 		for _, nh := range nexthops {
 			// In the first pass, skip hops that already have a out record
@@ -95,7 +101,9 @@ func (s *BestRoute) AfterReceiveInterest(
 			// But then we need to resort the list - this is just faster for now.
 			// In densely connected networks, this is not a big deal.
 
-			core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nh.Nexthop)
+			if core.Log.HasTrace() {
+				core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nh.Nexthop)
+			}
 			if sent := s.SendInterest(packet, pitEntry, nh.Nexthop, inFace); sent {
 				return
 			}

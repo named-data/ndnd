@@ -8,10 +8,12 @@
 package face
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/named-data/ndnd/fw/core"
@@ -53,7 +55,7 @@ func MakeUnicastUDPTransport(
 		defn.NonLocal, defn.PointToPoint,
 		int(core.C.Faces.Udp.DefaultMtu))
 	t.expirationTime = new(time.Time)
-	*t.expirationTime = time.Now().Add(CfgUDPLifetime())
+	*t.expirationTime = core.Now().Add(CfgUDPLifetime())
 
 	// Set scope
 	ip := net.ParseIP(remoteURI.Path())
@@ -128,13 +130,21 @@ func (t *UnicastUDPTransport) sendFrame(frame []byte) {
 
 	_, err := t.conn.Write(frame)
 	if err != nil {
-		core.Log.Warn(t, "Unable to send on socket - Face DOWN")
+		// A connected UDP socket reports an earlier ICMP port unreachable
+		// as ECONNREFUSED on the next write. This only means the remote end
+		// is not listening right now (e.g. it is restarting), so keep the face.
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			core.Log.Debug(t, "Remote endpoint refused connection", "err", err)
+			return
+		}
+
+		core.Log.Warn(t, "Unable to send on socket - Face DOWN", "err", err)
 		t.Close()
 		return
 	}
 
 	t.nOutBytes += uint64(len(frame))
-	*t.expirationTime = time.Now().Add(CfgUDPLifetime())
+	*t.expirationTime = core.Now().Add(CfgUDPLifetime())
 }
 
 // (AI GENERATED DESCRIPTION): Continuously reads TLV frames from the UDP socket, updates input byte count and expiration time, forwards each frame to the link service, and silently ignores connection‑refused errors while logging other read failures.
@@ -143,7 +153,7 @@ func (t *UnicastUDPTransport) runReceive() {
 
 	err := ndn_io.ReadTlvStream(t.conn, func(b []byte) bool {
 		t.nInBytes += uint64(len(b))
-		*t.expirationTime = time.Now().Add(CfgUDPLifetime())
+		*t.expirationTime = core.Now().Add(CfgUDPLifetime())
 		t.linkService.handleIncomingFrame(b)
 		return true
 	}, func(err error) bool {

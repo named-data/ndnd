@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	"github.com/named-data/ndnd/fw/core"
 	"github.com/named-data/ndnd/fw/defn"
@@ -66,6 +65,7 @@ type Thread struct {
 	pitCS         table.PitCsTable
 	strategies    map[uint64]Strategy
 	deadNonceList *table.DeadNonceList
+	nexthopBuf    []*table.FibNextHopEntry // reused for FIB lookups
 	shouldQuit    chan interface{}
 	HasQuit       chan interface{}
 
@@ -188,7 +188,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	if interest.HopLimitV != nil {
-		core.Log.Trace(t, "HopLimit check", "name", packet.Name, "hoplimit", *interest.HopLimitV)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "HopLimit check", "name", packet.Name, "hoplimit", *interest.HopLimitV)
+		}
 		if *interest.HopLimitV == 0 {
 			return
 		}
@@ -196,7 +198,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	// Log PIT token (if any)
-	core.Log.Trace(t, "OnIncomingInterest", "name", packet.Name, "faceid", incomingFace.FaceID(), "pittoken", len(packet.PitToken))
+	if core.Log.HasTrace() {
+		core.Log.Trace(t, "OnIncomingInterest", "name", packet.Name, "faceid", incomingFace.FaceID(), "pittoken", len(packet.PitToken))
+	}
 
 	// Check if violates /localhost
 	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOST) {
@@ -249,9 +253,12 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		return
 	}
 
-	// Get strategy for name
-	strategyName := table.FibStrategyTable.FindStrategyEnc(interest.Name())
-	strategy := t.strategies[strategyName.Hash()]
+	// Get strategy and nexthops for name in a single FIB lookup
+	var nexthops []*table.FibNextHopEntry
+	var strategyHash uint64
+	nexthops, strategyHash = table.FibStrategyTable.FindNextHopsAndStrategyEnc(interest.Name(), t.nexthopBuf)
+	t.nexthopBuf = nexthops
+	strategy := t.strategies[strategyHash]
 
 	// Add in-record and determine if already pending
 	// this looks like custom interest again, but again can be changed without much issue?
@@ -259,11 +266,13 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		interest, incomingFace.FaceID(), packet.PitToken)
 
 	if !isAlreadyPending {
-		core.Log.Trace(t, "Interest is not pending", "name", packet.Name)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "Interest is not pending", "name", packet.Name)
+		}
 
 		// Check CS for matching entry
 		if t.pitCS.IsCsServing() {
-			csEntry := t.pitCS.FindMatchingDataFromCS(interest)
+			csEntry := t.pitCS.FindMatchingDataFromCSForPit(pitEntry, interest)
 			if csEntry != nil {
 				// Update counters
 				t.nCsHits.Add(1)
@@ -271,10 +280,10 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 				// Parse the cached data packet and replace in the pending one
 				// This is not the fastest way to do it, but simplifies everything
 				// significantly. We can optimize this later.
-				csData, csWire, err := csEntry.Copy()
+				csData, csWire, err := csEntry.Parse()
 				if csData != nil && csWire != nil {
 					// Mark PIT entry as expired
-					table.UpdateExpirationTimer(pitEntry, time.Now())
+					table.UpdateExpirationTimer(pitEntry, core.Now())
 
 					// Create the pending packet structure
 					packet.L3.Data = csData
@@ -284,9 +293,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 					strategy.AfterContentStoreHit(packet, pitEntry, incomingFace.FaceID())
 					return
 				} else if err != nil {
-					core.Log.Error(t, "Error copying CS entry", "err", err)
+					core.Log.Error(t, "Error parsing CS entry", "err", err)
 				} else {
-					core.Log.Error(t, "Error copying CS entry", "err", "csData is nil")
+					core.Log.Error(t, "Error parsing CS entry", "err", "csData is nil")
 				}
 			} else {
 				// Update counters
@@ -294,7 +303,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			}
 		}
 	} else {
-		core.Log.Trace(t, "Interest is already pending", "name", packet.Name)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "Interest is already pending", "name", packet.Name)
+		}
 
 		// Add the previous nonce to the dead nonce list to prevent further looping
 		// TODO: review this design, not specified in NFD dev guide
@@ -309,7 +320,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	// If NextHopFaceId set, forward to that face (if it exists) or drop
 	if hop, ok := packet.NextHopFaceID.Get(); ok {
 		if face := dispatch.GetFace(hop); face != nil {
-			core.Log.Trace(t, "NextHopFaceId is set for Interest", "name", packet.Name)
+			if core.Log.HasTrace() {
+				core.Log.Trace(t, "NextHopFaceId is set for Interest", "name", packet.Name)
+			}
 			t.processOutgoingInterest(packet, pitEntry, hop, incomingFace.FaceID())
 		} else {
 			core.Log.Info(t, "Non-existent face specified in NextHopFaceId for Interest",
@@ -318,14 +331,10 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		return
 	}
 
-	// Use forwarding hint if present
-	lookupName := interest.Name()
+	// Use forwarding hint if present to query the FIB for nexthops
 	if fhName != nil {
-		lookupName = fhName
+		nexthops = table.FibStrategyTable.FindNextHopsEnc(fhName)
 	}
-
-	// Query the FIB for all possible nexthops
-	nexthops := table.FibStrategyTable.FindNextHopsEnc(lookupName)
 
 	// If the first component is /localhop, we do not forward interests received
 	// on non-local faces to non-local faces
@@ -369,7 +378,9 @@ func (t *Thread) processOutgoingInterest(
 		panic("processOutgoingInterest called with non-Interest packet")
 	}
 
-	core.Log.Trace(t, "OnOutgoingInterest", "name", packet.Name, "faceid", nexthop)
+	if core.Log.HasTrace() {
+		core.Log.Trace(t, "OnOutgoingInterest", "name", packet.Name, "faceid", nexthop)
+	}
 
 	// Get outgoing face
 	outgoingFace := dispatch.GetFace(nexthop)
@@ -453,22 +464,23 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 		return
 	}
 
-	// Add to Content Store
-	if t.pitCS.IsCsAdmitting() {
-		t.pitCS.InsertData(data, packet.Raw.Join())
-	}
-
 	// Check for matching PIT entries
 	pitEntries := t.pitCS.FindInterestPrefixMatchByDataEnc(data, pitToken)
 	if len(pitEntries) == 0 {
-		// Unsolicited Data - nothing more to do
+		// Unsolicited Data - drop without caching (like NFD's default drop-all policy).
+		// This also avoids duplicate caching when local-origin Data is dispatched
+		// to every thread that matches a prefix of its name.
 		core.Log.Debug(t, "Unsolicited data", "name", packet.Name, "faceid", packet.IncomingFaceID)
 		return
 	}
 
+	// Add to Content Store
+	if t.pitCS.IsCsAdmitting() {
+		t.pitCS.InsertDataForPit(pitEntries[0], data, packet.Raw.Join())
+	}
+
 	// Get strategy for name
-	strategyName := table.FibStrategyTable.FindStrategyEnc(data.NameV)
-	strategy := t.strategies[strategyName.Hash()]
+	strategy := t.strategies[table.FibStrategyTable.FindStrategyHashEnc(data.NameV)]
 
 	if len(pitEntries) == 1 {
 		// When a single PIT entry matches, we pass the data to the strategy.
@@ -476,10 +488,12 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 		pitEntry := pitEntries[0]
 
 		// Set PIT entry expiration to now
-		table.UpdateExpirationTimer(pitEntry, time.Now())
+		table.UpdateExpirationTimer(pitEntry, core.Now())
 
 		// Invoke strategy's AfterReceiveData
-		core.Log.Trace(t, "Sending Data", "name", packet.Name, "strategy", strategyName)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "Sending Data", "name", packet.Name, "strategy", strategy)
+		}
 		strategy.AfterReceiveData(packet, pitEntry, packet.IncomingFaceID)
 
 		// Mark PIT entry as satisfied
@@ -510,7 +524,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 			}
 
 			// Set PIT entry expiration to now
-			table.UpdateExpirationTimer(pitEntry, time.Now())
+			table.UpdateExpirationTimer(pitEntry, core.Now())
 
 			// Invoke strategy's BeforeSatisfyInterest
 			strategy.BeforeSatisfyInterest(pitEntry, packet.IncomingFaceID)
@@ -519,7 +533,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 			pitEntry.SetSatisfied(true)
 
 			// Insert into dead nonce list
-			for _, outRecord := range pitEntries[0].OutRecords() {
+			for _, outRecord := range pitEntry.OutRecords() {
 				t.deadNonceList.Insert(data.NameV, outRecord.LatestNonce)
 			}
 
@@ -529,7 +543,9 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 
 			// Call outgoing Data pipeline for each pending downstream
 			for face, token := range downstreams {
-				core.Log.Trace(t, "Multiple PIT entries for Data", "name", packet.Name)
+				if core.Log.HasTrace() {
+					core.Log.Trace(t, "Multiple PIT entries for Data", "name", packet.Name)
+				}
 				t.processOutgoingData(packet, face, token, packet.IncomingFaceID)
 			}
 		}
@@ -548,7 +564,9 @@ func (t *Thread) processOutgoingData(
 		panic("processOutgoingData called with non-Data packet")
 	}
 
-	core.Log.Trace(t, "OnOutgoingData", "name", packet.Name, "faceid", nexthop)
+	if core.Log.HasTrace() {
+		core.Log.Trace(t, "OnOutgoingData", "name", packet.Name, "faceid", nexthop)
+	}
 
 	// Get outgoing face
 	outgoingFace := dispatch.GetFace(nexthop)

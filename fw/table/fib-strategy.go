@@ -25,6 +25,8 @@ type baseFibStrategyEntry struct {
 	name      enc.Name
 	nexthops  []*FibNextHopEntry
 	strategy  enc.Name
+	// strategyHash caches strategy.Hash() for lookups in the forwarding threads
+	strategyHash uint64
 }
 
 // FibNextHopEntry represents a nexthop in a FIB entry.
@@ -37,6 +39,10 @@ type FibNextHopEntry struct {
 type FibStrategy interface {
 	FindNextHopsEnc(name enc.Name) []*FibNextHopEntry
 	FindStrategyEnc(name enc.Name) enc.Name
+	// FindNextHopsAndStrategyEnc returns the nexthops (appended to buf[:0]) and strategy hash for name.
+	FindNextHopsAndStrategyEnc(name enc.Name, buf []*FibNextHopEntry) ([]*FibNextHopEntry, uint64)
+	// FindStrategyHashEnc returns the hash of the longest-prefix matching strategy name.
+	FindStrategyHashEnc(name enc.Name) uint64
 	InsertNextHopEnc(name enc.Name, nextHop uint64, cost uint64)
 	ClearNextHopsEnc(name enc.Name)
 	RemoveNextHopEnc(name enc.Name, nextHop uint64)
@@ -63,4 +69,14 @@ func (e *baseFibStrategyEntry) GetStrategy() enc.Name {
 // GetNexthops gets the nexthops of the specified entry.
 func (e *baseFibStrategyEntry) GetNextHops() []*FibNextHopEntry {
 	return e.nexthops
+}
+
+// setStrategy sets the strategy of the entry and caches its hash.
+func (e *baseFibStrategyEntry) setStrategy(strategy enc.Name) {
+	e.strategy = strategy
+	if strategy != nil {
+		e.strategyHash = strategy.Hash()
+	} else {
+		e.strategyHash = 0
+	}
 }

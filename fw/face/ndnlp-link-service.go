@@ -319,7 +319,9 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 			}
 			baseSequence := LP.Sequence.Unwrap() - fragIndex
 
-			core.Log.Trace(l, "Received fragment", "index", fragIndex, "count", fragCount, "base", baseSequence)
+			if core.Log.HasTrace() {
+				core.Log.Trace(l, "Received fragment", "index", fragIndex, "count", fragCount, "base", baseSequence)
+			}
 			if fragIndex == 0 && fragCount == 1 {
 				// Bypass reassembly since only one fragment
 			} else {
@@ -435,7 +437,7 @@ func (l *NDNLPLinkService) checkCongestion(wire enc.Wire) bool {
 	// GetSendQueueSize is expensive, so only check every 1/2 of the threshold
 	// and only if we can mark congestion for this particular packet
 	if l.congestionCheck > l.options.DefaultCongestionThresholdBytes {
-		now := time.Now()
+		now := core.Now()
 		if now.After(l.lastTimeCongestionMarked.Add(l.options.BaseCongestionMarkingInterval)) &&
 			l.transport.GetSendQueueSize() > l.options.DefaultCongestionThresholdBytes {
 			l.lastTimeCongestionMarked = now

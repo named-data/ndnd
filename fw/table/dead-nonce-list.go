@@ -11,28 +11,40 @@ import (
 	"time"
 
 	enc "github.com/named-data/ndnd/std/encoding"
-	"github.com/named-data/ndnd/std/types/priority_queue"
 )
 
 // DeadNonceList represents the Dead Nonce List for a forwarding thread.
+//
+// Entries are kept in two generations that are rotated every lifetime:
+// new entries go into the current generation, and the previous generation
+// is dropped on rotation. An entry is therefore kept for at least one and
+// at most two lifetimes, with O(1) insertion and no per-entry expiry state.
 type DeadNonceList struct {
-	list            map[uint64]bool
-	expirationQueue priority_queue.Queue[uint64, int64]
-	Ticker          *time.Ticker
+	cur        map[uint64]struct{}
+	prev       map[uint64]struct{}
+	lifetime   time.Duration
+	lastRotate time.Time
+	Ticker     *time.Ticker
 }
 
 // NewDeadNonceList creates a new Dead Nonce List for a forwarding thread.
 func NewDeadNonceList() *DeadNonceList {
 	d := new(DeadNonceList)
-	d.list = make(map[uint64]bool)
-	d.Ticker = time.NewTicker(100 * time.Millisecond)
-	d.expirationQueue = priority_queue.New[uint64, int64]()
+	d.cur = make(map[uint64]struct{})
+	d.prev = make(map[uint64]struct{})
+	d.lifetime = max(CfgDeadNonceListLifetime(), time.Millisecond)
+	d.lastRotate = time.Now()
+	d.Ticker = time.NewTicker(d.lifetime)
 	return d
 }
 
 // Find returns whether the specified name and nonce combination are present in the Dead Nonce List.
 func (d *DeadNonceList) Find(name enc.Name, nonce uint32) bool {
-	_, ok := d.list[name.Hash()+uint64(nonce)]
+	hash := name.Hash() + uint64(nonce)
+	if _, ok := d.cur[hash]; ok {
+		return true
+	}
+	_, ok := d.prev[hash]
 	return ok
 }
 
@@ -40,25 +52,32 @@ func (d *DeadNonceList) Find(name enc.Name, nonce uint32) bool {
 // Returns whether nonce already present.
 func (d *DeadNonceList) Insert(name enc.Name, nonce uint32) bool {
 	hash := name.Hash() + uint64(nonce)
-	_, exists := d.list[hash]
-
-	if !exists {
-		d.list[hash] = true
-		d.expirationQueue.Push(hash, time.Now().Add(CfgDeadNonceListLifetime()).UnixNano())
+	if _, exists := d.cur[hash]; exists {
+		return true
 	}
+	_, exists := d.prev[hash]
+
+	// Always (re-)insert into the current generation so that
+	// the entry lives for at least another lifetime.
+	d.cur[hash] = struct{}{}
 	return exists
 }
 
-// RemoveExpiredEntry removes all expired entries from Dead Nonce List.
+// RemoveExpiredEntries drops the oldest generation of entries if it has
+// been at least one lifetime since the last rotation.
 func (d *DeadNonceList) RemoveExpiredEntries() {
-	evicted := 0
-	for d.expirationQueue.Len() > 0 && d.expirationQueue.PeekPriority() < time.Now().UnixNano() {
-		hash := d.expirationQueue.Pop()
-		delete(d.list, hash)
-		evicted += 1
-
-		if evicted >= 100 {
-			break
-		}
+	now := time.Now()
+	if now.Sub(d.lastRotate) < d.lifetime {
+		return
 	}
+	d.lastRotate = now
+
+	// Reuse the dropped generation's map for the new current generation
+	clear(d.prev)
+	d.prev, d.cur = d.cur, d.prev
+}
+
+// Len returns the number of entries in the Dead Nonce List.
+func (d *DeadNonceList) Len() int {
+	return len(d.cur) + len(d.prev)
 }

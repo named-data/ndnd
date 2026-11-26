@@ -511,7 +511,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 
 	pitCS.InsertData(data1, VALID_DATA_1)
 	csEntry1 := pitCS.FindMatchingDataFromCS(interest1)
-	_, csWire, _ := csEntry1.Copy()
+	_, csWire, _ := csEntry1.Parse()
 	assert.Equal(t, pitCS.CsSize(), 1)
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_1))
 
@@ -519,7 +519,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	// Should not result in a new CsEntry
 	pitCS.InsertData(data1, VALID_DATA_1)
 	csEntry1 = pitCS.FindMatchingDataFromCS(interest1)
-	_, csWire, _ = csEntry1.Copy()
+	_, csWire, _ = csEntry1.Parse()
 	assert.Equal(t, pitCS.CsSize(), 1)
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_1))
 
@@ -534,7 +534,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	pitCS.InsertData(data2, VALID_DATA_2)
 
 	csEntry2 := pitCS.FindMatchingDataFromCS(interest2)
-	_, csWire, _ = csEntry2.Copy()
+	_, csWire, _ = csEntry2.Parse()
 	assert.Equal(t, pitCS.CsSize(), 2)
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_2))
 
@@ -544,7 +544,7 @@ func FindMatchingDataFromCS(t *testing.T) {
 	interest3.CanBePrefixV = true
 
 	csEntry3 := pitCS.FindMatchingDataFromCS(interest3)
-	_, csWire, _ = csEntry3.Copy()
+	_, csWire, _ = csEntry3.Parse()
 	assert.True(t, bytes.Equal(csWire, VALID_DATA_1))
 
 	// Reduced CS capacity to check that eviction occurs
@@ -553,4 +553,78 @@ func FindMatchingDataFromCS(t *testing.T) {
 	pitCS.InsertData(data1, VALID_DATA_1)
 	pitCS.InsertData(data2, VALID_DATA_2)
 	assert.Equal(t, pitCS.CsSize(), 1)
+}
+
+// (AI GENERATED DESCRIPTION): Tests that evicting Data from the CS also prunes the name tree nodes that held it, while keeping nodes still used by PIT entries.
+func TestCsEvictionPrunesTree(t *testing.T) {
+	setReplacementPolicy("lru")
+	CfgSetCsCapacity(10)
+	defer CfgSetCsCapacity(1024)
+
+	countNodes := func(n *pitCsTreeNode) int {
+		var walk func(*pitCsTreeNode) int
+		walk = func(n *pitCsTreeNode) int {
+			c := 1
+			for _, child := range n.children {
+				c += walk(child)
+			}
+			return c
+		}
+		return walk(n)
+	}
+
+	pitCS := NewPitCS(func(PitEntry) {})
+
+	// A pending Interest whose node must survive eviction of Data below it
+	pitName, _ := enc.NameFromStr("/a/b/pending")
+	pitCS.InsertInterest(makeInterest(pitName), nil, 1)
+
+	for i := range 1000 {
+		name := enc.Name{
+			enc.NewGenericComponent("a"),
+			enc.NewGenericComponent("b"),
+			enc.NewNumberComponent(enc.TypeSequenceNumNameComponent, uint64(i)),
+			enc.NewGenericComponent("x"),
+		}
+		pitCS.InsertData(&defn.FwData{NameV: name}, []byte{0x06, 0x00})
+	}
+	assert.Equal(t, 10, pitCS.CsSize())
+
+	// root + /a + /a/b + /a/b/pending + 10 * (/a/b/<seq> + /a/b/<seq>/x)
+	assert.Equal(t, 4+10*2, countNodes(pitCS.root))
+	assert.NotNil(t, pitCS.FindInterestExactMatchEnc(makeInterest(pitName)))
+}
+
+// (AI GENERATED DESCRIPTION): Tests that the PIT-entry based CS insert and lookup reuse the PIT entry's name tree node when names match, and fall back to a lookup otherwise.
+func TestCsForPit(t *testing.T) {
+	setReplacementPolicy("lru")
+	CfgSetCsCapacity(1024)
+	pitCS := NewPitCS(func(PitEntry) {})
+
+	pkt, _ := defn.ParseFwPacket(enc.NewBufferView(VALID_DATA_1), false)
+	data := pkt.Data
+
+	// Exact name PIT entry: node is reused
+	interest := makeInterest(data.NameV)
+	pitEntry, _ := pitCS.InsertInterest(interest, nil, 1)
+	assert.Nil(t, pitCS.FindMatchingDataFromCSForPit(pitEntry, interest))
+	pitCS.InsertDataForPit(pitEntry, data, VALID_DATA_1)
+	assert.Equal(t, 1, pitCS.CsSize())
+	assert.Same(t, pitEntry.(*nameTreePitEntry).node, pitCS.csMap[data.NameV.Hash()].node)
+
+	csEntry := pitCS.FindMatchingDataFromCSForPit(pitEntry, interest)
+	assert.NotNil(t, csEntry)
+	assert.Equal(t, pitCS.FindMatchingDataFromCS(interest), csEntry)
+
+	// Prefix PIT entry with a different name: Data goes to its own node
+	pkt, _ = defn.ParseFwPacket(enc.NewBufferView(VALID_DATA_2), false)
+	data2 := pkt.Data
+	prefixInterest := makeInterest(data2.NameV[:2])
+	prefixInterest.CanBePrefixV = true
+	prefixEntry, _ := pitCS.InsertInterest(prefixInterest, nil, 1)
+	pitCS.InsertDataForPit(prefixEntry, data2, VALID_DATA_2)
+	assert.Equal(t, 2, pitCS.CsSize())
+	assert.NotSame(t, prefixEntry.(*nameTreePitEntry).node, pitCS.csMap[data2.NameV.Hash()].node)
+	assert.True(t, pitCS.csMap[data2.NameV.Hash()].node.name.Equal(data2.NameV))
+	assert.NotNil(t, pitCS.FindMatchingDataFromCSForPit(prefixEntry, prefixInterest))
 }

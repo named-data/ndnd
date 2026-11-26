@@ -165,7 +165,7 @@ func TestBaseCsEntryGetters(t *testing.T) {
 	assert.Equal(t, bpe.Index(), uint64(1234))
 	assert.Equal(t, bpe.StaleTime(), currTime)
 
-	csData, csWire, err := bpe.Copy()
+	csData, csWire, err := bpe.Parse()
 	assert.Nil(t, err)
 	assert.Equal(t, csData.NameV, name)
 	assert.Equal(t, csWire, VALID_DATA_1)
