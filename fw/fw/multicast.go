@@ -40,7 +40,9 @@ func (s *Multicast) AfterContentStoreHit(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.Log.Trace(s, "AfterContentStoreHit", "name", packet.Name, "faceid", inFace)
+	if core.Log.HasTrace() {
+		core.Log.Trace(s, "AfterContentStoreHit", "name", packet.Name, "faceid", inFace)
+	}
 	s.SendData(packet, pitEntry, inFace, 0) // 0 indicates ContentStore is source
 }
 
@@ -50,9 +52,13 @@ func (s *Multicast) AfterReceiveData(
 	pitEntry table.PitEntry,
 	inFace uint64,
 ) {
-	core.Log.Trace(s, "AfterReceiveData", "name", packet.Name, "inrecords", len(pitEntry.InRecords()))
+	if core.Log.HasTrace() {
+		core.Log.Trace(s, "AfterReceiveData", "name", packet.Name, "inrecords", len(pitEntry.InRecords()))
+	}
 	for faceID := range pitEntry.InRecords() {
-		core.Log.Trace(s, "Forwarding Data", "name", packet.Name, "faceid", faceID)
+		if core.Log.HasTrace() {
+			core.Log.Trace(s, "Forwarding Data", "name", packet.Name, "faceid", faceID)
+		}
 		s.SendData(packet, pitEntry, faceID, inFace)
 	}
 }
@@ -82,7 +88,9 @@ func (s *Multicast) AfterReceiveInterest(
 
 	// Send interest to all nexthops
 	for _, nexthop := range nexthops {
-		core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nexthop.Nexthop)
+		if core.Log.HasTrace() {
+			core.Log.Trace(s, "Forwarding Interest", "name", packet.Name, "faceid", nexthop.Nexthop)
+		}
 		s.SendInterest(packet, pitEntry, nexthop.Nexthop, inFace)
 	}
 }

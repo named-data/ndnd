@@ -319,7 +319,9 @@ func (l *NDNLPLinkService) handleIncomingFrame(frame []byte) {
 			}
 			baseSequence := LP.Sequence.Unwrap() - fragIndex
 
-			core.Log.Trace(l, "Received fragment", "index", fragIndex, "count", fragCount, "base", baseSequence)
+			if core.Log.HasTrace() {
+				core.Log.Trace(l, "Received fragment", "index", fragIndex, "count", fragCount, "base", baseSequence)
+			}
 			if fragIndex == 0 && fragCount == 1 {
 				// Bypass reassembly since only one fragment
 			} else {

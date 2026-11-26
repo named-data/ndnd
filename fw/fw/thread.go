@@ -188,7 +188,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	if interest.HopLimitV != nil {
-		core.Log.Trace(t, "HopLimit check", "name", packet.Name, "hoplimit", *interest.HopLimitV)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "HopLimit check", "name", packet.Name, "hoplimit", *interest.HopLimitV)
+		}
 		if *interest.HopLimitV == 0 {
 			return
 		}
@@ -196,7 +198,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	}
 
 	// Log PIT token (if any)
-	core.Log.Trace(t, "OnIncomingInterest", "name", packet.Name, "faceid", incomingFace.FaceID(), "pittoken", len(packet.PitToken))
+	if core.Log.HasTrace() {
+		core.Log.Trace(t, "OnIncomingInterest", "name", packet.Name, "faceid", incomingFace.FaceID(), "pittoken", len(packet.PitToken))
+	}
 
 	// Check if violates /localhost
 	if incomingFace.Scope() == defn.NonLocal && len(packet.Name) > 0 && packet.Name[0].Equal(enc.LOCALHOST) {
@@ -259,7 +263,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 		interest, incomingFace.FaceID(), packet.PitToken)
 
 	if !isAlreadyPending {
-		core.Log.Trace(t, "Interest is not pending", "name", packet.Name)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "Interest is not pending", "name", packet.Name)
+		}
 
 		// Check CS for matching entry
 		if t.pitCS.IsCsServing() {
@@ -294,7 +300,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 			}
 		}
 	} else {
-		core.Log.Trace(t, "Interest is already pending", "name", packet.Name)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "Interest is already pending", "name", packet.Name)
+		}
 
 		// Add the previous nonce to the dead nonce list to prevent further looping
 		// TODO: review this design, not specified in NFD dev guide
@@ -309,7 +317,9 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 	// If NextHopFaceId set, forward to that face (if it exists) or drop
 	if hop, ok := packet.NextHopFaceID.Get(); ok {
 		if face := dispatch.GetFace(hop); face != nil {
-			core.Log.Trace(t, "NextHopFaceId is set for Interest", "name", packet.Name)
+			if core.Log.HasTrace() {
+				core.Log.Trace(t, "NextHopFaceId is set for Interest", "name", packet.Name)
+			}
 			t.processOutgoingInterest(packet, pitEntry, hop, incomingFace.FaceID())
 		} else {
 			core.Log.Info(t, "Non-existent face specified in NextHopFaceId for Interest",
@@ -369,7 +379,9 @@ func (t *Thread) processOutgoingInterest(
 		panic("processOutgoingInterest called with non-Interest packet")
 	}
 
-	core.Log.Trace(t, "OnOutgoingInterest", "name", packet.Name, "faceid", nexthop)
+	if core.Log.HasTrace() {
+		core.Log.Trace(t, "OnOutgoingInterest", "name", packet.Name, "faceid", nexthop)
+	}
 
 	// Get outgoing face
 	outgoingFace := dispatch.GetFace(nexthop)
@@ -481,7 +493,9 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 		table.UpdateExpirationTimer(pitEntry, time.Now())
 
 		// Invoke strategy's AfterReceiveData
-		core.Log.Trace(t, "Sending Data", "name", packet.Name, "strategy", strategyName)
+		if core.Log.HasTrace() {
+			core.Log.Trace(t, "Sending Data", "name", packet.Name, "strategy", strategyName)
+		}
 		strategy.AfterReceiveData(packet, pitEntry, packet.IncomingFaceID)
 
 		// Mark PIT entry as satisfied
@@ -531,7 +545,9 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 
 			// Call outgoing Data pipeline for each pending downstream
 			for face, token := range downstreams {
-				core.Log.Trace(t, "Multiple PIT entries for Data", "name", packet.Name)
+				if core.Log.HasTrace() {
+					core.Log.Trace(t, "Multiple PIT entries for Data", "name", packet.Name)
+				}
 				t.processOutgoingData(packet, face, token, packet.IncomingFaceID)
 			}
 		}
@@ -550,7 +566,9 @@ func (t *Thread) processOutgoingData(
 		panic("processOutgoingData called with non-Data packet")
 	}
 
-	core.Log.Trace(t, "OnOutgoingData", "name", packet.Name, "faceid", nexthop)
+	if core.Log.HasTrace() {
+		core.Log.Trace(t, "OnOutgoingData", "name", packet.Name, "faceid", nexthop)
+	}
 
 	// Get outgoing face
 	outgoingFace := dispatch.GetFace(nexthop)
