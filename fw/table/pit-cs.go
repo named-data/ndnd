@@ -10,6 +10,7 @@ package table
 import (
 	"time"
 
+	"github.com/named-data/ndnd/fw/core"
 	"github.com/named-data/ndnd/fw/defn"
 	enc "github.com/named-data/ndnd/std/encoding"
 )
@@ -147,8 +148,8 @@ func (bpe *basePitEntry) InsertInRecord(
 		record := PitCsPools.PitInRecord.Get()
 		record.Face = face
 		record.LatestNonce = interest.NonceV.Unwrap()
-		record.LatestTimestamp = time.Now()
-		record.ExpirationTime = time.Now().Add(lifetime)
+		record.LatestTimestamp = core.Now()
+		record.ExpirationTime = core.Now().Add(lifetime)
 		record.PitToken = append(record.PitToken, incomingPitToken...)
 		bpe.inRecords[face] = record
 		return record, false, 0
@@ -157,8 +158,8 @@ func (bpe *basePitEntry) InsertInRecord(
 	// Existing record
 	previousNonce := record.LatestNonce
 	record.LatestNonce = interest.NonceV.Unwrap()
-	record.LatestTimestamp = time.Now()
-	record.ExpirationTime = time.Now().Add(lifetime)
+	record.LatestTimestamp = core.Now()
+	record.ExpirationTime = core.Now().Add(lifetime)
 	return record, true, previousNonce
 }
 
@@ -172,16 +173,16 @@ func (bpe *basePitEntry) InsertOutRecord(interest *defn.FwInterest, face uint64)
 		record := PitCsPools.PitOutRecord.Get()
 		record.Face = face
 		record.LatestNonce = interest.NonceV.Unwrap()
-		record.LatestTimestamp = time.Now()
-		record.ExpirationTime = time.Now().Add(lifetime)
+		record.LatestTimestamp = core.Now()
+		record.ExpirationTime = core.Now().Add(lifetime)
 		bpe.outRecords[face] = record
 		return record
 	}
 
 	// Existing record
 	record.LatestNonce = interest.NonceV.Unwrap()
-	record.LatestTimestamp = time.Now()
-	record.ExpirationTime = time.Now().Add(lifetime)
+	record.LatestTimestamp = core.Now()
+	record.ExpirationTime = core.Now().Add(lifetime)
 	return record
 }
 

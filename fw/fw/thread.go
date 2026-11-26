@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	"github.com/named-data/ndnd/fw/core"
 	"github.com/named-data/ndnd/fw/defn"
@@ -284,7 +283,7 @@ func (t *Thread) processIncomingInterest(packet *defn.Pkt) {
 				csData, csWire, err := csEntry.Parse()
 				if csData != nil && csWire != nil {
 					// Mark PIT entry as expired
-					table.UpdateExpirationTimer(pitEntry, time.Now())
+					table.UpdateExpirationTimer(pitEntry, core.Now())
 
 					// Create the pending packet structure
 					packet.L3.Data = csData
@@ -489,7 +488,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 		pitEntry := pitEntries[0]
 
 		// Set PIT entry expiration to now
-		table.UpdateExpirationTimer(pitEntry, time.Now())
+		table.UpdateExpirationTimer(pitEntry, core.Now())
 
 		// Invoke strategy's AfterReceiveData
 		if core.Log.HasTrace() {
@@ -525,7 +524,7 @@ func (t *Thread) processIncomingData(packet *defn.Pkt) {
 			}
 
 			// Set PIT entry expiration to now
-			table.UpdateExpirationTimer(pitEntry, time.Now())
+			table.UpdateExpirationTimer(pitEntry, core.Now())
 
 			// Invoke strategy's BeforeSatisfyInterest
 			strategy.BeforeSatisfyInterest(pitEntry, packet.IncomingFaceID)

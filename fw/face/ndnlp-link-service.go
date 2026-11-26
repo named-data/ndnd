@@ -437,7 +437,7 @@ func (l *NDNLPLinkService) checkCongestion(wire enc.Wire) bool {
 	// GetSendQueueSize is expensive, so only check every 1/2 of the threshold
 	// and only if we can mark congestion for this particular packet
 	if l.congestionCheck > l.options.DefaultCongestionThresholdBytes {
-		now := time.Now()
+		now := core.Now()
 		if now.After(l.lastTimeCongestionMarked.Add(l.options.BaseCongestionMarkingInterval)) &&
 			l.transport.GetSendQueueSize() > l.options.DefaultCongestionThresholdBytes {
 			l.lastTimeCongestionMarked = now

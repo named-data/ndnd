@@ -80,7 +80,7 @@ func (s *BestRoute) AfterReceiveInterest(
 	// Sort nexthops by cost and send to best-possible nexthop
 	sort.Slice(nexthops, func(i, j int) bool { return nexthops[i].Cost < nexthops[j].Cost })
 
-	now := time.Now()
+	now := core.Now()
 	for pass := range 2 {
 		for _, nh := range nexthops {
 			// In the first pass, skip hops that already have a out record

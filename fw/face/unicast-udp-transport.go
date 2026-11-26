@@ -55,7 +55,7 @@ func MakeUnicastUDPTransport(
 		defn.NonLocal, defn.PointToPoint,
 		int(core.C.Faces.Udp.DefaultMtu))
 	t.expirationTime = new(time.Time)
-	*t.expirationTime = time.Now().Add(CfgUDPLifetime())
+	*t.expirationTime = core.Now().Add(CfgUDPLifetime())
 
 	// Set scope
 	ip := net.ParseIP(remoteURI.Path())
@@ -144,7 +144,7 @@ func (t *UnicastUDPTransport) sendFrame(frame []byte) {
 	}
 
 	t.nOutBytes += uint64(len(frame))
-	*t.expirationTime = time.Now().Add(CfgUDPLifetime())
+	*t.expirationTime = core.Now().Add(CfgUDPLifetime())
 }
 
 // (AI GENERATED DESCRIPTION): Continuously reads TLV frames from the UDP socket, updates input byte count and expiration time, forwards each frame to the link service, and silently ignores connection‑refused errors while logging other read failures.
@@ -153,7 +153,7 @@ func (t *UnicastUDPTransport) runReceive() {
 
 	err := ndn_io.ReadTlvStream(t.conn, func(b []byte) bool {
 		t.nInBytes += uint64(len(b))
-		*t.expirationTime = time.Now().Add(CfgUDPLifetime())
+		*t.expirationTime = core.Now().Add(CfgUDPLifetime())
 		t.linkService.handleIncomingFrame(b)
 		return true
 	}, func(err error) bool {
