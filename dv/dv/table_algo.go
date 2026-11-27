@@ -36,12 +36,17 @@ func (dv *Router) updateRib(ns *table.NeighborState) {
 	dv.rib.DirtyResetNextHop(ns.Name)
 
 	for _, entry := range ns.Advert.Entries {
-		// Use the advertised cost by default
-		cost := entry.Cost + localCost
+		// Use the advertised cost by default. Costs at or above infinity
+		// are unreachable; adding the local link cost must never overflow
+		// into a reachable value.
+		cost := config.CostInfinity
+		if entry.Cost < config.CostInfinity-localCost {
+			cost = entry.Cost + localCost
+		}
 
 		// Poison reverse - try other cost if next hop is us
 		if entry.NextHop.Name.Equal(dv.config.RouterName()) {
-			if entry.OtherCost < config.CostInfinity {
+			if entry.OtherCost < config.CostInfinity-localCost {
 				cost = entry.OtherCost + localCost
 			} else {
 				cost = config.CostInfinity
