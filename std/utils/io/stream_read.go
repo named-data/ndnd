@@ -56,6 +56,12 @@ func ReadTlvStream(
 				break
 			}
 
+			// A block larger than the receive buffer can never complete, and
+			// converting a huge length to int would overflow below.
+			if len > ndn.MaxNDNPacketSize*8 {
+				return fmt.Errorf("received too much data without valid TLV block")
+			}
+
 			tlvSize := typ.EncodingLength() + len.EncodingLength() + int(len)
 
 			if recvOff-tlvOff >= tlvSize {
