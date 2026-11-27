@@ -214,7 +214,8 @@ func (f *FibStrategyHashTable) pruneTables(entry *baseFibStrategyEntry) {
 				delete(f.virtTable, virtNameHash)
 			} else {
 				// Update with length of next longest real prefix associated
-				// with this virtual prefix
+				// with this virtual prefix.
+				virtEntry.md = 0
 				for _, l := range f.virtTableNames[virtNameHash] {
 					virtEntry.md = max(virtEntry.md, l)
 				}
