@@ -65,5 +65,6 @@ func (l *CsLRU) EvictEntries() {
 		indexToErase := l.queue.Front().Value.(uint64)
 		l.cs.eraseCsDataFromReplacementStrategy(indexToErase) // TODO: find better name for this method
 		l.queue.Remove(l.queue.Front())
+		delete(l.locations, indexToErase)
 	}
 }
